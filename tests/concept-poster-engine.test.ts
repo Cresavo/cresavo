@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { qrFor, qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
+import { contrast } from "@/concept/page/colour";
+import { engineRequest, qrFor, qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
-import { cutoutPlacement, pngSize, posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
+import type { PosterNode } from "@/concept/campaigns/poster-engine/element";
+import { cutoutPlacement, ENGINE_FORMATS, fitHeadline, pngSize, posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
 import { backdropSvg, BACKDROPS } from "@/concept/campaigns/poster-engine/backdrops";
 import { hasTransparency } from "@/concept/campaigns/poster-engine/client";
 
@@ -184,5 +186,140 @@ describe("season, review and free-times templates", () => {
     const story = flat(posterTree("slots", { ...data, headline: "2 tider kvar!", sticker: ["Fre", "12 dec"] }, "story"));
     for (const part of ["2 tider kvar!", "10:00  ·  13:30", "Fre", "Boka nu →"]) expect(story).toContain(part);
     expect(flat(posterTree("slots", data, "post"))).toContain("070-123 45 67");
+  });
+});
+
+describe("full photo and type-only templates", () => {
+  const data = posterDataSchema.parse({ ...input, price: "", cta: "Boka nu →", headline: "Fotvård" });
+
+  it("puts the headline, detail, call to book, salon and contact line on the full photo poster, in post and story", () => {
+    for (const format of ["post", "story"] as const) {
+      const tree = flat(posterTree("fullphoto", data, format));
+      for (const part of ["Fotvård", "Fotbad, nagelvård och fotmassage.", "Boka nu →", "Salong Eko", "070-123 45 67", "salongeko.cresavo.com", "data:image/jpeg"]) expect(tree).toContain(part);
+    }
+    // A price replaces the detail line.
+    expect(flat(posterTree("fullphoto", { ...data, price: "750 kr" }, "post"))).toContain("750 kr");
+  });
+
+  it("keeps the full photo story's text out of the bars Instagram lays over the top and bottom", () => {
+    const tree = flat(posterTree("fullphoto", data, "story"));
+    expect(tree).toContain('"top":290');
+    expect(tree).toContain('"bottom":430');
+    expect(tree).not.toContain('"top":270,"width":1008');
+  });
+
+  it("puts the words, rule, call to book, salon and link on the type-only poster, without drawing the photo", () => {
+    const tree = flat(posterTree("typography", data, "post"));
+    for (const part of ["Fotvård", "Fotbad, nagelvård och fotmassage.", "Boka nu →", "Salong Eko", "salongeko.cresavo.com", "#c2557f"]) expect(tree).toContain(part);
+    expect(tree).not.toContain("data:image/jpeg");
+    // In a story it is the post layout as a card between the bars.
+    expect(flat(posterTree("typography", data, "story"))).toContain('"top":270,"width":1008,"height":1260');
+  });
+
+  it("sizes a headline by its length, not below the floor unless its longest word needs it, and gives a longer text more lines", () => {
+    const room = 952;
+    expect(fitHeadline("Fotvård", room, 150, 72, 2)).toEqual({ size: 150, lines: 1 });
+    expect(fitHeadline("Friskvårdsmassage för nacke och axlar", room, 150, 72, 2).lines).toBe(2);
+    expect(fitHeadline("Vårens fotvård", room, 230, 96, 3).lines).toBe(2);
+    for (const headline of ["a", "Ansiktsbehandling", "Friskvårdsmassage för nacke och axlar"]) {
+      expect(fitHeadline(headline, room, 150, 72, 2).size).toBeGreaterThanOrEqual(72);
+      expect(fitHeadline(headline, room, 230, 96, 3).size).toBeGreaterThanOrEqual(Math.min(96, Math.floor(room / (headline.length * 0.6))));
+    }
+  });
+
+  it("renders both templates as SVG", async () => {
+    for (const template of ["fullphoto", "typography"] as const) expect((await renderPosterSvg(template, data, "story")).startsWith("<svg")).toBe(true);
+  }, 20_000);
+});
+
+describe("full photo and type-only templates under stress", () => {
+  const room = (width: number) => width - 128;
+  const longWord = "Idrottsmassagebehandling";
+  const base = posterDataSchema.parse({ ...input, price: "", cta: "Boka nu →", headline: longWord, textSize: "large" });
+  const qrData = { ...base, signature: { ...base.signature, qr: "https://salongeko.example/boka" } };
+
+  /** The right-most x of any glyph outline: Satori draws text as filled paths of absolute M/L/Q/C/Z commands. */
+  const rightEdge = (svg: string) => Math.max(...[...svg.matchAll(/<path fill="[^"]*" d="([^"]*)"/g)].flatMap(([, d]) => (d.match(/-?\d+(?:\.\d+)?/g) ?? []).filter((_, i) => i % 2 === 0).map(Number)));
+  const find = (node: PosterNode | string, wanted: string): PosterNode | undefined => {
+    if (typeof node === "string") return undefined;
+    const children = [node.props.children ?? []].flat();
+    return children.includes(wanted) ? node : children.map((child) => find(child, wanted)).find(Boolean);
+  };
+
+  it("keeps the longest word inside the margins at Large text, in every format", async () => {
+    for (const template of ["fullphoto", "typography"] as const) {
+      for (const format of ["post", "story", "window"] as const) {
+        const { width } = ENGINE_FORMATS[format];
+        expect(rightEdge(await renderPosterSvg(template, base, format)), `${template} ${format}`).toBeLessThanOrEqual(width - 64);
+      }
+    }
+  }, 30_000);
+
+  it("keeps a long name and an 80-character link on the poster, with the QR code", async () => {
+    const link = `salongeko.example/${"a".repeat(62)}`;
+    const long = { ...qrData, headline: "Fotvård", signature: { ...qrData.signature, salon: "Medicinsk fotvård och friskvårdsbehandlingar i Sundköping", link } };
+    for (const template of ["fullphoto", "typography"] as const) {
+      expect(rightEdge(await renderPosterSvg(template, long, "post")), template).toBeLessThanOrEqual(1080);
+    }
+  }, 30_000);
+
+  it("never sets the price poster's headline in the background's colour", () => {
+    const grey = { ...base, headline: "Fotvård", colors: { accent: "#c2557f", ink: "#888888", background: "#888888" } };
+    expect(flat(posterTree("price", grey, "post"))).not.toMatch(/"color":"#888888"[^}]*\}[^]*?Fotvård/);
+  });
+
+  it("lets the size go below the floor when the longest word would not fit, and not otherwise", () => {
+    const fit = fitHeadline(longWord, room(1080), Math.round(150 * 1.15), Math.round(72 * 1.15), 2);
+    expect(fit.size).toBeLessThan(Math.round(72 * 1.15));
+    expect(fit.size * longWord.length * 0.6).toBeLessThanOrEqual(room(1080));
+    expect(fitHeadline("Fotvård", room(1080), 150, 72, 2).size).toBe(150);
+    expect(fitHeadline("x".repeat(40), room(1080), 150, 72, 2).size * 40 * 0.6).toBeLessThanOrEqual(room(1080));
+  });
+
+  it("starts the full photo scrim's strong stop above the headline, also when a QR code makes the contact row taller", () => {
+    const stop = (data: typeof base) => Number(flat(posterTree("fullphoto", data, "post")).match(/rgba\(0,0,0,0\.8\) (\d+)%/)![1]) * 13.5;
+    // The headline's top: the block's bottom edge (64) minus the contact row, call to book, detail and headline lines.
+    const size = fitHeadline(longWord, 952, Math.round(150 * 1.15), Math.round(72 * 1.15), 2).size;
+    const headlineTop = (contactRow: number) => 1350 - 64 - 32 - contactRow - (36 + 88) - (24 + Math.round(44 * 1.15) * 1.25) - Math.round(size * 0.98);
+    // The stop is rounded to whole percent (13.5 px).
+    expect(stop(base)).toBeLessThanOrEqual(headlineTop(40) + 7);
+    expect(stop(qrData)).toBeLessThanOrEqual(headlineTop(120) + 7);
+    expect(stop(qrData)).toBeLessThan(stop(base) - 60);
+  });
+
+  it("reads the type-only text and call to book by their real contrast, not a cut-off", () => {
+    // White on this gold is 2.35:1; and an ink so close to the background that it would vanish.
+    const tree = posterTree("typography", { ...base, colors: { accent: "#c9a45c", ink: "#f0e8df", background: "#f7f1e8" }, cta: "Boka nu →" }, "post");
+    const label = find(tree, "Boka nu →")!.props.style!.color as string;
+    expect(contrast(label, "#c9a45c")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(tree.props.style!.color as string, "#f7f1e8")).toBeGreaterThanOrEqual(4.5);
+    // A good ink is kept, and a dark background gets a light text.
+    expect(posterTree("typography", { ...base, colors: { accent: "#c9a45c", ink: "#1f1d22", background: "#f7f1e8" } }, "post").props.style!.color).toBe("#1f1d22");
+    const dark = posterTree("typography", { ...base, colors: { accent: "#2f5d50", ink: "#1f1d22", background: "#14110f" } }, "post");
+    expect(contrast(dark.props.style!.color as string, "#14110f")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(find(dark, "Boka nu →")!.props.style!.color as string, "#2f5d50")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("gives the type-only salon name its own budget: the name gives way long before the booking link", () => {
+    const name = "Salong Eko Hudvård och Kroppsbehandlingar för alla";
+    const tree = posterTree("typography", { ...base, headline: "Fotvård", signature: { ...base.signature, salon: name, link: "salongeko.cresavo.com/boka" } }, "post");
+    const part = (value: string) => find(tree, value)!.props.style!;
+    expect(part(name)).toMatchObject({ overflow: "hidden", textOverflow: "ellipsis" });
+    expect(part(name).flexShrink).toBeGreaterThanOrEqual(100 * Number(part("salongeko.cresavo.com/boka").flexShrink));
+    expect(part("salongeko.cresavo.com/boka")).toMatchObject({ whiteSpace: "nowrap" });
+  });
+
+  it("draws the type-only poster without a photo, and refuses another template without one", async () => {
+    const withoutPhoto = { ...base, photo: undefined };
+    expect(posterDataSchema.safeParse(withoutPhoto).success).toBe(true);
+    expect(await renderPosterSvg("typography", withoutPhoto, "post")).toMatch(/^<svg/);
+    expect(() => posterTree("fullphoto", withoutPhoto, "post")).toThrow("needs a photo");
+  }, 20_000);
+
+  it("fetches and sends no photo for the type-only poster", async () => {
+    const poster = { style: "typography" as const, image: "/demo/salon.webp", headline: "Fotvård", detail: "Fotbad." };
+    const { data } = await engineRequest(poster, "post", "Friskvård", { salon: { name: "Salong Eko", phone: "070-123 45 67", slug: "salong-eko" }, link: "salongeko.example" });
+    expect(data).not.toHaveProperty("photo");
+    expect(data.cutout).toBe(false);
   });
 });
