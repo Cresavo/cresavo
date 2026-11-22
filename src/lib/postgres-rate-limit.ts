@@ -9,11 +9,6 @@ export const rateLimitDatabase = createDatabaseClient(undefined, 1);
 type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant";
 export type Reservation = { key: string; generation: string; count: number };
 
-function bucketKey(route: Route, identity: string) {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
-  return createHmac("sha256", secret).update(`rate-limit:v1:${route}:${identity}`).digest("hex");
-}
 
 const limitOf = (route: Route) =>
   route === "login" || route === "signup" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : 60;
@@ -21,8 +16,7 @@ const limitOf = (route: Route) =>
 type Tx = Prisma.TransactionClient;
 
 /** One reservation inside a transaction: the bounded store's single implementation, under its one lock. */
-async function reserveIn(tx: Tx, route: Route, identity: string, consume: boolean): Promise<Reservation> {
-  const key = bucketKey(route, identity);
+async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): Promise<Reservation> {
   const limit = limitOf(route);
   // Small bounded preview store. This lock has no domain/session dependencies;
   // it is released before credential verification or booking processing.
@@ -68,7 +62,12 @@ async function reserveIn(tx: Tx, route: Route, identity: string, consume: boolea
  * limit this throws the same 429 as `reserveRateLimit`.
  */
 export async function reserveRateLimitIn(tx: Tx, route: Route, identity: string) {
-  await reserveIn(tx, route, identity, true);
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
+  const key = createHmac("sha256", secret)
+    .update(`rate-limit:v1:${route}:${identity}`)
+    .digest("hex");
+  await reserveIn(tx, route, key, true);
 }
 
 export async function reserveRateLimit(
@@ -76,7 +75,12 @@ export async function reserveRateLimit(
   identity: string,
   consume = true,
 ): Promise<Reservation> {
-  return rateLimitDatabase.$transaction((tx) => reserveIn(tx, route, identity, consume), { maxWait: 30000, timeout: 10000 });
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
+  const key = createHmac("sha256", secret)
+    .update(`rate-limit:v1:${route}:${identity}`)
+    .digest("hex");
+  return rateLimitDatabase.$transaction((tx) => reserveIn(tx, route, key, consume), { maxWait: 30000, timeout: 10000 });
 }
 
 export async function refundRateLimit(reservation: Reservation) {
