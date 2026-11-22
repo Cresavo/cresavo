@@ -15,6 +15,7 @@ import { usePage } from "./page-context";
 import { CancellationPolicy, FindUs, OpeningHours, Reviews } from "./salon-info";
 import { FaqSection, GallerySection, InstagramSection, StaffSection } from "./sections";
 import { Treatments } from "./treatments";
+import { Confirmation } from "./confirmation";
 import { BookingWizard } from "./wizard";
 
 /**
@@ -32,7 +33,10 @@ export function SalonPage() {
   const { sections, instagram, theme } = usePage();
   const [inFlow, setInFlow] = useState(false);
   const [preset, setPreset] = useState<{ serviceId: string; count: number }>();
+  // On a salon's own page there is no page for a booking to go to yet, so the receipt replaces the flow here.
+  const [receipt, setReceipt] = useState<string>();
   if (!state) return null;
+  if (receipt) return <Confirmation id={receipt} onBack={() => setReceipt(undefined)} />;
   const initial = preset?.serviceId ?? (state.services.some((s) => s.id === fromLink) ? fromLink : undefined);
 
   const book = (serviceId: string) => {
@@ -72,7 +76,7 @@ export function SalonPage() {
   const topIsHero = first?.kind === "hero";
   const flow = (
     <section id="book" data-booking-flow className="scroll-mt-4" aria-label={t("booking.ask.title")}>
-      {!state.services.length ? <p className="rounded-lg bg-surface p-4">{t("booking.menuSoon")}</p> : <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />}
+      {!state.services.length ? <p className="rounded-lg bg-surface p-4">{t("booking.menuSoon")}</p> : <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} onBooked={fromServer ? setReceipt : undefined} listOnPage={sections.some((s) => s.kind === "treatments")} />}
     </section>
   );
   const policy = <CancellationPolicy state={state} />;

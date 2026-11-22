@@ -4,6 +4,7 @@ import { resolveHost } from "@/concept/page/resolve";
 import { checkSlug } from "@/concept/page/slug";
 import { siteRequestHost } from "@/concept/site/request-host";
 import { migrateSaved } from "@/concept/store/studio-store";
+import { issuedAtToken } from "./public-issued-at";
 import { isPublicReadonly } from "./public-readonly";
 
 // Public booking on the studio store (ADR 1, stage 2). Off unless
@@ -62,8 +63,8 @@ export async function loadPublicTenant(slug: string, now = new Date()): Promise<
   return state ? { tenantId: row.tenant_id, state } : null;
 }
 
-/** What a customer may see of the salon with this booking address, or null. */
-export async function loadPublicSalon(slug: string, now = new Date()): Promise<DemoState | null> {
+/** What a customer may see of the salon with this booking address, with the form-time token of its booking form, or null. */
+export async function loadPublicSalon(slug: string, now = new Date()): Promise<{ state: DemoState; issuedAt: string } | null> {
   const found = await loadPublicTenant(slug, now);
-  return found && publicSalonView(found.state, now);
+  return found && { state: publicSalonView(found.state, now), issuedAt: issuedAtToken(found.tenantId, found.state.salon.slug, now.getTime()) };
 }

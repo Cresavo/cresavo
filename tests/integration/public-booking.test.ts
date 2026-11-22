@@ -3,10 +3,12 @@ import type { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/app/api/public/salons/[slug]/bookings/route";
+import { GET } from "../../src/app/api/public/salons/[slug]/route";
 import { addressProof } from "../../scripts/client-address.mjs";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
 import { issuedAtToken } from "../../src/lib/public-issued-at";
+import { acceptedTerms, type AcceptedTerms } from "../../src/concept/booking/public-terms";
 import { SIMULATED_SINKS } from "../../src/concept/store/effect-outbox";
 import { PostgresStudioStore } from "../../src/concept/store/postgres-studio-store";
 
@@ -27,6 +29,8 @@ let tenantId = "";
 let slug = "";
 let serviceId = "";
 let staffId = "";
+let terms!: AcceptedTerms;
+const extraTenants: string[] = [];
 let calls = 0;
 
 beforeAll(async () => {
@@ -47,27 +51,28 @@ beforeAll(async () => {
   if (!added.ok) throw new Error("service not added");
   serviceId = added.state.services[0].id;
   staffId = state.staff[0].id;
+  terms = acceptedTerms(added.state, added.state.services[0]);
 });
 
 afterAll(async () => {
   await db.ownerAccount.deleteMany({ where: { email: { endsWith: `-${run}@example.test` } } });
   for (const table of ["tenant_effect", "tenant_idempotency", "tenant_action", "tenant_state"])
-    await db.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, tenantId);
+    await db.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id = ANY($1)`, [tenantId, ...extraTenants]);
   vi.unstubAllEnvs();
   await db.$disconnect();
 });
 
 /** A request from a fresh address (the limit is per address) and a fresh number (the cap is per number), 10 seconds after its page was served. */
-function book(over: Record<string, unknown> = {}, key: string = randomUUID()) {
+function book(over: Record<string, unknown> = {}, key: string = randomUUID(), address = slug, tenant = tenantId) {
   const ip = `10.7.${Math.floor(++calls / 250)}.${calls % 250}`;
   const body = {
-    serviceId, staffId, date: DATE, start: 600, name: "Lisa Berg", phone: `0735550${100 + (calls % 800)}`, email: "lisa@example.test", language: "en", website: "",
-    issuedAt: issuedAtToken(slug, Date.now() - 10_000), ...over,
+    serviceId, staffId, date: DATE, start: 600, name: "Lisa Berg", phone: `0735550${100 + (calls % 800)}`, email: "lisa@example.test", language: "en", website: "", terms,
+    issuedAt: issuedAtToken(tenant, address, Date.now() - 10_000), ...over,
   };
-  return POST(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings`, {
+  return POST(new NextRequest(`http://localhost/api/public/salons/${address}/bookings`, {
     method: "POST", body: JSON.stringify(body),
     headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "idempotency-key": key, "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, SECRET) },
-  }), { params: Promise.resolve({ slug }) });
+  }), { params: Promise.resolve({ slug: address }) });
 }
 
 const onlineAt = async (start: number) =>
@@ -83,7 +88,8 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
     const winner = await responses[statuses.indexOf(201)].json();
     const stored = await onlineAt(540);
     expect(stored).toHaveLength(1);
-    expect(stored[0].id).toBe(winner.bookingId);
+    expect(stored[0].publicRef).toBe(winner.ref);
+    expect(winner).not.toHaveProperty("bookingId");
     expect(stored[0].contactEmail).toBe("lisa@example.test");
   });
 
@@ -105,5 +111,44 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
     expect(other.status).toBe(422);
     expect(await other.json()).toEqual({ error: "idempotency_mismatch" });
     expect(await onlineAt(780)).toHaveLength(0);
+  });
+
+  it("answers a retry with the original receipt after the salon renamed the treatment and changed its price", async () => {
+    const added = await holder.store.apply(tenantId, {
+      type: "service/add",
+      service: { name: "Fictional massage", category: (await holder.store.load(tenantId))!.state.categories[0].id, duration: 30, price: 400, description: "Fictional", staffIds: [staffId as never] },
+    });
+    if (!added.ok) throw new Error("service not added");
+    const second = added.state.services.at(-1)!;
+    const accepted = acceptedTerms(added.state, second);
+    const request = { serviceId: second.id, start: 840, phone: "0735550903", terms: accepted };
+    const key = randomUUID();
+    const first = await book(request, key);
+    expect(first.status).toBe(201);
+    const receipt = await first.json();
+    expect((await holder.store.apply(tenantId, { type: "service/update", id: second.id, service: { name: "Fictional massage, renamed", category: second.category, duration: 30, price: 400, description: "Fictional", staffIds: [staffId as never] } })).ok).toBe(true);
+    expect((await holder.store.apply(tenantId, { type: "service/price", id: second.id, price: 550 })).ok).toBe(true);
+    const replay = await book(request, key);
+    expect(replay.status).toBe(201);
+    expect(await replay.json()).toEqual(receipt);
+    expect(await onlineAt(840)).toHaveLength(1);
+    // A different guest who still has the old quote is told the terms moved, and books nothing.
+    const stale = await book({ ...request, phone: "0735550904", start: 900 });
+    expect([stale.status, await stale.json()]).toEqual([409, { error: "terms_changed" }]);
+    expect(await onlineAt(900)).toHaveLength(0);
+  });
+
+  it("does not send a form to another salon that has taken over its address", async () => {
+    const read = await GET(new NextRequest(`http://localhost/api/public/salons/${slug}`, { headers: { "x-booking-client-ip": "10.8.0.1", "x-booking-client-proof": addressProof("10.8.0.1", SECRET) } }), { params: Promise.resolve({ slug }) });
+    const { issuedAt } = await read.json();
+    const oldAddress = slug;
+    expect((await holder.store.apply(tenantId, { type: "salon/slug", slug: `${oldAddress}-ny` })).ok).toBe(true);
+    const other = await createOwnerAccount({ email: `${randomUUID().slice(0, 8)}-${run}@example.test`, password: "a long fictional passphrase", salonName: `Salong Ovan ${run}`, language: "en" });
+    if (!other.ok) throw new Error("sign-up failed");
+    extraTenants.push(other.tenantId);
+    expect((await holder.store.apply(other.tenantId, { type: "salon/slug", slug: oldAddress })).ok).toBe(true);
+    const response = await book({ issuedAt, start: 960 }, randomUUID(), oldAddress);
+    expect([response.status, await response.json()]).toEqual([422, { error: "invalid" }]);
+    expect(await onlineAt(960)).toHaveLength(0);
   });
 });

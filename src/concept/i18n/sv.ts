@@ -1930,6 +1930,7 @@ const messages = {
   "booking.processorNotice": `{salon} använder ditt namn, mobilnummer och din e-post för att hantera bokningen och skicka bekräftelsen. ${BRAND.name} hanterar dem för salongens räkning.`,
   "booking.confirmDisabledEmail": "Ange ditt namn, ett giltigt mobilnummer och din e-post för att bekräfta.",
   "booking.depositByPhone": "Den här behandlingen kräver förskott. Ring salongen på {phone} för att boka den.",
+  "booking.tooManyAttempts": "För många försök. Försök igen om {minutes} minuter eller ring salongen på {phone}.",
   "booking.failed": "Bokningen kunde inte genomföras. Kontrollera uppgifterna och försök igen.",
   "booking.changeByPhone": "Ring salongen på {phone} om du vill ändra eller avboka.",
   "booking.unavailable": "Den här bokningssidan är tillfälligt otillgänglig. Försök igen snart.",

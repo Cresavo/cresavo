@@ -5,6 +5,7 @@ import { DetailsStep } from "@/concept/booking/details-step";
 import { publicSalonView } from "@/concept/booking/public-projection";
 import { createDemoState } from "@/concept/data/generate";
 import { setLocale } from "@/concept/i18n";
+import { acceptedTerms } from "@/concept/booking/public-terms";
 import { ServerSalonProvider, useServerBook, type ServerBookingInput } from "@/concept/server-salon";
 
 // The booking page on a salon the server sent: the form it shows, and how it
@@ -52,9 +53,11 @@ describe("the details step on a salon from the server", () => {
     expect(renderDetails(state)).toContain(`Ring salongen på ${state.salon.phone} för att boka den.`);
   });
 
-  it("leaves the decision to the server when the deposit is for new customers only, which it cannot tell apart here", () => {
+  it("says the same when the deposit is for new customers only: no guest is known to the page, so none is exempt", () => {
     const state = publicState({ cancellationPolicy: { ...base.cancellationPolicy, deposits: { [service.id]: 20000 }, newCustomersOnly: true } });
-    expect(renderDetails(state)).toContain("<form");
+    const html = renderDetails(state);
+    expect(html).toContain("This treatment needs a deposit");
+    expect(html).not.toContain("<form");
   });
 });
 
@@ -79,23 +82,38 @@ describe("booking on a salon from the server", () => {
   const reply = (status: number, body: Record<string, unknown>) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }));
   const posts = () => fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
 
-  it("sends one request with the key, the form-time token and what the customer saw, and returns the visit", async () => {
-    fetchMock.mockImplementation(() => reply(201, { bookingId: "b-77", duration: service.duration }));
+  it("sends one request with the key, the form-time token and the terms the customer saw, and returns the visit under its public reference", async () => {
+    fetchMock.mockImplementation(() => reply(201, { ref: "ref-77", duration: service.duration }));
     const result = await book(input, "key-1");
-    expect(result).toMatchObject({ ok: true, booking: { id: "b-77", serviceId: service.id, date: "2026-11-17", start: 600, status: "booked", source: "online" } });
+    expect(result).toMatchObject({ ok: true, booking: { id: "ref-77", serviceId: service.id, date: "2026-11-17", start: 600, status: "booked", source: "online" } });
     const [url, init] = posts()[0];
     expect(url).toBe("/api/public/salons/salong-fiktiv/bookings");
     expect(init.headers).toMatchObject({ "Idempotency-Key": "key-1" });
-    expect(JSON.parse(init.body)).toEqual({ ...input, language: "en", issuedAt: "fictional-token", price: service.price, duration: service.duration });
+    expect(JSON.parse(init.body)).toEqual({ ...input, language: "en", issuedAt: "fictional-token", terms: acceptedTerms(publicState(), service) });
   });
 
-  it("tries once more with the same key when the salon is busy, and no more than once", async () => {
-    fetchMock.mockImplementationOnce(() => reply(503, { error: "unavailable" })).mockImplementationOnce(() => reply(201, { bookingId: "b-78", duration: service.duration }));
-    expect(await book(input, "key-2")).toMatchObject({ ok: true });
+  it("waits as long as the salon asks, then tries once more with the same key, and no more than once", async () => {
+    vi.useFakeTimers();
+    const busy = () => Promise.resolve(new Response("{}", { status: 503, headers: { "Retry-After": "3" } }));
+    fetchMock.mockImplementationOnce(busy).mockImplementationOnce(() => reply(201, { ref: "ref-78", duration: service.duration }));
+    const pending = book(input, "key-2");
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(posts()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toMatchObject({ ok: true });
     expect(posts().map(([, init]) => init.headers["Idempotency-Key"])).toEqual(["key-2", "key-2"]);
-    fetchMock.mockReset().mockImplementation(() => reply(503, { error: "unavailable" }));
-    expect(await book(input, "key-3")).toEqual({ ok: false, reason: "unavailable" });
+    fetchMock.mockReset().mockImplementation(busy);
+    const again = book(input, "key-3");
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await again).toEqual({ ok: false, reason: "unavailable" });
     expect(posts()).toHaveLength(2);
+    vi.useRealTimers();
+  });
+
+  it("says when to try again after too many attempts, without reloading the free times", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response("{}", { status: 429, headers: { "Retry-After": "600" } })));
+    expect(await book(input, "key-7")).toEqual({ ok: false, reason: "rate_limited", minutes: 10 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("reloads the free times when the time was taken, or the terms changed", async () => {

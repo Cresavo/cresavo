@@ -13,13 +13,16 @@ export const publicBookingSchema = z.object({
   staffId: z.string().min(1).max(64),
   date: dateSchema,
   start: z.number().int().min(0).max(1439),
-  name: z.string().trim().min(2).max(80),
+  // No control characters and no explicit bidi overrides or isolates; ordinary Unicode, right-to-left scripts included, is fine.
+  name: z.string().trim().min(2).max(80).regex(/^[^\p{Cc}\u202A-\u202E\u2066-\u2069]+$/u),
   phone: z.string().trim().max(20).refine(isMobilePhone),
   email: z.email().max(254),
   language: z.enum(["en", "sv"]),
   website: z.literal(""),
   issuedAt: z.string().max(200),
-  /** What the customer saw, so a change since then is told rather than booked. */
-  price: z.number().min(0).max(10_000_000).optional(),
-  duration: z.number().int().min(0).max(1440).optional(),
+  /** The price, length and policy the guest saw; the reducer books only while they still hold. */
+  terms: z.object({
+    version: z.number().int().min(0), freeHours: z.number().min(0), latePercent: z.number().min(0), noShowPercent: z.number().min(0),
+    currency: z.string().max(8), priceMinor: z.number().int().min(0), depositMinor: z.number().int().min(0), duration: z.number().int().min(0).max(1440),
+  }).strict(),
 }).strict();
