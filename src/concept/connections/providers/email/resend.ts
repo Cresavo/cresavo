@@ -49,7 +49,8 @@ export function resendEmail(options: { apiKey: string; webhookSecret?: string; f
       }, codeOf, { idempotent: !!message.idempotencyKey });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "id"));
-      return id ? ok({ id, to: message.to }, "queued", null, id) : fail(connectionError("email", PROVIDER, "unknown"));
+      // A 200 without a readable receipt may still have queued the message: uncertain, not rejected.
+      return id ? ok({ id, to: message.to }, "queued", null, id) : fail(connectionError("email", PROVIDER, "provider_unavailable"));
     },
     async verifyWebhook(webhook) {
       const now = webhook.nowSeconds ?? Math.floor(Date.now() / 1000);

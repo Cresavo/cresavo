@@ -5,10 +5,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { POST } from "../../src/app/api/public/salons/[slug]/bookings/route";
 import { POST as VIEW } from "../../src/app/api/public/salons/[slug]/bookings/[id]/route";
 import { addressProof } from "../../scripts/client-address.mjs";
+import { createDatabaseClient } from "../../scripts/database.mjs";
 import { acceptedTerms, type AcceptedTerms } from "../../src/concept/booking/public-terms";
 import { connectionError, fail, ok, type PortResult } from "../../src/concept/connections/core";
 import type { EmailMessage, EmailPort, EmailReceipt } from "../../src/concept/connections/ports/email";
-import { deliverDue, drainPendingEffects, EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, SIMULATED_SINKS } from "../../src/concept/store/effect-outbox";
+import { deliverDue, drainPendingEffects, EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, SIMULATED_SINKS, type EffectSink } from "../../src/concept/store/effect-outbox";
 import { PostgresStudioStore } from "../../src/concept/store/postgres-studio-store";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
@@ -30,7 +31,10 @@ vi.mock("../../src/lib/owner-store", async (importOriginal) => ({ ...(await impo
 
 const mails: EmailMessage[] = [];
 let outcome: PortResult<EmailReceipt> = ok({ id: "m-1", to: [] }, "sent");
-const registry = { resolve: async () => ({ adapter: { info: { provider: "resend" }, send: async (m: EmailMessage) => (mails.push(m), outcome) } as unknown as EmailPort, live: true, reason: "live" as const }) };
+/** Holds the provider call until released, to stand in for a slow request. */
+let providerGate: Promise<void> | undefined;
+let providerCalled: (() => void) | undefined;
+const registry = { resolve: async () => ({ adapter: { info: { provider: "resend" }, send: async (m: EmailMessage) => { providerCalled?.(); await providerGate; return (mails.push(m), outcome); } } as unknown as EmailPort, live: true, reason: "live" as const }) };
 const sinks = { ...SIMULATED_SINKS, message: messageSink(db as unknown as PrismaClient, registry) };
 
 let tenantId = "";
@@ -45,6 +49,9 @@ beforeAll(async () => {
   vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
   vi.stubEnv("SESSION_SECRET", randomBytes(32).toString("hex"));
   vi.stubEnv("BOOKING_ADDRESS_SECRET", SECRET);
+  // The deployment means e-mail to go out for real: the store stages these effects as live (the adapter below only records).
+  vi.stubEnv("CONCEPT_CONNECTIONS_LIVE", "1");
+  vi.stubEnv("CONCEPT_EMAIL_PROVIDER", "resend");
   holder.store = new PostgresStudioStore({ prisma: db as unknown as PrismaClient, hmacSecret: randomBytes(32).toString("hex"), sinks, now: async () => CLOCK });
   const account = await createOwnerAccount({ email: `${randomUUID().slice(0, 8)}-${run}@example.test`, password: "a long fictional passphrase", salonName: `Salong Brev ${run}`, language: "en" });
   if (!account.ok) throw new Error("sign-up failed");
@@ -62,6 +69,8 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  providerGate = undefined;
+  providerCalled = undefined;
   mails.length = 0;
   outcome = ok({ id: "m-1", to: [] }, "sent");
 });
@@ -148,7 +157,7 @@ describe("the booking confirmation e-mail", () => {
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
     // The first attempt froze the message; it holds no address and no token.
     const [{ delivery: frozen }] = await delivery();
-    expect(frozen).toMatchObject({ live: true, firstAttemptAt: expect.any(Number) });
+    expect(frozen).toMatchObject({ firstAttemptAt: expect.any(Number), from: expect.stringContaining("bookings@") });
     expect(JSON.stringify(frozen)).not.toMatch(/lisa@example|v1\./);
     expect(await drain(CLOCK)).toEqual({ delivered: 0, retried: 0, failed: 0 });
 
@@ -157,7 +166,7 @@ describe("the booking confirmation e-mail", () => {
     expect(mails).toHaveLength(2);
     expect(mails[1].idempotencyKey).toBe(mails[0].idempotencyKey);
     expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 2 }]);
-    expect((await delivery())[0].delivery).toEqual({ live: true, sent: true, firstAttemptAt: frozen!.firstAttemptAt });
+    expect((await delivery())[0].delivery).toEqual({ sent: true, firstAttemptAt: frozen!.firstAttemptAt });
   });
 
   it("keeps a timed-out send's claim past its lease, so no second worker can race it", async () => {
@@ -246,5 +255,124 @@ describe("the booking confirmation e-mail", () => {
     expect(await holder.store.eraseSubject(tenantId, customer.id)).toMatchObject({ ok: true });
     expect((await delivery())[0].delivery).toBeNull();
     expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 1 }]);
+  });
+});
+
+describe("live or simulated, decided when the effect is staged", () => {
+  const staged = () => db.$queryRaw<Array<{ live: boolean | null; status: string }>>`
+    SELECT (payload->>'live')::boolean AS live, status FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`;
+
+  it("stages a live row from the deployment's configuration, and a simulated row stays simulated on a worker that could send", async () => {
+    expect((await book(600, randomUUID(), "0735551711", "2026-11-27")).status).toBe(201);
+    expect(await staged()).toEqual([{ live: true, status: "delivered" }]);
+    const before = mails.length;
+    vi.stubEnv("CONCEPT_CONNECTIONS_LIVE", "");
+    expect((await book(660, randomUUID(), "0735551712", "2026-11-27")).status).toBe(201);
+    vi.stubEnv("CONCEPT_CONNECTIONS_LIVE", "1");
+    // The worker that delivered it resolves to a live adapter, but the row was staged without live connections: nothing went out.
+    expect(await staged()).toEqual([{ live: false, status: "delivered" }]);
+    expect(mails).toHaveLength(before);
+  });
+});
+
+describe("a delivery racing an erasure or another claim", () => {
+  const realSink = messageSink(db as unknown as PrismaClient, registry);
+  const emailId = async () => (await db.$queryRaw<Array<{ id: string }>>`
+    SELECT id FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`)[0].id;
+  const drainWith = (message: EffectSink, at = CLOCK + 3_600_000) => deliverDue({
+    db: db as unknown as PrismaClient, clock: async () => at, sinks: { ...SIMULATED_SINKS, message }, simulatedSinks: SIMULATED_SINKS,
+    leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, tenants: [tenantId],
+  }, 10);
+  /** A booking whose e-mail the first attempt left pending, frozen. */
+  const pendingBooking = async (start: number, phone: string) => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    expect((await book(start, randomUUID(), phone, "2026-11-26")).status).toBe(201);
+    outcome = ok({ id: "m-race", to: [] }, "sent");
+    return mails.length;
+  };
+
+  it("sends nothing for a claim that another deliverer replaced, and the right claim still sends once", async () => {
+    const before = await pendingBooking(540, "0735551701");
+    const id = await emailId();
+    const stale: EffectSink = async (delivery, signal) => {
+      await db.$executeRaw`UPDATE tenant_effect SET attempts = attempts + 1 WHERE id = ${id}`;
+      return realSink(delivery, signal);
+    };
+    expect(await drainWith(stale)).toEqual({ delivered: 0, retried: 1, failed: 0 });
+    expect(mails).toHaveLength(before);
+    expect((await delivery())[0].delivery).not.toHaveProperty("dispatched");
+    expect(await drain(CLOCK + 2 * 3_600_000)).toEqual({ delivered: 1, retried: 0, failed: 0 });
+    expect(mails).toHaveLength(before + 1);
+  });
+
+  it("sends nothing when an erasure cancels the effect between the claim and the dispatch", async () => {
+    const before = await pendingBooking(600, "0735551702");
+    const id = await emailId();
+    const erased: EffectSink = async (delivery, signal) => {
+      await db.$executeRaw`UPDATE tenant_effect SET status = 'cancelled', erased_at = now() WHERE id = ${id}`;
+      return realSink(delivery, signal);
+    };
+    await drainWith(erased);
+    expect(mails).toHaveLength(before);
+    expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 2 }]);
+  });
+
+  it("leaves a cancelled row cancelled when the customer was erased between the claim and the sink's read", async () => {
+    const before = await pendingBooking(780, "0735551705");
+    const { state } = (await holder.store.load(tenantId))!;
+    const customer = state.customers.find((c) => c.phone.replace(/\D/g, "").endsWith("735551705"))!;
+    const erasing: EffectSink = async (delivery, signal) => {
+      await holder.store.eraseSubject(tenantId, customer.id);
+      return realSink(delivery, signal);
+    };
+    expect(await drainWith(erasing)).toEqual({ delivered: 0, retried: 0, failed: 0, skipped: 1 });
+    expect(mails).toHaveLength(before);
+    expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 2 }]);
+  });
+
+  it("sends nothing when an erasure holding the tenant's lock clears the address first", async () => {
+    const before = await pendingBooking(660, "0735551703");
+    const [{ doc }] = await db.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;
+    let draining!: ReturnType<typeof drain>;
+    const erasing = createDatabaseClient(process.env.DATABASE_URL, 2) as PrismaClient;
+    await erasing.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
+      draining = drain(CLOCK + 2 * 3_600_000);
+      // The sink reads, freezes and then waits for the lock, the one an erasure holds until it commits.
+      for (let waited = 0; waited < 50; waited++) {
+        // Not through `tx`: a transaction sees the activity view as it was at its first look.
+        const [{ n }] = await db.$queryRaw<Array<{ n: number }>>`
+          SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%FOR SHARE%'`;
+        if (n) break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      await tx.$executeRaw`
+        UPDATE tenant_state SET doc = jsonb_set(doc, '{bookings}', (SELECT jsonb_agg(b - 'contactEmail') FROM jsonb_array_elements(doc->'bookings') b))
+        WHERE tenant_id = ${tenantId}`;
+    });
+    await erasing.$disconnect();
+    await draining;
+    expect(mails).toHaveLength(before);
+    expect((await delivery())[0].delivery).not.toHaveProperty("dispatched");
+    await db.$executeRaw`UPDATE tenant_state SET doc = ${JSON.stringify(doc)}::jsonb WHERE tenant_id = ${tenantId}`;
+  });
+
+  it("lets an erasure that comes after the dispatch finish, reports the send in flight and records it delivered", async () => {
+    const before = await pendingBooking(720, "0735551704");
+    const { state } = (await holder.store.load(tenantId))!;
+    const customer = state.customers.find((c) => c.phone.replace(/\D/g, "").endsWith("735551704"))!;
+    let release!: () => void;
+    providerGate = new Promise<void>((resolve) => { release = resolve; });
+    const called = new Promise<void>((resolve) => { providerCalled = resolve; });
+    const draining = drain(CLOCK + 2 * 3_600_000);
+    await called;
+    // The marker was committed before the provider was called.
+    expect((await delivery())[0].delivery).toMatchObject({ dispatched: true });
+    expect(await holder.store.eraseSubject(tenantId, customer.id)).toMatchObject({ ok: true, inFlightMessages: 1 });
+    release();
+    expect(await draining).toEqual({ delivered: 1, retried: 0, failed: 0 });
+    expect(mails).toHaveLength(before + 1);
+    expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 2 }]);
+    expect((await delivery())[0].delivery).not.toHaveProperty("mail");
   });
 });

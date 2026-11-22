@@ -221,11 +221,10 @@ BEGIN
       v_next := public.studio_scrub(v_next, v_identifiers);
       IF v_row.status <> 'pending' THEN
         UPDATE tenant_effect SET payload = v_next WHERE id = v_row.id;
-      ELSIF v_row.leased THEN
-        -- A deliverer is sending it right now: stopped for any retry, and reported.
-        v_in_flight := v_in_flight + 1;
-        UPDATE tenant_effect SET payload = v_next, erased_at = clock_timestamp() WHERE id = v_row.id;
       ELSE
+        -- Pending or claimed, it is cancelled here. A deliverer that has not dispatched yet finds it cancelled
+        -- under its own claim and sends nothing; one that has is reported and records its outcome.
+        IF v_row.leased THEN v_in_flight := v_in_flight + 1; END IF;
         UPDATE tenant_effect SET payload = v_next, status = 'cancelled', erased_at = clock_timestamp() WHERE id = v_row.id;
       END IF;
       v_effects := v_effects + 1;

@@ -28,6 +28,8 @@ export interface EffectDelivery {
   tenantKind: TenantKind;
   seq: number;
   n: number;
+  /** Which claim this is (the row's attempt count). A sink that must not run for a stale claim guards its writes by it. */
+  attempt: number;
   effect: StoreEffect;
 }
 
@@ -35,9 +37,12 @@ export interface EffectDelivery {
  * Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`.
  * Returning `"failed"` marks it failed at once, for a permanent error a retry cannot fix (a bad address).
  * Returning `"deferred"` leaves it pending without using up an attempt (delivery is paused).
+ * Returning `"skipped"` acknowledges that there was nothing to send (an erased or cancelled booking): the row becomes
+ * `delivered` only if it is still pending under this claim, so an erasure's `cancelled` stands.
  * `signal` aborts when the sink timeout is over: check it before anything that cannot be undone.
  */
-export type EffectSink = (delivery: EffectDelivery, signal: AbortSignal) => void | "failed" | "deferred" | Promise<void | "failed" | "deferred">;
+export type SinkOutcome = void | "failed" | "deferred" | "skipped";
+export type EffectSink = (delivery: EffectDelivery, signal: AbortSignal) => SinkOutcome | Promise<SinkOutcome>;
 
 export type EffectSinks = Record<StoreEffect["kind"], EffectSink>;
 
@@ -141,7 +146,7 @@ function sinkFor(ctx: DeliveryContext, row: ClaimedRow): EffectSink | undefined 
   return undefined;
 }
 
-export type DeliveryOutcome = "delivered" | "retry" | "failed";
+export type DeliveryOutcome = "delivered" | "retry" | "failed" | "skipped";
 
 const TIMEOUT = "STUDIO_STORE_SINK_TIMEOUT";
 
@@ -186,11 +191,11 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
 /** Sends one claimed row and records the outcome for that row only. */
 async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number | undefined): Promise<DeliveryOutcome> {
   const sink = sinkFor(ctx, row);
-  let result: void | "failed" | "deferred";
+  let result: SinkOutcome;
   try {
     if (!sink) throw new Error("STUDIO_STORE_NO_SINK");
     const delivery: EffectDelivery = {
-      id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
+      id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, attempt: row.attempts, effect: effectOf(row.payload),
     };
     result = await runSink(sink, delivery, timeoutMs);
   } catch (error) {
@@ -199,6 +204,14 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   }
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "deferred") return recordFailure(ctx, row, "deferred");
+  if (result === "skipped") {
+    const skippedAt = await ctx.clock();
+    const changed = await ctx.db.$executeRaw`
+      UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${skippedAt}::float8 / 1000)
+      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`;
+    // Nothing was sent, and a row that was cancelled meanwhile (an erasure) stays so.
+    return changed ? "delivered" : "skipped";
+  }
   // The send happened, so it is recorded as delivered whatever happened to the
   // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
   const at = await ctx.clock();
@@ -212,6 +225,8 @@ export interface DrainReport {
   delivered: number;
   retried: number;
   failed: number;
+  /** Effects with nothing left to send (an erased booking) that were already cancelled. Absent when there were none. */
+  skipped?: number;
 }
 
 /** Claims, sends and acknowledges due effects one at a time until none is due or `limit` rows were claimed. */
@@ -235,6 +250,7 @@ export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<D
     const outcome = await deliver(ctx, row, left === undefined ? ctx.sinkTimeoutMs : Math.min(left, ctx.sinkTimeoutMs ?? left));
     if (outcome === "delivered") report.delivered++;
     else if (outcome === "retry") report.retried++;
+    else if (outcome === "skipped") report.skipped = (report.skipped ?? 0) + 1;
     else report.failed++;
   }
   return report;

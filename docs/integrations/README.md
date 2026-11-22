@@ -247,18 +247,6 @@ delivered after each commit and, for anything left over, by the poller. E-mail
 goes through the e-mail port above, so it is simulated unless the four live
 conditions hold; SMS and payments are acknowledged without sending.
 
-**Do not enable live confirmation e-mail (`CONCEPT_CONNECTIONS_LIVE=1` with an
-e-mail provider, for salons with public booking) before issue #143 is
-closed.** It covers known gaps in this delivery path:
-
-- erasure racing an in-flight dispatch;
-- duplicate sends under a stalled dispatch write, a crash between clearing
-  `dispatched` and recording the failure, or a Resend in-progress 409 beyond the
-  23-hour window;
-- a worker with `live-off` or `not-selected` acknowledging fresh live rows;
-- retry payload drift after a move (token expiry, sender, reply-to);
-- the fragment scrub when the salon is missing.
-
 - **Cron.** Run `npm run effects:drain` every minute (for example a Vercel
   cron or `* * * * *` on a host) with `DATABASE_URL`, `SESSION_SECRET` and the
   **same** `PUBLIC_BOOKING_LIVE`, `OWNER_ACCOUNTS_ENABLED`, `CONCEPT_*` and
@@ -270,20 +258,43 @@ closed.** It covers known gaps in this delivery path:
   the key is fixed. A permanent error (bad address, unverified domain, other
   4xx) marks the effect `failed` at once, with the reason in the effect's
   `delivery.reason`. `store_metrics()` counts `failedEffects` per process.
-- **Sending twice.** The first attempt freezes the message and its time on the
+- **Sending twice.** The first attempt freezes the message, its link (address
+  and token expiry, never the token), the sender and the reply-to on the
   effect, and every retry resends exactly that under the same idempotency key
-  (the effect id). A send that may have left (timeout, dropped connection, a
-  crash before the acknowledgement) is retried automatically **only on Resend,
-  within 23 hours of the first attempt** (Resend keeps keys for 24). Postmark
-  ignores the key, so there, and on Resend after 23 hours, the effect is marked
-  `failed` with reason `uncertain`: check the provider's activity for that
-  message and resend it by hand if it never went out. A Resend 409 for a key
-  with a different body fails with reason `reconcile`. **Recommended: Resend.**
-- **Live or simulated.** The first attempt decides whether an effect was meant
-  for a real send (any resolution except `live-off`, `not-selected` and
-  `public-demo`). A worker that then lacks the credentials fails the attempt
-  (and logs the resolution reason, never a value) instead of "delivering" it to
-  the simulator; give it the credentials and the row goes out.
+  (the effect id), even after the visit moved or the salon changed its name or
+  address. Right before the provider is called, the worker rechecks the booking
+  and its address and commits `dispatched` on the effect in its own
+  transaction, only while the effect is still pending, not erased and that
+  worker's claim is the latest one; a worker whose lease ran out while it was
+  stalled sends nothing. `dispatched` is cleared only when the provider
+  certainly did not take the message (a rate limit, a rejected key). A send
+  that may have left (timeout, dropped connection, a crash before the
+  acknowledgement, a Resend "request in progress" 409) keeps it, and a later
+  claim that finds `dispatched` without `sent` repeats the request
+  automatically **only on Resend, within 23 hours of the first attempt**
+  (Resend keeps keys for 24), and only if the first request went to Resend too: the provider is recorded with `dispatched`, so a request that went to Postmark, or was dispatched before that was recorded, is never repeated through Resend. A 200 reply without a readable receipt counts as a send that may have left. Postmark ignores the key, so there, and on Resend
+  after 23 hours, the effect is marked `failed` with reason `uncertain`: check
+  the provider's activity for that message and resend it by hand if it never
+  went out. A Resend 409 for a key with a different body fails with reason
+  `reconcile`. **Recommended: Resend.**
+- **Erasure.** Erasing a customer cancels their pending and claimed message
+  effects in the erasure's own transaction (`erase_subject` and the TypeScript
+  path alike) and drops the frozen message. A worker holds the tenant's lock
+  while it rechecks the booking and commits `dispatched`, so an erasure either
+  comes first and nothing is sent, or waits for that commit: then the send is
+  already under way, is reported as `inFlightMessages`, and its outcome is
+  recorded as it happened.
+- **Live or simulated.** The store decides when it stages a message effect and
+  stores it as `live` on the effect: true when the deployment's configuration
+  means e-mail to go out for real (`CONCEPT_CONNECTIONS_LIVE=1`, a provider
+  selected, not the public demo), false otherwise. A `live: false` row is only
+  ever simulated, by any worker. A worker that resolves to the simulator for a
+  `live: true` row (it lacks the credentials, or has `live-off` or
+  `not-selected`) leaves it pending as a retryable configuration error, logging
+  the resolution reason and never a value; give it the configuration and the
+  row goes out. Set the same `CONCEPT_*` settings on the web app and every
+  worker, and turn live connections on before the bookings you want sent, not
+  after: rows staged while it was off stay simulated.
 - **Public booking flags.** While `PUBLIC_BOOKING_LIVE` or
   `OWNER_ACCOUNTS_ENABLED` is off, a public booking's e-mail waits unsent
   without using an attempt, because the page its link opens is off too.

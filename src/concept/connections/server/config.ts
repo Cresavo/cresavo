@@ -40,3 +40,10 @@ export function configFromEnv(env: Env = process.env): ConnectionConfig {
   }
   return { live: env[LIVE_FLAG] === "1", publicDemo: isPublicDemo(env), ports };
 }
+
+/**
+ * True when the deployment means this port to send for real: connections are
+ * live, it is not the public demo and a provider is selected. Whether the
+ * credentials work is for the registry to say; this decides what a row is for.
+ */
+export const meantLive = (config: ConnectionConfig, port: PortName) => config.live && !config.publicDemo && !!config.ports[port];

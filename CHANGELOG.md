@@ -11,6 +11,9 @@ All notable changes to this project are documented here. Format follows
 ### Changed
 
 - **A calmer, less templated homepage.** The section labels in capitals, the 01 / 02 / 03 numbering and the dot icons beside each moment are gone; the menu and theme toggle are plain buttons without frames, and each second action (the customer booking page, the code, an email to the founder) is a text link instead of a second framed button. Text below the first screen is left-aligned, and on phones the hero is too. Sections no longer fade in as you scroll and the product screens no longer animate: the dot wordmark at the top is the one moving moment. The plum accent is deeper and more neutral, the dark theme a warmer near-black, and the screens and plans lose their drop shadows. Design rules for the public site, for people and coding agents, are in `docs/design/SITE_RULES.md`.
+### Fixed
+
+- **Booking confirmation e-mail: the remaining delivery edge cases are closed (issue #143), so live e-mail no longer has a "do not enable" gate.** Erasing a customer now cancels their pending and claimed e-mails in one transaction (also in the SQL erase function, `prisma/grants/erase-subject.sql`, no migration) and a worker rechecks the booking under the tenant's lock before it sends; a worker commits `dispatched` before it calls the provider, only for its own latest claim, never clears it when a send may have left, and a later claim repeats that request only on Resend within 23 hours (otherwise `uncertain`, for a person); whether an e-mail is meant to be real is decided when it is staged, so a worker without the provider's credentials leaves it waiting instead of counting it as sent; a retry resends the first attempt's link, sender and reply-to unchanged; and the 404 of an unknown salon removes a `#t=` token from the address. Swedish and English texts are unchanged.
 
 ## [0.7.0] - 2026-11-22
 
