@@ -192,8 +192,10 @@ test("an error message stays readable on a mid-grey page with hostile custom CSS
 });
 
 test("the product page is accessible in either theme", async ({ page }) => {
+  // Below-the-fold blocks fade in on scroll and sit at opacity 0 until then; reduced motion shows the page in its
+  // settled state, so contrast is measured on the colours visitors actually read.
   for (const scheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme: scheme });
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await page.waitForLoadState("networkidle");
