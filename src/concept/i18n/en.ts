@@ -1509,6 +1509,10 @@ const messages = {
   "campaigns.name.several": "selected treatments",
   "campaigns.offer.line": "{name}: {percent}% off {services} until {date}.",
   "campaigns.offer.lineNoDiscount": "{name}: {services} until {date}.",
+  "campaigns.offer.fill": "Free times {day}: {times}.",
+  "campaigns.offer.wellness": "{name}: {services}, payable with {badges} until {date}.",
+  "campaigns.offer.wellnessNoBadges": "{name}: {services}, payable with your wellness allowance until {date}.",
+  "campaigns.offer.giftcard": "{name}: give someone time to relax. Ask us at the salon.",
   "campaigns.copy.linkInBio": "Link in bio: {link}",
 
   "campaigns.studio.title": "Campaign studio",
@@ -1531,6 +1535,7 @@ const messages = {
   "campaigns.offer.to": "Offer ends",
   "campaigns.texts.hint": "One text per channel, with your campaign link. Edit anything.",
   "campaigns.texts.rewrite": "Write again",
+  "campaigns.texts.voice": "Written in your style: your sign-off and hashtags",
   "campaigns.poster.format": "Format",
   "campaigns.format.post": "Instagram post",
   "campaigns.format.story": "Story",

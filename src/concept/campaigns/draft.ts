@@ -1,7 +1,7 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
 import { t, tc, translate } from "../i18n";
-import { dayChipLabel, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { dayChipLabel, formatDate, formatDayLong, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
@@ -72,11 +72,30 @@ export function draftLink(state: DemoState, draft: Pick<Draft, "name" | "from">,
   return trackingLink(draft.name, draft.from);
 }
 
-/** The sentence the texts are written from. */
+/** The sentence the texts are written from, shaped by the campaign's goal in the business's language. */
 export function draftOffer(state: DemoState, draft: Draft): string {
   const language = state.localization.language;
   const names = state.services.filter((s) => draft.serviceIds.includes(s.id)).map((s) => serviceCopy(s, language).name);
-  return offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
+  const plain = offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
+  switch (draft.goal) {
+    case "fill": {
+      const free = freeTimes(state, draft.serviceIds[0], draft);
+      return free ? translate(language, "campaigns.offer.fill", { day: formatDayLong(free.date, language), times: free.times.join(", ") }) : plain;
+    }
+    case "wellness": {
+      const badges = draft.posterEdits.badges?.join(", ");
+      const vars = { name: draft.name, services: listServices(names, language), badges: badges ?? "", date: formatDate(draft.to, language) };
+      return translate(language, badges ? "campaigns.offer.wellness" : "campaigns.offer.wellnessNoBadges", vars);
+    }
+    case "giftcard":
+      return translate(language, "campaigns.offer.giftcard", { name: draft.name });
+    case "review": {
+      const review = newestReview(state);
+      return review ? `“${firstSentence(review.text)}”${review.author ? ` – ${review.author}` : ""}` : plain;
+    }
+    default:
+      return plain;
+  }
 }
 
 export function offerSignature(state: DemoState, draft: Draft): string {

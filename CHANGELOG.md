@@ -10,6 +10,9 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Captions that fit the goal and sound like the owner.**
+  - The texts follow the campaign's goal: free times list the day and times from the Free-times poster, wellness names the treatments and the owner's benefit badges, gift cards promise no price or validity, and a review campaign quotes the newest review with the customer's public name. Without a goal the discount sentence is unchanged.
+  - The texts step learns the owner's voice from their latest published campaigns, with nothing new stored: a sign-off line they keep using, hashtags they add again and again, whether they use emoji. The rule-based captions use it, the AI draft gets it as an optional `voice` hint, and the step says "Written in your style" when one was found.
 - Two poster templates. **Full photo** lets the photo fill the whole poster under a dark gradient with a big headline, one line, a white booking button and one small contact line; it has its own story layout. **Type only** is a poster of words on the salon's background colour: a very large headline, the detail, a thin accent rule and the booking button. The goals now suggest them: Promote suggests Price, Full photo and Portrait; Fill free times suggests Free times, Full photo and Type only.
 - **Start a campaign from a goal.** The campaign studio first asks what the owner wants to do: fill free times, promote a treatment, wellness benefits, sell gift cards or share a review. The goal fills in the campaign's name, offer and dates, and the poster step shows three suggested posters with different compositions above the full list of styles.
 - **One message per poster.**
