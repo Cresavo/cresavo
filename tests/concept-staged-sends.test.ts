@@ -10,7 +10,9 @@ import type { DemoState } from "@/concept/data/types";
 const { showToast, showActionFailure } = vi.hoisted(() => ({ showToast: vi.fn(), showActionFailure: vi.fn() }));
 vi.mock("@/concept/ui/toast", () => ({ showToast, showActionFailure }));
 
-const today = toKey(new Date());
+// A fixed Tuesday: the demo salon is closed on Sundays, when "today's free times" would be empty.
+const NOW = new Date("2026-11-17T09:00:00+01:00");
+const today = toKey(NOW);
 
 /** One tab's localStorage, with a hook that runs before each save. */
 function tab(initial: DemoState) {
@@ -52,11 +54,16 @@ const upcoming = (state: DemoState) => state.bookings.find((b) => b.status === "
 const remind = (state: DemoState) => ({ type: "booking-message/send" as const, bookingId: upcoming(state).id, channel: "sms" as const, kind: "reminder" as const, at: { date: today, time: 0 } });
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
   vi.resetModules();
   showToast.mockClear();
   showActionFailure.mockClear();
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 it("publishes a change's message exactly once, and only after the save", async () => {
   const state = salon();

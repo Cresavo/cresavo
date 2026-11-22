@@ -19,6 +19,8 @@ export const GOAL_STYLES: Record<Goal, [PosterStyle, PosterStyle, PosterStyle]> 
   review: ["review", "portrait", "beforeafter"],
 };
 
+/** Poster fields that carry words, which a goal replaces; the rest (photos, size, badges) is the owner's look. */
+const WORDS = new Set(["lead", "headline", "detail"]);
 const WEEK = 6;
 const RUN = 13;
 
@@ -27,7 +29,7 @@ export function applyGoal(state: DemoState, draft: Draft, goal: Goal, today: Dat
   const first = state.services.find((s) => s.id === draft.serviceIds[0]) ?? state.services[0];
   const base = { goal, style: GOAL_STYLES[goal][0], holidayId: undefined, from: today };
   // Words the goal puts on the poster replace earlier ones; photos, text size and badges stay.
-  const { lead: _lead, headline: _headline, detail: _detail, ...kept } = draft.posterEdits;
+  const kept = Object.fromEntries(Object.entries(draft.posterEdits).filter(([key]) => !WORDS.has(key))) as Draft["posterEdits"];
   switch (goal) {
     case "fill":
       return { ...base, name: t("campaigns.goal.fill.name"), discountPercent: 0, to: addDays(today, WEEK), posterEdits: kept };
