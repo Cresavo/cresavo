@@ -2,10 +2,10 @@ import { useEffect, useRef } from "react";
 import { RefreshCw } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "../../campaigns/channels";
-import { rulesCopy } from "../../campaigns/copy";
-import { applyVoice, hasVoice, ownerVoice } from "../../campaigns/voice";
-import { draftLink, draftOffer, offerSignature, type Draft } from "../../campaigns/draft";
-import type { Channel, DemoState } from "../../data/types";
+import { postRequest } from "../../campaigns/copy";
+import { applyVoice, ownerVoice } from "../../campaigns/voice";
+import { draftLink, draftOffer, offerSignature, refreshCopy, type Draft } from "../../campaigns/draft";
+import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
@@ -31,15 +31,17 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   useEffect(() => {
     const current = latest.current;
     if (current.copyFor === signature) return;
+    const { copy, copyFor, regenerated } = refreshCopy(state, current, voice);
+    onChange({ copy, copyFor });
     const offer = draftOffer(state, current);
     const link = draftLink(state, current);
-    const copy = Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language, voice)])) as Record<Channel, string>;
-    onChange({ copy, copyFor: signature });
     let cancelled = false;
     void isAiConfigured(!!state.industry).then((ready) => {
       if (!ready) return;
-      for (const channel of CHANNELS) {
-        runAiTask<{ text: string; hashtags: string[] }>("write-post", { offer, channel, locale: language, ...(hasVoice(voice) && { voice }) }, !!state.industry)
+      for (const channel of regenerated) {
+        const request = postRequest(current.goal, offer, channel, language, voice);
+        if (!request) continue;
+        runAiTask<{ text: string; hashtags: string[] }>("write-post", request, !!state.industry)
           .then(({ output, log }) => {
             const now = latest.current;
             if (cancelled || log.source !== "ai" || now.copyFor !== signature || now.copy[channel] !== copy[channel]) return;
@@ -57,9 +59,8 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   }, [signature]);
 
   const rewrite = () => {
-    const offer = draftOffer(state, draft);
-    const link = draftLink(state, draft);
-    onChange({ copy: Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language, voice)])), copyFor: signature });
+    const { copy, copyFor } = refreshCopy(state, { ...draft, copyEdited: [] }, voice);
+    onChange({ copy, copyFor, copyEdited: [] });
   };
 
   return (
@@ -86,7 +87,7 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
               id={`copy-${channel}`}
               value={text}
               rows={channel === "sms" ? 4 : 5}
-              onChange={(event) => onChange({ copy: { ...draft.copy, [channel]: event.target.value } })}
+              onChange={(event) => onChange({ copy: { ...draft.copy, [channel]: event.target.value }, copyEdited: [...new Set([...(draft.copyEdited ?? []), channel])] })}
             />
           </Card>
         );

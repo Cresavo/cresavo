@@ -11,14 +11,15 @@ const closing = {
   sms: "campaigns.post.sms",
 } as const;
 
-/** How the owner writes, learned from published captions; every part is optional and length-limited. */
+/** A hashtag: "#" and 1-29 letters, digits or underscores, 30 characters at most. */
+export const isHashtag = (text: string) => /^#[\p{L}\p{N}_]{1,29}$/u.test(text);
+
+/** Style hints for the AI, learned from published captions. Never a name, a quote or a line the owner wrote. */
 export const voiceSchema = z.object({
-  signOff: z.string().trim().min(1).max(80).optional(),
-  hashtags: z.array(z.string().trim().min(2).max(30)).max(3),
   emoji: z.boolean(),
   length: z.enum(["short", "medium", "long"]).optional(),
 }).strict();
-export type OwnerVoice = z.infer<typeof voiceSchema>;
+export type StyleHints = z.infer<typeof voiceSchema>;
 
 const STOCK = ["campaigns.post.social", "campaigns.post.facebook", "campaigns.post.google", "campaigns.post.newsletter", "campaigns.post.sms", "campaigns.post.hashtagSalon", "campaigns.post.hashtagCare"] as const;
 
@@ -28,14 +29,14 @@ export const isStockPhrase = (text: string) =>
 
 export const writePostTask = defineTask({
   id: "write-post", version: 2, tier: "fast",
-  prompt: "Write a short salon post for the given channel and offer. Use English by default, or Swedish if locale is sv. No invented claims. If voice is given, write in the owner's style: end with the sign-off, prefer its hashtags, use emoji only if voice.emoji is true and match the length. Return a draft only as JSON with text and hashtags.",
+  prompt: "Write a short salon post for the given channel and offer. Use English by default, or Swedish if locale is sv. No invented claims. If voice is given, write in that style: use emoji only if voice.emoji is true and match voice.length. Do not add a sign-off; the owner's own sign-off and hashtags are added afterwards. Return a draft only as JSON with text and hashtags.",
   input: z.object({
     offer: textField,
     channel: z.enum(["instagram", "facebook", "tiktok", "google", "newsletter", "sms"]),
     locale: z.enum(["en", "sv"]).optional(),
     voice: voiceSchema.optional(),
   }).strict(),
-  output: z.object({ text: textField, hashtags: z.array(z.string()).max(10) }).strict(),
+  output: z.object({ text: textField, hashtags: z.array(z.string().refine(isHashtag)).max(10) }).strict(),
   fallback: ({ offer, channel, locale = "en" }) => ({
     text: `${offer}\n${translate(locale, closing[channel])}`,
     hashtags: channel === "instagram" || channel === "tiktok"

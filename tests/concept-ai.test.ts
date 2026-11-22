@@ -62,11 +62,11 @@ describe("task contracts and deterministic rules", () => {
     const result = await runTask("write-post", { offer: "20 % rabatt på massage", channel: "sms", locale: "sv" }, { env: {} });
     expect(result.output.text).toBe("20 % rabatt på massage\nBoka här:");
   });
-  it("accepts an optional owner voice for write-post and rejects an oversized or unknown one", async () => {
-    const voice = { signOff: "Warm regards, Anna", hashtags: ["#EkoGlow"], emoji: false, length: "short" };
+  it("accepts optional style hints for write-post and rejects a sign-off, hashtags or anything unknown", async () => {
+    const voice = { emoji: false, length: "short" };
     const base = { offer: "20% off massage", channel: "sms" };
     expect((await runTask("write-post", { ...base, voice }, { env: {} })).output.text).toContain("20% off massage");
-    for (const bad of [{ ...voice, signOff: "x".repeat(81) }, { ...voice, hashtags: ["#a", "#bb", "#cc", "#dd"] }, { ...voice, extra: 1 }]) {
+    for (const bad of [{ ...voice, signOff: "Warm regards, Anna" }, { ...voice, hashtags: ["#EkoGlow"] }, { ...voice, extra: 1 }]) {
       await expect(runTask("write-post", { ...base, voice: bad }, { env: {} })).rejects.toBeInstanceOf(InvalidTaskInput);
     }
   });

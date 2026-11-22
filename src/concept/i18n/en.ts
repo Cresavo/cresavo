@@ -1626,6 +1626,8 @@ const messages = {
   "campaigns.publish.preview": "Preview per channel",
   "campaigns.publish.where": "Publish on",
   "campaigns.publish.link": "Campaign link: {link}",
+  "campaigns.publish.checkTexts": "Check the text for: {channels}",
+  "campaigns.publish.textsUpdated": "The texts were updated to match your offer. Have a look, then publish.",
   "campaigns.publish.everywhere": "Publish everywhere",
   "campaigns.publish.schedule": "Schedule for later",
   "campaigns.publish.day": "Send on",

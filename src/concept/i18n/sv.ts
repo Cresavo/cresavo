@@ -1585,6 +1585,8 @@ const messages = {
   "campaigns.publish.preview": "Förhandsgranska per kanal",
   "campaigns.publish.where": "Publicera på",
   "campaigns.publish.link": "Kampanjlänk: {link}",
+  "campaigns.publish.checkTexts": "Kolla texten för: {channels}",
+  "campaigns.publish.textsUpdated": "Texterna har uppdaterats efter ditt erbjudande. Titta igenom dem och publicera sedan.",
   "campaigns.publish.everywhere": "Publicera överallt",
   "campaigns.publish.schedule": "Schemalägg",
   "campaigns.publish.day": "Skicka den",

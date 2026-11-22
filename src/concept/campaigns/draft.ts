@@ -9,12 +9,13 @@ import type { Goal } from "./goals";
 import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
-import { listServices, offerText } from "./copy";
+import { listServices, offerText, rulesCopy } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
 import { isOwnPhoto } from "./own-photo";
 import { isNeutralTone } from "./poster-engine/tone";
 import type { CampaignPrefill } from "./prefill";
+import type { OwnerVoice } from "./voice";
 
 /** A campaign being made in the studio, before it is published. */
 export interface Draft extends CampaignPrefill {
@@ -25,6 +26,8 @@ export interface Draft extends CampaignPrefill {
   copy: Partial<Record<Channel, string>>;
   /** The offer the texts were written for; texts are rewritten when it changes. */
   copyFor: string;
+  /** Channels whose text the owner has changed by hand; a new offer never overwrites them. */
+  copyEdited?: Channel[];
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
   posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
@@ -100,6 +103,20 @@ export function draftOffer(state: DemoState, draft: Draft): string {
 
 export function offerSignature(state: DemoState, draft: Draft): string {
   return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(state, draft)}`;
+}
+
+/**
+ * The texts for the current offer: written again by the rules for every channel the owner has not edited by hand.
+ * `regenerated` are those channels, `stale` the edited ones, which keep their text and should be checked.
+ */
+export function refreshCopy(state: DemoState, draft: Draft, voice: OwnerVoice) {
+  const stale = (draft.copyEdited ?? []).filter((channel) => draft.copy[channel] !== undefined);
+  const regenerated = CHANNELS.filter((channel) => !stale.includes(channel));
+  const offer = draftOffer(state, draft);
+  const link = draftLink(state, draft);
+  const copy: Draft["copy"] = {};
+  for (const channel of CHANNELS) copy[channel] = stale.includes(channel) ? draft.copy[channel] : rulesCopy(channel, offer, link, state.localization.language, voice);
+  return { copy, copyFor: offerSignature(state, draft), regenerated, stale };
 }
 
 /** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
