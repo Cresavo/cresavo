@@ -71,18 +71,38 @@ export function renewedOwnerCookie(cookie: string | undefined, now = Date.now())
   return cookieValue(parsed.token, Math.min(now + OWNER_IDLE_MS, parsed.absolute), parsed.absolute);
 }
 
-/** Starts a session for a verified identity. Returns the cookie, or null when the account changed since it was verified. */
-export async function openOwnerSession(identity: OwnerIdentity, now = Date.now()): Promise<OwnerCookie | null> {
+export interface OpenOptions {
+  /** The sign-in passed the second step. Without it no session opens for an account with two-step sign-in. */
+  mfaVerified?: boolean;
+  /** The id of the password challenge this sign-in completes; it is consumed in the same transaction. */
+  challenge?: string;
+}
+
+/**
+ * Starts a session for a verified identity. Returns the cookie, or null when the account changed since it was
+ * verified, when it has two-step sign-in and the second step was not passed, or when the challenge is gone.
+ */
+export async function openOwnerSession(identity: OwnerIdentity, now = Date.now(), { mfaVerified = false, challenge }: OpenOptions = {}): Promise<OwnerCookie | null> {
   assertWritable();
   const token = randomBytes(32).toString("hex");
   const absolute = now + OWNER_SESSION_MS;
   await pruneOwnerSessions(new Date(now));
   const created = await db.$transaction(async (tx) => {
-    const [account] = await tx.$queryRaw<{ active: boolean; credential_version: number }[]>`
-      SELECT "active", "credential_version" FROM "owner_account" WHERE "id" = ${identity.id} FOR UPDATE`;
+    const [account] = await tx.$queryRaw<{ active: boolean; credential_version: number; totp_enabled_at: Date | null }[]>`
+      SELECT "active", "credential_version", "totp_enabled_at" FROM "owner_account" WHERE "id" = ${identity.id} FOR UPDATE`;
     if (!account?.active || account.credential_version !== identity.credentialVersion) return false;
+    if (account.totp_enabled_at && !mfaVerified) return false;
+    if (challenge !== undefined) {
+      const { count } = await tx.ownerMfaChallenge.deleteMany({
+        where: { id: challenge, accountId: identity.id, credentialVersion: identity.credentialVersion, expiresAt: { gt: new Date(now) } },
+      });
+      if (count !== 1) return false;
+    }
     await tx.ownerSession.create({
-      data: { id: digest(token), accountId: identity.id, credentialVersion: identity.credentialVersion, expiresAt: new Date(absolute) },
+      data: {
+        id: digest(token), accountId: identity.id, credentialVersion: identity.credentialVersion, expiresAt: new Date(absolute),
+        mfaVerifiedAt: mfaVerified ? new Date(now) : null,
+      },
     });
     return true;
   });
@@ -93,6 +113,8 @@ export interface OwnerContext {
   accountId: string;
   email: string;
   tenantId: string;
+  /** Two-step sign-in is on for the account. */
+  mfaEnabled: boolean;
 }
 
 /** The signed-in owner for a cookie value; null for anything else. */
@@ -101,10 +123,16 @@ export async function ownerFromCookie(cookie: string | undefined, now = Date.now
   if (!id) return null;
   const session = await db.ownerSession.findFirst({
     where: { id, revokedAt: null, expiresAt: { gt: new Date(now) }, account: { is: { active: true } } },
-    select: { credentialVersion: true, account: { select: { id: true, email: true, tenantId: true, credentialVersion: true } } },
+    select: {
+      credentialVersion: true, mfaVerifiedAt: true,
+      account: { select: { id: true, email: true, tenantId: true, credentialVersion: true, totpEnabledAt: true } },
+    },
   });
   if (!session || session.credentialVersion !== session.account.credentialVersion) return null;
-  return { accountId: session.account.id, email: session.account.email, tenantId: session.account.tenantId };
+  // A session that did not pass the second step never counts for an account with two-step sign-in on.
+  if (session.account.totpEnabledAt && !session.mfaVerifiedAt) return null;
+  const { account } = session;
+  return { accountId: account.id, email: account.email, tenantId: account.tenantId, mfaEnabled: account.totpEnabledAt !== null };
 }
 
 export async function closeOwnerSession(cookie: string | undefined, now = Date.now()) {
@@ -113,9 +141,10 @@ export async function closeOwnerSession(cookie: string | undefined, now = Date.n
   if (id) await db.ownerSession.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date(now) } });
 }
 
-/** Ends every session of an account ("sign out everywhere"). Returns how many were still open. */
+/** Ends every session and every pending sign-in of an account ("sign out everywhere"). Returns how many sessions were still open. */
 export async function closeAllOwnerSessions(accountId: string, now = Date.now()) {
   assertWritable();
+  await db.ownerMfaChallenge.deleteMany({ where: { accountId } });
   const { count } = await db.ownerSession.updateMany({ where: { accountId, revokedAt: null }, data: { revokedAt: new Date(now) } });
   return count;
 }

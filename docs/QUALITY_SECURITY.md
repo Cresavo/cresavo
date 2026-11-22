@@ -86,8 +86,11 @@ Security
       everywhere"), password reset (30-minute single-use signed link, all
       sessions ended) and account lockout (5 failures in 15 minutes, doubling
       lock up to 8 hours, one generic answer). Behind `OWNER_ACCOUNTS_ENABLED`.
-- [ ] MFA (TOTP with recovery codes) for owners, and real authentication for
-      staff. Owner MFA needs a migration: see CHANGELOG "Unreleased".
+- [x] MFA for owners: two-step sign-in (TOTP with ten single-use recovery
+      codes), secret encrypted under `OWNER_MFA_KEY`, codes single-use under
+      races, wrong codes in the same lock-out as passwords, and
+      `OWNER_MFA_REQUIRED=1` to make it mandatory for the pilot.
+- [ ] Real authentication for staff (still open).
 - [ ] Tenant isolation enforced in the database (row-level security or
       equivalent) and covered by tests that try to read another tenant.
       The tests exist (`tests/integration/tenant-isolation.test.ts`: owner

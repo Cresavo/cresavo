@@ -44,8 +44,18 @@ UNION ALL
 SELECT 'app cannot ' || t.p || ' ' || t.tbl
 FROM logins l, (VALUES ('Booking', 'SELECT'), ('Booking', 'INSERT'), ('Booking', 'UPDATE'), ('tenant_state', 'SELECT'), ('tenant_state', 'UPDATE'),
   ('tenant_action', 'SELECT'), ('tenant_action', 'INSERT'), ('tenant_effect', 'UPDATE'), ('RateLimitBucket', 'DELETE'),
-  ('AgentApiKey', 'INSERT'), ('owner_session', 'DELETE')) AS t(tbl, p)
+  ('AgentApiKey', 'INSERT'), ('owner_session', 'DELETE'), ('owner_recovery_code', 'SELECT'), ('owner_recovery_code', 'INSERT'),
+  ('owner_recovery_code', 'DELETE'), ('owner_mfa_challenge', 'SELECT'), ('owner_mfa_challenge', 'INSERT'), ('owner_mfa_challenge', 'DELETE')) AS t(tbl, p)
 WHERE l.kind = 'app' AND NOT has_table_privilege(l.login, quote_ident(t.tbl), t.p)
+UNION ALL
+-- Recovery codes: the app marks one used and changes nothing else; a challenge is never changed.
+SELECT 'app cannot mark a recovery code used' FROM logins l
+WHERE l.kind = 'app' AND NOT has_column_privilege(l.login, 'owner_recovery_code', 'used_at', 'UPDATE')
+UNION ALL
+SELECT 'app can UPDATE ' || c.tbl || '.' || c.col
+FROM logins l, (VALUES ('owner_recovery_code', 'code_hash'), ('owner_recovery_code', 'account_id'), ('owner_mfa_challenge', 'id'),
+  ('owner_mfa_challenge', 'credential_version'), ('owner_mfa_challenge', 'expires_at')) AS c(tbl, col)
+WHERE l.kind = 'app' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'UPDATE')
 UNION ALL
 SELECT 'app cannot execute erase_subject' FROM logins l
 WHERE l.kind = 'app' AND to_regprocedure('erase_subject(text, text)') IS NOT NULL AND NOT has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
@@ -54,7 +64,7 @@ UNION ALL
 SELECT 'sweeper can read ' || c.tbl || '.' || c.col
 FROM logins l, (VALUES ('tenant_state', 'doc'), ('tenant_state', 'version'), ('tenant_idempotency', 'result'), ('tenant_idempotency', 'fingerprint_hmac'),
   ('tenant_effect', 'fingerprint'), ('tenant_effect', 'id'), ('tenant_action', 'actor'), ('owner_account', 'password_hash'), ('owner_account', 'email'),
-  ('owner_session', 'id')) AS c(tbl, col)
+  ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'), ('owner_recovery_code', 'code_hash')) AS c(tbl, col)
 WHERE l.kind = 'sweeper' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'SELECT')
 UNION ALL
 SELECT 'sweeper can touch ' || t.tbl
@@ -79,10 +89,12 @@ UNION ALL
 SELECT 'support can read ' || c.tbl || '.' || c.col
 FROM logins l, (VALUES ('tenant_state', 'doc'), ('tenant_action', 'action'), ('tenant_action', 'idempotency_key'), ('tenant_effect', 'payload'),
   ('tenant_effect', 'fingerprint'), ('tenant_idempotency', 'result'), ('tenant_idempotency', 'key'), ('owner_account', 'password_hash'),
-  ('owner_account', 'email'), ('owner_session', 'id'), ('_prisma_migrations', 'logs'), ('_prisma_migrations', 'checksum')) AS c(tbl, col)
+  ('owner_account', 'email'), ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'),
+  ('owner_recovery_code', 'code_hash'), ('_prisma_migrations', 'logs'), ('_prisma_migrations', 'checksum')) AS c(tbl, col)
 WHERE l.kind = 'support' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'SELECT')
 UNION ALL
-SELECT 'support can read ' || t.tbl FROM logins l, (VALUES ('Customer'), ('Booking'), ('Service'), ('Staff'), ('AdminUser'), ('PairGrantToken')) AS t(tbl)
+SELECT 'support can read ' || t.tbl FROM logins l, (VALUES ('Customer'), ('Booking'), ('Service'), ('Staff'), ('AdminUser'), ('PairGrantToken'),
+  ('owner_mfa_challenge')) AS t(tbl)
 WHERE l.kind = 'support' AND has_any_column_privilege(l.login, quote_ident(t.tbl), 'SELECT')
 UNION ALL
 -- The function and its helpers: only the app executes erase_subject; PUBLIC executes none of them.

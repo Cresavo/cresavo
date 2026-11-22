@@ -9,6 +9,7 @@ import { closeAccountSalon } from "../store";
 import { Button } from "../ui/button";
 import { Field, Select, TextInput } from "../ui/controls";
 import { Notice } from "../ui/notice";
+import { SecondStep } from "./second-step";
 
 type Mode = "signup" | "login";
 
@@ -26,6 +27,7 @@ export function AccountForm({ mode, language }: { mode: Mode; language: Locale }
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<MessageKey | null>(null);
+  const [secondStep, setSecondStep] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,13 +39,17 @@ export function AccountForm({ mode, language }: { mode: Mode; language: Locale }
     setError(null);
     try {
       const response = await fetch(`/api/owner/${mode}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.next === "mfa") {
+        setSecondStep(true);
+        return;
+      }
       if (response.ok) {
         router.push("/account");
         router.refresh();
         return;
       }
-      const data = await response.json().catch(() => ({}));
-      setError(accountError(response.status, data.error));
+      setError(response.status === 503 && data.error === "not_configured" ? "account.error.not_configured" : accountError(response.status, data.error));
     } catch {
       setError("account.error.generic");
     } finally {
@@ -51,9 +57,10 @@ export function AccountForm({ mode, language }: { mode: Mode; language: Locale }
     }
   }
 
+  if (secondStep) return <SecondStep language={language} onRestart={(reason) => { setSecondStep(false); setError(reason); }} />;
   const signup = mode === "signup";
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       <h1 className="text-h1 font-semibold tracking-tight">{t(signup ? "account.signup.title" : "account.login.title")}</h1>
       {signup && <p className="text-body text-text-secondary">{t("account.signup.text")}</p>}
       {signup && (

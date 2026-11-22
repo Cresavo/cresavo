@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { failure } from "./http";
 import { ownerAccountsEnabled } from "./owner-accounts";
-import { OWNER_COOKIE, OWNER_HINT_COOKIE, renewedOwnerCookie, type OwnerCookie } from "./owner-session";
+import { enrolmentOnly } from "./owner-mfa";
+import { MFA_PENDING_MS, OWNER_MFA_PENDING_COOKIE, OWNER_MFA_PENDING_PATH } from "./owner-mfa-pending";
+import { OWNER_COOKIE, OWNER_HINT_COOKIE, ownerFromCookie, renewedOwnerCookie, type OwnerContext, type OwnerCookie } from "./owner-session";
 import { isPublicReadonly, readonlyForbidden } from "./public-readonly";
 import { isSameOriginWrite } from "./same-origin";
 
@@ -60,5 +62,29 @@ export function withRenewedSession(response: NextResponse, request: NextRequest)
 export function withoutSession(response: NextResponse) {
   response.cookies.set(OWNER_COOKIE, "", { ...cookieOptions, maxAge: 0 });
   response.cookies.set(OWNER_HINT_COOKIE, "", { ...hintOptions, maxAge: 0 });
+  return response;
+}
+
+/**
+ * The signed-in owner of a full session, or the answer to send instead: 401 when signed out, 403 `mfa_required`
+ * while OWNER_MFA_REQUIRED=1 and the account has not set up two-step sign-in. Only /me, logout and the
+ * /api/owner/mfa/* routes accept an enrolment-only session; they read the session with ownerFromCookie.
+ */
+export async function signedInOwner(request: NextRequest): Promise<OwnerContext | NextResponse> {
+  const owner = await ownerFromCookie(request.cookies.get(OWNER_COOKIE)?.value);
+  if (!owner) return ownerError("signed_out", 401);
+  return enrolmentOnly(owner) ? ownerError("mfa_required", 403) : owner;
+}
+
+// The pending second step of a sign-in: sent only to /api/owner/login and below.
+const pendingOptions = { ...cookieOptions, path: OWNER_MFA_PENDING_PATH };
+
+export function withPendingSecondStep(response: NextResponse, value: string) {
+  response.cookies.set(OWNER_MFA_PENDING_COOKIE, value, { ...pendingOptions, maxAge: MFA_PENDING_MS / 1000 });
+  return response;
+}
+
+export function withoutPendingSecondStep(response: NextResponse) {
+  response.cookies.set(OWNER_MFA_PENDING_COOKIE, "", { ...pendingOptions, maxAge: 0 });
   return response;
 }
