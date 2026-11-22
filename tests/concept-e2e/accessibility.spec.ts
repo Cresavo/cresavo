@@ -64,7 +64,8 @@ for (const theme of themes) {
       // The demo day is always open, so the preselected time can be today, inside the 24-hour change cutoff.
       // Pick the first time two days ahead so the manage page still offers online cancellation.
       const times = page.getByRole("combobox", { name: "Choose another time" });
-      const later = await times.locator("optgroup").nth(2).locator("option").first().getAttribute("value");
+      // A day can be full, and its only option then opens the waiting list: take the first real time from there on.
+      const later = await times.locator("optgroup:nth-of-type(n+3) option:not([value$='/wait'])").first().getAttribute("value");
       await times.selectOption(later!);
 
       await page.getByLabel("Your name", { exact: true }).fill("Access Demo");
