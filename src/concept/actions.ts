@@ -2,7 +2,7 @@ import { jsonEqual } from "./data/json-equal";
 import { salonClock } from "./tools/clock";
 import { depositMethods } from "./connections/ports/payments";
 import { majorString } from "./connections/core";
-import { quote, validPolicy, type BookingProtection, type CancellationPolicy, type DemoMethod } from "./booking/protection";
+import { quote, unknownPolicyServices, validPolicy, type BookingProtection, type CancellationPolicy, type DemoMethod } from "./booking/protection";
 import { collect, decideFee, refundCancellation, type FeeDecision } from "./booking/settlement";
 import { parseLocale } from "@/lib/locale";
 import type { BusinessLocalization } from "./i18n/business";
@@ -157,10 +157,11 @@ function createBooking(
 ): DemoState {
   const service = state.services.find((s) => s.id === input.serviceId);
   if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
-  if (input.id && state.bookings.some(b => b.id === input.id)) return state;
+  const id = input.id ?? nextId(state, "b");
+  if (state.bookings.some(b => b.id === id)) return state;
   const booking: Booking = {
     ...input,
-    id: input.id ?? nextId(state, "b"),
+    id,
     protection: protection ?? { terms: { ...quote(state.cancellationPolicy, service, state.localization.currency, false), depositMinor: 0 } },
     duration: service.duration,
     price: protection ? Number(majorString({ amountMinor: protection.terms.priceMinor, currency: protection.terms.currency })) : service.price,
@@ -174,6 +175,8 @@ function moveBooking(state: DemoState, id: string, date: DateKey, start: number,
   const booking = state.bookings.find((b) => b.id === id);
   if (!booking || booking.protection?.decision || booking.protection?.refund) return state;
   const target = staffId ?? booking.staffId;
+  const service = [...state.services, ...state.retiredServices].find(s => s.id === booking.serviceId);
+  if (target !== booking.staffId && !service?.staffIds.includes(target)) return state;
   if (!isFree(state, target, date, start, booking, id)) return state;
   const resourceId = pickResource(state, booking, date, start, id);
   return { ...state, bookings: updateBy(state.bookings, id, (b) => ({ ...b, date, start, staffId: target, resourceId })) };
@@ -376,6 +379,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
   switch (action.type) {
     case "salon/policy":
       if (!validPolicy(action.policy) || action.policy.version !== state.cancellationPolicy.version || jsonEqual(action.policy, state.cancellationPolicy)) return state;
+      if (unknownPolicyServices(state.cancellationPolicy, action.policy, state.services).length) return state;
       return { ...state, seq: state.seq + 1, cancellationPolicy: { ...action.policy, version: state.seq + 1 } };
     case "booking/fee":
       return decideFee(state, action, now, payments);
@@ -492,8 +496,12 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       return importCustomers(state, action.customers);
     case "journal/edit":
       return { ...state, journals: updateBy(state.journals, action.id, (j) => editJournalEntry(j, action.content, action.on)) };
-    case "journal/add":
+    case "journal/add": {
+      const { customerId, staffId, bookingId } = action.entry;
+      if (!state.customers.some(c => c.id === customerId) || !state.staff.some(s => s.id === staffId)) return state;
+      if (bookingId && state.bookings.find(b => b.id === bookingId)?.customerId !== customerId) return state;
       return { ...state, seq: state.seq + 1, journals: [...state.journals, { ...action.entry, id: nextId(state, "j") }] };
+    }
     case "stock/adjust":
       return { ...state, stock: updateBy(state.stock, action.id, (s) => ({ ...s, inStock: roundAmount(Math.max(0, s.inStock + action.delta)) })) };
     case "stock/update":
@@ -566,6 +574,6 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "support/revoke":
       return revokeSupport(state, action.at);
     case "ticket/create":
-      return { ...state, seq: state.seq + 1, tickets: [{ ...action.ticket, id: `tk-${state.seq}` }, ...state.tickets] };
+      return { ...state, seq: state.seq + 1, tickets: [{ ...action.ticket, createdAt: now, id: `tk-${state.seq}` }, ...state.tickets] };
   }
 }

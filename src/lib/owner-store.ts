@@ -1,5 +1,4 @@
 import type { PrismaClient } from "@prisma/client";
-import type { DemoAction } from "@/concept/actions";
 import { SIMULATED_SINKS } from "@/concept/store/effect-outbox";
 import { PostgresStudioStore } from "@/concept/store/postgres-studio-store";
 import { db } from "./db";
@@ -18,12 +17,7 @@ export function ownerStore(): PostgresStudioStore {
   return holder.cresavoOwnerStore;
 }
 
-export { OWNER_ACTION_TYPES } from "./owner-actions/types";
-
-export const MAX_ACTION_BYTES = 64 * 1024;
+export { MAX_ACTION_BYTES, OWNER_ACTION_TYPES } from "./owner-actions/types";
 
 /** The action when it is a plain object of an allowed type within the size limit and every field is valid; otherwise null. */
-export function ownerAction(value: unknown): DemoAction | null {
-  if (Buffer.byteLength(JSON.stringify(value) ?? "") > MAX_ACTION_BYTES) return null;
-  return parseOwnerAction(value);
-}
+export const ownerAction = parseOwnerAction;

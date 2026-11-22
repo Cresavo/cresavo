@@ -9,6 +9,9 @@ import { Card } from "../../ui/card";
 import { EmptyState } from "../../ui/empty-state";
 import { useStudio } from "../use-studio";
 
+/** Year 2100: a stored ticket with a later time is shown without one. */
+const MAX_TICKET_TIME = 4_102_444_800_000;
+
 /** The demo's one place for help requests created from the Help button. */
 export function TicketsList() {
   const { state, today } = useStudio();
@@ -20,6 +23,9 @@ export function TicketsList() {
         <ul className="divide-y divide-hairline">
           {state.tickets.map((ticket) => {
             const date = new Date(ticket.createdAt);
+            const when = Number.isFinite(ticket.createdAt) && ticket.createdAt >= 0 && ticket.createdAt <= MAX_TICKET_TIME
+              ? `${relativeDay(toKey(date), today)} ${formatTime(date.getHours() * 60 + date.getMinutes())} · `
+              : "";
             return (
               <li key={ticket.id} className="space-y-2 px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -27,7 +33,7 @@ export function TicketsList() {
                   <Badge tone="accent">{t("tickets.open")}</Badge>
                 </div>
                 <p className="text-xs text-text-secondary">
-                  {relativeDay(toKey(date), today)} {formatTime(date.getHours() * 60 + date.getMinutes())} · {ticket.path} · {t("tickets.request", { id: ticket.requestId.slice(0, 8) })}
+                  {when}{ticket.path} · {t("tickets.request", { id: ticket.requestId.slice(0, 8) })}
                 </p>
                 <details className="text-sm">
                   <summary className="min-h-target cursor-pointer py-3 text-text-secondary hover:text-text">

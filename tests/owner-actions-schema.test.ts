@@ -7,6 +7,9 @@ import type { ServiceDraft } from "@/concept/services/edit";
 import { DEFAULT_POLICY } from "@/concept/booking/protection";
 import { DEFAULT_PAGE } from "@/concept/page/config";
 import { OWNER_ACTION_SCHEMAS } from "@/lib/owner-actions/schemas";
+import { CHANNEL_LIMIT } from "@/concept/campaigns/channels";
+import { contentOf } from "@/concept/customers/journal";
+import { MAX_TICKET_QUESTION } from "@/concept/support/tickets";
 import { ownerAction } from "@/lib/owner-store";
 import { parseOwnerAction } from "@/lib/owner-actions/parse";
 import { OWNER_ACTION_TYPES, type OwnerActionType } from "@/lib/owner-actions/types";
@@ -162,10 +165,67 @@ describe("owner action schemas", () => {
   it("accepts the other ways to book", () => {
     const base = { type: "booking/create", serviceId: "s-1", staffId: "anna", date: "2026-11-23", start: 600 } as const;
     const online = { ...base, id: "7c6f1f0e-4e9a-4c8c-9a53-4a5b6c7d8e9f", newCustomer: { name: "Lena Example", phone: "070-123 45 67", email: "", since: "2026-11-22" }, source: "phone" };
-    const assistant = { ...base, fictionalCustomer: { id: "k-90", name: "Sam Example", since: "2026-11-22" }, source: "assistant" };
+    const assistant = { ...base, fictionalCustomer: { id: "3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f", name: "Sam Example", since: "2026-11-22" }, source: "assistant" };
     expect(parse(online)).toEqual(online);
     expect(parse(assistant)).toEqual(assistant);
     expect(parse({ ...assistant, source: "phone" })).toBeNull();
+  });
+
+  it("keeps the studio's own id namespaces for the studio", () => {
+    for (const id of ["b-12", "k-7", "booking-1", "not-a-uuid"]) {
+      expect(send("booking/create", (action) => { action.id = id; }), id).toBeNull();
+    }
+    expect(send("booking/create", (action) => { action.id = "3f1c2d4e-5a6b-4c7d-8e9f-0a1b2c3d4e5f"; })).not.toBeNull();
+    const fictional = { ...EXAMPLES["booking/create"], customerId: undefined, source: "assistant", fictionalCustomer: { id: "k-90", name: "Sam Example", since: "2026-11-22" } };
+    expect(parse(fictional)).toBeNull();
+  });
+
+  it("does not let an owner write the sender's delivery record", () => {
+    const notice = { ...inboxItem, delivery: { channel: "sms", kind: "confirmation", slot: "2026-11-23:600:anna" } };
+    expect(parse({ type: "inbox/add", item: notice })).toBeNull();
+    expect(send("booking/cancel", (action) => { (action.notice as Record<string, unknown>).delivery = notice.delivery; })).toBeNull();
+  });
+
+  it("accepts the whole stored journal entry only as its five content fields", () => {
+    const stored = { id: "j-2", customerId: "k-7", date: "2026-11-22", staffId: "anna", versions: [], ...journal };
+    expect(parse({ type: "journal/edit", id: "j-2", content: stored, on: "2026-11-23" })).toBeNull();
+    expect(parse({ type: "journal/edit", id: "j-2", content: contentOf(stored), on: "2026-11-23" })).not.toBeNull();
+  });
+
+  it("allows the longest caption each channel allows and no more", () => {
+    const campaign = (copy: Record<string, string>) => send("campaign/launch", (action) => { (action.campaign as Record<string, unknown>).copy = copy; });
+    expect(campaign({ instagram: "x".repeat(CHANNEL_LIMIT.instagram), sms: "x".repeat(CHANNEL_LIMIT.sms) })).not.toBeNull();
+    expect(campaign({ instagram: "x".repeat(CHANNEL_LIMIT.instagram + 1) })).toBeNull();
+    expect(campaign({ sms: "x".repeat(CHANNEL_LIMIT.sms + 1) })).toBeNull();
+  });
+
+  it("allows the longest support question the form allows", () => {
+    const ticket = (question: string) => send("ticket/create", (action) => { (action.ticket as Record<string, unknown>).question = question; });
+    expect(ticket("q".repeat(MAX_TICKET_QUESTION))).not.toBeNull();
+    expect(ticket("q".repeat(MAX_TICKET_QUESTION + 1))).toBeNull();
+  });
+
+  it("refuses text PostgreSQL cannot store", () => {
+    expect(send("customer/note", (action) => { action.note = "lone \ud800 surrogate"; })).toBeNull();
+    expect(send("customer/note", (action) => { action.note = "pair \ud83d\ude00 is fine"; })).not.toBeNull();
+  });
+
+  it("refuses impossible routine stamps and times", () => {
+    for (const at of ["2026-02-30 08:00", "2026-11-23 24:00", "2026-11-23 08:60", "2026-11-23"]) {
+      expect(send("routine/ran", (action) => { action.at = at; }), at).toBeNull();
+    }
+    expect(send("routine/ran", (action) => { action.at = "2026-11-23 23:59"; })).not.toBeNull();
+    expect(send("routine/add", (action) => { ((action.routine as { when: Record<string, unknown> }).when).time = "24:00"; })).toBeNull();
+    expect(send("routine/add", (action) => { (action.routine as Record<string, unknown>).lastRun = "2026-13-01 09:00"; })).toBeNull();
+  });
+
+  it("refuses stock lines that claim goods already arrived", () => {
+    expect(send("stock/order", (action) => { ((action.orders as { lines: Record<string, unknown>[] }[])[0].lines[0]).received = 6; })).toBeNull();
+  });
+
+  it("refuses a policy with too many deposits", () => {
+    const deposits = Object.fromEntries(Array.from({ length: 201 }, (_, index) => [`s-${index}`, 100]));
+    expect(send("salon/policy", (action) => { (action.policy as Record<string, unknown>).deposits = deposits; })).toBeNull();
   });
 
   it("refuses an extra field", () => {

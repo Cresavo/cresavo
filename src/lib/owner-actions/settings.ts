@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_TICKET_QUESTION } from "@/concept/support/tickets";
 import { MAX_SMS_PRICE_ORE } from "@/concept/booking/reminders";
 import { validPolicy } from "@/concept/booking/protection";
 import { SALON_DETAIL_MAX_LENGTH } from "@/concept/ops/salon-details";
@@ -7,6 +8,7 @@ import { epochMs, id, idList, list, required, text } from "./primitives";
 // Settings, support access, help requests, the trash and undo.
 
 const MAX_PATH = 500;
+const MAX_DEPOSITS = 200;
 const policyNumber = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 
 const policy = z.strictObject({
@@ -14,7 +16,7 @@ const policy = z.strictObject({
   freeHours: policyNumber,
   latePercent: policyNumber,
   noShowPercent: policyNumber,
-  deposits: z.record(id, policyNumber),
+  deposits: z.record(id, policyNumber).refine((deposits) => Object.keys(deposits).length <= MAX_DEPOSITS, "Too many deposits"),
   newCustomersOnly: z.boolean(),
   exemptServices: idList(),
 }).refine(validPolicy, "Not a valid cancellation policy");
@@ -29,7 +31,7 @@ const details = z.strictObject({
 
 const ticket = z.strictObject({
   createdAt: epochMs,
-  question: required(),
+  question: required(MAX_TICKET_QUESTION),
   path: text(MAX_PATH),
   requestId: id,
   screen: list(text(200), 100),

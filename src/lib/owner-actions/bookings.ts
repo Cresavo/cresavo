@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { date, id, minutes, required, staffId, text } from "./primitives";
+import { date, id, minutes, required, staffId, text, uuid } from "./primitives";
 
 // Bookings, the inbox and reviews.
 
 const slotSuggestion = z.strictObject({ staffId, serviceId: id, date, start: minutes });
 
-/** An inbox note as the studio writes it, without its id. */
+/** An inbox note as the studio writes it, without its id. `delivery` is the sender's own record and never comes from the owner. */
 export const inboxNotice = z.strictObject({
-  delivery: z.strictObject({ channel: z.enum(["sms", "email"]), kind: z.enum(["confirmation", "reminder"]), slot: required(80) }).optional(),
   kind: z.enum(["request", "reschedule", "cancel", "review", "message", "system"]),
   customerId: id.optional(),
   fromName: required().optional(),
@@ -29,7 +28,7 @@ export const inboxNotice = z.strictObject({
 
 const newBooking = z.strictObject({
   type: z.literal("booking/create"),
-  id: id.optional(),
+  id: uuid.optional(),
   serviceId: id,
   staffId,
   date,
@@ -45,7 +44,7 @@ export const bookingSchemas = {
   "booking/create": z.union([
     newBooking.extend({ customerId: id }),
     newBooking.extend({ newCustomer: guest.extend({ since: date }) }),
-    newBooking.extend({ fictionalCustomer: z.strictObject({ id, name: required(), since: date }), source: z.literal("assistant") }),
+    newBooking.extend({ fictionalCustomer: z.strictObject({ id: uuid, name: required(), since: date }), source: z.literal("assistant") }),
   ]),
   "booking/fee": z.strictObject({
     type: z.literal("booking/fee"), id, incident: z.enum(["noshow", "late"]), outcome: z.enum(["charge", "waive"]), reason: text().optional(),

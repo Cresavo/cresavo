@@ -1,6 +1,6 @@
 import type { DemoAction } from "@/concept/actions";
 import { OWNER_ACTION_SCHEMAS } from "./schemas";
-import { OWNER_ACTION_TYPES, type OwnerActionType } from "./types";
+import { MAX_ACTION_BYTES, OWNER_ACTION_TYPES, type OwnerActionType } from "./types";
 
 const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const MAX_DEPTH = 12;
@@ -17,11 +17,12 @@ function hasForbiddenKey(value: unknown, depth = 0): boolean {
   return Object.keys(value).some((key) => FORBIDDEN_KEYS.has(key) || hasForbiddenKey((value as Record<string, unknown>)[key], depth + 1));
 }
 
-/** The action as its schema parses it, or null. Unknown fields, wrong types and out-of-range values are refused. */
+/** The action as its schema parses it, or null. The nesting depth is checked before the size, so a deep value never reaches `JSON.stringify`. Unknown fields, wrong types and out-of-range values are refused. */
 export function parseOwnerAction(value: unknown): DemoAction | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const type = (value as { type?: unknown }).type;
   if (!isOwnerActionType(type) || hasForbiddenKey(value)) return null;
+  if (Buffer.byteLength(JSON.stringify(value)) > MAX_ACTION_BYTES) return null;
   const parsed = OWNER_ACTION_SCHEMAS[type].safeParse(value);
   return parsed.success ? parsed.data as DemoAction : null;
 }

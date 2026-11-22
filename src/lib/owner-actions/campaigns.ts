@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHANNEL_LIMIT } from "@/concept/campaigns/channels";
 import { TONE_RANGE } from "@/concept/campaigns/poster-engine/tone";
 import { date, id, idList, list, money, percent, required, text } from "./primitives";
 
@@ -35,7 +36,11 @@ const poster = z.strictObject({
 });
 
 const copy = z.strictObject({
-  instagram: text().optional(), facebook: text().optional(), tiktok: text().optional(), newsletter: text().optional(), sms: text().optional(),
+  instagram: text(CHANNEL_LIMIT.instagram).optional(),
+  facebook: text(CHANNEL_LIMIT.facebook).optional(),
+  tiktok: text(CHANNEL_LIMIT.tiktok).optional(),
+  newsletter: text(CHANNEL_LIMIT.newsletter).optional(),
+  sms: text(CHANNEL_LIMIT.sms).optional(),
 });
 
 const campaign = z.strictObject({

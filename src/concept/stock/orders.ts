@@ -18,13 +18,14 @@ const updateItems = (stock: StockItem[], change: (item: StockItem) => StockItem)
 
 /** Sends (simulated) each order: it is on order from now on and the email is saved in Inbox. */
 export function placeOrders(state: DemoState, orders: NewOrder[], at: { date: DateKey; time: number }): DemoState {
+  if (orders.some((o) => o.lines.some((l) => !state.stock.some((s) => s.id === l.stockId)))) return state;
   const valid = orders.filter((o) => o.lines.some((l) => l.quantity > 0));
   if (!valid.length) return state;
   let seq = state.seq;
   const placed: PurchaseOrder[] = [];
   const mails: InboxItem[] = [];
   for (const order of valid) {
-    const lines = order.lines.filter((l) => l.quantity > 0);
+    const lines = order.lines.filter((l) => l.quantity > 0).map(({ stockId, quantity, unitCost }) => ({ stockId, quantity, unitCost }));
     placed.push({ id: `o-${seq++}`, supplier: order.supplier, date: at.date, lines, status: "open" });
     mails.unshift({ id: `i-${seq++}`, kind: "system", date: at.date, time: at.time, title: order.email.title, body: order.email.body, read: false, handled: true });
   }
@@ -48,6 +49,7 @@ export function receiveGoods(state: DemoState, input: { orderId?: string; delive
   const deliveries = input.deliveries.filter((d) => d.quantity > 0 && state.stock.some((s) => s.id === d.stockId));
   const order = input.orderId ? state.orders.find((o) => o.id === input.orderId) : undefined;
   if (!deliveries.length || (input.orderId && order?.status !== "open")) return state;
+  if (order && !deliveries.every((d) => order.lines.some((l) => l.stockId === d.stockId))) return state;
   const arrived = (stockId: string) => deliveries.filter((d) => d.stockId === stockId).reduce((sum, d) => sum + d.quantity, 0);
   return {
     ...state,

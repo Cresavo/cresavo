@@ -20,4 +20,7 @@ export const OWNER_ACTION_TYPES = [
   "trash/restore",
 ] as const satisfies readonly DemoAction["type"][];
 
+/** The most an action may weigh once serialised. */
+export const MAX_ACTION_BYTES = 64 * 1024;
+
 export type OwnerActionType = (typeof OWNER_ACTION_TYPES)[number];

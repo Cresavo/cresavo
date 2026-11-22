@@ -11,13 +11,17 @@ const MAX_ID = 80;
 const MAX_LIST = 200;
 const MAX_MONEY = 1_000_000;
 
-const noNul = (value: string) => !value.includes("\0");
+/** PostgreSQL cannot store NUL characters or lone surrogates in jsonb. */
+const storable = (value: string) => !value.includes("\0") && value.isWellFormed();
 
 /** A name, label or required text; never empty. */
-export const required = (max = MAX_NAME) => z.string().min(1).max(max).refine(noNul, "No NUL characters");
+export const required = (max = MAX_NAME) => z.string().min(1).max(max).refine(storable, "Not storable text");
 
 /** Free text such as a note or a message; may be empty. */
-export const text = (max = MAX_TEXT) => z.string().max(max).refine(noNul, "No NUL characters");
+export const text = (max = MAX_TEXT) => z.string().max(max).refine(storable, "Not storable text");
+
+/** Ids a caller assigns itself must be UUIDs, so they can never collide with the studio's own `b-12` and `k-7` ids. */
+export const uuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 
 /** The ids the studio makes (`b-12`, `staff-3`, UUIDs, `stock-x-2026-11-22`). */
 export const id = z.string().min(1).max(MAX_ID).regex(/^[A-Za-z0-9_.:-]+$/);
@@ -49,3 +53,6 @@ export const list = <T extends z.ZodType>(item: T, max = MAX_LIST) => z.array(it
 export const idList = (max = MAX_LIST) => list(id, max);
 
 export const direction = z.enum(["up", "down"]);
+
+/** "YYYY-MM-DD HH:MM": a real day and a time from 00:00 to 23:59. */
+export const daySlot = z.string().regex(/^\d{4}-\d{2}-\d{2} ([01]\d|2[0-3]):[0-5]\d$/).refine((value) => date.safeParse(value.slice(0, 10)).success, "Not a real day");

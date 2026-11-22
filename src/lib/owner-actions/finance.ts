@@ -11,7 +11,8 @@ const MAX_ORDERS = 50;
 const MAX_LINES = 200;
 const unitCost = z.number().min(0).max(1_000_000);
 
-const orderLine = z.strictObject({ stockId: id, quantity, unitCost, received: quantity.optional() });
+/** What an order line says when it is placed; what arrived is recorded by the receipt. */
+const orderLine = z.strictObject({ stockId: id, quantity, unitCost });
 
 export const financeSchemas = {
   "cost/add": z.strictObject({
