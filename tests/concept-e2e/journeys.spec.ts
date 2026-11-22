@@ -82,6 +82,41 @@ test("a customer books online and the booking appears in the studio", async ({ p
   await expect(page.getByText(/Nova Demo/).first()).toBeVisible();
 });
 
+test("a customer books for someone else and the studio shows the guest and the contact", async ({ page }) => {
+  await page.goto("/boka/salong-eko");
+  const ask = page.getByRole("textbox", { name: /What would you like to book/ });
+  await ask.fill("Foot care day after tomorrow with Anna");
+  await ask.press("Enter");
+  await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+  const who = page.getByRole("radiogroup", { name: "Who is the visit for?" });
+  await expect(who.getByRole("radio", { name: "For me" })).toBeChecked();
+  await expect(page.getByLabel("Name of the person visiting")).toHaveCount(0);
+  await who.getByRole("radio", { name: "For someone else" }).click();
+  await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
+  await page.getByLabel("Mobile number").fill("070-000 99 13");
+  await expect(page.getByRole("button", { name: "Confirm booking", exact: true })).toBeDisabled();
+  await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
+  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
+  await expect(page.getByText(/The visit is for Elsa Demo\./)).toBeVisible();
+
+  const saved = await state(page);
+  const booking = saved.bookings.at(-1)!;
+  const contact = saved.customers.find(c => c.id === booking.customerId)!;
+  expect(booking.visitFor).toBe("Elsa Demo");
+  expect(fullName(contact)).toBe("Nova Demo");
+  expect(saved.customers.some(c => c.firstName === "Elsa" && c.lastName === "Demo")).toBe(false);
+
+  await page.goto(`/studio/customers/${contact.id}`);
+  await page.getByRole("button", { name: /Visit for Elsa Demo/ }).first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: "Elsa Demo" })).toBeVisible();
+  await expect(sheet.getByText("Booked by")).toBeVisible();
+  await expect(sheet.getByText("Nova Demo")).toBeVisible();
+  await expect(sheet.getByRole("link", { name: /070-000 99 13/ })).toBeVisible();
+});
+
 test("the owner moves a booking with a quick command and undoes it", async ({ page }) => {
   await page.goto("/studio");
   const { booking, date, start } = moveTarget(await state(page));
