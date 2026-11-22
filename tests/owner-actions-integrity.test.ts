@@ -220,3 +220,32 @@ describe("owner text and request edge cases", () => {
     expect(await readBoundedJson(post("\uFEFF{\"a\":1}"), 100)).toEqual({ a: 1 });
   });
 });
+
+describe("owner id and receipt regressions", () => {
+  it("refuses an assistant booking under the id of a customer in the trash", () => {
+    const deleted = reduce(base, { type: "customer/delete", id: customer.id });
+    const start = freeStarts(deleted, service.staffIds[0], "2026-12-07", { serviceId: service.id, duration: service.duration })[0];
+    const action = {
+      type: "booking/create", fictionalCustomer: { id: customer.id, name: "Sam Example", since: today },
+      serviceId: service.id, staffId: service.staffIds[0], date: "2026-12-07", start, source: "assistant",
+    } as const;
+    expect(reduce(deleted, action)).toBe(deleted);
+    const restored = reduce(deleted, { type: "trash/restore", id: deleted.trash[0].id });
+    expect(restored.customers.filter((c) => c.id === customer.id)).toHaveLength(1);
+  });
+
+  it("receives an old order whose item is no longer stocked, and still refuses unrelated items", () => {
+    const [first, second] = base.stock;
+    const line = { stockId: "retired-item", quantity: 4, unitCost: 5 };
+    const old = {
+      ...base,
+      orders: [{ id: "o-old", supplier: first.supplier, date: today, status: "open" as const, lines: [{ stockId: first.id, quantity: 2, unitCost: 5 }, line] }],
+    };
+    const next = reduce(old, { type: "stock/receive", orderId: "o-old", deliveries: [{ stockId: first.id, quantity: 2 }, { stockId: "retired-item", quantity: 4 }, { stockId: second.id, quantity: 0 }], date: today });
+    expect(next.orders[0].status).toBe("received");
+    expect(next.stock.find((s) => s.id === first.id)?.inStock).toBe(first.inStock + 2);
+    expect(reduce(old, { type: "stock/receive", orderId: "o-old", deliveries: [{ stockId: first.id, quantity: 2 }, { stockId: second.id, quantity: 1 }], date: today })).toBe(old);
+    expect(reduce(old, { type: "stock/receive", orderId: "o-old", deliveries: [{ stockId: "retired-item", quantity: 4 }], date: today })).toBe(old);
+  });
+});
+

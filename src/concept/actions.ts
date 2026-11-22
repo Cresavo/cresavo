@@ -489,7 +489,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       }
       const service = state.services.find((s) => s.id === serviceId);
       const fictional = "fictionalCustomer" in action ? action.fictionalCustomer : undefined;
-      if (fictional && state.customers.some(c => c.id === fictional.id)) return state;
+      if (fictional && takenIds(state, "customers").has(fictional.id)) return state;
       const guest = "newCustomer" in action ? action.newCustomer : { ...action.fictionalCustomer, phone: "" };
       if (!service || guest.name.trim().length < 2 || (!fictional && !isContactPhone(guest.phone))) return state;
       const next = ensureCustomer(state, guest, guest.since, service.category, staffId, false, fictional?.id);

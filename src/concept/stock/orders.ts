@@ -58,10 +58,14 @@ function receivedPerLine(lines: OrderLine[], arrived: (stockId: string) => numbe
  * that order is closed and the ordered amounts stop counting as "on order".
  */
 export function receiveGoods(state: DemoState, input: { orderId?: string; deliveries: Delivery[]; date: DateKey }): DemoState {
-  const deliveries = input.deliveries.filter((d) => d.quantity > 0);
+  const positive = input.deliveries.filter((d) => d.quantity > 0);
   const order = input.orderId ? state.orders.find((o) => o.id === input.orderId) : undefined;
-  if (!deliveries.length || (input.orderId && order?.status !== "open")) return state;
-  if (!deliveries.every((d) => state.stock.some((s) => s.id === d.stockId) && (!order || order.lines.some((l) => l.stockId === d.stockId)))) return state;
+  if (input.orderId && order?.status !== "open") return state;
+  const stocked = (stockId: string) => state.stock.some((s) => s.id === stockId);
+  // On an order, an item that is no longer stocked is ignored; anything else the order does not hold, or that is not stocked, refuses the receipt.
+  if (!positive.every((d) => (order ? order.lines.some((l) => l.stockId === d.stockId) : stocked(d.stockId)))) return state;
+  const deliveries = positive.filter((d) => stocked(d.stockId));
+  if (!deliveries.length) return state;
   const arrived = (stockId: string) => deliveries.filter((d) => d.stockId === stockId).reduce((sum, d) => sum + d.quantity, 0);
   return {
     ...state,
