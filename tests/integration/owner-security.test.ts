@@ -264,7 +264,7 @@ describe("password reset", () => {
     await requestPasswordReset({ email: ` ${email("MAIL")} ` }, registry, START.getTime());
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toEqual([email("mail")]);
-    expect(sent[0].text).toMatch(/^https?:|https:\/\/book\.example\/account\/reset#t=/m);
+    expect(sent[0].text).toContain("https://book.example/account/reset#t=");
     expect(sent[0].html).toContain("https://book.example/account/reset#t=");
     expect(sent[0].tracking).toBe(false);
     expect(a.identity.id).toBeTruthy();
