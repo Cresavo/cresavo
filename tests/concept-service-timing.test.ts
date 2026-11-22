@@ -274,19 +274,51 @@ describe("review fixes", () => {
     expect(restored.bookings.find((b) => b.serviceId === "roomy")?.status).toBe("cancelled");
   });
 
-  it("rechecks availability for completed visits on customer restore and undo", () => {
-    const booked = book(empty([padded, trim]), "padded", hm(10));
-    const done = reduce(booked, { type: "booking/complete", id: booked.bookings[0].id });
-    expect(done.bookings[0].status).toBe("completed");
-    const customerId = done.bookings[0].customerId;
+  describe("completed visits are never rechecked on restore or undo", () => {
+    const completeAll = (state: DemoState) => state.bookings.reduce((next, b) => reduce(next, { type: "booking/complete", id: b.id }), state);
 
-    const deleted = reduce(done, { type: "customer/delete", id: customerId });
-    const taken = book(deleted, "trim", hm(11), 1);
-    expect(restoreEntry(taken, taken.trash[0].id).bookings.find((b) => b.serviceId === "padded")?.status).toBe("cancelled");
+    it("keeps a completed visit after the staff member's hours changed", () => {
+      const booked = completeAll(book(empty([padded]), "padded", hm(10)));
+      const shifted = { ...booked, staff: booked.staff.map((p) => (p.id === "anna" ? { ...p, week: { ...p.week, [weekday(day)]: { start: hm(11), end: hm(17) } } } : p)) };
+      const customerId = shifted.bookings[0].customerId;
+      const deleted = reduce(shifted, { type: "customer/delete", id: customerId });
+      expect(restoreEntry(deleted, deleted.trash[0].id).bookings[0]).toEqual(shifted.bookings[0]);
+      const logged = applyAction(shifted, { type: "customer/delete", id: customerId }, meta);
+      expect(undoBlockReason(logged, logged.log[0])).toBeUndefined();
+    });
 
-    const logged = applyAction(done, { type: "customer/delete", id: customerId }, meta);
-    const busy = book(logged, "trim", hm(11), 1);
-    expect(undoBlockReason(busy, busy.log[0])).toBe("time-taken");
-    expect(undoBlockReason(logged, logged.log[0])).toBeUndefined();
+    it("keeps the recorded rooms of completed visits in the same bundle", () => {
+      const roomA = service("room-a", 30, { resourceIds: ["room-1", "room-2"] });
+      const roomB = service("room-b", 30, { staffIds: ["erik"], resourceIds: ["room-1"] });
+      const booked = book(book(empty([roomA, roomB, trim]), "room-b", hm(10), 0, "erik"), "room-a", hm(10));
+      const state = completeAll({ ...booked, bookings: [...booked.bookings].reverse() });
+      expect(state.bookings.map((b) => b.resourceId)).toEqual(["room-2", "room-1"]);
+      const deleted = reduce(state, { type: "customer/delete", id: state.bookings[0].customerId });
+      const restored = restoreEntry(deleted, deleted.trash[0].id);
+      expect(restored.bookings.map((b) => [b.status, b.resourceId])).toEqual([["completed", "room-2"], ["completed", "room-1"]]);
+    });
+
+    it("keeps the recorded rooms of upcoming visits in the same bundle", () => {
+      const roomA = service("room-a", 30, { resourceIds: ["room-1", "room-2"] });
+      const roomB = service("room-b", 30, { staffIds: ["erik"], resourceIds: ["room-1"] });
+      const booked = book(book(empty([roomA, roomB, trim]), "room-b", hm(10), 0, "erik"), "room-a", hm(10));
+      const state = { ...booked, bookings: [...booked.bookings].reverse() };
+      const deleted = reduce(state, { type: "customer/delete", id: state.bookings[0].customerId });
+      const restored = restoreEntry(deleted, deleted.trash[0].id);
+      expect(restored.bookings.map((b) => [b.status, b.resourceId]).sort()).toEqual([["booked", "room-1"], ["booked", "room-2"]]);
+    });
+
+    it("does not let a gift card cancel a completed visit it never paid for", () => {
+      const state = empty([trim]);
+      const done = completeAll(book(state, "trim", hm(10)));
+      const cards = [{ id: "g-1", code: "EKO-TEST-0001", amount: 100, recipient: "Fictional", message: "", soldOn: "2026-11-01", redemptions: [
+        { bookingId: "x-1", amount: 60, date: day }, { bookingId: "y-1", amount: 70, date: day },
+      ] }];
+      const withCancelled = reduce(reduce({ ...done, giftCards: cards }, { type: "booking/create", id: "x-1", customerId: done.bookings[0].customerId, serviceId: "trim", staffId: "anna", date: day, start: hm(14), source: "phone" }), { type: "booking/cancel", id: "x-1" });
+      const customerId = withCancelled.bookings[0].customerId;
+      const deleted = reduce(withCancelled, { type: "customer/delete", id: customerId });
+      const restored = restoreEntry(deleted, deleted.trash[0].id);
+      expect(restored.bookings.map((b) => b.status).sort()).toEqual(["cancelled", "completed"]);
+    });
   });
 });

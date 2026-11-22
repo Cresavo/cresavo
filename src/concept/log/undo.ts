@@ -67,14 +67,14 @@ function previewUndo(state: DemoState, entry?: LogEntry): DemoState | UndoBlockR
     if (!isActive(booking)) continue;
     const { id, staffId, date, start } = booking;
     const beforeUndo = current.get(id);
-    const restored = beforeUndo?.status !== booking.status;
+    const restored = booking.status === "booked" && beforeUndo?.status !== "booked";
     const moved = beforeUndo && (beforeUndo.staffId !== staffId || beforeUndo.date !== date || beforeUndo.start !== start);
     if (!restored && !moved) continue;
 
     if (!isFree(reverted, staffId, date, start, booking, id)) return "time-taken";
     // The bookings patch gives the reverted state its own array. Reserve the
     // room here so the next restored booking sees it too.
-    reverted.bookings[index] = { ...booking, resourceId: pickResource(reverted, booking, date, start, id) };
+    reverted.bookings[index] = { ...booking, resourceId: pickResource(reverted, booking, date, start, id, booking.resourceId) };
   }
   return reverted;
 }

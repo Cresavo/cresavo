@@ -149,13 +149,13 @@ export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey,
   return list.sort((a, b) => a.start - b.start);
 }
 
-/** The room or chair a booking would use: the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
-export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string): string | undefined {
+/** The room or chair a booking would use: `preferred` if it is free, otherwise the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
+export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string, preferred?: string): string | undefined {
   const end = start + need.duration;
   const holds = activeHolds(ctx, date);
   const overlaps = (b: Booking | CheckoutHold, id: string) =>
     b.resourceId === id && b.id !== ignoreId && start < b.start + b.duration && end > b.start;
-  return usableResources(ctx, need.serviceId).find(id =>
+  return usableResources(ctx, need.serviceId).sort((a, b) => Number(b === preferred) - Number(a === preferred)).find(id =>
     !ctx.bookings.some(b => b.date === date && isActive(b) && overlaps(b, id)) && !holds.some(h => overlaps(h, id)),
   );
 }

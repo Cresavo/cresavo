@@ -2,7 +2,7 @@ import { refundCancellation } from "../booking/settlement";
 import { demoPayments } from "../connections/demo";
 import { t } from "../i18n";
 import { diffDays } from "../data/dates";
-import { isActive, isFree, pickResource } from "../data/slots";
+import { isFree, pickResource } from "../data/slots";
 import { cardsCovered, returnRedemptions } from "../giftcards/cards";
 import { eraseCustomer } from "../customers/erase";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
@@ -94,7 +94,7 @@ const rebook = (state: DemoState, booking: Booking): Booking => ({
   ...booking,
   status: "booked",
   cancelReason: undefined,
-  resourceId: pickResource(state, booking, booking.date, booking.start, booking.id),
+  resourceId: pickResource(state, booking, booking.date, booking.start, booking.id, booking.resourceId),
 });
 
 /** Why a cancelled booking cannot come back: its time was taken, or its gift card balance was spent meanwhile. */
@@ -133,14 +133,12 @@ export function restoreEntry(state: DemoState, id: string, payments = demoPaymen
   };
   // A time taken while the customer was in the trash must not be double-booked,
   // and a gift card balance spent meanwhile must not be spent twice.
-  for (const booking of entry.bookings) {
-    if (!isActive(booking)) {
-      restored.bookings = [...restored.bookings, booking];
-      continue;
-    }
+  // Visits that already happened (and cancelled ones) come back as they were, rooms included, before upcoming visits are checked.
+  restored.bookings = [...restored.bookings, ...entry.bookings.filter((b) => b.status !== "booked")];
+  for (const booking of entry.bookings.filter((b) => b.status === "booked")) {
     const available = isFree(restored, booking.staffId, booking.date, booking.start, booking, booking.id);
     if (available) {
-      const bookings = [...restored.bookings, booking.status === "booked" ? rebook(restored, booking) : { ...booking, resourceId: pickResource(restored, booking, booking.date, booking.start, booking.id) }];
+      const bookings = [...restored.bookings, rebook(restored, booking)];
       if (cardsCovered({ ...restored, bookings })) {
         restored.bookings = bookings;
         continue;
