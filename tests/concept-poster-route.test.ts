@@ -27,6 +27,12 @@ describe("poster route", () => {
     expect((await post({ ...body, data: { ...body.data, photo: "data:image/webp;base64,AAAA" } })).status).toBe(400);
   });
 
+  it("renders the type-only poster without a photo and refuses every other template without one", async () => {
+    const withoutPhoto = { ...body.data, photo: undefined };
+    expect((await post({ ...body, template: "typography", data: withoutPhoto })).status).toBe(200);
+    for (const template of ["price", "fullphoto", "portrait", "beforeafter"]) expect((await post({ ...body, template, data: withoutPhoto })).status, template).toBe(400);
+  }, 20_000);
+
   it("refuses bodies over 6 MB, declared or streamed", async () => {
     const huge = "x".repeat(6_000_001);
     expect((await post(huge)).status).toBe(413);

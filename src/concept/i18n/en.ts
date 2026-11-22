@@ -1567,6 +1567,8 @@ const messages = {
   "campaigns.photo.before": "Before photo",
   "campaigns.photo.after": "After photo",
   "campaigns.style.portrait": "Portrait",
+  "campaigns.style.fullphoto": "Full photo",
+  "campaigns.style.typography": "Type only",
   "campaigns.engine.portraitLead": "Time for",
   "campaigns.poster.socialQr": "Show the QR code in posts and stories too (always on the window poster)",
   "campaigns.poster.headlineLong": "A long word makes the headline small and hard to read in the feed. Shorten it or split it into two words.",

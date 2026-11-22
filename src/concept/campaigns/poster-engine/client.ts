@@ -3,6 +3,7 @@ import { bookingHome } from "../../booking/links";
 import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
+import { usesPhoto } from "../poster-layout";
 import { applyLightContrast, applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "./tone";
 
 // The browser side of the poster engine: gathers what a template needs, turns
@@ -145,7 +146,8 @@ const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.eleg
 /** The request body for one poster. */
 export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext) {
   const language = context.language ?? getActiveLocale();
-  const photo = await posterPhoto(poster.image, poster.photoTone);
+  // Type only has no photo: nothing is fetched, decoded or sent.
+  const photo = usesPhoto(poster.style) ? await posterPhoto(poster.image, poster.photoTone) : undefined;
   const qr = qrFor(format, !!poster.socialQr, context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
   const { rating } = context;
   return {
@@ -164,8 +166,8 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       author: cut(poster.author ?? "", 40),
       ...(poster.stars && { stars: poster.stars }),
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
-      photo: photo.src,
-      cutout: poster.style === "portrait" && photo.cutout,
+      ...(photo && { photo: photo.src }),
+      cutout: poster.style === "portrait" && !!photo?.cutout,
       ...(poster.style === "beforeafter" && poster.before && { before: (await posterPhoto(poster.before, poster.photoTone)).src }),
       ...(poster.style === "portrait" && { lead: cut(poster.lead ?? "", 30), backdrop: poster.backdrop ?? "bloom" }),
       pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
