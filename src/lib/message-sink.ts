@@ -11,6 +11,7 @@ import { productDomain } from "../concept/page/address";
 import type { EffectDelivery, EffectSink } from "../concept/store/effect-outbox";
 import { migrateSaved } from "../concept/store/studio-store";
 import { bookingLink, bookingLinkBase } from "./booking-link";
+import { log } from "./log";
 
 // Delivers a salon's `booking-message/send` effects (docs/integrations/README.md).
 // E-mail goes through the registry, which simulates unless a provider is live;
@@ -170,7 +171,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const live = effect.record.live ?? kept?.live ?? !SIMULATED_ON_PURPOSE.has(resolution.reason);
     if (live && !resolution.live) {
       // Names the reason only: never a value of the configuration.
-      console.warn(`[message-sink] a booking e-mail waits: the e-mail connection resolved to "${resolution.reason}" but a real send was intended`);
+      log.warn("BOOKING_EMAIL_WAITING", { reason: resolution.reason });
       throw new Error("EMAIL_NOT_CONFIGURED");
     }
     // Past the deadline the request must not start: the outbox is already retrying it.

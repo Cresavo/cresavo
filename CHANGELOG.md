@@ -8,6 +8,14 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Monitoring, ready but off until configured.** `GET /api/health` returns `{ ok, version }` for an uptime monitor, and runs a database check with a short timeout only when `HEALTH_CHECK_DB=1`. With `ERROR_REPORT_DSN` set to a Sentry-compatible DSN (choose an EU region), unexpected 500s and errors Next.js catches (`onRequestError`) are sent once each as an envelope over plain `fetch`, with a 2-second timeout and `ERROR_REPORT_SAMPLE_RATE` sampling: error class, stack file paths, route pattern, release, environment and event code, never messages, bodies, headers, cookies, query strings, e-mails or IPs. Without the DSN nothing is sent. Setup, alerts and uptime checks are in `docs/operations/MONITORING.md`; the pilot gate item stays open.
+
+### Changed
+
+- **Server log lines are structured JSON.** `src/lib/log.ts` writes one line per event with level, event code, time and an allowlist of non-personal fields; the existing codes (for example `BOOKING_INTERNAL_ERROR`) are kept. The two free-text warnings about e-mail that was not sent are now the codes `OWNER_RESET_EMAIL_NOT_SENT` and `BOOKING_EMAIL_WAITING` with a reason field.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

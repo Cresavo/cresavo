@@ -1,4 +1,6 @@
 import { ZodError } from "zod";
+import { markReported, reportError } from "./error-report";
+import { log } from "./log";
 
 // Only literal messages owned by this codebase may cross a trust boundary.
 const publicMessages = [
@@ -80,12 +82,16 @@ export function safeFailure(error: unknown) {
   if (error instanceof ZodError || error instanceof SyntaxError)
     return { status: 400, message: "Check the details and try again." };
   // Never log the error, message, stack, cause, SQL, request or credentials.
-  console.error("BOOKING_INTERNAL_ERROR");
+  // The log line carries the code and the class name; the optional report adds file paths only.
+  log.error("BOOKING_INTERNAL_ERROR", { errorName: error instanceof Error ? error.constructor.name : undefined });
+  reportError(error, { code: "BOOKING_INTERNAL_ERROR" });
   return { status: 500, message: "Something went wrong. Try again." };
 }
 
 // Scope this to data loading, not Next redirect/notFound control flow.
 export function pageDataFailure(error: unknown): never {
   safeFailure(error);
-  throw new Error("Something went wrong. Try again.");
+  const thrown = new Error("Something went wrong. Try again.");
+  markReported(thrown); // reported above; Next's onRequestError sees this one next
+  throw thrown;
 }

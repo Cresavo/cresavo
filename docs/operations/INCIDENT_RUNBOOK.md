@@ -7,6 +7,8 @@ outside Git (`<on-call sheet location, TBD by the maintainer>`). Never paste a
 secret, a customer's details or a database URL into an issue, a chat or this
 file. The pilot gate item is in
 [QUALITY_SECURITY](../QUALITY_SECURITY.md#pilot-gate-before-the-first-real-customer).
+How incidents are noticed (error reports, alerts, uptime checks) is in
+[MONITORING](MONITORING.md).
 
 ## Severity levels
 

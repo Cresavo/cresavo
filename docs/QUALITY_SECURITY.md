@@ -177,7 +177,10 @@ Operations
 - [ ] Least-privilege database roles in place for app, sweeper and support
       (`prisma/grants/roles.sql`, with `studio-store.sql` and `erase-subject.sql`;
       `verify-studio-store.sql` and `verify-roles.sql` return no rows for the real logins).
-- [ ] Error tracking and alerting to phone; status page.
+- [ ] Error tracking and alerting to phone; status page. Error reporting, the
+      health endpoint and the alerts to create are described in
+      [MONITORING](operations/MONITORING.md); nothing is on until the operator
+      configures it. Tick when the alerts exist and a test alert reached a phone.
 - [ ] Structured logs with request id, retention defined.
 - [ ] Runbook for incidents, including personal data breach notification
       (72 hours to the supervisory authority):
