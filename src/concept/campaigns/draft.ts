@@ -1,7 +1,7 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
 import { t, tc, translate } from "../i18n";
-import { dayChipLabel, formatDate, formatDayLong, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { dayChipLabel, formatDate, formatDayLong, formatDayMonth, formatDayShort, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
@@ -201,8 +201,14 @@ function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "pri
 /** Styles about one treatment: its name is the headline and the first sentence of its description the detail. */
 const NAMED_AFTER_TREATMENT = new Set<PosterStyle>(["price", "beforeafter", "portrait", "fullphoto", "typography"]);
 
+/** The campaign's first treatment as the business's customers read it (its language, not the studio's). */
+function firstTreatment(state: DemoState, draft: Draft) {
+  const service = state.services.find((s) => s.id === draft.serviceIds[0]);
+  return service && serviceCopy(service, state.localization.language);
+}
+
 function defaultHeadline(state: DemoState, draft: Draft): string {
-  if (NAMED_AFTER_TREATMENT.has(draft.style)) return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
+  if (NAMED_AFTER_TREATMENT.has(draft.style)) return firstTreatment(state, draft)?.name ?? draft.name;
   if (draft.style === "season") return state.holidays.find((h) => h.id === draft.holidayId)?.name ?? draft.name;
   if (draft.style === "slots") {
     const free = freeTimes(state, draft.serviceIds[0], draft);
@@ -226,8 +232,18 @@ export function firstSentence(text: string): string {
   return `${(space > SHORT_DETAIL / 2 ? head.slice(0, space) : head.slice(0, SHORT_DETAIL - 1)).replace(/[,;:–-]$/, "").trim()}…`;
 }
 
+/** The first free day and its times as one short line: what a "fill free times" poster says instead of the treatment. */
+function freeTimesLine(state: DemoState, draft: Draft): string | null {
+  const free = freeTimes(state, draft.serviceIds[0], draft);
+  return free && [formatDayShort(free.date, state.localization.language), ...free.times].join(" · ");
+}
+
 function defaultDetail(state: DemoState, draft: Draft): string {
-  const first = state.services.find((s) => s.id === draft.serviceIds[0]);
+  const first = firstTreatment(state, draft);
+  if (draft.goal === "fill" && (draft.style === "fullphoto" || draft.style === "typography")) {
+    const line = freeTimesLine(state, draft);
+    if (line) return line;
+  }
   if (NAMED_AFTER_TREATMENT.has(draft.style) && first?.description) return firstSentence(first.description);
   if (draft.style === "slots" && first) return `${first.name} · ${formatDuration(first.duration)}`;
   return listServices(serviceNames(state, draft));

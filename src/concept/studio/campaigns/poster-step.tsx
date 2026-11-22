@@ -7,7 +7,7 @@ import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
 import { NEUTRAL_TONE } from "../../campaigns/poster-engine/tone";
 import { GOAL_STYLES } from "../../campaigns/goals";
 import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
-import { headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
+import { headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, usesPhoto, WELLNESS_BADGES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
 import { Button, buttonClass } from "../../ui/button";
@@ -37,6 +37,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const poster = resolvePoster(state, draft);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
   const edit = (patch: Draft["posterEdits"]) => onChange((current) => ({ posterEdits: { ...current.posterEdits, ...patch } }));
+  const withPhoto = usesPhoto(draft.style);
   const badges = poster.badges ?? [];
   const staffPhotos = state.staff.flatMap((member) => (member.photo ? [{ src: member.photo, label: `${member.firstName} ${member.lastName}` }] : []));
   const toggleBadge = (badge: string) =>
@@ -130,28 +131,32 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             ))}
           </div>
         </div>
-        {draft.style === "beforeafter" ? (
+        {withPhoto && (
           <>
-            <PhotoPicker label={t("campaigns.photo.before")} value={poster.before} onPick={(before) => edit({ before })} />
-            <PhotoPicker label={t("campaigns.photo.after")} value={poster.image} onPick={(image) => edit({ image })} />
+            {draft.style === "beforeafter" ? (
+              <>
+                <PhotoPicker label={t("campaigns.photo.before")} value={poster.before} onPick={(before) => edit({ before })} />
+                <PhotoPicker label={t("campaigns.photo.after")} value={poster.image} onPick={(image) => edit({ image })} />
+              </>
+            ) : draft.style === "portrait" ? (
+              <>
+                <PhotoPicker label={t("campaigns.photo.person")} value={poster.image} onPick={(image) => edit({ image })} images={staffPhotos} />
+                <p className="text-sm text-text-secondary">{t("campaigns.photo.cutoutTip")}</p>
+                <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.backdrop")}</span>
+                <Segmented<Backdrop>
+                  label={t("campaigns.poster.backdrop")}
+                  value={poster.backdrop ?? "bloom"}
+                  onChange={(backdrop) => edit({ backdrop })}
+                  options={BACKDROPS.map((value) => ({ value, label: t(`campaigns.backdrop.${value}`) }))}
+                />
+              </>
+            ) : (
+              <PhotoPicker label={t("campaigns.poster.photo")} value={poster.image} onPick={(image) => edit({ image })} />
+            )}
+            {[poster.image, draft.style === "beforeafter" ? poster.before : undefined].some((image) => image && isOwnPhoto(image)) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
+            {isEngineStyle(draft.style) && <ToneControls tone={poster.photoTone ?? NEUTRAL_TONE} onChange={(photoTone) => edit({ photoTone })} />}
           </>
-        ) : draft.style === "portrait" ? (
-          <>
-            <PhotoPicker label={t("campaigns.photo.person")} value={poster.image} onPick={(image) => edit({ image })} images={staffPhotos} />
-            <p className="text-sm text-text-secondary">{t("campaigns.photo.cutoutTip")}</p>
-            <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.backdrop")}</span>
-            <Segmented<Backdrop>
-              label={t("campaigns.poster.backdrop")}
-              value={poster.backdrop ?? "bloom"}
-              onChange={(backdrop) => edit({ backdrop })}
-              options={BACKDROPS.map((value) => ({ value, label: t(`campaigns.backdrop.${value}`) }))}
-            />
-          </>
-        ) : (
-          <PhotoPicker label={t("campaigns.poster.photo")} value={poster.image} onPick={(image) => edit({ image })} />
         )}
-        {[poster.image, draft.style === "beforeafter" ? poster.before : undefined].some((image) => image && isOwnPhoto(image)) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
-        {isEngineStyle(draft.style) && <ToneControls tone={poster.photoTone ?? NEUTRAL_TONE} onChange={(photoTone) => edit({ photoTone })} />}
         <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.textSize")}</span>
         <Segmented<PosterTextSize>
           label={t("campaigns.poster.textSize")}
@@ -159,13 +164,17 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           onChange={(textSize) => edit({ textSize })}
           options={TEXT_SIZES.map((value) => ({ value, label: t(`campaigns.textSize.${value}`) }))}
         />
-        <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.focus")}</span>
-        <Segmented<PosterFocus>
-          label={t("campaigns.poster.focus")}
-          value={poster.focus ?? "center"}
-          onChange={(focus) => edit({ focus })}
-          options={FOCUSES.map((value) => ({ value, label: t(`campaigns.focus.${value}`) }))}
-        />
+        {withPhoto && (
+          <>
+            <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.focus")}</span>
+            <Segmented<PosterFocus>
+              label={t("campaigns.poster.focus")}
+              value={poster.focus ?? "center"}
+              onChange={(focus) => edit({ focus })}
+              options={FOCUSES.map((value) => ({ value, label: t(`campaigns.focus.${value}`) }))}
+            />
+          </>
+        )}
         {(draft.style === "price" || draft.style === "pricelist" || draft.style === "portrait") && (
           <fieldset className="space-y-2">
             <legend className="block text-sm font-medium">{t("campaigns.poster.badges")}</legend>

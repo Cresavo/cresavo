@@ -1,5 +1,6 @@
 import { encode } from "uqr";
 import { z } from "zod";
+import { contrast, readable } from "../../page/colour";
 import { BACKDROPS, backdropSvg } from "./backdrops";
 import { box, image, svgImage, text, type PosterNode, type Style } from "./element";
 
@@ -41,7 +42,8 @@ export const posterDataSchema = z.object({
   author: line(40).default(""),
   /** The quoted review's own rating; the review poster never shows the salon's average beside a single quote. */
   stars: z.number().int().min(1).max(5).optional(),
-  photo,
+  /** Every template but Type only draws it; the route refuses a request without one (`usesPhoto`). */
+  photo: photo.optional(),
   /** Before/after: the "before" photo, and the two words on the photos in the salon's language. */
   before: photo.optional(),
   pair: z.tuple([line(12), line(12)]).default(["Before", "After"]),
@@ -67,6 +69,12 @@ export const posterDataSchema = z.object({
 
 export type PosterData = z.infer<typeof posterDataSchema>;
 
+/** The photo of a template that draws one. */
+function photoOf(data: PosterData): string {
+  if (!data.photo) throw new Error("This poster needs a photo");
+  return data.photo;
+}
+
 /** A story's top and bottom, which Instagram covers with its own bars: no text there. */
 export const STORY_SAFE = { top: 270, bottom: 390 } as const;
 const isStory = (width: number, height: number) => height > width * 1.5;
@@ -75,13 +83,10 @@ const SCALE = { small: 0.85, normal: 1, large: 1.15 } as const;
 const CROP = { top: "50% 10%", center: "50% 50%", bottom: "50% 90%" } as const;
 const HIGHLIGHT = "#ffd84d";
 const WHITE = "#ffffff";
+const INK = "#111111";
 
-function luminance(hex: string) {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-/** Black or white, whichever reads better on `background`. */
-const onColour = (background: string) => (luminance(background) > 0.4 ? "#111111" : WHITE);
+/** Near-black or white, whichever reads better on `background`. */
+const onColour = (background: string) => (contrast(WHITE, background) >= contrast(INK, background) ? WHITE : INK);
 
 const stars = (count: number, size: number) =>
   svgImage(`<svg xmlns="http://www.w3.org/2000/svg" width="${count * size}" height="${size}" viewBox="0 0 ${count * 24} 24">${Array.from({ length: count }, (_, i) =>
@@ -156,7 +161,7 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
   const wave = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height - waveTop}" viewBox="0 0 ${width} ${height - waveTop}" preserveAspectRatio="none"><path d="M0 60 C ${width * 0.24} -10, ${width * 0.48} 140, ${width} 40 V${height - waveTop} H0Z" fill="${accent}"/></svg>`;
   return box({ width, height, position: "relative", background, fontFamily: "Inter" },
     svgImage(wave, { position: "absolute", left: 0, top: waveTop, width, height: height - waveTop }),
-    image(data.photo, { position: "absolute", right: -40, top: Math.round(height * 0.09), width: photoWidth, height: Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
+    image(photoOf(data), { position: "absolute", right: -40, top: Math.round(height * 0.09), width: photoWidth, height: Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
     text({ position: "absolute", left: 64, top: 90, width: width - photoWidth - 40, ...headingFont(data), fontSize: Math.round(112 * scale), lineHeight: 0.95, color: onColour(background) === WHITE ? WHITE : ink }, data.headline),
     text({ position: "absolute", left: 56, top: priceTop, fontFamily: "Inter Display", fontWeight: 900, fontSize: priceSize, letterSpacing: -6, color: onAccent, textShadow: `12px 12px 0 ${onAccent === WHITE ? ink : WHITE}` }, data.price),
     ...(data.sticker ? [box({ position: "absolute", left: width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
@@ -177,7 +182,7 @@ function priceListTemplate(data: PosterData, width: number, height: number): Pos
     box({ flexGrow: 1, borderBottom: `3px dotted ${accent}`, marginLeft: 14, marginRight: 14, marginBottom: 10 }),
     text({ fontWeight: 800 }, item.price)));
   return box({ width, height, position: "relative", background, fontFamily: "Inter", color: ink },
-    image(data.photo, { position: "absolute", right: 0, top: 0, width: Math.round(width * 0.4), height: height - footer, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    image(photoOf(data), { position: "absolute", right: 0, top: 0, width: Math.round(width * 0.4), height: height - footer, objectFit: "cover", objectPosition: CROP[data.focus] }),
     box({ position: "absolute", left: 56, top: 100, width: cardWidth, flexDirection: "column", background: WHITE, borderRadius: 40, padding: 56, boxShadow: "0 30px 60px rgba(0,0,0,0.15)" },
       ...(data.label ? [box({}, text({ background: accent, color: onColour(accent), fontWeight: 800, fontSize: 28, letterSpacing: 5, padding: "8px 20px", borderRadius: 12 }, data.label.toUpperCase()))] : []),
       text({ ...headingFont(data), fontSize: Math.round(88 * scale), lineHeight: 0.98, marginTop: 22, marginBottom: 18, color: ink }, data.headline),
@@ -208,7 +213,7 @@ function seasonTemplate(data: PosterData, width: number, height: number): Poster
   return box({ width, height, position: "relative", fontFamily: "Inter", backgroundImage: `radial-gradient(circle at 70% 25%, ${accent}, ${deep})` },
     svgImage(dots, { position: "absolute", left: 0, top: 0, width, height }),
     // The photo stops above the signature, which keeps the whole width.
-    image(data.photo, { position: "absolute", right: 0, top: photoTop, width: photoWidth, height: height - photoTop - 260, objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px 0 0 ${photoWidth / 8}px`, boxShadow: `-24px 0 0 ${HIGHLIGHT}` }),
+    image(photoOf(data), { position: "absolute", right: 0, top: photoTop, width: photoWidth, height: height - photoTop - 260, objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px 0 0 ${photoWidth / 8}px`, boxShadow: `-24px 0 0 ${HIGHLIGHT}` }),
     // A short greeting is set large; a campaign name gets two smaller lines so it never reaches the text below.
     text({ position: "absolute", left: 64, top: 100, width: width - 128, fontFamily: "Caladea", fontSize: Math.round((data.headline.length > 14 ? 96 : 150) * scale), lineHeight: 0.95, color: onAccent, lineClamp: 2 }, data.headline),
     text({ position: "absolute", left: 68, top: photoTop + 20, width: width - photoWidth - 110, fontSize: Math.round(42 * scale), fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: 5 }, data.detail),
@@ -223,7 +228,7 @@ function reviewTemplate(data: PosterData, width: number, height: number): Poster
   const onInk = onColour(ink);
   const rating = data.stars;
   return box({ width, height, position: "relative", background: ink, fontFamily: "Inter" },
-    image(data.photo, { position: "absolute", left: 64, top: 90, width: 280, height: 280, borderRadius: 999, border: `10px solid ${accent}`, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    image(photoOf(data), { position: "absolute", left: 64, top: 90, width: 280, height: 280, borderRadius: 999, border: `10px solid ${accent}`, objectFit: "cover", objectPosition: CROP[data.focus] }),
     text({ position: "absolute", left: 390, top: 40, fontFamily: "Caladea", fontSize: 400, lineHeight: 1, color: accent }, "“"),
     // The quote and its stars flow as one column, so a short quote never leaves a gap.
     box({ position: "absolute", left: 64, top: Math.round(height * 0.33), width: width - 128, flexDirection: "column", color: onInk },
@@ -246,7 +251,7 @@ function slotsTemplate(data: PosterData, width: number, height: number): PosterN
     text({ position: "absolute", left: 60, top: tall ? STORY_SAFE.top : 80, width: width - 380, fontFamily: "Inter Display", fontWeight: 900, fontSize: Math.round(150 * scale), lineHeight: 0.92, letterSpacing: -5 }, data.headline),
     ...(data.sticker ? [box({ position: "absolute", right: 70, top: tall ? STORY_SAFE.top + 20 : 90, width: 240, height: 240, borderRadius: 999, background: accent, color: onColour(accent), transform: "rotate(10deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
       text({ fontSize: 38 }, data.sticker[0]), text({ fontSize: 64 }, data.sticker[1]))] : []),
-    image(data.photo, { position: "absolute", left: 0, top: photoTop, width, height: photoHeight, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    image(photoOf(data), { position: "absolute", left: 0, top: photoTop, width, height: photoHeight, objectFit: "cover", objectPosition: CROP[data.focus] }),
     text({ position: "absolute", left: 60, top: listTop, width: width - 120, fontSize: Math.round(54 * scale), fontWeight: 800 }, data.items.map((item) => item.name).join("  ·  ")),
     text({ position: "absolute", left: 60, top: listTop + Math.round(80 * scale), width: width - 120, fontSize: Math.round(40 * scale), fontWeight: 600, opacity: 0.85 }, data.detail),
     ...(tall
@@ -292,8 +297,8 @@ function beforeAfterTemplate(data: PosterData, width: number, height: number): P
     : { left: Math.round(width / 2 - 48), top: photoTop + Math.round(slot.height / 2) - 48 };
   return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
     text({ position: "absolute", left: 64, top: headlineTop, width: width - 128, ...headingFont(data), display: "block", fontSize: headlineSize, lineHeight: 1, lineClamp: 2 }, data.headline),
-    photoAt(data.before ?? data.photo, 0),
-    photoAt(data.photo, 1),
+    photoAt(data.before ?? photoOf(data), 0),
+    photoAt(photoOf(data), 1),
     tag(data.pair[0], 0),
     tag(data.pair[1], 1),
     box({ position: "absolute", ...middle, width: 96, height: 96, borderRadius: 999, background: HIGHLIGHT, color: "#111111", alignItems: "center", justifyContent: "center", fontSize: 52, fontWeight: 800, transform: tall ? "rotate(90deg)" : "none" }, text({}, "→")),
@@ -354,15 +359,15 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
   const textBottom = height - (safe + 190);
   const textTop = textBottom - (data.lead ? leadSize : 0) - 6 - Math.round(headlineSize * 0.98)
     - (data.badges.length ? 18 + 54 : 0) - (data.detail ? 28 + bodySize * 1.25 * 2 : 0) - (data.cta ? 14 + bodySize * 1.25 : 0);
-  const placement = data.cutout ? cutoutPlacement(pngSize(data.photo) ?? { width: 3, height: 4 }, width, height, textTop) : null;
+  const placement = data.cutout ? cutoutPlacement(pngSize(photoOf(data)) ?? { width: 3, height: 4 }, width, height, textTop) : null;
   // A headline that would cross the face keeps to the left column, set smaller to fit its longest word.
   const keepLeft = placement ? !placement.clear : false;
   const longest = Math.max(6, ...data.headline.split(/\s+/).map((word) => word.length));
   const headline = keepLeft ? Math.min(headlineSize, Math.floor(column / (longest * 0.52))) : headlineSize;
   const person = placement
-    ? image(data.photo, { position: "absolute", left: placement.left, top: placement.top, width: placement.width, height: placement.height, objectFit: "cover", objectPosition: "50% 0%" })
+    ? image(photoOf(data), { position: "absolute", left: placement.left, top: placement.top, width: placement.width, height: placement.height, objectFit: "cover", objectPosition: "50% 0%" })
     // The arch ends above the text block, so the headline never runs across a face.
-    : image(data.photo, { position: "absolute", left: column + 12, top: top + 30, width: width - column - 12, height: Math.round(height * (tall ? 0.36 : 0.34)), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${(width - column) / 2}px 0 0 ${(width - column) / 2}px`, border: `8px solid ${GOLD}`, borderRight: "none" });
+    : image(photoOf(data), { position: "absolute", left: column + 12, top: top + 30, width: width - column - 12, height: Math.round(height * (tall ? 0.36 : 0.34)), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${(width - column) / 2}px 0 0 ${(width - column) / 2}px`, border: `8px solid ${GOLD}`, borderRight: "none" });
   return box({ width, height, position: "relative", fontFamily: "Inter", color: CREAM },
     svgImage(backdropSvg(data.backdrop, width, height, data.colors.accent), { position: "absolute", left: 0, top: 0, width, height }),
     person,
@@ -385,25 +390,34 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
 
 /**
  * The largest headline size, and the fewest lines (at most `maxLines`), at which `headline` fits `room` pixels.
- * A size reaching 60 % of `max` is comfortable; otherwise one more line is tried. The size never goes below
- * `floor`: a longer text gets another line instead of smaller letters.
+ * A size reaching 60 % of `max` is comfortable; otherwise one more line is tried. The size stays at or above
+ * `floor` (a longer text gets another line instead of smaller letters), except that the longest word must always
+ * fit the width on its own: shrinking is better than a word running off the poster.
  */
 export function fitHeadline(headline: string, room: number, max: number, floor: number, maxLines: number) {
   const longest = Math.max(1, ...headline.split(/\s+/).map((word) => word.length));
-  // Heavy display letters average about 0.6 em with their spacing (measured on "Medicinsk" at 200 px); the longest
-  // word must fit on its own line.
+  // Heavy display letters average about 0.6 em with their spacing (measured on "Medicinsk" at 200 px).
+  const wordFit = room / (longest * 0.6);
   const sizeFor = (lines: number) => Math.min(max, room / (Math.max(longest, Math.ceil(headline.length / lines)) * 0.6));
   const lines = Array.from({ length: maxLines }, (_, i) => i + 1).find((count) => sizeFor(count) >= max * 0.6) ?? maxLines;
-  return { size: Math.max(floor, Math.floor(sizeFor(lines))), lines };
+  return { size: Math.floor(Math.min(wordFit, Math.max(floor, sizeFor(lines)))), lines };
 }
 
 const QR_SMALL = 120;
 
-/** `parts` joined in one small line that stays on one row, with the QR code at its end when there is one. */
-const smallLine = (parts: string[], qr: string | undefined, width: number, colourOn: string, style: Style = {}) =>
-  box({ width, alignItems: "flex-end", justifyContent: "space-between", ...style },
-    text({ display: "block", fontSize: 32, fontWeight: 700, color: colourOn, maxWidth: width - (qr ? QR_SMALL + 32 : 0), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, parts.filter(Boolean).join("  ·  ")),
+/**
+ * One small line of two parts, `name` and `link`, that stays on one row, with the QR code at its end when there is one.
+ * The link keeps its full width; the name gives way first and is ellipsized.
+ */
+const smallLine = (name: string, link: string, qr: string | undefined, width: number, colourOn: string, style: Style = {}) => {
+  const part = { fontSize: 32, fontWeight: 700, color: colourOn, whiteSpace: "nowrap" } as const;
+  return box({ width, alignItems: "flex-end", justifyContent: "space-between", ...style },
+    box({ flexGrow: 1, flexShrink: 1, minWidth: 0, maxWidth: width - (qr ? QR_SMALL + 32 : 0) },
+      ...(name ? [text({ ...part, flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }, name)] : []),
+      ...(name && link ? [text({ ...part, flexShrink: 0, whiteSpace: "pre" }, "  ·  ")] : []),
+      ...(link ? [text({ ...part, flexShrink: 0 }, link)] : [])),
     ...(qr ? [qrCode(qr, QR_SMALL)] : []));
+};
 
 /** The photo over the whole poster under a dark scrim: a big headline, one line, a booking pill and one small contact line. */
 function fullPhotoTemplate(data: PosterData, width: number, height: number): PosterNode {
@@ -415,18 +429,19 @@ function fullPhotoTemplate(data: PosterData, width: number, height: number): Pos
   const bottom = tall ? STORY_SAFE.bottom + 40 : 64;
   const lineSize = Math.round(44 * scale);
   const line = data.price || data.detail;
-  // The text block's height, estimated from its parts, tells where the scrim has to start: strong by the headline's first line.
-  const blockTop = height - bottom - 32 - 40 - (data.cta ? 36 + 88 : 0) - (line ? 24 + lineSize * 1.25 : 0) - Math.round(size * 0.98 * lines);
+  // The text block's height, estimated from its parts, tells where the scrim has to start: strong from the headline's first line (the contact row is as tall as the QR code when there is one).
+  const contactRow = data.signature.qr ? QR_SMALL : 40;
+  const blockTop = height - bottom - 32 - contactRow - (data.cta ? 36 + 88 : 0) - (line ? 24 + lineSize * 1.25 : 0) - Math.round(size * 0.98 * lines);
   const percent = (y: number) => Math.max(0, Math.round((y / height) * 100));
   return box({ width, height, position: "relative", fontFamily: "Inter", color: WHITE },
-    image(data.photo, { position: "absolute", left: 0, top: 0, width, height, objectFit: "cover", objectPosition: CROP[data.focus] }),
-    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop + height * 0.03)}%, rgba(0,0,0,0.9) 100%)` }),
+    image(photoOf(data), { position: "absolute", left: 0, top: 0, width, height, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop)}%, rgba(0,0,0,0.9) 100%)` }),
     text({ position: "absolute", left: 64, top: tall ? STORY_SAFE.top + 20 : 64, maxWidth: room, background: "rgba(255,255,255,0.82)", color: "#111111", fontFamily: "Caladea", fontSize: 38, lineHeight: 1, padding: "12px 26px", borderRadius: 999, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, data.signature.salon),
     box({ position: "absolute", left: 64, bottom, width: room, flexDirection: "column", alignItems: "flex-start", textShadow: shadow },
       text({ display: "block", width: room, fontFamily: "Inter Display", fontWeight: 900, letterSpacing: -4, fontSize: size, lineHeight: 0.98, lineClamp: lines }, data.headline),
       ...(line ? [text({ display: "block", width: room, fontSize: lineSize, fontWeight: 700, lineHeight: 1.25, marginTop: 24, lineClamp: 1 }, line)] : []),
       ...(data.cta ? [text({ background: WHITE, color: "#111111", fontWeight: 800, fontSize: 40, padding: "22px 48px", borderRadius: 999, marginTop: 36, textShadow: "none" }, data.cta)] : []),
-      smallLine([data.signature.phone, data.signature.link], data.signature.qr, room, WHITE, { marginTop: 32 })));
+      smallLine(data.signature.phone, data.signature.link, data.signature.qr, room, WHITE, { marginTop: 32 })));
 }
 
 /** Only words: a very large headline, the detail, a thin accent rule and the call to book, on the salon's background colour. */
@@ -434,15 +449,16 @@ function typographyTemplate(data: PosterData, width: number, height: number): Po
   const { accent, ink, background } = data.colors;
   const scale = SCALE[data.textSize];
   const room = width - 128;
-  const onBackground = onColour(background) === WHITE ? WHITE : ink;
+  // The owner's ink when it reads on the background, otherwise the nearest colour that does.
+  const readableInk = readable(ink, [background], 4.5);
   const { size, lines } = fitHeadline(data.headline, room, Math.round(230 * scale), Math.round(96 * scale), 3);
-  return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
+  return box({ width, height, position: "relative", background, fontFamily: "Inter", color: readableInk },
     box({ position: "absolute", left: 64, top: 64, width: room, height: height - 128 - 120, flexDirection: "column", justifyContent: "center", alignItems: "flex-start" },
       text({ display: "block", width: room, ...headingFont(data), fontSize: size, lineHeight: 0.98, lineClamp: lines }, data.headline),
       ...(data.detail ? [text({ display: "block", width: room, fontSize: Math.round(46 * scale), fontWeight: 600, lineHeight: 1.25, marginTop: 44, lineClamp: 3 }, data.detail)] : []),
       box({ width: 160, height: 8, background: accent, marginTop: 52 }),
       ...(data.cta ? [text({ background: accent, color: onColour(accent), fontWeight: 800, fontSize: 40, padding: "22px 48px", borderRadius: 999, marginTop: 52 }, data.cta)] : [])),
-    smallLine([data.signature.salon, data.signature.link], data.signature.qr, room, onBackground, { position: "absolute", left: 64, bottom: 64 }));
+    smallLine(data.signature.salon, data.signature.link, data.signature.qr, room, readableInk, { position: "absolute", left: 64, bottom: 64 }));
 }
 
 const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: number) => PosterNode> = {
