@@ -75,6 +75,13 @@ describe("one identity for a phone number", () => {
     expect(["070-174 06 50", "+46 70 174 06 50", "+46 (0)70 174 06 50", "0046701740650"].map(normalizePhone)).toEqual(Array(4).fill("701740650"));
   });
 
+  it("drops a zero only straight after a country code, never inside a national number", () => {
+    expect(normalizePhone("073-555 (0)1 02")).toBe(normalizePhone("073-555 01 02"));
+    expect(isMobilePhone("073-555 (0)1 02")).toBe(true);
+    const customers = [{ ...state.customers[0], phone: "073-555 01 02" }];
+    expect(findCustomerByPhone({ customers }, "073-555 (0)1 02")?.id).toBe(customers[0].id);
+  });
+
   it("finds one customer for them, and counts one cap", () => {
     const customers = [{ ...state.customers[0], id: "k-uk", phone: "+44 7700 900123" }, ...state.customers];
     expect(findCustomerByPhone({ customers }, "+44 (0)7700 900123")?.id).toBe(customers[0].id);
@@ -116,8 +123,9 @@ describe("erasing a customer's address from other visits", () => {
     expect(bundle.kind === "customer" && bundle.bookings.map((b) => b.contactEmail)).toEqual([undefined, "xowner@example.test"]);
   });
 
-  it("also clears the address typed on their own visits, where it differs from their account's", () => {
-    const base = { ...state, customers: [owner, ...state.customers.slice(1)], bookings: [{ ...visit("b-own", "typed@example.test"), customerId: owner.id }, visit("b-same", "typed@example.test")] };
-    expect(eraseCustomer(base, owner.id).bookings.map((b) => b.contactEmail)).toEqual([undefined]);
+  it("removes their own visits, and leaves another guest's visit alone even when it holds an address the erased customer typed on theirs", () => {
+    const base = { ...state, customers: [owner, ...state.customers.slice(1)], bookings: [{ ...visit("b-own", "someone-else@example.test"), customerId: owner.id }, visit("b-other", "someone-else@example.test")] };
+    const erased = eraseCustomer(base, owner.id);
+    expect(erased.bookings.map((b) => [b.id, b.contactEmail])).toEqual([["b-other", "someone-else@example.test"]]);
   });
 });

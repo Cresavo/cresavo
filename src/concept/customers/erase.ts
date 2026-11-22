@@ -192,8 +192,8 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
     if (kept.length !== value.length) next[key] = kept;
   }
   const erased = next as unknown as DemoState;
-  // The customer's own visits are gone; their addresses (the account's and the ones typed on those visits) leave every other visit.
-  const addresses = new Set([customer.email, ...state.bookings.filter(theirs).map((b) => b.contactEmail), ...(bundle?.kind === "customer" ? bundle.bookings.map((b) => b.contactEmail) : [])].map(normalizeEmail).filter(Boolean));
+  // The customer's own visits are gone. Their account address leaves every other visit; an address typed on their visits may belong to someone else, so it stays there.
+  const addresses = new Set([normalizeEmail(customer.email)].filter(Boolean));
   erased.bookings = withoutAddresses(erased.bookings, addresses);
   erased.customers = state.customers.filter((c) => c.id !== id);
   erased.checkoutHolds = erased.checkoutHolds.filter((hold) => !digits || normalizePhone(hold.guest.phone) !== digits);

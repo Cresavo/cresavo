@@ -33,7 +33,7 @@ export type ServerBookingResult =
 
 interface ServerSalonValue {
   state: DemoState;
-  book: (input: ServerBookingInput, idempotencyKey: string) => Promise<ServerBookingResult>;
+  book: (input: ServerBookingInput) => Promise<ServerBookingResult>;
 }
 
 const ServerSalon = createContext<ServerSalonValue | null>(null);
@@ -50,6 +50,8 @@ export function ServerSalonProvider({ state, issuedAt, children }: { state: Demo
   // The visits made on this page: the projection shows others' visits as busy times only.
   const [made, setMade] = useState<Booking[]>([]);
   const token = useRef(issuedAt);
+  // The one attempt that may be in doubt: its key, with the exact body it was first sent as.
+  const attempt = useRef<{ key: string; intent: string; body: string } | undefined>(undefined);
   const address = `/api/public/salons/${encodeURIComponent(salon.salon.slug)}`;
 
   /** The salon's free times as they are now, and a fresh form-time token. */
@@ -61,14 +63,15 @@ export function ServerSalonProvider({ state, issuedAt, children }: { state: Demo
     }
   }, [address]);
 
-  const book = useCallback(async (input: ServerBookingInput, idempotencyKey: string): Promise<ServerBookingResult> => {
+  const book = useCallback(async (input: ServerBookingInput): Promise<ServerBookingResult> => {
     const service = salon.services.find((s) => s.id === input.serviceId);
     if (!service) return { ok: false, reason: "slot_unavailable" };
-    const send = () => fetch(`${address}/bookings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-      body: JSON.stringify({ ...input, language: getActiveLocale(), issuedAt: token.current, terms: acceptedTerms(salon, service) }),
-    });
+    // One key always travels with one exact body. After a lost answer the same intent re-sends that body under that key;
+    // a changed form, quote or language is another intent and gets a key of its own.
+    const intent = JSON.stringify({ ...input, language: getActiveLocale(), terms: acceptedTerms(salon, service) });
+    if (attempt.current?.intent !== intent) attempt.current = { key: crypto.randomUUID(), intent, body: JSON.stringify({ ...JSON.parse(intent), issuedAt: token.current }) };
+    const { key, body: sent } = attempt.current;
+    const send = () => fetch(`${address}/bookings`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: sent });
     let response = await send().catch(() => null);
     // The salon was busy for a moment: after the wait it asks for, the same key makes the second try safe.
     if (response?.status === 503) {
@@ -76,6 +79,8 @@ export function ServerSalonProvider({ state, issuedAt, children }: { state: Demo
       await new Promise((resolve) => setTimeout(resolve, Math.min(Math.max(Number.isFinite(asked) ? asked : 1, 0), 10) * 1000));
       response = await send().catch(() => null);
     }
+    // Nothing is in doubt once the salon has answered, except that it was busy or the answer never came.
+    if (response && response.status !== 503 && response.status !== 429) attempt.current = undefined;
     if (response?.status === 429) return { ok: false, reason: "rate_limited", minutes: Math.max(1, Math.ceil(Number(response.headers.get("Retry-After") ?? 60) / 60)) };
     const body = response ? await json(response) : {};
     if (response?.status === 201 && body.ref) {
