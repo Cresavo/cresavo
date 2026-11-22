@@ -203,7 +203,9 @@ describe("owner action schemas", () => {
 
   it("refuses a negative, fractional or out-of-range amount", () => {
     expect(send("cost/add", (action) => { action.amount = -5; })).toBeNull();
-    expect(send("cost/add", (action) => { action.amount = 12.5; })).toBeNull();
+    expect(send("giftcard/sell", (action) => { action.amount = 250.5; })).toBeNull();
+    // Costs are typed by hand and may have decimals; the reducer rounds them.
+    expect(send("cost/add", (action) => { action.amount = 99.5; })).not.toBeNull();
     expect(send("giftcard/sell", (action) => { action.amount = 99; })).toBeNull();
     expect(send("giftcard/sell", (action) => { action.amount = 10_001; })).toBeNull();
     expect(send("service/price", (action) => { action.price = -1; })).toBeNull();

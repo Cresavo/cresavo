@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { MAX_AMOUNT, MIN_AMOUNT } from "@/concept/giftcards/cards";
-import { date, id, list, minutes, money, quantity, required, text } from "./primitives";
+import { date, id, list, minutes, quantity, required, text } from "./primitives";
+
+/** A cost as typed in the form: it may have decimals, which the reducer rounds to whole kronor. */
+const costAmount = z.number().min(0).max(1_000_000);
 
 // Costs, accounting, gift cards, punch cards and stock.
 
@@ -12,7 +15,7 @@ const orderLine = z.strictObject({ stockId: id, quantity, unitCost, received: qu
 
 export const financeSchemas = {
   "cost/add": z.strictObject({
-    type: z.literal("cost/add"), kind: z.enum(["rent", "products", "wages", "fees", "other"]), label: required(), amount: money,
+    type: z.literal("cost/add"), kind: z.enum(["rent", "products", "wages", "fees", "other"]), label: required(), amount: costAmount,
   }),
   "cost/remove": z.strictObject({ type: z.literal("cost/remove"), id }),
   "accounting/connect": z.strictObject({ type: z.literal("accounting/connect"), on: date }),
