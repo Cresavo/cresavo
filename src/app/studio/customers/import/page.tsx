@@ -3,7 +3,7 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
-import { buildImportRows, guessMapping, IMPORT_FIELDS, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
+import { buildImportRows, decodeImportFile, guessMapping, IMPORT_FIELDS, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
@@ -42,7 +42,7 @@ export default function ImportCustomersPage() {
   };
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) load(await file.text());
+    if (file) load(decodeImportFile(await file.arrayBuffer()));
     event.target.value = "";
   };
   const useExample = async () => {

@@ -79,6 +79,18 @@ export function parseCsv(text: string): string[][] {
 
 export type FileProblem = "tooBig" | "tooMany" | "empty";
 
+/**
+ * The text of an uploaded file. Exports from older Swedish systems and Excel are often Windows-1252 rather
+ * than UTF-8, which would turn å, ä and ö into garbage, so bytes that are not valid UTF-8 are read as Windows-1252.
+ */
+export function decodeImportFile(bytes: ArrayBuffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
 /** Parses an uploaded file's text, or says why it cannot be imported. The header line is the first row. */
 export function readImportFile(text: string): { rows: string[][] } | { problem: FileProblem } {
   if (new TextEncoder().encode(text).length > MAX_IMPORT_BYTES) return { problem: "tooBig" };

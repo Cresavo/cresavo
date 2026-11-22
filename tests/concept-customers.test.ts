@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
-import { buildImportRows, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
+import { buildImportRows, decodeImportFile, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
 import { editJournalEntry } from "@/concept/customers/journal";
 import { bookingLink, dueBackList, intervalWeeks, nextVisitFor, suggestionSent, suggestSlot } from "@/concept/customers/return-visits";
 import { birthdayThisMonth, newThisYear, notSeenInThreeMonths, regulars, segmentCustomers, SEGMENTS } from "@/concept/customers/segments";
@@ -243,5 +243,14 @@ describe("journal versions", () => {
     expect(next.journals[0]).toMatchObject({ advice: "More cream", versions: [{ advice: "Cream" }] });
     expect(next.journals[1]).toBe(state.journals[1]);
     expect(reduce(state, { type: "journal/edit", id: "j1", content: entry, on: "2026-11-05" }).journals[0]).toBe(entry);
+  });
+});
+
+describe("decodeImportFile", () => {
+  it("reads UTF-8 with a BOM and falls back to Windows-1252 for older exports", () => {
+    const utf8 = new TextEncoder().encode("\uFEFFnamn\nÅsa Öberg").buffer as ArrayBuffer;
+    expect(decodeImportFile(utf8)).toContain("Åsa Öberg");
+    const latin = new Uint8Array([0x6e, 0x61, 0x6d, 0x6e, 0x0a, 0xc5, 0x73, 0x61, 0x20, 0xd6, 0x62, 0x65, 0x72, 0x67]).buffer;
+    expect(decodeImportFile(latin)).toBe("namn\nÅsa Öberg");
   });
 });
