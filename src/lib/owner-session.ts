@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import type { OwnerIdentity } from "./owner-accounts";
 import { assertWritable } from "./public-readonly";
@@ -71,42 +72,37 @@ export function renewedOwnerCookie(cookie: string | undefined, now = Date.now())
   return cookieValue(parsed.token, Math.min(now + OWNER_IDLE_MS, parsed.absolute), parsed.absolute);
 }
 
-export interface OpenOptions {
-  /** The sign-in passed the second step. Without it no session opens for an account with two-step sign-in. */
-  mfaVerified?: boolean;
-  /** The id of the password challenge this sign-in completes; it is consumed in the same transaction. */
-  challenge?: string;
+/**
+ * Writes a session row inside the caller's transaction, which has already locked and checked the account.
+ * `mfaVerified` records that the sign-in passed the second step. Returns the cookie for it.
+ */
+export async function insertOwnerSession(tx: Prisma.TransactionClient, identity: OwnerIdentity, now: number, mfaVerified: boolean): Promise<OwnerCookie> {
+  const token = randomBytes(32).toString("hex");
+  const absolute = now + OWNER_SESSION_MS;
+  await tx.ownerSession.create({
+    data: {
+      id: digest(token), accountId: identity.id, credentialVersion: identity.credentialVersion, expiresAt: new Date(absolute),
+      mfaVerifiedAt: mfaVerified ? new Date(now) : null,
+    },
+  });
+  return cookieValue(token, now + OWNER_IDLE_MS, absolute);
 }
 
 /**
  * Starts a session for a verified identity. Returns the cookie, or null when the account changed since it was
- * verified, when it has two-step sign-in and the second step was not passed, or when the challenge is gone.
+ * verified, or when it has two-step sign-in and `mfaVerified` is not set. The second step at sign-in opens its
+ * session inside its own transaction instead (owner-mfa.ts).
  */
-export async function openOwnerSession(identity: OwnerIdentity, now = Date.now(), { mfaVerified = false, challenge }: OpenOptions = {}): Promise<OwnerCookie | null> {
+export async function openOwnerSession(identity: OwnerIdentity, now = Date.now(), { mfaVerified = false } = {}): Promise<OwnerCookie | null> {
   assertWritable();
-  const token = randomBytes(32).toString("hex");
-  const absolute = now + OWNER_SESSION_MS;
   await pruneOwnerSessions(new Date(now));
-  const created = await db.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
     const [account] = await tx.$queryRaw<{ active: boolean; credential_version: number; totp_enabled_at: Date | null }[]>`
       SELECT "active", "credential_version", "totp_enabled_at" FROM "owner_account" WHERE "id" = ${identity.id} FOR UPDATE`;
-    if (!account?.active || account.credential_version !== identity.credentialVersion) return false;
-    if (account.totp_enabled_at && !mfaVerified) return false;
-    if (challenge !== undefined) {
-      const { count } = await tx.ownerMfaChallenge.deleteMany({
-        where: { id: challenge, accountId: identity.id, credentialVersion: identity.credentialVersion, expiresAt: { gt: new Date(now) } },
-      });
-      if (count !== 1) return false;
-    }
-    await tx.ownerSession.create({
-      data: {
-        id: digest(token), accountId: identity.id, credentialVersion: identity.credentialVersion, expiresAt: new Date(absolute),
-        mfaVerifiedAt: mfaVerified ? new Date(now) : null,
-      },
-    });
-    return true;
+    if (!account?.active || account.credential_version !== identity.credentialVersion) return null;
+    if (account.totp_enabled_at && !mfaVerified) return null;
+    return insertOwnerSession(tx, identity, now, mfaVerified);
   });
-  return created ? cookieValue(token, now + OWNER_IDLE_MS, absolute) : null;
 }
 
 export interface OwnerContext {
@@ -141,12 +137,31 @@ export async function closeOwnerSession(cookie: string | undefined, now = Date.n
   if (id) await db.ownerSession.updateMany({ where: { id, revokedAt: null }, data: { revokedAt: new Date(now) } });
 }
 
-/** Ends every session and every pending sign-in of an account ("sign out everywhere"). Returns how many sessions were still open. */
+/**
+ * Ends every session and every pending sign-in of an account, in one transaction. Returns how many sessions were
+ * still open. Callers that change the credentials raise the version themselves.
+ */
 export async function closeAllOwnerSessions(accountId: string, now = Date.now()) {
   assertWritable();
-  await db.ownerMfaChallenge.deleteMany({ where: { accountId } });
-  const { count } = await db.ownerSession.updateMany({ where: { accountId, revokedAt: null }, data: { revokedAt: new Date(now) } });
-  return count;
+  return db.$transaction(async (tx) => {
+    await tx.ownerMfaChallenge.deleteMany({ where: { accountId } });
+    const { count } = await tx.ownerSession.updateMany({ where: { accountId, revokedAt: null }, data: { revokedAt: new Date(now) } });
+    return count;
+  });
+}
+
+/**
+ * "Sign out everywhere": raises the credential version and ends every session and pending sign-in in one
+ * transaction, so a password check already under way cannot leave a session or a usable challenge behind.
+ */
+export async function signOutEverywhere(accountId: string, now = Date.now()) {
+  assertWritable();
+  return db.$transaction(async (tx) => {
+    await tx.ownerAccount.update({ where: { id: accountId }, data: { credentialVersion: { increment: 1 } } });
+    await tx.ownerMfaChallenge.deleteMany({ where: { accountId } });
+    const { count } = await tx.ownerSession.updateMany({ where: { accountId, revokedAt: null }, data: { revokedAt: new Date(now) } });
+    return count;
+  });
 }
 
 /** Deletes up to 100 expired or revoked sessions. */
