@@ -668,6 +668,32 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
     expect(await db.$queryRaw`SELECT 1 FROM pg_proc WHERE proname = 'erase_subject'`).toEqual([]);
   });
 
+  it("keeps another customer's replay and redacts the stored action of the erased customer's entry, as the statements do", async () => {
+    const id = tenantIds("erase-replay");
+    const plain = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks });
+    const { customer, other } = await erasableTenant(id, plain);
+    const keyed: DemoAction = { type: "customer/note", id: customer.id, note: "Fictional private text that names nobody" };
+    expect((await plain.apply(id, keyed, {}, { idempotencyKey: "replay-own" })).ok).toBe(true);
+    const otherNote: DemoAction = { type: "customer/note", id: other.id, note: "Fictional note for the other customer" };
+    const first = await plain.apply(id, otherNote, {}, { idempotencyKey: "replay-other" });
+    if (!first.ok) throw new Error("fixture refused");
+    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, erasure: "function" });
+    const statements = await eraseSubjectStatements();
+    await db.$transaction(async (tx) => { for (const statement of statements) await tx.$executeRawUnsafe(statement); }, { timeout: 15_000 });
+    try {
+      expect(await store.eraseSubject(id, customer.id)).toMatchObject({ ok: true });
+      const replay = await store.apply(id, otherNote, {}, { idempotencyKey: "replay-other" });
+      expect(replay).toMatchObject({ ok: true, replayed: true, version: first.version });
+      const stored = await db.$queryRaw<Array<{ result: { entry: { action: { note?: string } } } }>>`
+        SELECT result FROM tenant_idempotency WHERE tenant_id = ${id} AND key = 'replay-own' OR (tenant_id = ${id} AND key LIKE 'erased-%')`;
+      expect(stored.every((row) => row.result.entry.action.note === undefined || row.result.entry.action.note === "[redacted]")).toBe(true);
+      expect(JSON.stringify(await db.$queryRaw`SELECT result FROM tenant_idempotency WHERE tenant_id = ${id}`)).not.toContain("names nobody");
+    } finally {
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+        studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]), studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
+    }
+  }, 30_000);
+
   it("is what eraseSubject calls with erasure: \"function\"", async () => {
     const id = tenantIds("erase-fn");
     const plain = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks });
@@ -684,7 +710,7 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
       expect(erased).toMatchObject({ ok: true, redacted: { idempotencyKeys: 1 } });
       expect(await personalDataHits(id, ERASURE_NEEDLES)).toEqual([]);
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   });

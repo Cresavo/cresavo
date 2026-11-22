@@ -379,3 +379,18 @@ describe("export and erasure of shared and older data", () => {
   });
 });
 
+describe("review part and replay snapshots", () => {
+  it("moves a notice about a reviewed visit into the review part with it", () => {
+    const { state, mine } = richState();
+    const visit = state.bookings.find((b) => b.customerId === mine.id)!;
+    const shared: DemoState = {
+      ...state,
+      bookings: state.bookings.map((b) => (b.id === visit.id ? { ...b, publicRef: "ref-1", contactEmail: "kollega@example.test" } : b)),
+      inbox: [{ id: "i-linked", kind: "system", customerId: mine.id, bookingId: visit.id, date: today, time: 600, title: "Confirmation of the visit", body: "Booked", read: true, handled: true }, ...state.inbox],
+    };
+    const data = customerExport(shared, mine.id, "2026-11-16T10:00:00.000Z")!;
+    expect(data.messages.some((m) => m.id === "i-linked")).toBe(false);
+    expect(data.reviewBeforeSending.messages.map((m) => m.id)).toContain("i-linked");
+  });
+});
+

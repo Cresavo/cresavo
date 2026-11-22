@@ -140,8 +140,11 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
   const bookings = (sections.bookings as Booking[]).filter((b) => !isForeign(b));
   const journalAll = sections.journal as JournalEntry[];
   const messagesAll = sections.messages as InboxItem[];
-  const journal = journalAll.filter((j) => !namesOther(j));
-  const messages = messagesAll.filter((m) => !namesOther(m));
+  const foreignIds = new Set((sections.bookings as Booking[]).filter(isForeign).map((b) => b.id));
+  // A notice or journal entry about a visit in the review part goes there with it.
+  const reviewed = (item: { bookingId?: string }) => namesOther(item) || (!!item.bookingId && foreignIds.has(item.bookingId));
+  const journal = journalAll.filter((j) => !reviewed(j));
+  const messages = messagesAll.filter((m) => !reviewed(m));
   const noteFlagged = namesOther(profile.note);
   const ownProfile: Customer = { ...profile };
   if (noteFlagged) delete ownProfile.note;
@@ -169,8 +172,8 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     reviewBeforeSending: {
       warning: REVIEW_WARNING,
       ...(noteFlagged && profile.note ? { profileNote: profile.note } : {}),
-      journal: journalAll.filter(namesOther),
-      messages: messagesAll.filter(namesOther),
+      journal: journalAll.filter(reviewed),
+      messages: messagesAll.filter(reviewed),
       bookings: (sections.bookings as Booking[]).filter(isForeign),
       checkoutHolds: state.checkoutHolds.filter((hold) => !holdIsTheirs(hold, profile) && customerPhoneDigits(profile).has(phoneDigits(hold.guest.phone))),
     },

@@ -256,6 +256,9 @@ describe("erasure and stored replays", () => {
       const keys = (await db.$queryRawUnsafe<Array<{ key: string }>>("SELECT key FROM tenant_idempotency WHERE tenant_id = $1", tenantId)).map((r) => r.key);
       expect(keys.some((key) => key.includes(a.email))).toBe(false);
       expect(keys.some((key) => key.startsWith("erased-"))).toBe(true);
+      // The stored action of A's own entry lost its personal field, though the text names nobody.
+      const stored = await db.$queryRawUnsafe<Array<{ result: { entry: { action: { note?: string } } } }>>("SELECT result FROM tenant_idempotency WHERE tenant_id = $1 AND key LIKE 'erased-%'", tenantId);
+      expect(stored[0].result.entry.action.note).toBe("[redacted]");
       const retryA = await store.apply(tenantId, { type: "customer/note", id: a.id, note: "Fictional note for A" }, {}, { idempotencyKey: keyOfA });
       expect(retryA).toMatchObject({ ok: true, replayed: true });
       expect((await store.load(tenantId))!.version).toBe(version);

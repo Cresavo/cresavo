@@ -90,6 +90,30 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fn$
 $fn$;
 
 -- statement
+-- The action of a stored replay's entry, when it concerns the customer: every personal field of its type (the map below) is replaced,
+-- not only text that matches an identifier. Same rule as `theirs` in erase_subject.
+CREATE OR REPLACE FUNCTION studio_redact_replay_action(r jsonb, p_customer text, digit_list text[], contact_patterns text[], fields jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path = public, pg_temp AS $fn$
+DECLARE
+  act jsonb := r #> '{entry,action}';
+  path text;
+BEGIN
+  IF act IS NULL OR jsonb_typeof(act) <> 'object' THEN RETURN r; END IF;
+  IF NOT ((act ->> 'type' LIKE 'customer/%' AND act ->> 'id' = p_customer)
+      OR jsonb_path_exists(act, 'lax $.** ? (@.customerId == $c || (@.id == $c && exists(@.firstName)))', jsonb_build_object('c', p_customer))
+      OR act::text ILIKE ANY(contact_patterns)
+      OR (cardinality(digit_list) > 0 AND EXISTS (
+        SELECT 1 FROM jsonb_path_query(act, 'lax $.**.phone') p
+        WHERE jsonb_typeof(p) = 'string' AND public.studio_phone_digits(p #>> '{}') = ANY(digit_list)))) THEN
+    RETURN r;
+  END IF;
+  FOR path IN SELECT jsonb_array_elements_text(coalesce(fields -> (act ->> 'type'), '[]')) LOOP
+    act := public.studio_redact_path(act, string_to_array(path, '.'));
+  END LOOP;
+  RETURN jsonb_set(r, '{entry,action}', act);
+END $fn$;
+
+-- statement
 -- A stored replay result after an erasure: the customer's records, card and trash entry leave its salon snapshot and their identifiers are replaced.
 CREATE OR REPLACE FUNCTION studio_redact_replay(r jsonb, p_customer text, identifiers text[], digit_list text[]) RETURNS jsonb
 LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fn$
@@ -272,10 +296,10 @@ BEGIN
   -- identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
   UPDATE tenant_idempotency SET
     key = CASE WHEN key ILIKE ANY(v_key_patterns) THEN 'erased-' || encode(sha256(convert_to(key, 'UTF8')), 'hex') ELSE key END,
-    result = public.studio_redact_replay(result, p_customer, v_identifiers, v_digit_list)
+    result = public.studio_redact_replay(public.studio_redact_replay_action(result, p_customer, v_digit_list, v_contact_patterns, v_fields), p_customer, v_identifiers, v_digit_list)
   WHERE tenant_id = p_tenant AND (key ILIKE ANY(v_key_patterns) OR result::text LIKE ANY(v_id_patterns) OR result::text ILIKE ANY(v_patterns))
     -- A row that is already redacted (a repeated erasure) is left alone and not counted.
-    AND (key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(result, p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM result);
+    AND (key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(public.studio_redact_replay_action(result, p_customer, v_digit_list, v_contact_patterns, v_fields), p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM result);
   GET DIAGNOSTICS v_keys = ROW_COUNT;
   RETURN jsonb_build_object('actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys,
                             'pendingPayments', v_pending_payments, 'inFlightMessages', v_in_flight);
@@ -283,7 +307,7 @@ END $fn$;
 
 -- statement
 REVOKE ALL ON FUNCTION studio_phone_digits(text), studio_redact_path(jsonb, text[]), studio_scrub_text(text, text[]),
-  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), erase_subject(text, text) FROM PUBLIC;
+  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), erase_subject(text, text) FROM PUBLIC;
 -- statement
 ALTER FUNCTION studio_phone_digits(text) OWNER TO :"eraser_role";
 -- statement
@@ -294,6 +318,8 @@ ALTER FUNCTION studio_scrub_text(text, text[]) OWNER TO :"eraser_role";
 ALTER FUNCTION studio_scrub(jsonb, text[]) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION studio_redact_replay(jsonb, text, text[], text[]) OWNER TO :"eraser_role";
+-- statement
+ALTER FUNCTION studio_redact_replay_action(jsonb, text, text[], text[], jsonb) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION erase_subject(text, text) OWNER TO :"eraser_role";
 -- statement

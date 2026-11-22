@@ -53,6 +53,7 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
     });
     if (result.ok) {
       const changed = result.state.bookings.find((b) => b.id === booking.id);
+      if (!changed && result.replayed) return publicError("gone", 410);
       if (!changed) throw new Error("PUBLIC_BOOKING_MISSING");
       return publicOk({ booking: publicBookingView(result.state, changed) });
     }

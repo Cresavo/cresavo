@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { DemoAction } from "../actions";
 import type { OutboxEntry } from "../connections/simulated/outbox";
-import { phoneDigits, REDACTED, scrubDeep } from "../customers/erase";
+import { mentionsCustomer, phoneDigits, REDACTED, scrubDeep } from "../customers/erase";
 
 // Redaction of the studio store's audit data for one erased customer
 // (docs/design/STUDIO_STORE.md, step 2 decision 3, item 7). The document is
@@ -108,12 +108,20 @@ export const keyHoldsIdentifier = (key: string, identifiers: readonly string[]) 
  * (their card, trash entry and checkout holds by phone) are removed from its salon snapshot and their identifiers replaced in every
  * string. The result still replays, so a retry of a change that was already committed is answered, not applied again.
  */
-export function redactReplay<T>(result: T, customerId: string, identifiers: readonly string[], phones: ReadonlySet<string> = new Set()): T {
-  const replay = result as unknown as { state?: Record<string, unknown> };
+export function redactReplay<T>(result: T, customerId: string, identifiers: readonly string[], phones: ReadonlySet<string> = new Set(), contacts: readonly string[] = []): T {
+  const replay = result as unknown as { state?: Record<string, unknown>; entry?: { action?: DemoAction } };
   let next: unknown = result;
-  if (replay && typeof replay === "object" && replay.state && typeof replay.state === "object") {
+  // The action of the replayed entry: when it concerns the customer, every personal field of its type goes (PERSONAL_FIELDS), not only what matches an identifier.
+  const action = replay?.entry?.action as (DemoAction & { id?: unknown }) | undefined;
+  // As `subjectIds` names the subject of an action: a `customer/*` action targets the customer by its `id`.
+  const targeted = !!action && action.type.startsWith("customer/") && action.id === customerId;
+  if (action && (targeted || mentionsCustomer(action, customerId, contacts, phones))) {
+    next = { ...replay, entry: { ...replay.entry, action: redactAction(action) } };
+  }
+  const base = next as typeof replay;
+  if (base && typeof base === "object" && base.state && typeof base.state === "object") {
     const state: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(replay.state)) {
+    for (const [key, value] of Object.entries(base.state)) {
       if (!Array.isArray(value)) state[key] = value;
       // The undo data of a replayed snapshot's history holds whole records (the customer's included); a replay never needs it.
       else if (key === "log") state[key] = value.map((item) => { const entry = { ...(item as Record<string, unknown>) }; delete entry.patch; delete entry.before; delete entry.after; return entry; });
@@ -122,7 +130,7 @@ export function redactReplay<T>(result: T, customerId: string, identifiers: read
       else if (key === "trash") state[key] = value.filter((item) => !((item as { kind?: unknown })?.kind === "customer" && (item as { customer?: { id?: unknown } }).customer?.id === customerId));
       else state[key] = value.filter((item) => (item as { customerId?: unknown })?.customerId !== customerId);
     }
-    next = { ...replay, state };
+    next = { ...base, state };
   }
   return scrubDeep(next, identifiers) as T;
 }

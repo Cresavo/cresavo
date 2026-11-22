@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { redactReplay } from "@/concept/store/erasure";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { addDays, toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import type { Customer, DemoState } from "@/concept/data/types";
@@ -57,3 +58,18 @@ it("does not overwrite another tab's newer write with the erasure", async () => 
   expect(JSON.stringify(currentState())).not.toContain(NAME);
   expect(localStorage.setItem.mock.calls.filter(([key]) => key === KEY)).toEqual([]);
 });
+
+describe("redactReplay", () => {
+  it("redacts every personal field of the stored action of the erased customer's entry, and leaves another customer's alone", () => {
+    const identifiers = ["Lena Exportsson", "0700001111"];
+    const book = (customerPhone: string, text: string) => ({
+      version: 3, state: { customers: [], bookings: [] }, effects: [],
+      entry: { action: { type: "online/book", guest: { name: "Somebody", phone: customerPhone, email: "x@example.test" }, notice: { title: "Private title", body: text }, serviceId: "s-1" } },
+    });
+    const theirs = redactReplay(book("070 000 11 11", "Fictional private text"), "k-1", identifiers, new Set(["700001111"]), identifiers);
+    expect(theirs.entry.action).toMatchObject({ type: "online/book", serviceId: "s-1", guest: { name: "[redacted]", phone: "[redacted]", email: "[redacted]" }, notice: { title: "[redacted]", body: "[redacted]" } });
+    const other = redactReplay(book("070 000 99 99", "Fictional private text"), "k-1", identifiers, new Set(["700001111"]), identifiers);
+    expect(other.entry.action).toMatchObject({ guest: { name: "Somebody" }, notice: { body: "Fictional private text" } });
+  });
+});
+

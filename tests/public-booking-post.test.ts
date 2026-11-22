@@ -192,6 +192,15 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
     expect(response.headers.get("Retry-After")).toBe("1");
   });
 
+  it("answers a retry whose booking was erased since with 410 gone, not a 500", async () => {
+    apply.mockResolvedValue({ ...committed(true), state: { ...base, bookings: base.bookings } });
+    const response = await post(form(), { key: "a-key" });
+    expect([response.status, await response.json()]).toEqual([410, { error: "gone" }]);
+    // A fresh booking that is missing from its own result is still an internal failure.
+    apply.mockResolvedValue({ ...committed(false), state: { ...base, bookings: base.bookings } });
+    expect((await post(form(), { key: "b-key" })).status).toBe(500);
+  });
+
   it("maps a reused key with another request to 422", async () => {
     apply.mockResolvedValue({ ok: false, reason: "idempotency-mismatch" });
     const response = await post(form());

@@ -779,7 +779,7 @@ export class PostgresStudioStore implements StudioStore {
     let idempotencyKeys = 0;
     for (const replay of replays) {
       const key = keyHoldsIdentifier(replay.key, identifiers) ? erasedKey(replay.key) : replay.key;
-      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones));
+      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts));
       // A row that is already redacted (a repeated erasure) is left alone and not counted.
       if (key === replay.key && result === JSON.stringify(replay.result)) continue;
       await tx.$executeRaw`
