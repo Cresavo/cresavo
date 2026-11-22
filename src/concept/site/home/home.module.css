@@ -179,7 +179,7 @@
   .hero { padding-bottom: clamp(56px, 6vw, 80px); padding-top: clamp(12px, 1.6vw, 24px); }
   .dotStage { height: clamp(110px, 10vw + 36px, 180px); }
   .heroCopy { margin-top: clamp(4px, 1vw, 14px); align-items: center; text-align: center; }
-  .kicker { font-size: 15px; margin-bottom: 18px; }
+  .kicker { font-size: 15px; margin-bottom: 20px; }
   .heroLine { font-size: clamp(18px, 1.5vw, 20px); max-width: 30em; margin-top: 14px; }
   .heroCta { flex-direction: row; align-items: center; justify-content: center; gap: 28px; max-width: none; margin-top: clamp(24px, 2.6vw, 34px); }
   .heroCta .btn { width: auto; }
@@ -195,7 +195,7 @@
 .day { padding: var(--sec) 0 0; border-top: 1px solid var(--line); }
 .dayHead { max-width: 760px; }
 .moment { padding-top: 56px; }
-.momentText h3 { font-family: var(--serif); font-weight: 400; font-synthesis: none; font-size: 34px; line-height: 1.06; letter-spacing: -.005em; text-wrap: balance; margin-bottom: 10px; }
+.momentText h3 { font-family: var(--serif); font-weight: 400; font-synthesis: none; font-size: 34px; line-height: 1.06; letter-spacing: -.005em; text-wrap: balance; margin-bottom: 12px; }
 .momentText p { color: var(--muted); max-width: 26em; text-wrap: pretty; }
 .mScreen { margin-top: 24px; min-width: 0; }
 
@@ -235,7 +235,7 @@
 
   .mToday .momentText { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: 24px; align-items: end; margin-bottom: 32px; }
   .mToday .momentText h3 { margin: 0; font-size: clamp(44px, 4vw, 56px); }
-  .mToday .momentText p { padding-bottom: 6px; }
+  .mToday .momentText p { padding-bottom: 8px; }
 
   .mCard { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 24px; }
   .mCard .mScreen { grid-column: 4 / -1; grid-row: 1; margin: 0; }
