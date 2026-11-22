@@ -25,6 +25,7 @@ import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeControl } from "../ui/theme-control";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
+import { QuickActions } from "./quick-actions";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
@@ -104,6 +105,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </main>
       <BottomTabs state={state} pathname={pathname} role={role} />
+      <QuickActions role={role} assistant={state.modules.assistant} />
       {state.modules.assistant && <AssistantLauncher />}
       <Toaster />
     </>

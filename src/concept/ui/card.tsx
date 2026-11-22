@@ -2,15 +2,15 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
 const surfaces = {
-  /** An outlined surface: the default for lists and forms. */
-  outlined: "rounded-lg bg-surface ring-1 ring-hairline",
+  /** A plain paper surface on the canvas: the default for lists and forms. No outline. */
+  paper: "rounded-lg bg-surface",
   /** The one surface a screen is about: lifted off the canvas, no outline. */
   raised: "studio-raised rounded-lg bg-surface",
   /** Content that sits straight on the canvas: no box and no rules, set apart by space alone. */
   flat: "",
 };
 
-export function Card({ className, surface = "outlined", ...rest }: HTMLAttributes<HTMLDivElement> & { surface?: keyof typeof surfaces }) {
+export function Card({ className, surface = "paper", ...rest }: HTMLAttributes<HTMLDivElement> & { surface?: keyof typeof surfaces }) {
   return <div className={cx(surfaces[surface], className)} {...rest} />;
 }
 

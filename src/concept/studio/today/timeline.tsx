@@ -39,7 +39,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
 
   return (
     <div className="space-y-2">
-      <ol className="divide-y divide-hairline overflow-hidden rounded-lg bg-surface ring-1 ring-hairline">
+      <ol className="divide-y divide-hairline overflow-hidden rounded-lg bg-surface">
         {rows.map((row) => {
           if (row.kind === "gap") {
             const staff = state.staff.find((s) => s.id === row.staffId)!;

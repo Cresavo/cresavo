@@ -1,0 +1,54 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarPlus, MessageCircle, Phone, Plus, Search, type LucideIcon } from "lucide-react";
+import { t } from "../i18n";
+import { canOpen, type Role } from "../ops/access";
+import { Button, IconButton } from "../ui/button";
+import { Sheet } from "../ui/sheet";
+import { openAssistant } from "./assistant/thread-store";
+import { BookingSheets, type OpenSheet } from "./booking/booking-sheets";
+
+const CUSTOMERS = "/studio/customers";
+
+/**
+ * Phones: one round button above the tab bar opens the four things an owner does
+ * most, over whatever page they are on. Each action reuses an existing sheet or page.
+ */
+export function QuickActions({ role, assistant }: { role: Role; assistant: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [sheet, setSheet] = useState<OpenSheet>(null);
+  const run = (action: () => void) => () => { setOpen(false); action(); };
+  const actions: { label: string; icon: LucideIcon; run: () => void }[] = [
+    { label: t("calendar.newBooking"), icon: CalendarPlus, run: run(() => setSheet({ kind: "new", preset: {} })) },
+    ...(canOpen(role, CUSTOMERS) ? [{ label: t("quick.findCustomer"), icon: Search, run: run(() => router.push(CUSTOMERS)) }] : []),
+    { label: t("today.phoneMode"), icon: Phone, run: run(() => setSheet({ kind: "phone" })) },
+    ...(assistant ? [{ label: t("quick.ask"), icon: MessageCircle, run: run(() => openAssistant()) }] : []),
+  ];
+  return (
+    <>
+      <IconButton
+        label={t("quick.title")}
+        variant="primary"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className="studio-quick-button fixed right-4 z-sticky !size-14 !px-0 lg:hidden"
+      >
+        <Plus size={26} aria-hidden />
+      </IconButton>
+      <Sheet open={open} onClose={() => setOpen(false)} title={t("quick.title")}>
+        <div className="grid grid-cols-2 gap-3">
+          {actions.map(({ label, icon: Icon, run }) => (
+            <Button key={label} variant="secondary" align="start" onClick={run} icon={<Icon size={24} aria-hidden />}
+              className="min-h-24 flex-col !items-start justify-between rounded-lg p-4 text-h3 font-semibold">
+              {label}
+            </Button>
+          ))}
+        </div>
+      </Sheet>
+      <BookingSheets sheet={sheet} onChange={setSheet} />
+    </>
+  );
+}

@@ -53,7 +53,7 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
               <span className="min-w-0 truncate text-h2 font-semibold tracking-tight">{fullName(customer)}</span>
               <span className="shrink-0 text-body font-semibold tabular-nums">{when}</span>
             </p>
-            <p className="truncate text-sm text-text-secondary">{service?.name} · {formatDuration(booking.duration)}</p>
+            <p className="truncate text-sm text-text-secondary">{service?.name}, {formatDuration(booking.duration)}</p>
             <p className="mt-1 flex items-center gap-2 text-sm text-text-secondary">
               <StaffDot staffId={staff.id} />
               {t("next.with", { name: staff.firstName, time: formatTime(booking.start) })}
@@ -61,9 +61,11 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
           </div>
           {booking.example && <Tag className="self-start">{t("setup.example.tag")}</Tag>}
         </div>
-        <p className="text-sm text-text-secondary">
-          {[stats && tc("next.visits", stats.visits), stats?.lastVisit && t("next.lastVisit", { ago: agoText(stats.lastVisit, today) }), ...customer.tags].filter(Boolean).join(" · ")}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-secondary">
+          {stats && <span>{tc("next.visits", stats.visits)}</span>}
+          {stats?.lastVisit && <span>{t("next.lastVisit", { ago: agoText(stats.lastVisit, today) })}</span>}
+          {customer.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
+        </div>
         {customer.note && <Notice tone="warning">{customer.note}</Notice>}
         {advice && (
           <p className="text-sm text-text-secondary">
