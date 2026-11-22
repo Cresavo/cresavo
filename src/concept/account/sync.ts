@@ -3,7 +3,7 @@
 import type { DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
-import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountSalon, type AccountChange } from "../store";
+import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
 import { showToast } from "../ui/toast";
 import { ownerHintPresent } from "./hint";
@@ -99,7 +99,7 @@ async function readSalon(): Promise<{ state: DemoState } | null> {
 /** Shows the server's copy again. When it cannot be read, the change that was not saved is taken off the screen if nothing newer is shown. */
 async function reload(change: AccountChange) {
   const salon = await readSalon().catch(() => null);
-  if (salon) { replaceAccountSalon(salon.state); reconciled = true; }
+  if (salon) { replaceAccountSalon(salon.state); latestAnswer = salon.state; reconciled = true; }
   else restoreAccountSalon(change);
 }
 
@@ -122,6 +122,7 @@ function send(action: DemoAction, change: AccountChange) {
         answer = { ok: true, state: body.state, version: body.version, replayed: !!body.replayed };
         // Later changes are already shown; the last answer brings the salon in step.
         latestAnswer = body.state;
+        reconciled = false;
         logSettlers.get(idempotencyKey)?.(body.state.log[0]?.id ?? null);
         if (pending === 1) { replaceAccountSalon(body.state); reconciled = true; }
         return;
@@ -137,7 +138,8 @@ function send(action: DemoAction, change: AccountChange) {
       logSettlers.get(idempotencyKey)?.(null);
       logSettlers.delete(idempotencyKey);
       // A last change that failed leaves the screen on an earlier optimistic state: the newest server copy replaces it.
-      if (pending === 0 && !reconciled && latestAnswer) { replaceAccountSalon(latestAnswer); reconciled = true; }
+      // With no server copy at all, the salon as it was confirmed before the queue is the only state that is true.
+      if (pending === 0 && !reconciled) { if (latestAnswer) replaceAccountSalon(latestAnswer); else restoreAccountBase(); reconciled = true; }
       waiters.get(idempotencyKey)?.(answer);
       waiters.delete(idempotencyKey);
     }

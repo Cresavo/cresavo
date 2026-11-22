@@ -122,6 +122,23 @@ describe("blocks, gaps, shifts and fixed blocks on the clock-change nights", () 
     expect(earliestBookingStart("2027-10-31", "2027-10-31", 150, Date.parse("2027-10-31T05:00:00Z"))).toBe(180);
   });
 
+  it("keeps the seconds out of the lead time on an ordinary day", () => {
+    const at = Date.parse("2026-11-16T08:00:20Z"); // 09:00:20 in Stockholm
+    expect(earliestBookingStart("2026-11-16", "2026-11-16", 540, at)).toBe(600);
+    expect(earliestBookingStart("2026-11-16", "2026-11-16", 540, at)).toBe(earliestBookingStart("2026-11-16", "2026-11-16", 540));
+    expect(earliestBookingStart("2027-10-31", "2027-10-31", 150, Date.parse("2027-10-31T01:30:20Z"))).toBe(210);
+  });
+
+  it("ends a block at the first 03:00 of the autumn night, so it does not reach the repeated hour's second pass", () => {
+    // A treatment starts 02:00 (first pass), waits 02:30-03:30 elapsed, and resumes at the second 02:30.
+    const resumes = { serviceId: service.id, duration: 120, processing: { after: 30, duration: 60 } };
+    const state = { ...night, blocks: [{ id: "blk", staffId: "anna" as const, date: autumn, start: 165, end: 180, reason: "admin" as const }] };
+    expect(isFree(state, "anna", autumn, 120, resumes)).toBe(true);
+    expect(canBlock(night, "anna", autumn, 165, 180)).toBe(true);
+    // The block still holds the first pass: a visit there is refused.
+    expect(isFree(state, "anna", autumn, 165, need(15))).toBe(false);
+  });
+
   it("projects a completed visit's timing as the store judges it", () => {
     const completed = visit("2027-04-04", 600, 60, { status: "completed", bufferAfter: 120 });
     const state = withVisit(completed);

@@ -620,6 +620,7 @@ const messages = {
   "command.approve": "Godkänn",
   "command.becomes": "blir",
   "command.failed": "Det gick inte. Tiden kan ha hunnit bli bokad.",
+  "command.saving": "Bokningen sparas fortfarande. Försök igen om en stund.",
   "command.notUnderstood": "Jag kunde inte göra en ändring utifrån det. Prova att formulera om.",
   "command.morning": "Förmiddag",
   "command.afternoon": "Eftermiddag",

@@ -468,6 +468,8 @@ export interface DispatchOptions {
    * case for a change with `send`.
    */
   refuseNoOp?: boolean;
+  /** The ids the action names are the server's own (an Undo of a saved change): the provisional-id check does not apply to them. */
+  confirmedIds?: boolean;
   /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
   committed?: (sent: OutboxEntry[]) => void;
   /** An account salon only: the id the server keeps this change under (its idempotency key). */
@@ -497,7 +499,7 @@ export function dispatchWithLog(
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
     const action = typeof build === "function" ? build(current) : build;
     // An account change that names a record a pending change made would reach the server under an id it may give to another record.
-    if (workspace === "account" && namesProvisionalRecord(action)) return false;
+    if (workspace === "account" && !options.confirmedIds && namesProvisionalRecord(action)) return false;
     const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
     const batch = stageDemoSends(workspace);
     const next = withDemoChannels(batch, () => {
@@ -742,6 +744,16 @@ export function restoreAccountSalon(change: AccountChange) {
   snapshot.state = change.before;
   if (accountBase === change.before) accountBase = undefined;
   keep(change.before, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/** Shows the account salon as the server last confirmed it before the pending changes, when none of them could be saved or read back. */
+export function restoreAccountBase() {
+  const snapshot = snapshots.account;
+  if (!accountBase || !snapshot.state) return;
+  snapshot.state = accountBase;
+  keep(accountBase, snapshot.epoch);
+  accountBase = undefined;
   if (active === "account") notify();
 }
 

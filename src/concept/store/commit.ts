@@ -28,6 +28,8 @@ export interface CommitOptions {
   /** This tab's version of the salon (see `BrowserStudioStore`); a newer one is `conflict`. */
   expectedVersion?: number;
   idempotencyKey?: string;
+  /** An account salon only: the ids the action names are the server's own, so a pending change of another record does not hold it back. */
+  confirmedIds?: boolean;
 }
 
 export type { CommitResult };
@@ -46,7 +48,7 @@ async function commitToAccount(target: Target, action: DemoAction, options: Comm
   const requestId = options.idempotencyKey ?? newRequestId();
   const waiting = expectAnswer(requestId);
   if (!waiting) return { ok: false, reason: "conflict" };
-  const localId = dispatchWithLog(action, options.meta, options.guard, { send: options.send, refuseNoOp: true, requestId });
+  const localId = dispatchWithLog(action, options.meta, options.guard, { send: options.send, refuseNoOp: true, requestId, confirmedIds: options.confirmedIds });
   if (localId === false) {
     waiting.cancel();
     return { ok: false, reason: "rejected" };

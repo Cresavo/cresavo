@@ -120,10 +120,12 @@ const intersects = (a: Interval, b: Interval) => a.start < b.end && b.start < a.
 interface Elapsed {
   /** The elapsed minute of a wall-clock minute. */
   at(wall: number): number;
+  /** The elapsed minute where an interval that ends at this wall-clock minute ends: the end of the minute before it, so a block that ends at 03:00 in the autumn ends with the first pass of the repeated hour. */
+  end(wall: number): number;
   /** The first wall-clock minute at or after an elapsed minute. */
   wall(elapsed: number): number;
 }
-const IDENTITY: Elapsed = { at: (wall) => wall, wall: (elapsed) => elapsed };
+const IDENTITY: Elapsed = { at: (wall) => wall, end: (wall) => wall, wall: (elapsed) => elapsed };
 const elapsedClocks = new Map<DateKey, Elapsed>();
 
 /**
@@ -152,6 +154,7 @@ function elapsedClock(date: DateKey): Elapsed {
     for (let wall = 24 * 60 - 1; wall >= 0; wall--) if (!exists[wall]) table[wall] = table[wall + 1];
     clock = {
       at: (wall) => wall < 0 ? wall : wall >= 24 * 60 ? length + wall - 24 * 60 : table[wall],
+      end: (wall) => wall <= 0 || wall >= 24 * 60 || !exists[wall - 1] ? clock.at(wall) : table[wall - 1] + 1,
       wall: (elapsed) => {
         if (elapsed <= 0) return elapsed;
         if (elapsed > length) return 24 * 60 + elapsed - length;
@@ -206,7 +209,7 @@ function busyOn(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId: str
   const list = [...visits, ...holds].flatMap(b => elapsedIntervals(clock, "status" in b && b.status === "completed" ? { processing: b.processing } : b, b.start, b.duration));
   const lunch = lunchFor(ctx.salon, date);
   const fixed = [...(lunch ? [lunch] : []), ...(ctx.blocks ?? []).filter((block) => block.staffId === staffId && block.date === date)];
-  for (const { start, end } of fixed) list.push({ start: clock.at(start), end: clock.at(end) });
+  for (const { start, end } of fixed) list.push({ start: clock.at(start), end: clock.end(end) });
   return list.sort((a, b) => a.start - b.start);
 }
 

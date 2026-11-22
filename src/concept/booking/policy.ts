@@ -18,7 +18,8 @@ const sameMinute = (instant: number, today: DateKey, minutes: number) => {
  */
 export function earliestBookingStart(date: DateKey, today: DateKey, minutes: number, instant?: number): number {
   // The wall clock alone cannot tell the repeated hour's two passes apart: a trusted instant that says the same minute settles it.
-  const known = instant !== undefined && sameMinute(instant, today, minutes) ? instant : visitTime({ date: today, start: minutes }).toMillis();
+  // Whole minutes: the booking rules never counted the seconds, and a cutoff of 10:00 must not become 10:01 at 09:00:20.
+  const known = instant !== undefined && sameMinute(instant, today, minutes) ? Math.floor(instant / 60_000) * 60_000 : visitTime({ date: today, start: minutes }).toMillis();
   const at = known + LEAD_MINUTES * 60_000;
   const midnight = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).startOf("day");
   const target = DateTime.fromMillis(at, { zone: SALON_TIMEZONE });
