@@ -17,6 +17,7 @@ const messages = {
   "gallery.primary": "Primär",
   "gallery.secondary": "Sekundär",
   "gallery.tertiary": "Tertiär",
+  "gallery.link": "Länk",
   "gallery.danger": "Destruktiv",
   "gallery.disabled": "Ej tillgänglig",
   "gallery.normal": "Tillgänglig",

@@ -17,6 +17,7 @@ const messages = {
   "gallery.primary": "Primary",
   "gallery.secondary": "Secondary",
   "gallery.tertiary": "Tertiary",
+  "gallery.link": "Link",
   "gallery.danger": "Danger",
   "gallery.disabled": "Unavailable",
   "gallery.normal": "Available",

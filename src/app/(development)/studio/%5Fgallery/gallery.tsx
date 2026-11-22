@@ -28,7 +28,7 @@ import { Wordmark } from "@/concept/ui/wordmark";
 
 const [sampleStaff] = teamWith({ title: "", bio: "" }, { title: "", bio: "" });
 const wrap = "flex flex-wrap items-center gap-3";
-const variants = ["primary", "secondary", "tertiary", "danger"] as const;
+const variants = ["primary", "secondary", "tertiary", "link", "danger"] as const;
 const states = ["normal", "disabled", "loading"] as const;
 const views = ["day", "week"] as const;
 type Dialog = "sheet" | "side" | "consent" | "highRisk" | "confirm" | "confirmSave" | "media";
