@@ -29,9 +29,11 @@ export function messageSink(prisma: PrismaClient, registry: { resolve: (port: "e
     const customer = state?.customers.find((c) => c.id === booking?.customerId);
     const to = (booking?.contactEmail || customer?.email || "").trim();
     // Erased, cancelled or without a usable address: nothing to send, and nothing to retry.
-    if (!state || !booking || booking.status !== "booked" || !customer || !isEmail(to)) return;
+    // A cancellation is about a booking that is no longer booked, and has no use for a link to manage it.
+    const cancelled = message.kind === "cancellation";
+    if (!state || !booking || booking.status !== (cancelled ? "cancelled" : "booked") || !customer || !isEmail(to)) return;
 
-    const mail = confirmationEmail(state, booking, message.kind, bookingLink(tenantId, state, booking));
+    const mail = confirmationEmail(state, booking, message.kind, cancelled ? undefined : bookingLink(tenantId, state, booking));
     const { adapter } = await registry.resolve("email", tenantId);
     const result = await adapter.send({
       to: [to], from: `"${displayName(state.salon.name)}" <bookings@${productDomain()}>`, ...(isEmail(state.salon.email) ? { replyTo: state.salon.email } : {}),

@@ -3,15 +3,15 @@
 import { CalendarCheck, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
-import { formatDate, formatDayLong, formatDuration, formatTime } from "../i18n/format";
+import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
 import { useServerSalon } from "../server-salon";
-import { SALON_TIMEZONE } from "../tools/clock";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { bookingHome } from "./links";
+import { ManageBooking } from "./manage-booking";
 import type { PublicBookingView } from "./public-booking-view";
 
-type Loaded = { state: "loading" } | { state: "missing" } | { state: "link-needed" } | { state: "ready"; view: PublicBookingView };
+type Loaded = { state: "loading" } | { state: "missing" } | { state: "link-needed" } | { state: "ready"; view: PublicBookingView; token: string };
 
 const TITLES = { booked: "booking.confirmation.title", completed: "booking.confirmation.completed", cancelled: "booking.confirmation.cancelled", noshow: "booking.confirmation.noshow" } as const;
 
@@ -31,7 +31,7 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
     const load: Promise<Loaded> = !token ? Promise.resolve({ state: "link-needed" }) : fetch(`/api/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(id)}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store", signal: controller.signal,
     }).then((response) => response.ok ? response.json() as Promise<{ booking: PublicBookingView }> : null)
-      .then((body): Loaded => body ? { state: "ready", view: body.booking } : { state: "missing" });
+      .then((body): Loaded => body ? { state: "ready", view: body.booking, token: token! } : { state: "missing" });
     load.catch((): Loaded => ({ state: "missing" })).then((result) => controller.signal.aborted || setLoaded(result));
     return () => controller.abort();
   }, [slug, id]);
@@ -65,12 +65,7 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
           {[salon?.salon.name, view.salon.address].filter(Boolean).join(", ")}
         </p>
       </Card>
-      {view.status === "booked" && (
-        <div className="space-y-2 text-meta">
-          {view.freeUntil && <p className="text-text-secondary">{t("booking.cancelUntil", { day: formatDate(view.freeUntil.date), time: formatTime(view.freeUntil.time), zone: SALON_TIMEZONE })}</p>}
-          {view.salon.phone && <p>{t("booking.changeByPhone", { phone: view.salon.phone })}</p>}
-        </div>
-      )}
+      <ManageBooking slug={slug} id={id} token={loaded.token} view={view} onChanged={(changed) => setLoaded({ ...loaded, view: changed })} />
       <ButtonLink href={bookingHome(slug)} variant="secondary">{t("booking.backToSalon")}</ButtonLink>
     </div>
   );

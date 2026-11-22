@@ -188,7 +188,7 @@ export function actionFingerprint(action: DemoAction): string {
 /**
  * The action with the caller-reported times that decide eligibility or access
  * replaced by the store's clock: the booking cutoff of an online request
- * (`guest.at`), whether a review comes after the visit, and the start or end of
+ * (`guest.at`, or `at` of a customer's cancel or move), whether a review comes after the visit, and the start or end of
  * a support grant. Pure event stamps (`stock/order`, `customers/message`) are
  * kept as reported. Stores call this unless they trust the caller's clock.
  */
@@ -201,6 +201,8 @@ export function withTrustedTimes(action: DemoAction, at: number): DemoAction {
     case "online/waitlist":
       return { ...action, guest: { ...action.guest, at: local } };
     case "review/submit":
+    case "online/cancel":
+    case "online/move":
       return { ...action, at: local };
     case "support/grant":
     case "support/revoke":

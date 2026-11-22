@@ -33,11 +33,12 @@ export function confirmationEmail(state: DemoState, booking: Booking, kind: Book
     ...(view.salon.address ? [[say("bookingEmail.where"), `${state.salon.name}, ${view.salon.address}`]] : []),
     ...(view.salon.phone ? [[say("bookingEmail.phone"), view.salon.phone]] : []),
   ];
-  const notes = [
+  // Once cancelled there is nothing left to cancel or change, so the notes would only mislead.
+  const notes = kind === "cancellation" ? [] : [
     ...(view.freeUntil ? [say("booking.cancelUntil", { day: formatDate(view.freeUntil.date, language), time: formatTime(view.freeUntil.time, language), zone: SALON_TIMEZONE })] : []),
     ...(view.salon.phone ? [say("booking.changeByPhone", { phone: view.salon.phone })] : []),
   ];
-  const heading = say(`bookingEmail.heading.${kind}`);
+  const heading = say(`bookingEmail.heading.${kind}`, { date, time });
   const manage = say("bookingEmail.manage");
   const footer = say("bookingEmail.footer", { salon: state.salon.name, brand: BRAND.name });
   return {

@@ -5,6 +5,9 @@ import { deadline, freeCancellationDeadline } from "./policy";
 
 /** What the holder of a booking link may see of their booking: no customer, notes, price or anyone else's visit. */
 export interface PublicBookingView {
+  /** The ids the booking page already shows for treatments and team members, so a new time can be found for the same visit. */
+  serviceId: string;
+  staffId: string;
   treatment: string;
   staffFirstName: string;
   date: DateKey;
@@ -20,6 +23,7 @@ export function publicBookingView(state: DemoState, booking: Booking, now = Date
   const service = findService(state, booking.serviceId);
   const open = booking.protection && booking.status === "booked" && deadline(booking, booking.protection.terms.freeHours).toMillis() > now;
   return {
+    serviceId: booking.serviceId, staffId: booking.staffId,
     treatment: service ? serviceCopy(service, state.localization.language).name : "",
     staffFirstName: state.staff.find((s) => s.id === booking.staffId)?.firstName ?? "",
     date: booking.date, start: booking.start, duration: booking.duration, status: booking.status,

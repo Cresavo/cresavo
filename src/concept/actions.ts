@@ -14,7 +14,7 @@ import { applyCustomerReview, type CustomerReviewAction } from "./booking/review
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { cleanImportedCustomer, MAX_IMPORT_ROWS, normalizeEmail } from "./customers/csv";
-import { earliestBookingStart } from "./booking/policy";
+import { changeRule, earliestBookingStart } from "./booking/policy";
 import { PUBLIC_WINDOW_DAYS } from "./booking/public-projection";
 import { acceptedTerms, type AcceptedTerms } from "./booking/public-terms";
 import { addDays } from "./data/dates";
@@ -27,7 +27,7 @@ import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visit
 import type { CostKind } from "./finance/types";
 import { isFree, needOf, pickResource, timingOf } from "./data/slots";
 import { undoEntry } from "./log/undo";
-import { bookableServices, inboxItemVisible } from "./selectors";
+import { bookableServices, findCustomer, findService, fullName, inboxItemVisible } from "./selectors";
 import { moduleById, moduleEnabled, moduleKeys, presetModules, type PresetId } from "./modules/registry";
 import { applyOps, type OpsAction } from "./ops/edit";
 import { applySalonDetails, type SalonDetails } from "./ops/salon-details";
@@ -88,6 +88,8 @@ export type DemoAction =
       | { fictionalCustomer: { id: string; name: string; since: DateKey }; source: "assistant" }
     ))
   | { type: "online/book"; guest: OnlineGuest; notice?: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number; public?: PublicBooking }
+  | { type: "online/cancel"; id: string; at: OnlineGuest["at"]; public: PublicChange }
+  | { type: "online/move"; id: string; at: OnlineGuest["at"]; public: PublicChange; staffId: StaffId; date: DateKey; start: number }
   | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
@@ -151,6 +153,15 @@ export interface PublicBooking {
   slug: string;
   terms: AcceptedTerms;
   publicRef: string;
+}
+
+/**
+ * What makes an `online/cancel` or `online/move` a change by the holder of a
+ * booking link: the page it came from. The route has checked the link; the
+ * reducer decides whether the customer may still change the booking.
+ */
+export interface PublicChange {
+  slug: string;
 }
 
 export interface OnlineGuest extends GuestContact {
@@ -286,6 +297,50 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
     resourceId: pickResource(state, needOf(service), date, start), serviceId: service.id, expiresAt: now + 10 * 60_000,
   };
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
+}
+
+/** Why a guest cannot change a booking from its link: it is not theirs to change online, or the free-cancellation deadline has passed and the salon must be called. */
+export type OnlineChangeBlock = "not_changeable" | "call_salon";
+
+/**
+ * Whether the holder of a booking link may still cancel or move it by themselves,
+ * decided by the trusted clock `at`: a booked visit of this salon, free of any
+ * payment (a deposit or a fee is the salon's to settle), before the deadline of
+ * the terms it was booked under. Nothing is ever charged or refunded here.
+ */
+export function onlineChangeBlock(state: DemoState, id: string, slug: string, at: OnlineGuest["at"]): OnlineChangeBlock | undefined {
+  const booking = state.bookings.find((b) => b.id === id);
+  const paid = booking?.protection?.deposit || booking?.protection?.decision || booking?.protection?.refund;
+  if (!booking || slug !== state.salon.slug || !booking.publicRef || booking.status !== "booked" || paid || !findCustomer(state, booking.customerId)) return "not_changeable";
+  return changeRule(booking, at.date, at.time) === "free" ? undefined : "call_salon";
+}
+
+function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "online/cancel" | "online/move" }>, now: number): DemoState {
+  const { id, at } = action;
+  const booking = state.bookings.find((b) => b.id === id);
+  const customer = findCustomer(state, booking?.customerId);
+  if (!booking || !customer || onlineChangeBlock(state, id, action.public.slug, at)) return state;
+  const service = findService(state, booking.serviceId);
+  const name = fullName(customer);
+  const when = (visit: Pick<Booking, "date" | "start">) => `${formatDayLong(visit.date)} ${formatTime(visit.start)}`;
+  const notice = (kind: "cancel" | "reschedule", title: string, body: string) =>
+    ({ kind, customerId: customer.id, bookingId: id, date: at.date, time: at.time, title, body, read: false, handled: kind === "reschedule" });
+  const mail = (next: DemoState, kind: "cancellation" | "moved") => sendBookingMessage(next, { type: "booking-message/send", bookingId: id, kind, channel: "email", at });
+  if (action.type === "online/cancel") {
+    const cancelled = reduce(state, {
+      type: "booking/cancel", id, reason: t("booking.cancel.reason"),
+      notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name, service: service?.name ?? "", when: when(booking) })),
+    }, now);
+    return cancelled === state ? state : mail(cancelled, "cancellation");
+  }
+  const { staffId, date, start } = action;
+  const bookable = bookableServices(state).find((s) => s.id === booking.serviceId);
+  const same = staffId === booking.staffId && date === booking.date && start === booking.start;
+  if (same || !bookable?.staffIds.includes(staffId) || date < at.date || date > addDays(at.date, PUBLIC_WINDOW_DAYS) || start < earliestBookingStart(date, at.date, at.time)) return state;
+  const moved = moveBooking(state, id, date, start, staffId);
+  if (moved === state) return state;
+  const noted = reduce(moved, { type: "inbox/add", item: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name, service: service?.name ?? "", from: when(booking), to: when({ date, start }) })) });
+  return mail(noted, "moved");
 }
 
 function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/pay" }>, now: number, payments: typeof demoPayments) {
@@ -555,6 +610,9 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "online/book":
     case "online/hold":
       return bookOnline(state, action, now);
+    case "online/cancel":
+    case "online/move":
+      return changeOnline(state, action, now);
     case "online/waitlist":
       return joinWaitlist(state, action);
     case "service/price":

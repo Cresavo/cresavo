@@ -57,7 +57,7 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const { booking: view } = await response.json();
-    expect(Object.keys(view).sort()).toEqual(["date", "duration", "freeUntil", "salon", "staffFirstName", "start", "status", "treatment"]);
+    expect(Object.keys(view).sort()).toEqual(["date", "duration", "freeUntil", "salon", "serviceId", "staffFirstName", "staffId", "start", "status", "treatment"]);
     expect(view).toMatchObject({ date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02" }, freeUntil: { date: "2026-11-23", time: 600 } });
     expect(Object.keys(view.salon).sort()).toEqual(["address", "phone"]);
     const text = JSON.stringify(view);

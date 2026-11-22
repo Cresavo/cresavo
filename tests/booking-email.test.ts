@@ -46,6 +46,22 @@ describe("the confirmation e-mail", () => {
     expect(mail.html).toContain('lang="sv"');
   });
 
+  it("says a cancellation without notes or link, and a move with its new time and the fresh link, in both languages", () => {
+    const en = fixture("en");
+    const cancelled = confirmationEmail(en.state, { ...en.booking, status: "cancelled" }, "cancellation", undefined, NOW);
+    expect(cancelled.subject).toMatch(/^Booking cancelled: .+ 24 Nov 2026 10:00$/);
+    expect(cancelled.text).toContain("Your booking is cancelled");
+    expect(cancelled.text).not.toContain("call the salon");
+    expect(cancelled.text).not.toContain("View your booking");
+    const moved = confirmationEmail(en.state, en.booking, "moved", LINK, NOW);
+    expect(moved.subject).toMatch(/^Booking moved to 24 Nov 2026 10:00: /);
+    expect(moved.text).toContain("Your booking is moved to 24 Nov 2026 at 10:00");
+    expect(moved.text).toContain(`View your booking: ${LINK}`);
+    const sv = fixture("sv");
+    expect(confirmationEmail(sv.state, { ...sv.booking, status: "cancelled" }, "cancellation", undefined, NOW).text).toContain("Din bokning är avbokad");
+    expect(confirmationEmail(sv.state, sv.booking, "moved", LINK, NOW).text).toContain("Din bokning är flyttad till 24 november 2026 kl. 10:00");
+  });
+
   it("names the salon and the brand in the footer, and shows a reminder as one", () => {
     const { state, booking } = fixture("en", { salon: "Salong Fiktiv" });
     expect(confirmationEmail(state, booking, "confirmation", LINK, NOW).text).toContain(`Salong Fiktiv manages your booking; ${BRAND.name} processes it on the salon's behalf.`);
