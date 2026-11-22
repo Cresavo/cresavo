@@ -62,6 +62,14 @@ describe("task contracts and deterministic rules", () => {
     const result = await runTask("write-post", { offer: "20 % rabatt på massage", channel: "sms", locale: "sv" }, { env: {} });
     expect(result.output.text).toBe("20 % rabatt på massage\nBoka här:");
   });
+  it("accepts optional style hints for write-post and rejects a sign-off, hashtags or anything unknown", async () => {
+    const voice = { emoji: false, length: "short" };
+    const base = { offer: "20% off massage", channel: "sms" };
+    expect((await runTask("write-post", { ...base, voice }, { env: {} })).output.text).toContain("20% off massage");
+    for (const bad of [{ ...voice, signOff: "Warm regards, Anna" }, { ...voice, hashtags: ["#EkoGlow"] }, { ...voice, extra: 1 }]) {
+      await expect(runTask("write-post", { ...base, voice: bad }, { env: {} })).rejects.toBeInstanceOf(InvalidTaskInput);
+    }
+  });
   it("forecasts reorder quantity", async () => expect((await runTask("stock-forecast", inputs["stock-forecast"], { env: {} })).output).toMatchObject({ daysRemaining: 5, orderQuantity: 10 }));
   it("handles zero usage", async () => expect((await runTask("stock-forecast", { ...inputs["stock-forecast"], dailyUsage: 0 }, { env: {} })).output).toMatchObject({ daysRemaining: null, orderQuantity: 0 }));
   it("preserves dictated facts and no fabricated diagnosis", async () => expect((await runTask("structure-journal", inputs["structure-journal"], { env: {} })).output).toEqual({ treatment: "Foot treatment completed.", observations: "Observed dry skin.", recommendation: "Recommend cream.", nextVisit: "Next visit in six weeks." }));

@@ -1,7 +1,7 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
 import { t, tc, translate } from "../i18n";
-import { dayChipLabel, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { dayChipLabel, formatDate, formatDayLong, formatDayMonth, formatDayShort, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
@@ -9,12 +9,13 @@ import type { Goal } from "./goals";
 import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
-import { listServices, offerText } from "./copy";
+import { listServices, offerText, rulesCopy } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
 import { isOwnPhoto } from "./own-photo";
 import { isNeutralTone } from "./poster-engine/tone";
 import type { CampaignPrefill } from "./prefill";
+import type { OwnerVoice } from "./voice";
 
 /** A campaign being made in the studio, before it is published. */
 export interface Draft extends CampaignPrefill {
@@ -25,6 +26,8 @@ export interface Draft extends CampaignPrefill {
   copy: Partial<Record<Channel, string>>;
   /** The offer the texts were written for; texts are rewritten when it changes. */
   copyFor: string;
+  /** Channels whose text the owner has changed by hand; a new offer never overwrites them. */
+  copyEdited?: Channel[];
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
   posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
@@ -72,15 +75,48 @@ export function draftLink(state: DemoState, draft: Pick<Draft, "name" | "from">,
   return trackingLink(draft.name, draft.from);
 }
 
-/** The sentence the texts are written from. */
+/** The sentence the texts are written from, shaped by the campaign's goal in the business's language. */
 export function draftOffer(state: DemoState, draft: Draft): string {
   const language = state.localization.language;
   const names = state.services.filter((s) => draft.serviceIds.includes(s.id)).map((s) => serviceCopy(s, language).name);
-  return offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
+  const plain = offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
+  switch (draft.goal) {
+    case "fill": {
+      const free = freeTimes(state, draft.serviceIds[0], draft);
+      return free ? translate(language, "campaigns.offer.fill", { day: formatDayLong(free.date, language), times: free.times.join(", ") }) : plain;
+    }
+    case "wellness": {
+      const badges = draft.posterEdits.badges?.join(", ");
+      const vars = { name: draft.name, services: listServices(names, language), badges: badges ?? "", date: formatDate(draft.to, language) };
+      return translate(language, badges ? "campaigns.offer.wellness" : "campaigns.offer.wellnessNoBadges", vars);
+    }
+    case "giftcard":
+      return translate(language, "campaigns.offer.giftcard", { name: draft.name });
+    case "review": {
+      const review = newestReview(state);
+      return review ? `“${firstSentence(review.text)}”${review.author ? ` – ${review.author}` : ""}` : plain;
+    }
+    default:
+      return plain;
+  }
 }
 
 export function offerSignature(state: DemoState, draft: Draft): string {
   return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(state, draft)}`;
+}
+
+/**
+ * The texts for the current offer: written again by the rules for every channel the owner has not edited by hand.
+ * `regenerated` are those channels, `stale` the edited ones, which keep their text and should be checked.
+ */
+export function refreshCopy(state: DemoState, draft: Draft, voice: OwnerVoice) {
+  const stale = (draft.copyEdited ?? []).filter((channel) => draft.copy[channel] !== undefined);
+  const regenerated = CHANNELS.filter((channel) => !stale.includes(channel));
+  const offer = draftOffer(state, draft);
+  const link = draftLink(state, draft);
+  const copy: Draft["copy"] = {};
+  for (const channel of CHANNELS) copy[channel] = stale.includes(channel) ? draft.copy[channel] : rulesCopy(channel, offer, link, state.localization.language, voice);
+  return { copy, copyFor: offerSignature(state, draft), regenerated, stale };
 }
 
 /** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
@@ -149,7 +185,7 @@ function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta"
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
 function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "slotDate" | "lead" | "backdrop"> {
   if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
-  if (draft.style === "beforeafter") return { cta: translate(state.localization.language, "campaigns.engine.book") };
+  if (draft.style === "beforeafter" || draft.style === "fullphoto" || draft.style === "typography") return { cta: translate(state.localization.language, "campaigns.engine.book") };
   if (draft.style === "portrait") return { cta: translate(state.localization.language, "campaigns.engine.book"), lead: draft.posterEdits.lead ?? translate(state.localization.language, "campaigns.engine.portraitLead"), backdrop: draft.posterEdits.backdrop ?? "bloom" };
   const chosen = state.services.filter((s) => draft.serviceIds.includes(s.id) && !s.hidden);
   const listed = (chosen.length > 1 ? chosen : state.services.filter((s) => !s.hidden)).slice(0, MAX_LIST);
@@ -162,8 +198,17 @@ function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "pri
   };
 }
 
+/** Styles about one treatment: its name is the headline and the first sentence of its description the detail. */
+const NAMED_AFTER_TREATMENT = new Set<PosterStyle>(["price", "beforeafter", "portrait", "fullphoto", "typography"]);
+
+/** The campaign's first treatment as the business's customers read it (its language, not the studio's). */
+function firstTreatment(state: DemoState, draft: Draft) {
+  const service = state.services.find((s) => s.id === draft.serviceIds[0]);
+  return service && serviceCopy(service, state.localization.language);
+}
+
 function defaultHeadline(state: DemoState, draft: Draft): string {
-  if (draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
+  if (NAMED_AFTER_TREATMENT.has(draft.style)) return firstTreatment(state, draft)?.name ?? draft.name;
   if (draft.style === "season") return state.holidays.find((h) => h.id === draft.holidayId)?.name ?? draft.name;
   if (draft.style === "slots") {
     const free = freeTimes(state, draft.serviceIds[0], draft);
@@ -187,9 +232,19 @@ export function firstSentence(text: string): string {
   return `${(space > SHORT_DETAIL / 2 ? head.slice(0, space) : head.slice(0, SHORT_DETAIL - 1)).replace(/[,;:–-]$/, "").trim()}…`;
 }
 
+/** The first free day and its times as one short line: what a "fill free times" poster says instead of the treatment. */
+function freeTimesLine(state: DemoState, draft: Draft): string | null {
+  const free = freeTimes(state, draft.serviceIds[0], draft);
+  return free && [formatDayShort(free.date, state.localization.language), ...free.times].join(" · ");
+}
+
 function defaultDetail(state: DemoState, draft: Draft): string {
-  const first = state.services.find((s) => s.id === draft.serviceIds[0]);
-  if ((draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") && first?.description) return firstSentence(first.description);
+  const first = firstTreatment(state, draft);
+  if (draft.goal === "fill" && (draft.style === "fullphoto" || draft.style === "typography")) {
+    const line = freeTimesLine(state, draft);
+    if (line) return line;
+  }
+  if (NAMED_AFTER_TREATMENT.has(draft.style) && first?.description) return firstSentence(first.description);
   if (draft.style === "slots" && first) return `${first.name} · ${formatDuration(first.duration)}`;
   return listServices(serviceNames(state, draft));
 }

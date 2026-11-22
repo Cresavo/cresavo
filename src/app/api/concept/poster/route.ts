@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { usesPhoto } from "@/concept/campaigns/poster-layout";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
 import { ENGINE_FORMATS, ENGINE_TEMPLATES, posterDataSchema } from "@/concept/campaigns/poster-engine/templates";
 import { withRequestLog } from "@/concept/server/logger";
@@ -16,7 +17,7 @@ const requestSchema = z.object({
   template: z.enum(ENGINE_TEMPLATES),
   format: z.enum(Object.keys(ENGINE_FORMATS) as [keyof typeof ENGINE_FORMATS, ...(keyof typeof ENGINE_FORMATS)[]]),
   data: posterDataSchema,
-}).strict();
+}).strict().refine((request) => !usesPhoto(request.template) || !!request.data.photo, { path: ["data", "photo"], message: "photo required" });
 
 /** The body as text, or null as soon as it is known to exceed `max` bytes (declared or while reading). */
 async function readLimited(request: Request, max: number): Promise<string | null> {
