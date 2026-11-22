@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { bookedPosterTimes, defaultPrefill, newDraft, resolvePoster } from "@/concept/campaigns/draft";
-import { applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "@/concept/campaigns/poster-engine/tone";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { defaultPrefill, newDraft, resolvePoster } from "@/concept/campaigns/draft";
+import { applyLightContrast, applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "@/concept/campaigns/poster-engine/tone";
 import { toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 
@@ -50,23 +50,62 @@ describe("poster photo tone", () => {
   });
 });
 
-describe("booked times on a Free-times poster", () => {
-  const today = toKey(new Date());
-  const state = createDemoState(today);
-  const draft = { ...newDraft(defaultPrefill(state, today)), style: "slots" as const };
-  const poster = resolvePoster(state, draft);
+describe("unavailable times on a published Free-times poster", () => {
+  // A fixed Tuesday morning, so the salon is open and the advertised day has free times.
+  const NOW = new Date(2026, 10, 17, 8, 0);
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterAll(() => vi.useRealTimers());
 
-  it("finds nothing stale on a poster made just now", () => {
-    expect(bookedPosterTimes(state, poster, draft)).toEqual([]);
+  it("checks the advertised day itself, even when the next day still has the same times", async () => {
+    const { unavailablePosterTimes } = await import("@/concept/campaigns/draft");
+    const today = toKey(NOW);
+    const state = createDemoState(today);
+    const draft = { ...newDraft(defaultPrefill(state, today)), style: "slots" as const };
+    const poster = resolvePoster(state, draft);
+    expect(poster.slotDate).toBeTruthy();
+    expect(unavailablePosterTimes(state, poster, draft.serviceIds[0])).toEqual([]);
+    // The advertised day fills up (here: the salon closes that weekday); the next day is untouched.
+    const weekday = new Date(`${poster.slotDate}T12:00:00Z`).getUTCDay();
+    const full = { ...state, salon: { ...state.salon, hours: { ...state.salon.hours, [weekday]: null } } };
+    expect(unavailablePosterTimes(full, poster, draft.serviceIds[0])).toEqual(poster.items!.map((item) => item.name));
   });
 
-  it("finds a saved time that is not free", () => {
-    const saved = { ...poster, items: [...(poster.items ?? []), { name: "03:07", price: "" }] };
-    expect(bookedPosterTimes(state, saved, draft)).toEqual(["03:07"]);
+  it("cannot check older posters without the day, nor other styles", async () => {
+    const { unavailablePosterTimes } = await import("@/concept/campaigns/draft");
+    const state = createDemoState(toKey(NOW));
+    const id = state.services[0].id;
+    expect(unavailablePosterTimes(state, { style: "slots", items: [{ name: "10:00", price: "" }] }, id)).toEqual([]);
+    expect(unavailablePosterTimes(state, { style: "price", items: [{ name: "10:00", price: "" }], slotDate: toKey(NOW) }, id)).toEqual([]);
   });
+});
 
-  it("ignores other styles and posters without a treatment", () => {
-    expect(bookedPosterTimes(state, { style: "price", items: [{ name: "03:07", price: "" }] }, draft)).toEqual([]);
-    expect(bookedPosterTimes(state, { style: "slots", items: [{ name: "03:07", price: "" }] }, { ...draft, serviceIds: [] })).toEqual([]);
+describe("light and contrast without canvas filters", () => {
+  it("matches brightness() and contrast(): grey stays grey at 0, light raises and contrast spreads values", () => {
+    const pixels = new Uint8ClampedArray([128, 128, 128, 255, 200, 100, 50, 255]);
+    applyLightContrast(pixels, 0, 0);
+    expect([...pixels]).toEqual([128, 128, 128, 255, 200, 100, 50, 255]);
+    applyLightContrast(pixels, 10, 0);
+    expect(pixels[0]).toBe(141);
+    const spread = new Uint8ClampedArray([200, 50, 128, 255]);
+    applyLightContrast(spread, 0, 10);
+    expect([...spread]).toEqual([207, 42, 128, 255]);
+  });
+});
+
+describe("poster SVGs on one page", () => {
+  it("give their ids a unique prefix and keep every reference pointing at its own", async () => {
+    const { uniqueIds } = await import("@/concept/campaigns/poster-engine/client");
+    const markup = '<svg><defs><clipPath id="satori_cp-id-1"/><linearGradient id="g"/></defs><g clip-path="url(#satori_cp-id-1)"><rect fill="url(#g)"/><use href="#g"/><a href="#top"/></g></svg>';
+    const first = uniqueIds(markup, "a-");
+    const second = uniqueIds(markup, "b-");
+    expect(first).toContain('id="a-satori_cp-id-1"');
+    expect(first).toContain('clip-path="url(#a-satori_cp-id-1)"');
+    expect(first).toContain('fill="url(#a-g)"');
+    expect(first).toContain('href="#a-g"');
+    expect(first).toContain('href="#top"');
+    expect(second).toContain('clip-path="url(#b-satori_cp-id-1)"');
   });
 });

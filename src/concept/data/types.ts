@@ -337,6 +337,8 @@ export interface CampaignPoster {
   cta?: string;
   quote?: string;
   author?: string;
+  /** Free-times style: the day the advertised times are on, so a published poster can be checked later. */
+  slotDate?: DateKey;
   /** Review style: the quoted review's own rating, not the salon's average. */
   stars?: 1 | 2 | 3 | 4 | 5;
   /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */

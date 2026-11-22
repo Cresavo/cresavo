@@ -110,20 +110,19 @@ function freeTimes(state: DemoState, serviceId: string | undefined, period?: { f
     if (!slots.length) continue;
     const step = Math.max(1, Math.floor(slots.length / MAX_SLOTS));
     const picked = slots.filter((_, index) => index % step === 0).slice(0, MAX_SLOTS);
-    return { date, today: clock.today, count: slots.length, all: slots.map((slot) => formatTime(slot.start)), times: picked.map((slot) => formatTime(slot.start)) };
+    return { date, today: clock.today, count: slots.length, times: picked.map((slot) => formatTime(slot.start)) };
   }
   return null;
 }
 
 /**
- * The times saved on a Free-times poster that are no longer free on the first day with room in the campaign's
- * period, for its treatment. Approximate: the saved poster keeps the times, not their date.
+ * The times on a published Free-times poster that can no longer be booked on the day it advertises (booked,
+ * blocked or past). Posters saved before the day was kept cannot be checked and give an empty list.
  */
-export function bookedPosterTimes(state: DemoState, poster: Pick<CampaignPoster, "style" | "items">, campaign: { serviceIds: string[]; from: DateKey; to: DateKey }): string[] {
-  const serviceId = campaign.serviceIds[0];
-  if (poster.style !== "slots" || !serviceId) return [];
-  const free = new Set(freeTimes(state, serviceId, campaign)?.all);
-  return (poster.items ?? []).map((item) => item.name).filter((time) => !free.has(time));
+export function unavailablePosterTimes(state: DemoState, poster: Pick<CampaignPoster, "style" | "items" | "slotDate">, serviceId: string | undefined): string[] {
+  if (poster.style !== "slots" || !serviceId || !poster.slotDate) return [];
+  const open = new Set(openSlots(state, serviceId, poster.slotDate, salonClock()).map((slot) => formatTime(slot.start)));
+  return (poster.items ?? []).map((item) => item.name).filter((time) => !open.has(time));
 }
 
 /** The newest published review with the customer's public name, or null when the salon has none. */
@@ -135,20 +134,20 @@ export function newestReview(state: DemoState) {
 }
 
 /** What the season, review and free-times posters show, from the holiday, the published reviews and the calendar. */
-function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "stars" | "sticker" | "items"> {
+function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "stars" | "sticker" | "items" | "slotDate"> {
   if (draft.style === "review") {
     const review = newestReview(state);
     return review ? { quote: review.text, author: review.author, stars: review.rating } : {};
   }
   if (draft.style === "slots") {
     const free = freeTimes(state, draft.serviceIds[0], draft);
-    return free ? { sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: translate(state.localization.language, "campaigns.engine.book") } : { cta: translate(state.localization.language, "campaigns.engine.book") };
+    return free ? { slotDate: free.date, sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: translate(state.localization.language, "campaigns.engine.book") } : { cta: translate(state.localization.language, "campaigns.engine.book") };
   }
   return { cta: translate(state.localization.language, "campaigns.engine.book") };
 }
 
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
-function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "lead" | "backdrop"> {
+function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "slotDate" | "lead" | "backdrop"> {
   if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
   if (draft.style === "beforeafter" || draft.style === "fullphoto" || draft.style === "typography") return { cta: translate(state.localization.language, "campaigns.engine.book") };
   if (draft.style === "portrait") return { cta: translate(state.localization.language, "campaigns.engine.book"), lead: draft.posterEdits.lead ?? translate(state.localization.language, "campaigns.engine.portraitLead"), backdrop: draft.posterEdits.backdrop ?? "bloom" };

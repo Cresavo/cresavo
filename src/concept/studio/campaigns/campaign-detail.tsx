@@ -3,7 +3,7 @@
 import { reviewSummary } from "../../booking/reviews";
 import { useRef, useState } from "react";
 import { Check, Copy, Download, Megaphone } from "lucide-react";
-import { bookedPosterTimes } from "../../campaigns/draft";
+import { unavailablePosterTimes } from "../../campaigns/draft";
 import { CHANNELS } from "../../campaigns/channels";
 import { downloadBlob, posterToPng } from "../../campaigns/export-png";
 import { postDay } from "../../campaigns/calendar";
@@ -65,7 +65,7 @@ export function CampaignDetail({ id }: { id: string }) {
   };
   const day = postDay(campaign);
   const poster = campaign.poster;
-  const stale = poster ? bookedPosterTimes(state, poster, campaign).length > 0 : false;
+  const stale = poster ? unavailablePosterTimes(state, poster, campaign.serviceIds[0]).length > 0 : false;
 
   return (
     <>
