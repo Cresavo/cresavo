@@ -12,6 +12,8 @@ export const POSTER_STYLES: PosterStyle[] = ["price", "pricelist", "season", "re
 /** Styles rendered by the server poster engine (src/concept/campaigns/poster-engine). */
 export const ENGINE_STYLES = ["price", "pricelist", "season", "review", "slots", "beforeafter", "portrait", "fullphoto", "typography"] as const satisfies readonly PosterStyle[];
 export const isEngineStyle = (style: PosterStyle): style is (typeof ENGINE_STYLES)[number] => (ENGINE_STYLES as readonly PosterStyle[]).includes(style);
+/** Type only is the one engine style without a photo: the editor hides the photo controls and no photo is sent. */
+export const usesPhoto = (style: PosterStyle) => style !== "typography";
 export const POSTER_IMAGES = ["/demo/salon.webp", "/demo/massage.webp"];
 
 /** Greedy word wrap by character count. Words longer than a line stay whole. */

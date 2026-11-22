@@ -9,6 +9,7 @@ import { fitFontSize, wrapText } from "@/concept/campaigns/poster-layout";
 import { parseCampaignRequest, prefillForHoliday, prefillFromQuery, studioHref } from "@/concept/campaigns/prefill";
 import { quietDay } from "@/concept/campaigns/quiet-day";
 import { estimateAd, reachByChannel, simulateStats } from "@/concept/campaigns/simulate";
+import { toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import type { Channel } from "@/concept/data/types";
 
@@ -410,4 +411,36 @@ it("shortens descriptions without one-letter stubs or going over 70 characters",
   expect(firstSentence(word)).toBe(`${"x".repeat(69)}…`);
   expect(firstSentence(`${"y".repeat(70)} more`).length).toBeLessThanOrEqual(70);
   expect(firstSentence("Kort text.")).toBe("Kort text.");
+});
+
+describe("poster words in the business's language", () => {
+  const now = toKey(new Date());
+  const current = createDemoState(now);
+  const swedish = { ...current, localization: { ...current.localization, language: "sv" as const } };
+  const draft = { ...newDraft({ ...defaultPrefill(current, now), name: "Test offer" }), style: "fullphoto" as const };
+
+  it("names the treatment and describes it in the business's language, not the studio's, and lets owner edits win", () => {
+    const service = current.services.find((s) => s.id === draft.serviceIds[0])!;
+    const english = resolvePoster(current, draft);
+    const sv = resolvePoster(swedish, draft);
+    expect(english.headline).toBe(service.name);
+    expect(sv.headline).not.toBe(service.name);
+    expect(sv.detail).not.toBe(english.detail);
+    expect(resolvePoster(swedish, { ...draft, posterEdits: { headline: "Mitt val", detail: "Min text" } })).toMatchObject({ headline: "Mitt val", detail: "Min text" });
+  });
+
+  it("says when times are free, not what the treatment is, on the Full photo and Type only suggestions for Fill free times", () => {
+    const fill = { ...draft, goal: "fill" as const };
+    for (const style of ["fullphoto", "typography"] as const) {
+      const english = resolvePoster(current, { ...fill, style }).detail;
+      const sv = resolvePoster(swedish, { ...fill, style }).detail;
+      expect(english).toMatch(/\d{2}:\d{2}/);
+      expect(sv).toMatch(/\d{2}:\d{2}/);
+      expect(sv).not.toBe(english);
+      expect(english).not.toBe(resolvePoster(current, { ...draft, style }).detail);
+      expect(resolvePoster(current, { ...fill, style, posterEdits: { detail: "Min text" } }).detail).toBe("Min text");
+    }
+    // Other goals keep the treatment's description.
+    expect(resolvePoster(current, { ...draft, goal: "promote" }).detail).toBe(resolvePoster(current, draft).detail);
+  });
 });
