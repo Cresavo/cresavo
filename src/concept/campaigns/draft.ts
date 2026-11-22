@@ -13,6 +13,7 @@ import { listServices, offerText } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
 import { isOwnPhoto } from "./own-photo";
+import { isNeutralTone } from "./poster-engine/tone";
 import type { CampaignPrefill } from "./prefill";
 
 /** A campaign being made in the studio, before it is published. */
@@ -26,7 +27,7 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
 }
 
 /**
@@ -114,6 +115,16 @@ function freeTimes(state: DemoState, serviceId: string | undefined, period?: { f
   return null;
 }
 
+/**
+ * The times on a published Free-times poster that can no longer be booked on the day it advertises (booked,
+ * blocked or past). Posters saved before the day was kept cannot be checked and give an empty list.
+ */
+export function unavailablePosterTimes(state: DemoState, poster: Pick<CampaignPoster, "style" | "items" | "slotDate">, serviceId: string | undefined): string[] {
+  if (poster.style !== "slots" || !serviceId || !poster.slotDate) return [];
+  const open = new Set(openSlots(state, serviceId, poster.slotDate, salonClock()).map((slot) => formatTime(slot.start)));
+  return (poster.items ?? []).map((item) => item.name).filter((time) => !open.has(time));
+}
+
 /** The newest published review with the customer's public name, or null when the salon has none. */
 export function newestReview(state: DemoState) {
   const [review] = recentReviews(state.reviews, 1);
@@ -123,20 +134,20 @@ export function newestReview(state: DemoState) {
 }
 
 /** What the season, review and free-times posters show, from the holiday, the published reviews and the calendar. */
-function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "stars" | "sticker" | "items"> {
+function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "stars" | "sticker" | "items" | "slotDate"> {
   if (draft.style === "review") {
     const review = newestReview(state);
     return review ? { quote: review.text, author: review.author, stars: review.rating } : {};
   }
   if (draft.style === "slots") {
     const free = freeTimes(state, draft.serviceIds[0], draft);
-    return free ? { sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: translate(state.localization.language, "campaigns.engine.book") } : { cta: translate(state.localization.language, "campaigns.engine.book") };
+    return free ? { slotDate: free.date, sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: translate(state.localization.language, "campaigns.engine.book") } : { cta: translate(state.localization.language, "campaigns.engine.book") };
   }
   return { cta: translate(state.localization.language, "campaigns.engine.book") };
 }
 
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
-function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "lead" | "backdrop"> {
+function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "slotDate" | "lead" | "backdrop"> {
   if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
   if (draft.style === "beforeafter") return { cta: translate(state.localization.language, "campaigns.engine.book") };
   if (draft.style === "portrait") return { cta: translate(state.localization.language, "campaigns.engine.book"), lead: draft.posterEdits.lead ?? translate(state.localization.language, "campaigns.engine.portraitLead"), backdrop: draft.posterEdits.backdrop ?? "bloom" };
@@ -202,5 +213,6 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
     ...(draft.posterEdits.badges?.length && { badges: draft.posterEdits.badges }),
     ...(draft.posterEdits.socialQr && { socialQr: true }),
+    ...(draft.posterEdits.photoTone && !isNeutralTone(draft.posterEdits.photoTone) && { photoTone: draft.posterEdits.photoTone }),
   };
 }
