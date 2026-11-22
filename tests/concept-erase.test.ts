@@ -199,7 +199,7 @@ describe("redaction map", () => {
     const ids = customerIdentifiers({ id: "k", ...guest });
     const sms: OutboxEntry = { id: "o1", port: "sms", action: "send", to: guest.phone, body: "Hi Fictional Erasable", reference: "b-1", cost: null };
     expect(redactEffectPayload(sms, ids)).toEqual({ ...sms, to: REDACTED, body: REDACTED });
-    const kept: OutboxEntry = { ...sms, delivery: { live: true, firstAttemptAt: 1, mail: { subject: "Hi Fictional Erasable", text: "t", html: "h" } } };
+    const kept: OutboxEntry = { ...sms, delivery: { firstAttemptAt: 1, dispatched: true, from: "\"Salon\" <bookings@example.test>", mail: { subject: "Hi Fictional Erasable", text: "t", html: "h" } } };
     expect(redactEffectPayload(kept, ids)).toEqual({ ...sms, to: REDACTED, body: REDACTED });
     const pay: OutboxEntry = { id: "o2", port: "payments", action: "checkout", body: "Deposit", reference: "b-1", cost: { amountMinor: 20_000, currency: "SEK" } };
     expect(redactEffectPayload(pay, ids)).toEqual(pay);

@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { DemoAction } from "../actions";
 import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
+import { configFromEnv, meantLive } from "../connections/server/config";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { createDemoState } from "../data/generate";
 import { withSlotClock } from "../data/slots";
@@ -133,6 +134,12 @@ export interface PostgresStudioStoreOptions {
   lockTimeoutMs?: number;
   /** How `eraseSubject` redacts the tables: its own statements (default, staging) or the SECURITY DEFINER `erase_subject` (production grants). */
   erasure?: "statements" | "function";
+  /**
+   * Whether a message the deployment stages is meant to be sent for real. Decided here, where effects are
+   * persisted, because the reducer cannot see the configuration; it is stored on the effect as `live`.
+   * Default: e-mail is live when the connection configuration says so (CONCEPT_CONNECTIONS_LIVE and a provider).
+   */
+  liveMessage?: (record: OutboxEntry, tenantId: TenantId) => boolean;
   /** Delivery lease and attempts before `failed`, as for the poller. */
   leaseMs?: number;
   maxAttempts?: number;
@@ -257,6 +264,7 @@ export class PostgresStudioStore implements StudioStore {
   private readonly leaseMs: number;
   private readonly maxAttempts: number;
   private readonly erasure: "statements" | "function";
+  private readonly liveMessage: (record: OutboxEntry, tenantId: TenantId) => boolean;
   private readonly listeners = new Map<TenantId, Set<(change: StoreChange) => void>>();
   private readonly refreshListeners = new Set<() => void>();
   private readonly notifications?: PostgresNotifications;
@@ -277,6 +285,7 @@ export class PostgresStudioStore implements StudioStore {
     this.leaseMs = whole(options.leaseMs, EFFECT_LEASE_MS);
     this.maxAttempts = whole(options.maxAttempts, EFFECT_MAX_ATTEMPTS);
     this.erasure = options.erasure === "function" ? "function" : "statements";
+    this.liveMessage = options.liveMessage ?? ((record) => record.port === "email" && meantLive(configFromEnv(), "email"));
     const listenerConnectionString = options.listenerConnectionString ?? process.env.DATABASE_URL;
     if (listenerConnectionString) {
       this.notifications = new PostgresNotifications(
@@ -597,6 +606,8 @@ export class PostgresStudioStore implements StudioStore {
     const effects: StoreEffect[] = [];
     for (const [id, { fingerprint: print, record }] of staged) {
       const effect = effectOf(record);
+      // Fixed here, for good: a worker that cannot send for real never turns a live message into a simulated one.
+      if (effect.kind === "message") record.live = locked.kind === "salon" && this.liveMessage(record, tenantId);
       await tx.$executeRaw`
         INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, next_attempt_at)
         VALUES (${tenantId}, ${seq}::bigint, ${effects.length}, ${id}, ${print}, ${effect.kind}, ${JSON.stringify(record)}::jsonb,
@@ -649,9 +660,10 @@ export class PostgresStudioStore implements StudioStore {
    *   personal fields redacted by PERSONAL_FIELDS and `redacted_at` set. Their
    *   name, phone and email are also replaced in every other row of the
    *   tenant, the informational `idempotency_key` column included.
-   * - `tenant_effect`: messages addressed to them are redacted. An unsent one
-   *   is cancelled; one a deliverer holds right now is stopped (`erased_at`)
-   *   and reported in `inFlightMessages`, and its deliverer still records
+   * - `tenant_effect`: messages addressed to them are redacted. A pending one is
+   *   cancelled, a claimed one too: a deliverer rechecks that under its claim
+   *   before it dispatches. One a deliverer holds right now is reported in
+   *   `inFlightMessages`, and if it had already dispatched it still records
    *   the true outcome. Other messages and delivered payments only lose the
    *   identifiers. Pending payments are kept so a refund still goes out.
    * - `tenant_idempotency` rows whose stored result mentions them are deleted.
@@ -749,11 +761,10 @@ export class PostgresStudioStore implements StudioStore {
         const payload = JSON.stringify(redactEffectPayload(row.payload, identifiers));
         if (row.status !== "pending") {
           await tx.$executeRaw`UPDATE tenant_effect SET payload = ${payload}::jsonb WHERE id = ${row.id}`;
-        } else if (row.leased) {
-          // A deliverer is sending it right now: it is stopped for any retry and reported.
-          inFlightMessages++;
-          await tx.$executeRaw`UPDATE tenant_effect SET payload = ${payload}::jsonb, erased_at = ${at}::timestamptz WHERE id = ${row.id}`;
         } else {
+          // Pending or claimed, it is cancelled in this transaction. A deliverer that has not yet dispatched finds it
+          // cancelled under its own claim and sends nothing; one that already has is reported and records its outcome.
+          if (row.leased) inFlightMessages++;
           await tx.$executeRaw`
             UPDATE tenant_effect SET payload = ${payload}::jsonb, status = 'cancelled', erased_at = ${at}::timestamptz WHERE id = ${row.id}`;
         }

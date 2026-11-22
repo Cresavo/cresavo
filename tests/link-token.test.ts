@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { captureLinkToken } from "@/concept/booking/link-token";
+import type { ReactNode } from "react";
+import NotFound from "@/app/boka/not-found";
+import { captureLinkToken, LinkTokenScrub } from "@/concept/booking/link-token";
 
 // The booking link's token is taken from the address once, removed from it,
 // and still there when React runs the effect a second time. Fictional values.
+
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
 const replaceState = vi.fn();
 let location: { pathname: string; search: string; hash: string };
@@ -38,5 +42,19 @@ describe("captureLinkToken", () => {
     location.pathname = "/boka/salong-fiktiv/booking/ref-3";
     expect(captureLinkToken()).toBeUndefined();
     expect(replaceState).not.toHaveBeenCalled();
+  });
+});
+
+describe("the not-found boundary of /boka", () => {
+  /** True when the element tree holds this component type. */
+  const holds = (node: ReactNode, type: unknown): boolean => {
+    if (!node || typeof node !== "object") return false;
+    if (Array.isArray(node)) return node.some((child) => holds(child, type));
+    const element = node as { type: unknown; props?: { children?: ReactNode } };
+    return element.type === type || holds(element.props?.children, type);
+  };
+
+  it("mounts the scrubber, so an unknown salon's 404 does not keep the token in its address", async () => {
+    expect(holds(await NotFound(), LinkTokenScrub)).toBe(true);
   });
 });

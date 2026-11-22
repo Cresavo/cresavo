@@ -83,3 +83,17 @@ commits = ["ee835fe88b8662029c78add44fa640f8febf2d03"]
 paths = ['''^tests/consent-staging\.test\.ts$''']
 regexTarget = "match"
 regexes = ['''password = "fictional-pass-9f3k"''']
+
+# E-mail sink provider fingerprint test (issue #143 follow-up, 2026-11-22):
+# a second fictional Twilio token proves that two keys give different account
+# fingerprints. The value is made up ("SECRETother01234567ab", ascending run,
+# wrong format for a real Twilio auth token), was written in a sandbox with no
+# provider credentials, and is scoped to the one commit that introduced it AND
+# this file AND this literal, so it is reported anywhere else.
+[[allowlists]]
+description = "Fictional second Twilio token in the account fingerprint test"
+condition = "AND"
+commits = ["c1b39fa1b4e6d2a196ba24299c96b7cd13e828d5"]
+paths = ['''^tests/concept-connections-secrets\.test\.ts$''']
+regexTarget = "match"
+regexes = ['''TWILIO_AUTH_TOKEN: "SECRETother01234567ab"''']

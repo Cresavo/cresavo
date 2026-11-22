@@ -296,8 +296,7 @@ customerId)` runs one transaction under the row lock:
    Array fields are redacted for every element, not only the erased customer's. The log is audit only, so redacting a little more is the safe side.
 2. **`tenant_effect`.** The matched rows are locked (`FOR UPDATE`), so an acknowledgement waits for the erasure and a claim skips them.
    - **Messages addressed to the customer** (`to` is `customer:<id>`) have their recipient, subject and body redacted.
-     - If unsent, the row becomes `cancelled`.
-     - If a deliverer holds it right now (`leased_until` in the future), it is stopped with `erased_at` and reported in `inFlightMessages`. A successful send is still recorded as `delivered` (with the redacted payload). A failed one becomes `cancelled` and is never retried, and the poller cancels it once its lease is over if the deliverer died.
+     - If pending, the row becomes `cancelled` (with `erased_at`), whether or not a deliverer holds it. A deliverer holding it right now (`leased_until` in the future) is reported in `inFlightMessages`. The message sink rechecks the booking under the tenant's lock and commits its `dispatched` marker only while the row is still pending and not erased, so one that had not dispatched yet sends nothing. One that had dispatched still records a successful send as `delivered` (with the redacted payload); a failed one stays `cancelled` and is never retried.
    - **Other recipients' messages**, even from the same multi-recipient action, keep their status. They only lose an identifier that appears in their text.
    - **Delivered payments** only lose identifiers, so the amount and reference stay for the books. A pending payment is kept so a refund still goes out (see open questions).
 3. **`tenant_idempotency`.** Rows whose stored result (a state copy) holds the customer's id or an identifier are deleted. Other keys keep protecting their retries, so a typo or a repeated erasure never makes a keyed change apply twice.
@@ -359,7 +358,7 @@ cases cover the following:
 - a poller restricted to some tenants never claims another tenant's rows
 - erasure: a fictional customer is deleted and erased. They have a deposit booking, confirmations, a note, texts (one shared with another customer), a hold typed with a formatted phone and no email, and a booking under a key that holds their email, cancelled with a private reason. A scan of every column of every row in the four tables, the document included, finds their name, phone in either format, email and the private reason zero times. The other customer's messages, the payment amount and the booking address are intact.
 - unsent messages to the erased customer are cancelled, the other recipient's messages from the same action are still sent, and a pending payment is kept and delivered
-- a message in flight during the erasure is reported. Its success is recorded as delivered with a redacted payload; its failure is cancelled and never retried.
+- a message a deliverer holds during the erasure is cancelled with the erasure (statements and `erase_subject` alike) and reported. Its success is recorded as delivered with a redacted payload; its failure stays cancelled and is never retried.
 - an unrelated or repeated erasure keeps other idempotency keys, so a keyed retry still replays
 - `apply` refuses `customer/erase`
 - `erase_subject`: `PUBLIC` cannot execute it, JSON keys and numbers survive its scrub, it matches the statements exactly, and `erasure: "function"` uses it
