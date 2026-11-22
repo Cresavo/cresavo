@@ -107,6 +107,8 @@ body:has(.studio-root) .demo-banner {
 
 /* Rows that share one surface are separated by a straight line; only the surface is rounded. */
 .studio-root .divide-y > * { border-radius: 0; }
+/* The button reset above clears a row's border; a button row keeps its divider. */
+.studio-root .divide-hairline > * ~ button { border-top: 1px solid var(--ui-hairline); }
 
 .studio-content {
   padding-bottom: calc(var(--studio-bottom-nav) + var(--space-8) + env(safe-area-inset-bottom));

@@ -166,7 +166,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.treatment")}</h3>
-          <Card className="divide-y divide-hairline overflow-hidden">
+          <Card className="grid gap-px overflow-hidden bg-hairline sm:grid-cols-2">
             {services.map((s) => {
               const chosen = s.id === service.id;
               return (
@@ -174,14 +174,17 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
                   key={s.id}
                   aria-pressed={chosen}
                   onClick={() => { setServiceId(s.id); setFailure(undefined); }}
-                  className={cx("min-h-12", chosen && "bg-action-bg hover:bg-action-bg")}
-                  leading={<Check size={18} aria-hidden className={cx("shrink-0", !chosen && "invisible")} />}
-                  title={<span className={chosen ? "font-semibold" : undefined}>{s.name}</span>}
+                  className={cx("rounded-none", chosen ? "bg-action-bg hover:bg-action-bg" : "bg-surface")}
+                  title={<span className={cx("block leading-snug", chosen && "font-semibold")}>{s.name}</span>}
                   meta={`${formatDuration(s.duration)} · ${state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}`}
-                  trailing={<span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>}
+                  trailing={<>
+                    {chosen && <Check size={18} aria-hidden className="shrink-0" />}
+                    <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
+                  </>}
                 />
               );
             })}
+            {services.length % 2 === 1 && <div aria-hidden className="hidden bg-surface sm:block" />}
           </Card>
         </section>
 
