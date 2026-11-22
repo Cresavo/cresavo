@@ -3,9 +3,10 @@
 import { ArrowDown, ArrowUp, Lock, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { t, type MessageKey } from "../../i18n";
+import { MAX_ABOUT_HEADING, MAX_ABOUT_TEXT, type PageAbout } from "../../page/about";
 import { addSection, availableKinds, moveSection, removeSection, setVariant, variantsOf, type PageSection } from "../../page/sections";
 import { Card } from "../../ui/card";
-import { Chip, Field, Segmented, TextInput } from "../../ui/controls";
+import { Chip, Field, Segmented, Textarea, TextInput } from "../../ui/controls";
 import { IconButton } from "../../ui/button";
 import { ReorderItem, ReorderList } from "../reorder";
 
@@ -13,12 +14,17 @@ interface Props {
   sections: PageSection[];
   reviewsEnabled: boolean;
   instagram: string;
+  about: PageAbout;
+  /** The business name, for the heading the page uses when none is typed. */
+  name: string;
   onChange: (sections: PageSection[]) => void;
   onInstagram: (handle: string) => void;
+  onAbout: (about: PageAbout) => void;
 }
 
 /** Add, remove and reorder sections and pick a look for each. The booking flow row is fixed: it is shown so the owner sees where it sits. */
-export function SectionControls({ sections, reviewsEnabled, instagram, onChange, onInstagram }: Props) {
+export function SectionControls({ sections, reviewsEnabled, instagram, about, name, onChange, onInstagram, onAbout }: Props) {
+  const aboutHeading = t("booking.about", { name });
   const hero = sections[0]?.kind === "hero" ? sections[0] : undefined;
   const movable = hero ? sections.slice(1) : sections;
   const items = movable.map((section) => ({ section, id: section.kind, name: t(`page.section.${section.kind}`) }));
@@ -57,6 +63,16 @@ export function SectionControls({ sections, reviewsEnabled, instagram, onChange,
         <Field width="short" label={t("pageEditor.instagram")} hint={t("pageEditor.instagram.hint")}>
           <TextInput value={instagram} onChange={(event) => onInstagram(event.target.value)} placeholder={t("pageEditor.instagramExample")} autoCapitalize="none" autoComplete="off" spellCheck={false} />
         </Field>
+      )}
+      {sections.some((s) => s.kind === "about") && (
+        <div className="space-y-4">
+          <Field label={t("pageEditor.about.heading")} hint={t("pageEditor.about.heading.hint", { fallback: aboutHeading })}>
+            <TextInput value={about.heading} onChange={(event) => onAbout({ ...about, heading: event.target.value })} placeholder={aboutHeading} maxLength={MAX_ABOUT_HEADING} />
+          </Field>
+          <Field label={t("pageEditor.about.text")} hint={t("pageEditor.about.text.hint", { max: MAX_ABOUT_TEXT })}>
+            <Textarea value={about.text} onChange={(event) => onAbout({ ...about, text: event.target.value })} rows={8} maxLength={MAX_ABOUT_TEXT} />
+          </Field>
+        </div>
       )}
       {canAdd.length > 0 && (
         <div className="space-y-2">

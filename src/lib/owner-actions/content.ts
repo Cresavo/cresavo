@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_ABOUT_HEADING, MAX_ABOUT_TEXT } from "@/concept/page/about";
 import { MAX_CSS_LENGTH } from "@/concept/page/css";
 import { isHex } from "@/concept/page/colour";
 import { SECTION_KINDS, variantsOf } from "@/concept/page/sections";
@@ -29,6 +30,7 @@ const page = z.strictObject({
   theme,
   sections: list(section, kinds.length).refine((sections) => new Set(sections.map((entry) => entry.kind)).size === sections.length, "A section appears once"),
   instagram: text(MAX_INSTAGRAM),
+  about: z.strictObject({ heading: text(MAX_ABOUT_HEADING), text: text(MAX_ABOUT_TEXT) }),
   css: text(MAX_CSS_LENGTH),
 });
 

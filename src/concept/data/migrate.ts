@@ -3,6 +3,7 @@ import { returnRedemptions } from "../giftcards/cards";
 import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
+import { EMPTY_ABOUT } from "../page/about";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
 import { getPack } from "../packs";
@@ -71,6 +72,13 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // salons with every module off. Existing salons keep their modules. Deposit-branch saves could
   // reach v22 before reminder settings existed, so they get the defaults here.
   22: (saved) => ({ ...saved, reminderSettings: saved.reminderSettings ?? { ...DEFAULT_REMINDER_SETTINGS }, version: 23 }),
+  // v24 added the booking page's About text. The section stays off on every saved page; the demo
+  // business gets its text ready for when the section is added, an own salon starts empty.
+  23: (saved) => {
+    const page = saved.page as PageConfig;
+    const text = saved.industry ? "" : getPack(saved.pack as PackId).about ?? "";
+    return { ...saved, page: { ...page, about: page.about ?? { ...EMPTY_ABOUT, text } }, version: 24 };
+  },
 };
 
 /** The oldest saved version that can still be migrated. */

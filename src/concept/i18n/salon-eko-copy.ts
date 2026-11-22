@@ -86,6 +86,7 @@ export function salonCopy(state: DemoState, language: Locale): DemoState {
     ...state,
     categories,
     salon: { ...state.salon, tagline: fixtureField(state.salon.tagline, "fixture.eko.tagline", language) },
+    page: { ...state.page, about: { ...state.page.about, text: fixtureField(state.page.about.text, "fixture.eko.about", language) } },
     staff: state.staff.map((person) => staffCopy(person, language)),
     services: state.services.map((service) => serviceCopy(service, language)),
     retiredServices: state.retiredServices.map((service) => serviceCopy(service, language)),

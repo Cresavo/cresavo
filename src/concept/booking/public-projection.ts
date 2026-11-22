@@ -1,7 +1,8 @@
 import { addDays } from "../data/dates";
 import { isActive, staffIntervals, timingOf } from "../data/slots";
 import type { Booking, DateKey, DemoState, Interval, ResourceKind, Review, Salon, Service, Staff, StaffBlock, StaffException, StaffId, VisitTiming } from "../data/types";
-import { normalizePage, type PageConfig } from "../page/config";
+import { EMPTY_ABOUT } from "../page/about";
+import { hasSection, normalizePage, type PageConfig } from "../page/config";
 import { sanitizeCss } from "../page/css";
 import { salonClock } from "../tools/clock";
 import type { CheckoutHold } from "./protection";
@@ -141,7 +142,8 @@ export function publicSalonView(state: DemoState, now: Date): DemoState {
       assistant: false, giftcards: false, packages: false, domain: false,
     },
     // The owner's raw CSS stays on the server; the page gets the sanitised, scoped text.
-    page: { ...page, css: "", sanitizedCss: sanitizeCss(page.css) },
+    // A text whose section is switched off is a draft, so it stays on the server too.
+    page: { ...page, css: "", sanitizedCss: sanitizeCss(page.css), about: hasSection(page, "about") ? page.about : EMPTY_ABOUT },
     categories: state.categories.filter((category) => categoryIds.has(category.id)).map((category) => ({ id: text(category.id), name: text(category.name) })),
     services,
     staff: state.staff.map((person) => teammate(person, cards)),
