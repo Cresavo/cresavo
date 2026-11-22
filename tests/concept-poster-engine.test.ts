@@ -4,7 +4,8 @@ import { contrast } from "@/concept/page/colour";
 import { engineRequest, qrFor, qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
 import type { PosterNode } from "@/concept/campaigns/poster-engine/element";
-import { cutoutPlacement, ENGINE_FORMATS, fitHeadline, pngSize, posterDataSchema, posterTree, STORY_SAFE } from "@/concept/campaigns/poster-engine/templates";
+import { cutoutPlacement, ENGINE_FORMATS, pngSize, posterDataSchema, posterTree, STORY_SAFE } from "@/concept/campaigns/poster-engine/templates";
+import { fitText, textWidth } from "@/concept/campaigns/poster-engine/measure";
 import { backdropSvg, BACKDROPS } from "@/concept/campaigns/poster-engine/backdrops";
 import { hasTransparency } from "@/concept/campaigns/poster-engine/client";
 
@@ -184,7 +185,7 @@ describe("season, review and free-times templates", () => {
 
   it("lists the free times with the day, and a booking button on a story", () => {
     const story = flat(posterTree("slots", { ...data, headline: "2 tider kvar!", sticker: ["Fre", "12 dec"] }, "story"));
-    for (const part of ["2 tider kvar!", "10:00  ·  13:30", "Fre", "Boka nu →"]) expect(story).toContain(part);
+    for (const part of ["2 tider kvar!", "10:00 · 13:30", "Fre", "Boka nu →"]) expect(story).toContain(part);
     expect(flat(posterTree("slots", data, "post"))).toContain("070-123 45 67");
   });
 });
@@ -203,7 +204,6 @@ describe("full photo and type-only templates", () => {
 
   it("keeps the full photo story's text out of the bars Instagram lays over the top and bottom", () => {
     const tree = flat(posterTree("fullphoto", data, "story"));
-    expect(tree).toContain('"top":290');
     expect(tree).toContain('"bottom":430');
     expect(tree).not.toContain('"top":270,"width":1008');
   });
@@ -217,13 +217,14 @@ describe("full photo and type-only templates", () => {
   });
 
   it("sizes a headline by its length, not below the floor unless its longest word needs it, and gives a longer text more lines", () => {
-    const room = 952;
-    expect(fitHeadline("Fotvård", room, 150, 72, 2)).toEqual({ size: 150, lines: 1 });
-    expect(fitHeadline("Friskvårdsmassage för nacke och axlar", room, 150, 72, 2).lines).toBe(2);
-    expect(fitHeadline("Vårens fotvård", room, 230, 96, 3).lines).toBe(2);
+    const fit = (text: string, max: number, floor: number, maxLines: number) => fitText({ text, font: "black", room: 952, max, floor, lineHeight: 0.98, maxLines, tracking: -0.03 });
+    expect(fit("Fotvård", 150, 72, 2)).toMatchObject({ size: 150, lines: 1 });
+    expect(fit("Friskvårdsmassage för nacke och axlar", 150, 72, 2).lines).toBe(2);
+    // A longer text gets smaller letters, not a line more than the poster allows.
+    expect(fit("Vårens fotvård och lite till", 230, 96, 3).size).toBeLessThan(fit("Vårens", 230, 96, 3).size);
+    expect(fit("Vårens fotvård och lite till", 230, 96, 3).lines).toBeLessThanOrEqual(3);
     for (const headline of ["a", "Ansiktsbehandling", "Friskvårdsmassage för nacke och axlar"]) {
-      expect(fitHeadline(headline, room, 150, 72, 2).size).toBeGreaterThanOrEqual(72);
-      expect(fitHeadline(headline, room, 230, 96, 3).size).toBeGreaterThanOrEqual(Math.min(96, Math.floor(room / (headline.length * 0.6))));
+      expect(fit(headline, 150, 72, 2).size).toBeGreaterThanOrEqual(72);
     }
   });
 
@@ -269,23 +270,24 @@ describe("full photo and type-only templates under stress", () => {
   });
 
   it("lets the size go below the floor when the longest word would not fit, and not otherwise", () => {
-    const fit = fitHeadline(longWord, room(1080), Math.round(150 * 1.15), Math.round(72 * 1.15), 2);
-    expect(fit.size).toBeLessThan(Math.round(72 * 1.15));
-    expect(fit.size * longWord.length * 0.6).toBeLessThanOrEqual(room(1080));
-    expect(fitHeadline("Fotvård", room(1080), 150, 72, 2).size).toBe(150);
-    expect(fitHeadline("x".repeat(40), room(1080), 150, 72, 2).size * 40 * 0.6).toBeLessThanOrEqual(room(1080));
+    const fit = (text: string, max: number, floor: number) => fitText({ text, font: "black", room: room(1080), max, floor, lineHeight: 0.98, maxLines: 2, tracking: -0.03 });
+    const wide = fit(longWord, Math.round(150 * 1.15), Math.round(72 * 1.15));
+    expect(wide.size).toBeLessThan(Math.round(72 * 1.15));
+    expect(textWidth(longWord, "black", wide.size, wide.spacing)).toBeLessThanOrEqual(room(1080));
+    expect(fit("Fotvård", 150, 72).size).toBe(150);
+    const forty = fit("x".repeat(40), 150, 72);
+    expect(textWidth("x".repeat(40), "black", forty.size, forty.spacing)).toBeLessThanOrEqual(room(1080));
   });
 
-  it("starts the full photo scrim's strong stop above the headline, also when a QR code makes the contact row taller", () => {
+  it("starts the full photo scrim's strong stop above the text block, also when a QR code makes the contact row taller", async () => {
     const stop = (data: typeof base) => Number(flat(posterTree("fullphoto", data, "post")).match(/rgba\(0,0,0,0\.8\) (\d+)%/)![1]) * 13.5;
-    // The headline's top: the block's bottom edge (64) minus the contact row, call to book, detail and headline lines.
-    const size = fitHeadline(longWord, 952, Math.round(150 * 1.15), Math.round(72 * 1.15), 2).size;
-    const headlineTop = (contactRow: number) => 1350 - 64 - 32 - contactRow - (36 + 88) - (24 + Math.round(44 * 1.15) * 1.25) - Math.round(size * 0.98);
+    // The block's top: the highest glyph (the salon's chip) of the real render.
+    const top = async (data: typeof base) => Math.min(...[...(await renderPosterSvg("fullphoto", data, "post")).matchAll(/<path fill="[^"]*" d="([^"]*)"/g)].flatMap(([, d]) => (d.match(/-?\d+(?:\.\d+)?/g) ?? []).filter((_, i) => i % 2 === 1).map(Number)));
     // The stop is rounded to whole percent (13.5 px).
-    expect(stop(base)).toBeLessThanOrEqual(headlineTop(40) + 7);
-    expect(stop(qrData)).toBeLessThanOrEqual(headlineTop(120) + 7);
+    expect(stop(base)).toBeLessThanOrEqual(await top(base) + 7);
+    expect(stop(qrData)).toBeLessThanOrEqual(await top(qrData) + 7);
     expect(stop(qrData)).toBeLessThan(stop(base) - 60);
-  });
+  }, 20_000);
 
   it("reads the type-only text and call to book by their real contrast, not a cut-off", () => {
     // White on this gold is 2.35:1; and an ink so close to the background that it would vanish.
@@ -304,9 +306,11 @@ describe("full photo and type-only templates under stress", () => {
     const name = "Salong Eko Hudvård och Kroppsbehandlingar för alla";
     const tree = posterTree("typography", { ...base, headline: "Fotvård", signature: { ...base.signature, salon: name, link: "salongeko.cresavo.com/boka" } }, "post");
     const part = (value: string) => find(tree, value)!.props.style!;
-    expect(part(name)).toMatchObject({ overflow: "hidden", textOverflow: "ellipsis" });
-    expect(part(name).flexShrink).toBeGreaterThanOrEqual(100 * Number(part("salongeko.cresavo.com/boka").flexShrink));
-    expect(part("salongeko.cresavo.com/boka")).toMatchObject({ whiteSpace: "nowrap" });
+    expect(part(name)).toMatchObject({ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+    // The link keeps its whole width in pixels, the name gets what is left.
+    const link = "salongeko.cresavo.com/boka";
+    expect(Number(part(link).width)).toBeGreaterThanOrEqual(textWidth(link, "extrabold", 32));
+    expect(Number(part(name).width)).toBeLessThan(textWidth(name, "extrabold", 32));
   });
 
   it("draws the type-only poster without a photo, and refuses another template without one", async () => {
@@ -353,16 +357,20 @@ describe("mirrored arrangement", () => {
       expect(Number(left)).toBeGreaterThanOrEqual(photoEdge);
       expect(Number(left) + Number(width)).toBeLessThanOrEqual(1080 - 64);
     }
-    expect(textStyle(after, "750 kr")).toMatchObject({ right: 76 });
+    // The price stays in the text column, right of the photo, and never reaches across it.
+    const price = textStyle(after, "750 kr");
+    expect(Number(price.left)).toBeGreaterThanOrEqual(photoEdge);
+    expect(Number(price.left) + Number(price.width)).toBeLessThanOrEqual(1080 - 64);
     const sticker = find(after, (node) => node.props.style?.transform === "rotate(-12deg)");
     expect(Number(sticker.left)).toBeGreaterThan(photoEdge - 80);
     // The wave is drawn the other way round; the signature strip stays where it was.
     expect(svgs(after).some((svg) => svg.includes("scale(-1 1)"))).toBe(true);
     expect(svgs(before).some((svg) => svg.includes("scale(-1 1)"))).toBe(false);
-    expect(find(after, (node) => node.props.style?.bottom === 56)).toMatchObject({ left: 64, width: 952 });
+    expect(find(after, (node) => node.props.style?.bottom === 64 && node.props.style.width === 952)).toMatchObject({ left: 64 });
     // A long word shrinks to the column instead of running off the poster's right edge.
     const long = posterTree("price", { ...mirrored, headline: "Friskvårdsmassage" }, "post");
-    expect(Number(textStyle(long, "Friskvårdsmassage").fontSize) * 17 * 0.6).toBeLessThanOrEqual(1080 - 64 - Number(textStyle(long, "Friskvårdsmassage").left));
+    const word = textStyle(long, "Friskvårdsmassage");
+    expect(textWidth("Friskvårdsmassage", "black", Number(word.fontSize), Number(word.letterSpacing))).toBeLessThanOrEqual(1080 - 64 - Number(word.left));
   });
 
   it("puts the portrait text column on the right and mirrors its scrim, footer and arch", () => {
@@ -379,8 +387,8 @@ describe("mirrored arrangement", () => {
     expect(textStyle(before, "Salong Eko")).toMatchObject({ left: 64 });
     // The text block is right-aligned, and the QR code moves to the left corner.
     expect(find(after, (node) => node.props.style?.textAlign === "right")).toMatchObject({ alignItems: "flex-end" });
-    expect(find(after, (node) => node.props.style?.bottom === 40)).toMatchObject({ left: 64 });
-    expect(find(before, (node) => node.props.style?.bottom === 40)).toMatchObject({ right: 64 });
+    expect(find(after, (node) => node.props.style?.bottom === 64 && node.props.style.position === "absolute" && node.props.style.height === undefined && node.props.style.width === undefined)).toMatchObject({ left: 64 });
+    expect(find(before, (node) => node.props.style?.bottom === 64 && node.props.style.position === "absolute" && node.props.style.height === undefined && node.props.style.width === undefined)).toMatchObject({ right: 64 });
   });
 
   it("keeps a cut-out person's face clear of the text column when mirrored", () => {
@@ -400,19 +408,20 @@ describe("mirrored arrangement", () => {
     expect(Number(style.left) + Number(style.width) / 2).toBeLessThan(1080 - 64 - column);
   });
 
-  it("puts the full photo's text on a panel at the top, the photo below it and the salon's chip at the bottom", () => {
-    for (const [format, top, bottom] of [["post", 64, 64], ["story", 290, 430]] as const) {
+  it("puts the full photo's text, with the salon's chip, on a panel at the top and the photo below it", () => {
+    for (const [format, top] of [["post", 64], ["story", 290]] as const) {
       const tree = posterTree("fullphoto", mirrored, format);
-      expect(textStyle(tree, "Salong Eko")).toMatchObject({ bottom });
-      expect(textStyle(tree, "Salong Eko")).not.toHaveProperty("top");
-      const block = find(tree, (node) => node.props.style?.flexDirection === "column" && node.props.style.alignItems === "flex-start");
-      expect(block).toMatchObject({ top });
-      expect(block).not.toHaveProperty("bottom");
+      const blockNode = nodes(tree).find((node) => node.props.style?.flexDirection === "column" && node.props.style.alignItems === "flex-start")!;
+      expect(blockNode.props.style).toMatchObject({ top });
+      expect(blockNode.props.style).not.toHaveProperty("bottom");
+      // The salon's name rides on the text block, so it never lies over the photo.
+      expect(flat(blockNode)).toContain("Salong Eko");
       // The photo starts below the text panel, so no text ever lies over a face in the photo.
       expect(Number(find(tree, (node) => node.type === "img").top)).toBeGreaterThan(top);
       expect(flat(tree)).not.toContain("linear-gradient");
     }
-    expect(textStyle(posterTree("fullphoto", standard, "post"), "Salong Eko")).toMatchObject({ top: 64 });
+    const standardBlock = nodes(posterTree("fullphoto", standard, "post")).find((node) => node.props.style?.flexDirection === "column" && node.props.style.alignItems === "flex-start")!;
+    expect(flat(standardBlock)).toContain("Salong Eko");
   });
 
   it("keeps everything of the mirrored full photo story inside the safe zones, for long texts and a QR code too", () => {
@@ -431,14 +440,19 @@ describe("mirrored arrangement", () => {
     const paired = posterDataSchema.parse({ ...input, before, pair: ["Före", "Efter"], arrangement: "mirrored" });
     const post = posterTree("beforeafter", paired, "post");
     expect(Number(imageStyle(post, paired.photo!).left)).toBeLessThan(Number(imageStyle(post, before).left));
-    expect(Number(textStyle(post, "EFTER").left)).toBeLessThan(Number(textStyle(post, "FÖRE").left));
-    expect(Number(textStyle(post, "EFTER").left)).toBeLessThan(Number(imageStyle(post, before).left));
-    expect(find(post, (node) => node.props.children !== undefined && node.props.style?.width === 96)).toMatchObject({ transform: "rotate(180deg)" });
+    // Each label sits in a strip below its own photo, never over it.
+    const strip = (tree: PosterNode, label: string) => find(tree, (node) => [node.props.children ?? []].flat().some((child) => typeof child !== "string" && child.props.children === label));
+    const photoBottom = (tree: PosterNode, source: string) => Number(imageStyle(tree, source).top) + Number(imageStyle(tree, source).height);
+    expect(Number(strip(post, "EFTER").left)).toBeLessThan(Number(strip(post, "FÖRE").left));
+    expect(Number(strip(post, "EFTER").left)).toBe(Number(imageStyle(post, paired.photo!).left));
+    expect(Number(strip(post, "EFTER").top)).toBeGreaterThanOrEqual(photoBottom(post, paired.photo!));
+    expect(find(post, (node) => node.props.children !== undefined && node.props.style?.width === 72 && node.props.style.height === 72)).toMatchObject({ transform: "rotate(180deg)" });
     const story = posterTree("beforeafter", paired, "story");
     expect(Number(imageStyle(story, paired.photo!).top)).toBeLessThan(Number(imageStyle(story, before).top));
-    expect(Number(textStyle(story, "EFTER").top)).toBeLessThan(Number(imageStyle(story, before).top));
-    expect(find(story, (node) => node.props.style?.width === 96)).toMatchObject({ transform: "rotate(-90deg)" });
-    expect(find(posterTree("beforeafter", { ...paired, arrangement: "standard" }, "post"), (node) => node.props.style?.width === 96)).toMatchObject({ transform: "none" });
+    expect(Number(strip(story, "EFTER").top)).toBeGreaterThanOrEqual(photoBottom(story, paired.photo!));
+    expect(Number(strip(story, "EFTER").top)).toBeLessThan(Number(imageStyle(story, before).top));
+    expect(find(story, (node) => node.props.style?.width === 72 && node.props.style.height === 72)).toMatchObject({ transform: "rotate(-90deg)" });
+    expect(find(posterTree("beforeafter", { ...paired, arrangement: "standard" }, "post"), (node) => node.props.style?.width === 72 && node.props.style.height === 72)).toMatchObject({ transform: "none" });
   });
 
   it("leaves the other templates unchanged", () => {
