@@ -49,6 +49,9 @@ beforeAll(async () => {
   vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
   vi.stubEnv("SESSION_SECRET", randomBytes(32).toString("hex"));
   vi.stubEnv("BOOKING_ADDRESS_SECRET", SECRET);
+  // The deployment means e-mail to go out for real: the store stages these effects as live (the adapter only records).
+  vi.stubEnv("CONCEPT_CONNECTIONS_LIVE", "1");
+  vi.stubEnv("CONCEPT_EMAIL_PROVIDER", "resend");
   holder.store = new PostgresStudioStore({ prisma: db as unknown as PrismaClient, hmacSecret: randomBytes(32).toString("hex"), sinks, now: async () => CLOCK });
   const account = await createOwnerAccount({ email: `${randomUUID().slice(0, 8)}-${run}@example.test`, password: "a long fictional passphrase", salonName: `Salong Andra ${run}`, language: "en" });
   if (!account.ok) throw new Error("sign-up failed");

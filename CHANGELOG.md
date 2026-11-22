@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Booking confirmation e-mail: the remaining delivery edge cases are closed (issue #143), so live e-mail no longer has a "do not enable" gate.** Erasing a customer now cancels their pending and claimed e-mails in one transaction (also in the SQL erase function, `prisma/grants/erase-subject.sql`, no migration) and a worker rechecks the booking under the tenant's lock before it sends; a worker commits `dispatched` before it calls the provider, only for its own latest claim, never clears it when a send may have left, and a later claim repeats that request only on Resend within 23 hours (otherwise `uncertain`, for a person); whether an e-mail is meant to be real is decided when it is staged, so a worker without the provider's credentials leaves it waiting instead of counting it as sent; a retry resends the first attempt's link, sender and reply-to unchanged; and the 404 of an unknown salon removes a `#t=` token from the address. Swedish and English texts are unchanged.
+
 ## [0.7.0] - 2026-11-22
 
 ### Added

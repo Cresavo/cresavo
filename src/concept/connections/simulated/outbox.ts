@@ -2,18 +2,21 @@ import type { Money, PortName } from "../core";
 
 /** Bookkeeping a sink keeps on a stored message effect, never sent anywhere. Erasure drops all of it. */
 export interface DeliveryState {
-  /** Decided at the first attempt: the deployment meant this to go out for real. */
-  live?: boolean;
   /** Epoch milliseconds of the first attempt. */
   firstAttemptAt?: number;
   /** The provider accepted it. A retry that finds this only acknowledges. */
   sent?: boolean;
-  /** The request was started and its outcome is not known. */
+  /** Committed before the provider is called, and cleared only when nothing was sent: a request that may have left. */
   dispatched?: boolean;
   /** Why the effect failed, for whoever reconciles it by hand. */
   reason?: string;
   /** The message as first rendered, resent unchanged under the same key. */
   mail?: { subject: string; text: string; html: string };
+  /** The booking link as first made: its address and the token's expiry in epoch seconds, never the token. Frozen with the message. */
+  link?: { url: string; exp: number };
+  /** The sender and the reply-to as first built. Frozen with the message. */
+  from?: string;
+  replyTo?: string;
 }
 
 /** What a simulated adapter "would have sent". Recipients are references or addresses exactly as given; nothing here leaves the process. */
@@ -26,6 +29,8 @@ export interface OutboxEntry {
   body: string;
   reference?: string;
   cost: Money | null;
+  /** Set when the store stages a message: the deployment meant it to be sent for real. A `false` row is only ever simulated. */
+  live?: boolean;
   delivery?: DeliveryState;
 }
 

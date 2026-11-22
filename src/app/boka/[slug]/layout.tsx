@@ -48,6 +48,7 @@ export default async function BookingLayout({ children, params }: { children: Re
   } catch {
     return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><LinkTokenScrub /><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
   }
+  // The boundary that renders this is src/app/boka/not-found.tsx (a layout's own 404 goes to the segment above it); it mounts the scrubber.
   if (!salon) notFound();
   return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}><LinkTokenScrub />{shell}</ServerSalonProvider>);
 }

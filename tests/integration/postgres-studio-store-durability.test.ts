@@ -535,42 +535,51 @@ describe("erasure (item 7)", () => {
     expect(live.of(id).some((d) => JSON.stringify(d).includes(guest.name))).toBe(false);
   });
 
-  it("stops a message a deliverer is sending during the erasure and records its true outcome", async () => {
-    const id = tenantIds("erase-in-flight");
+  it.each(["statements", "function"] as const)("cancels a message a deliverer holds during the erasure (%s) and records its true outcome", async (erasure) => {
+    const id = tenantIds(`erase-in-flight-${erasure}`);
     const state = createDemoState(today);
     await seed(id, state);
-    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, deliverAfterCommit: false });
-    const service = bookableServices(state)[0];
-    const created = await store.apply(id, {
-      type: "booking/create", serviceId: service.id, ...slotFor(state, service), source: "phone",
-      newCustomer: { name: guest.name, phone: guest.phone, email: guest.email, since: today },
-    });
-    if (!created.ok) throw new Error("booking refused");
-    const customer = created.state.customers.find((c) => c.phone === guest.phone)!;
-    const text = (body: string): DemoAction => ({ type: "customers/message", texts: [{ customerId: customer.id, title: "Fictional", body }], at: { date: today, time: 9 * 60 } });
-    expect((await store.apply(id, text("First fictional text"))).ok).toBe(true);
-    expect((await store.apply(id, text("Second fictional text"))).ok).toBe(true);
+    if (erasure === "function") await db.$transaction(async (tx) => { for (const statement of await eraseSubjectStatements()) await tx.$executeRawUnsafe(statement); }, { timeout: 15_000 });
+    try {
+      const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, deliverAfterCommit: false, erasure });
+      const service = bookableServices(state)[0];
+      const created = await store.apply(id, {
+        type: "booking/create", serviceId: service.id, ...slotFor(state, service), source: "phone",
+        newCustomer: { name: guest.name, phone: guest.phone, email: guest.email, since: today },
+      });
+      if (!created.ok) throw new Error("booking refused");
+      const customer = created.state.customers.find((c) => c.phone === guest.phone)!;
+      const text = (body: string): DemoAction => ({ type: "customers/message", texts: [{ customerId: customer.id, title: "Fictional", body }], at: { date: today, time: 9 * 60 } });
+      expect((await store.apply(id, text("First fictional text"))).ok).toBe(true);
+      expect((await store.apply(id, text("Second fictional text"))).ok).toBe(true);
 
-    // The first message is in flight: its sink waits, then fails, while the erasure runs.
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    let entered!: () => void;
-    const inFlight = new Promise<void>((resolve) => { entered = resolve; });
-    let calls = 0;
-    const message: EffectSink = async () => { calls++; entered(); await gate; throw new Error("provider timeout"); };
-    const sending = drain({ prisma: client(1), sinks: { payment: () => {}, message }, limit: 1 });
-    await inFlight;
-    const erased = await store.eraseSubject(id, customer.id);
-    expect(erased).toMatchObject({ ok: true, inFlightMessages: 1 });
-    const during = await effectRows(id);
-    expect(during.map((row) => row.status)).toEqual(["pending", "cancelled"]);
-    expect(during.every((row) => row.payload.body === "[redacted]")).toBe(true);
-    release();
-    await sending;
-    // The failed send is cancelled, never retried, even after its lease and backoff.
-    expect((await effectRows(id)).map((row) => row.status)).toEqual(["cancelled", "cancelled"]);
-    await drain({ prisma: db, sinks: { payment: () => {}, message }, limit: 10, now: async () => Date.now() + 2 * EFFECT_LEASE_MS });
-    expect(calls).toBe(1);
+      // The first message is in flight: its sink waits, then fails, while the erasure runs.
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      let entered!: () => void;
+      const inFlight = new Promise<void>((resolve) => { entered = resolve; });
+      let calls = 0;
+      const message: EffectSink = async () => { calls++; entered(); await gate; throw new Error("provider timeout"); };
+      const sending = drain({ prisma: client(1), sinks: { payment: () => {}, message }, limit: 1 });
+      await inFlight;
+      const erased = await store.eraseSubject(id, customer.id);
+      expect(erased).toMatchObject({ ok: true, inFlightMessages: 1 });
+      const during = await effectRows(id);
+      // Claimed or pending, both are cancelled in the erasure's own transaction.
+      expect(during.map((row) => row.status)).toEqual(["cancelled", "cancelled"]);
+      expect(during.every((row) => row.payload.body === "[redacted]")).toBe(true);
+      release();
+      await sending;
+      // The failed send stays cancelled, never retried, even after its lease and backoff.
+      expect((await effectRows(id)).map((row) => row.status)).toEqual(["cancelled", "cancelled"]);
+      await drain({ prisma: db, sinks: { payment: () => {}, message }, limit: 10, now: async () => Date.now() + 2 * EFFECT_LEASE_MS });
+      expect(calls).toBe(1);
+    } finally {
+      if (erasure === "function") {
+        await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+          studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
+      }
+    }
   });
 
   it("records a send that succeeded during the erasure as delivered, with the payload redacted", async () => {

@@ -29,28 +29,64 @@ const booking: Booking = {
 const sent: EmailMessage[] = [];
 let outcome: PortResult<EmailReceipt>;
 let provider = "resend";
-const adapter = { info: { get provider() { return provider; } }, send: async (message: EmailMessage) => { sent.push(message); return outcome; } } as unknown as EmailPort;
+/** Runs at the moment the provider is called, to see what was committed by then. */
+let atSend: (() => void) | undefined;
+const adapter = { info: { get provider() { return provider; } }, send: async (message: EmailMessage) => { atSend?.(); sent.push(message); return outcome; } } as unknown as EmailPort;
 let resolution: { live: boolean; reason: ResolutionReason };
 const registry = { resolve: async () => ({ adapter, ...resolution }) };
 
 let doc: DemoState | undefined;
 /** What the effect row holds of the sink's bookkeeping, merged like the sink's UPDATE does. */
 let stored: DeliveryState;
-const prisma = {
-  $queryRaw: async () => doc ? [{ doc }] : [],
-  $executeRaw: async (_strings: TemplateStringsArray, patch: string) => {
-    const merged: Record<string, unknown> = { ...stored, ...JSON.parse(patch) };
-    for (const key of Object.keys(merged)) if (merged[key] === null) delete merged[key];
-    stored = merged as DeliveryState;
+/** The row's own state, as the guarded writes see it. */
+let row: { status: string; erased: boolean; attempts: number };
+/** Runs when the sink reads the tenant under its lock, just before it commits `dispatched`: where an erasure can win. */
+let beforeDispatch: (() => void) | undefined;
+const sql = (strings: TemplateStringsArray) => strings.join("?");
+const merge = (patch: Record<string, unknown>) => {
+  const merged: Record<string, unknown> = { ...stored, ...patch };
+  for (const key of Object.keys(merged)) if (merged[key] === null) delete merged[key];
+  stored = merged as DeliveryState;
+};
+const open = (attempt: number) => row.status === "pending" && !row.erased && row.attempts === attempt;
+// Interprets the few statements the sink makes, by their text.
+const database = {
+  $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    const text = sql(strings);
+    if (text.includes("FROM tenant_state")) {
+      if (text.includes("FOR SHARE")) beforeDispatch?.();
+      return doc ? [{ doc }] : [];
+    }
+    if (text.includes("set_config")) return [];
+    if (text.includes("RETURNING payload->'delivery'")) {
+      const [first, , attempt] = values as [string, string, number];
+      if (!open(attempt)) return [];
+      if (!("from" in stored)) merge(JSON.parse(first));
+      return [{ delivery: structuredClone(stored) }];
+    }
+    if (text.includes("AS open")) return [{ open: row.status === "pending" && !row.erased }];
+    throw new Error(`unexpected query: ${text}`);
   },
-} as unknown as PrismaClient;
+  $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
+    if (sql(strings).includes('"dispatched": true')) {
+      const [, attempt] = values as [string, number];
+      if (!open(attempt)) return 0;
+      merge({ dispatched: true });
+      return 1;
+    }
+    merge(JSON.parse(values[0] as string));
+    return 1;
+  },
+  $transaction: async (work: (tx: unknown) => unknown) => work(database),
+};
+const prisma = database as unknown as PrismaClient;
 
 let clock = T0;
-const run = (over: Partial<{ port: "email" | "sms"; reference: string }> = {}, signal = new AbortController().signal) => {
+const run = (over: Partial<{ port: "email" | "sms"; reference: string; live: boolean }> = {}, signal = new AbortController().signal) => {
   const delivery: EffectDelivery = {
-    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0,
+    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: row.attempts,
     effect: { kind: "message", record: {
-      id: "o-1", port: over.port ?? "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null,
+      id: "o-1", port: over.port ?? "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, live: over.live ?? true,
       reference: over.reference ?? messageReference(booking, "confirmation", "email"), delivery: structuredClone(stored),
     } },
   };
@@ -66,6 +102,9 @@ beforeEach(() => {
   vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
   sent.length = 0;
   stored = {};
+  row = { status: "pending", erased: false, attempts: 1 };
+  beforeDispatch = undefined;
+  atSend = undefined;
   clock = T0;
   provider = "resend";
   resolution = { live: true, reason: "live" };
@@ -80,7 +119,7 @@ describe("the message sink", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ to: ["lisa@example.test"], idempotencyKey: "effect-1", language: base.localization.language, tracking: false });
     expect(sent[0].subject).toContain("2026");
-    expect(stored).toMatchObject({ sent: true, live: true, firstAttemptAt: T0 });
+    expect(stored).toEqual({ sent: true, firstAttemptAt: T0 });
     expect(stored.mail).toBeUndefined();
   });
 
@@ -227,7 +266,7 @@ describe("a send that may have left", () => {
 
   it("is not repeated on Postmark after a crash left the request started", async () => {
     provider = "postmark";
-    stored = { live: true, firstAttemptAt: T0, dispatched: true, mail: { subject: "s", text: "t", html: "h" } };
+    stored = { firstAttemptAt: T0, dispatched: true, from: "f", mail: { subject: "s", text: "t", html: "h" } };
     expect(await run()).toBe("failed");
     expect(stored.reason).toBe("uncertain");
     expect(sent).toHaveLength(0);
@@ -248,7 +287,7 @@ describe("live and simulated delivery", () => {
     resolution = { live: false, reason: "missing-secret" };
     await expect(run()).rejects.toThrow("EMAIL_NOT_CONFIGURED");
     expect(sent).toHaveLength(0);
-    expect(stored.live).toBe(true);
+    expect(stored).toEqual({});
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("missing-secret"));
     // The same row, claimed by a worker that does have the key, goes out for real.
     resolution = { live: true, reason: "live" };
@@ -257,21 +296,143 @@ describe("live and simulated delivery", () => {
     warn.mockRestore();
   });
 
-  it("keeps an effect that was meant for a real send real, even where live is off", async () => {
-    stored = { live: true, firstAttemptAt: T0 };
-    resolution = { live: false, reason: "live-off" };
-    await expect(run()).rejects.toThrow("EMAIL_NOT_CONFIGURED");
+  it("leaves a live row pending as a configuration error on a worker that resolves to the simulator, whichever the reason", async () => {
+    for (const reason of ["live-off", "not-selected", "public-demo"] as const) {
+      resolution = { live: false, reason };
+      await expect(run({ live: true })).rejects.toThrow("EMAIL_NOT_CONFIGURED");
+    }
     expect(sent).toHaveLength(0);
+    expect(stored).toEqual({});
+  });
+
+  it("only ever simulates a row that is not live, even on a worker with the credentials", async () => {
+    await run({ live: false });
+    expect(sent).toHaveLength(0);
+    expect(stored).toMatchObject({ sent: true });
+    expect(stored.dispatched).toBeUndefined();
   });
 
   it("simulates on purpose without an address or a token", async () => {
     resolution = { live: false, reason: "live-off" };
-    await run();
-    expect(stored.live).toBe(false);
+    await run({ live: false });
     expect(sent[0].to).toEqual([`customer:${booking.customerId}`]);
     expect(sent[0].text).toContain("#t=simulated");
     expect(sent[0].text).not.toContain("v1.");
     expect(sent[0].html).not.toContain("v1.");
+  });
+});
+
+describe("the dispatch", () => {
+  const frozen = (over: DeliveryState = {}): DeliveryState => ({ firstAttemptAt: T0, from: "\"Salong\" <bookings@example.test>", mail: { subject: "s", text: "t", html: "h" }, ...over });
+
+  it("commits `dispatched` before the provider is called, and clears it once the provider accepted", async () => {
+    let seen: DeliveryState | undefined;
+    atSend = () => { seen = structuredClone(stored); };
+    await run();
+    expect(seen).toMatchObject({ dispatched: true });
+    expect(stored.dispatched).toBeUndefined();
+  });
+
+  it("sends nothing when an erasure cancelled the effect after the booking was read", async () => {
+    beforeDispatch = () => { row = { ...row, status: "cancelled", erased: true }; };
+    expect(await run()).toBe("failed");
+    expect(sent).toHaveLength(0);
+    expect(stored.dispatched).toBeUndefined();
+  });
+
+  it("sends nothing when an erasure cleared the address after the booking was read", async () => {
+    beforeDispatch = () => { doc = withBooking({ contactEmail: undefined }); };
+    expect(await run()).toBeUndefined();
+    expect(sent).toHaveLength(0);
+    expect(stored.dispatched).toBeUndefined();
+  });
+
+  it("writes nothing back to an effect that was erased before its first attempt froze the message", async () => {
+    row = { ...row, status: "cancelled", erased: true };
+    expect(await run()).toBe("failed");
+    expect(sent).toHaveLength(0);
+    expect(stored).toEqual({});
+  });
+
+  it("does not send for a claim another deliverer has replaced since, and leaves the row to that deliverer", async () => {
+    beforeDispatch = () => { row.attempts = 2; };
+    await expect(run()).rejects.toThrow("EMAIL_CLAIM_LOST");
+    expect(sent).toHaveLength(0);
+    expect(stored.dispatched).toBeUndefined();
+  });
+
+  it("keeps `dispatched` on a send that may have left, and fails it for reconciliation on Postmark without clearing it", async () => {
+    provider = "postmark";
+    outcome = fail(connectionError("email", "postmark", "timeout"));
+    expect(await run()).toBe("failed");
+    expect(stored).toMatchObject({ dispatched: true, reason: "uncertain" });
+    // A crash before the failure was recorded on the row changes nothing: the next claim still does not send.
+    expect(await run()).toBe("failed");
+    expect(sent).toHaveLength(1);
+  });
+
+  it("retries a Resend in-progress conflict with the marker kept, only inside the window", async () => {
+    outcome = fail(connectionError("email", "resend", "conflict", { providerCode: "concurrent_idempotent_requests" }));
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored.dispatched).toBe(true);
+    clock = T0 + 22 * HOUR;
+    outcome = ok({ id: "m-2", to: [] }, "sent");
+    await run();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].idempotencyKey).toBe(sent[0].idempotencyKey);
+    // The same conflict past the window is not retried: someone reconciles it.
+    stored = frozen({ dispatched: true });
+    clock = T0 + 23 * HOUR + 1;
+    expect(await run()).toBe("failed");
+    expect(stored.reason).toBe("uncertain");
+    expect(sent).toHaveLength(2);
+  });
+
+  it("repeats a request a crash left started on Resend within the window, under the same key", async () => {
+    stored = frozen({ dispatched: true });
+    clock = T0 + HOUR;
+    await run();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].idempotencyKey).toBe("effect-1");
+    expect(stored).toEqual({ sent: true, firstAttemptAt: T0 });
+  });
+
+  it("clears the marker when a send that was never accepted is refused, but not one an earlier attempt may have sent", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored.dispatched).toBeUndefined();
+    stored = frozen({ dispatched: true });
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored.dispatched).toBe(true);
+  });
+
+  it("settles a permanent failure in one write, and a later claim does not send it again", async () => {
+    outcome = fail(connectionError("email", "resend", "invalid_input"));
+    expect(await run()).toBe("failed");
+    expect(stored).toMatchObject({ reason: "invalid_input" });
+    expect(stored.mail).toBeUndefined();
+    expect(await run()).toBe("failed");
+    expect(sent).toHaveLength(1);
+  });
+});
+
+describe("a retry's payload", () => {
+  it("keeps the link, sender and reply-to of the first attempt after the booking moves and the salon changes", async () => {
+    doc = { ...withBooking(), salon: { ...base.salon, name: "Salong Fiktiv", email: "salong@example.test" } };
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored.link).toMatchObject({ url: expect.stringContaining(`/booking/${REF}`), exp: expect.any(Number) });
+    // The stored link has no token, and the message nothing but the marker where it goes.
+    expect(JSON.stringify(stored)).not.toMatch(/v1\.|#t=/);
+    // The visit moves (the token's expiry would follow), the salon is renamed and changes its address.
+    doc = { ...withBooking({ date: "2026-12-10", start: 840 }), salon: { ...base.salon, name: "Salong Omdöpt", email: "ny@example.test", slug: "omdopt" } };
+    clock = T0 + HOUR;
+    outcome = ok({ id: "m-2", to: [] }, "sent");
+    await run();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toMatchObject({ from: sent[0].from, replyTo: "salong@example.test", subject: sent[0].subject, text: sent[0].text, html: sent[0].html });
+    expect(sent[1].from).toContain("Salong Fiktiv");
+    expect(sent[1].text).toContain(`/boka/${base.salon.slug}/booking/${REF}#t=v1.`);
   });
 });
 
@@ -320,7 +481,7 @@ describe("the public demo and an unconfigured server", () => {
 
 function delivery(): EffectDelivery {
   return {
-    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0,
-    effect: { kind: "message", record: { id: "o-1", port: "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, reference: messageReference(booking, "confirmation", "email") } },
+    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: 1,
+    effect: { kind: "message", record: { id: "o-1", port: "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, live: false, reference: messageReference(booking, "confirmation", "email") } },
   };
 }

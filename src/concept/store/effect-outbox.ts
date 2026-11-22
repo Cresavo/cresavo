@@ -28,6 +28,8 @@ export interface EffectDelivery {
   tenantKind: TenantKind;
   seq: number;
   n: number;
+  /** Which claim this is (the row's attempt count). A sink that must not run for a stale claim guards its writes by it. */
+  attempt: number;
   effect: StoreEffect;
 }
 
@@ -190,7 +192,7 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   try {
     if (!sink) throw new Error("STUDIO_STORE_NO_SINK");
     const delivery: EffectDelivery = {
-      id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
+      id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, attempt: row.attempts, effect: effectOf(row.payload),
     };
     result = await runSink(sink, delivery, timeoutMs);
   } catch (error) {
