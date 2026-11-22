@@ -29,6 +29,14 @@ export function freeCancellationDeadline(visit: VisitTime & Pick<Booking, "prote
   return { date: cutoff.toISODate()!, time: cutoff.hour * 60 + cutoff.minute };
 }
 
+/** The last instant (epoch ms) a booking may be changed free of charge: the cutoff of its own terms, itself included. */
+export const freeChangeCutoff = (booking: VisitTime & Pick<Booking, "protection">) =>
+  deadline(booking, booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS).toMillis();
+
+/** Whether a booked visit may still be changed free of charge at this instant. The one cutoff test of the reducer, the route's answers and the booking view. */
+export const freeChangeOpen = (booking: VisitTime & Pick<Booking, "protection" | "status">, instant: number) =>
+  booking.status === "booked" && instant <= freeChangeCutoff(booking);
+
 export function hoursUntil(booking: VisitTime, today: DateKey, minutes: number, instant?: number): number {
   const from = instant ?? visitTime({ date: today, start: minutes }).toMillis();
   return (visitTime(booking).toMillis() - from) / 3_600_000;

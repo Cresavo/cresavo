@@ -44,7 +44,12 @@ function post(handler: typeof CANCEL, body: unknown, { id = REF, key = `key-${++
     },
   }), { params: Promise.resolve({ slug: SLUG, id }) });
 }
-const move = (over: Record<string, unknown> = {}) => ({ token: goodToken(), staffId: booking.staffId, date: "2026-11-25", start: 540, ...over });
+// The visit as the page showed it.
+const seen = { staffId: booking.staffId, date: booking.date, start: booking.start };
+const cancelBody = (over: Record<string, unknown> = {}) => ({ token: goodToken(), expected: seen, ...over });
+const move = (over: Record<string, unknown> = {}) => ({ token: goodToken(), expected: seen, staffId: booking.staffId, date: "2026-11-25", start: 540, ...over });
+const asked = { at: { date: "1970-01-01", time: 0 }, instant: 0, public: { slug: SLUG }, expected: seen };
+const saved = (key: string) => ({ idempotencyKey: key, beforeCommit: expect.any(Function) });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -63,35 +68,35 @@ afterEach(() => {
 
 describe("POST …/bookings/[id]/cancel", () => {
   it("cancels and answers with the updated public view, building the action itself", async () => {
-    const response = await post(CANCEL, { token: goodToken() }, { key: "cancel-key-1" });
+    const response = await post(CANCEL, cancelBody(), { key: "cancel-key-1" });
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const { booking: view } = await response.json();
     expect(view).toMatchObject({ status: "cancelled", date: "2026-11-24" });
     expect(JSON.stringify(view)).not.toContain("Private note");
-    expect(apply).toHaveBeenCalledWith(TENANT, { type: "online/cancel", id: "b-1", at: { date: "1970-01-01", time: 0 }, public: { slug: SLUG } },
-      { actor: "customer", source: "customer-page" }, { idempotencyKey: "booking-cancel:cancel-key-1" });
+    expect(apply).toHaveBeenCalledWith(TENANT, { type: "online/cancel", id: "b-1", ...asked }, { actor: "customer", source: "customer-page" }, saved("booking-cancel:cancel-key-1"));
   });
 
   it("says call_salon after the deadline, not_changeable for a finished visit and slot_unavailable never", async () => {
     apply.mockResolvedValue({ ok: false, reason: "rejected", version: 2 });
     query.mockImplementation(async () => [{ tenant_id: TENANT, doc: doc({ date: "2026-11-16", start: 960 }) }]);
-    const late = await post(CANCEL, { token: mintBookingToken(scope, bookingTokenExpiry({ ...booking, date: "2026-12-01" })) });
+    const ontime = { ...seen, date: "2026-11-16", start: 960 };
+    const late = await post(CANCEL, cancelBody({ token: mintBookingToken(scope, bookingTokenExpiry({ ...booking, date: "2026-12-01" })), expected: ontime }));
     expect(late.status).toBe(409);
     expect(await late.json()).toEqual({ error: "call_salon" });
     query.mockImplementation(async () => [{ tenant_id: TENANT, doc: doc({ status: "cancelled" }) }]);
-    const again = await post(CANCEL, { token: goodToken() });
+    const again = await post(CANCEL, cancelBody({ expected: ontime }));
     expect([again.status, await again.json()]).toEqual([409, { error: "not_changeable" }]);
   });
 
   it("maps a busy store to 503 with Retry-After, a reused key to 422 and a vanished salon to 404", async () => {
     apply.mockResolvedValue({ ok: false, reason: "conflict", version: 3 });
-    const busy = await post(CANCEL, { token: goodToken() });
+    const busy = await post(CANCEL, cancelBody());
     expect([busy.status, busy.headers.get("retry-after")]).toEqual([503, "1"]);
     apply.mockResolvedValue({ ok: false, reason: "idempotency-mismatch", version: 3 });
-    expect((await post(CANCEL, { token: goodToken() })).status).toBe(422);
+    expect((await post(CANCEL, cancelBody())).status).toBe(422);
     apply.mockResolvedValue({ ok: false, reason: "not-found" });
-    expect((await post(CANCEL, { token: goodToken() })).status).toBe(404);
+    expect((await post(CANCEL, cancelBody())).status).toBe(404);
   });
 
   it("answers every bad token with the same 404 and never reaches the store", async () => {
@@ -103,7 +108,7 @@ describe("POST …/bookings/[id]/cancel", () => {
       post(CANCEL, { token: mintBookingToken({ ...scope, purpose: "view" }, bookingTokenExpiry(booking)) }),
       post(CANCEL, { token: mintBookingToken({ ...scope, tenantId: "tenant-annan" }, bookingTokenExpiry(booking)) }),
       post(CANCEL, { token: mintBookingToken({ ...scope, bookingId: "b-2", ref: "another-ref" }, bookingTokenExpiry(booking)) }),
-      post(CANCEL, { token: good }, { id: "another-ref" }),
+      post(CANCEL, cancelBody({ token: good }), { id: "another-ref" }),
       post(CANCEL, { token: "" }),
       post(CANCEL, {}),
       post(CANCEL, "not json"),
@@ -113,19 +118,68 @@ describe("POST …/bookings/[id]/cancel", () => {
   });
 
   it("needs a key and a strict body, and refuses an oversized one", async () => {
-    expect((await post(CANCEL, { token: goodToken() }, { key: null })).status).toBe(422);
-    expect((await post(CANCEL, { token: goodToken(), extra: 1 })).status).toBe(422);
+    expect((await post(CANCEL, cancelBody(), { key: null })).status).toBe(422);
+    expect((await post(CANCEL, cancelBody({ extra: 1 }))).status).toBe(422);
+    expect((await post(CANCEL, { token: goodToken() })).status).toBe(422);
+    expect((await post(CANCEL, cancelBody({ expected: { ...seen, extra: 1 } }))).status).toBe(422);
     expect((await post(CANCEL, { token: "x".repeat(3000) })).status).toBe(413);
   });
 
   it("is absent with the flag off, forbidden read-only and refused cross-origin", async () => {
-    expect((await post(CANCEL, { token: goodToken() }, { origin: "https://evil.example" })).status).toBe(403);
+    expect((await post(CANCEL, cancelBody(), { origin: "https://evil.example" })).status).toBe(403);
     vi.stubEnv("PUBLIC_READONLY", "1");
-    expect((await post(CANCEL, { token: goodToken() })).status).toBe(403);
+    expect((await post(CANCEL, cancelBody())).status).toBe(403);
     vi.stubEnv("PUBLIC_READONLY", "");
     vi.stubEnv("PUBLIC_BOOKING_LIVE", "");
-    expect((await post(CANCEL, { token: goodToken() })).status).toBe(404);
+    expect((await post(CANCEL, cancelBody())).status).toBe(404);
     expect(apply).not.toHaveBeenCalled();
+  });
+});
+
+describe("what the routes say before and beside the reducer", () => {
+  it("says changed when the booking is no longer the visit the customer saw, and not_changeable before that", async () => {
+    apply.mockResolvedValue({ ok: false, reason: "rejected", version: 2 });
+    query.mockImplementation(async () => [{ tenant_id: TENANT, doc: doc({ start: 660 }) }]);
+    for (const [handler, body] of [[CANCEL, cancelBody()], [MOVE, move()]] as const) {
+      const response = await post(handler, body);
+      expect([response.status, await response.json()]).toEqual([409, { error: "changed" }]);
+    }
+  });
+
+  it("says call_salon for a booking paid in part by a gift card, whatever the clock", async () => {
+    apply.mockResolvedValue({ ok: false, reason: "rejected", version: 2 });
+    const card = { code: "FICT-0001", amount: 100, redemptions: [{ bookingId: "b-1", amount: 100, returned: false }] };
+    query.mockImplementation(async () => [{ tenant_id: TENANT, doc: { ...doc(), giftCards: [card] } }]);
+    const response = await post(CANCEL, cancelBody());
+    expect([response.status, await response.json()]).toEqual([409, { error: "call_salon" }]);
+  });
+
+  it("applies one expiry to every answer: a link a moved-earlier booking has outlived is a 404, not a 409", async () => {
+    apply.mockResolvedValue({ ok: false, reason: "rejected", version: 2 });
+    const earlier = { date: "2026-11-02", start: 600 };
+    query.mockImplementation(async () => [{ tenant_id: TENANT, doc: doc(earlier) }]);
+    vi.setSystemTime(new Date("2026-11-10T10:00:00+01:00")); // a week after the visit as it stands, long before the signed expiry
+    for (const [handler, body] of [[CANCEL, cancelBody({ expected: { ...seen, ...earlier } })], [MOVE, move({ expected: { ...seen, ...earlier } })]] as const) {
+      const response = await post(handler, body);
+      expect([response.status, await response.json()]).toEqual([404, { error: "not_found" }]);
+    }
+    expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("takes the salon's allowance only for a change that commits: a retry the store recognises gets its receipt even when the allowance is used up", async () => {
+    const tenant = "tenant-quota";
+    const own = { ...scope, tenantId: tenant };
+    const token = mintBookingToken(own, bookingTokenExpiry(booking));
+    query.mockImplementation(async () => [{ tenant_id: tenant, doc: doc() }]);
+    let replay = false;
+    apply.mockImplementation(async (_tenant: string, _action: unknown, _meta: unknown, options: { beforeCommit: () => Promise<void> }) => {
+      if (!replay) await options.beforeCommit();
+      return committed({ status: "cancelled" }, replay);
+    });
+    for (let i = 0; i < 60; i++) expect((await post(CANCEL, { token, expected: seen })).status).toBe(200);
+    expect((await post(CANCEL, { token, expected: seen })).status).toBe(429);
+    replay = true;
+    expect((await post(CANCEL, { token, expected: seen })).status).toBe(200);
   });
 });
 
@@ -135,8 +189,7 @@ describe("POST …/bookings/[id]/move", () => {
     const response = await post(MOVE, move(), { key: "move-key-1" });
     expect(response.status).toBe(200);
     expect((await response.json()).booking).toMatchObject({ date: "2026-11-25", start: 540, status: "booked" });
-    expect(apply).toHaveBeenCalledWith(TENANT, { type: "online/move", id: "b-1", at: { date: "1970-01-01", time: 0 }, public: { slug: SLUG }, staffId: booking.staffId, date: "2026-11-25", start: 540 },
-      { actor: "customer", source: "customer-page" }, { idempotencyKey: "booking-move:move-key-1" });
+    expect(apply).toHaveBeenCalledWith(TENANT, { type: "online/move", id: "b-1", ...asked, staffId: booking.staffId, date: "2026-11-25", start: 540 }, { actor: "customer", source: "customer-page" }, saved("booking-move:move-key-1"));
   });
 
   it("says slot_unavailable for a time the reducer refused while the booking is still changeable", async () => {
@@ -148,7 +201,7 @@ describe("POST …/bookings/[id]/move", () => {
   it("says call_salon after the deadline", async () => {
     apply.mockResolvedValue({ ok: false, reason: "rejected", version: 2 });
     query.mockImplementation(async () => [{ tenant_id: TENANT, doc: doc({ date: "2026-11-16", start: 960 }) }]);
-    const response = await post(MOVE, move({ token: mintBookingToken(scope, bookingTokenExpiry({ ...booking, date: "2026-12-01" })) }));
+    const response = await post(MOVE, move({ token: mintBookingToken(scope, bookingTokenExpiry({ ...booking, date: "2026-12-01" })), expected: { ...seen, date: "2026-11-16", start: 960 } }));
     expect([response.status, await response.json()]).toEqual([409, { error: "call_salon" }]);
   });
 

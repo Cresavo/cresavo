@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { reduce, type DemoAction } from "@/concept/actions";
+import { visitTime } from "@/concept/booking/policy";
 import { acceptedTerms } from "@/concept/booking/public-terms";
 import { createDemoState } from "@/concept/data/generate";
-import { freeStarts } from "@/concept/data/slots";
+import { freeStarts, isFree } from "@/concept/data/slots";
+import { balanceOf } from "@/concept/giftcards/cards";
 import type { DemoState, StaffId } from "@/concept/data/types";
 import { withTenantPresentation } from "@/concept/i18n/presentation";
 
@@ -25,10 +27,17 @@ const booked = reduce(base, {
   serviceId: service.id, staffId: "anna", date, start, public: { slug, terms: acceptedTerms(base, service), publicRef: "ref-fictional-1" },
 });
 const visit = booked.bookings.at(-1)!;
-const cancel = (over: Partial<Extract<DemoAction, { type: "online/cancel" }>> = {}): DemoAction => ({ type: "online/cancel", id: visit.id, at: at(today, 700), public: { slug }, ...over });
-const move = (over: Partial<Extract<DemoAction, { type: "online/move" }>> = {}): DemoAction => ({
-  type: "online/move", id: visit.id, at: at(today, 700), public: { slug }, staffId: "anna", date: "2026-11-25", start: first(booked, "2026-11-25")[0], ...over,
-});
+// The store stamps the trusted instant with the clock `at` names; tests that care about the exact moment pass their own.
+const instantOf = ({ date: day, time }: { date: string; time: number }) => visitTime({ date: day, start: time }).toMillis();
+const seen = { date, start, staffId: "anna" as StaffId };
+const cancel = (over: Partial<Extract<DemoAction, { type: "online/cancel" }>> = {}): DemoAction => {
+  const when = over.at ?? at(today, 700);
+  return { type: "online/cancel", id: visit.id, at: when, instant: instantOf(when), public: { slug }, expected: seen, ...over };
+};
+const move = (over: Partial<Extract<DemoAction, { type: "online/move" }>> = {}): DemoAction => {
+  const when = over.at ?? at(today, 700);
+  return { type: "online/move", id: visit.id, at: when, instant: instantOf(when), public: { slug }, expected: seen, staffId: "anna", date: "2026-11-25", start: first(booked, "2026-11-25")[0], ...over };
+};
 const deadlineDay = "2026-11-23";
 
 describe("online/cancel", () => {
@@ -44,6 +53,41 @@ describe("online/cancel", () => {
     expect(reduce(booked, cancel({ at: at(deadlineDay, start) }))).not.toBe(booked);
     expect(reduce(booked, cancel({ at: at(deadlineDay, start + 1) }))).toBe(booked);
     expect(reduce(booked, cancel({ at: at(date, 0) }))).toBe(booked);
+  });
+
+  it("is open at the cutoff instant itself and closed one millisecond later", () => {
+    const cutoff = visitTime({ date, start }).minus({ hours: 24 }).toMillis();
+    expect(reduce(booked, cancel({ instant: cutoff }))).not.toBe(booked);
+    expect(reduce(booked, cancel({ instant: cutoff + 1 }))).toBe(booked);
+    expect(reduce(booked, move({ instant: cutoff + 1 }))).toBe(booked);
+  });
+
+  it("judges the cutoff in the repeated hour of the autumn clock change by the instant, not the wall clock", () => {
+    // 2026-10-26 02:30 is 01:30 UTC, so its cutoff is 2026-10-25 01:30 UTC: the second 02:30 of that Sunday.
+    const autumn = { ...booked, bookings: booked.bookings.map((b) => (b.id === visit.id ? { ...b, date: "2026-10-26", start: 150 } : b)) };
+    const seenThen = { date: "2026-10-26", start: 150, staffId: "anna" as StaffId };
+    const at0 = (instant: number): DemoAction => cancel({ at: at("2026-10-25", 150), instant, expected: seenThen });
+    const secondTwoThirty = Date.UTC(2026, 9, 25, 1, 30);
+    expect(reduce(autumn, at0(Date.UTC(2026, 9, 25, 0, 30)))).not.toBe(autumn); // the first 02:30, an hour earlier
+    expect(reduce(autumn, at0(secondTwoThirty))).not.toBe(autumn);
+    expect(reduce(autumn, at0(secondTwoThirty + 1))).toBe(autumn);
+  });
+
+  it("refuses a booking that was paid in any part with a gift card, and gives no credit back", () => {
+    const sold = reduce(booked, { type: "giftcard/sell", amount: 100, recipient: "Maja", message: "", date: today });
+    const paid = reduce(sold, { type: "giftcard/redeem", code: sold.giftCards[0].code, bookingId: visit.id, date: today });
+    expect(paid.giftCards[0].redemptions.length).toBeGreaterThan(0);
+    const spendable = balanceOf(paid, paid.giftCards[0]);
+    for (const action of [cancel(), move()]) expect(reduce(paid, action)).toBe(paid);
+    expect(paid.bookings.find((b) => b.id === visit.id)!.status).toBe("booked");
+    expect(balanceOf(paid, paid.giftCards[0])).toBe(spendable);
+  });
+
+  it("refuses when the booking is no longer the visit the customer saw", () => {
+    for (const expected of [{ ...seen, date: "2026-11-25" }, { ...seen, start: start + 30 }, { ...seen, staffId: "bo" as StaffId }]) {
+      expect(reduce(booked, cancel({ expected }))).toBe(booked);
+      expect(reduce(booked, move({ expected }))).toBe(booked);
+    }
   });
 
   it("follows the terms the visit was booked under, not today's policy", () => {
@@ -83,8 +127,9 @@ describe("online/move", () => {
 
   it("tells the customer of every move, also one back to a time the visit had before (A to B to A to B is three messages)", () => {
     const there = move();
-    const back = move({ date, start });
-    const state = [there, back, there].reduce((current, action) => reduce(current, action), booked);
+    const back = move({ date, start, expected: { date: "2026-11-25", start: target, staffId: "anna" } });
+    const thereAgain = move({ expected: seen });
+    const state = [there, back, thereAgain].reduce((current, action) => reduce(current, action), booked);
     expect(state.bookings.find((b) => b.id === visit.id)).toMatchObject({ date: "2026-11-25", start: target });
     const sent = state.inbox.filter((i) => i.delivery?.kind === "moved");
     expect(sent).toHaveLength(3);
@@ -126,5 +171,20 @@ describe("online/move", () => {
     const next = reduce(booked, move());
     expect(next.bookings.find((b) => b.id === visit.id)!.protection).toEqual(visit.protection);
     expect(next.sales).toEqual(booked.sales);
+  });
+});
+
+describe("a start in the hour the spring clock change skips", () => {
+  const night = {
+    ...base,
+    salon: { ...base.salon, lunch: null, hours: { ...base.salon.hours, 0: { open: 0, close: 1440 } } },
+    staff: base.staff.map((s) => ({ ...s, week: { ...s.week, 0: { start: 0, end: 1440 } } })),
+  };
+  const need = { serviceId: service.id, duration: 30 };
+
+  it("is never free, since 02:30 does not exist on 2027-03-28 in Stockholm, while the times around it are", () => {
+    expect(isFree(night, "anna", "2027-03-28", 150, need)).toBe(false);
+    expect(isFree(night, "anna", "2027-03-28", 90, need)).toBe(true);
+    expect(isFree(night, "anna", "2027-03-28", 210, need)).toBe(true);
   });
 });

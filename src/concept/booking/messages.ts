@@ -22,9 +22,10 @@ export interface BookingMessageAction {
 export function messageSlot(booking: Booking, occasion?: number) { return `${booking.date}:${booking.start}:${booking.staffId}${occasion === undefined ? "" : `#${occasion}`}`; }
 /** The stable id of one logical send, kept on the outbox entry so a delivery can tell which booking and message it is for. */
 export function messageReference(booking: Booking, kind: BookingMessageKind, channel: MessageChannel, occasion?: number) { return `${booking.id}-${kind}-${channel}-${messageSlot(booking, occasion)}`; }
-export function parseMessageReference(reference: string): { bookingId: string; kind: BookingMessageKind } | undefined {
-  const match = /^(.+)-(confirmation|reminder|cancellation|moved)-(?:sms|email)-\d{4}-\d{2}-\d{2}:/.exec(reference);
-  return match ? { bookingId: match[1], kind: match[2] as BookingMessageKind } : undefined;
+/** Which booking and message a reference names, and the slot it was sent for: what a change agreed to, kept even if the booking has moved on by the time it is delivered. */
+export function parseMessageReference(reference: string): { bookingId: string; kind: BookingMessageKind; slot: { date: string; start: number; staffId: string } } | undefined {
+  const match = /^(.+)-(confirmation|reminder|cancellation|moved)-(?:sms|email)-(\d{4}-\d{2}-\d{2}):(\d+):(.+?)(?:#\d+)?$/.exec(reference);
+  return match ? { bookingId: match[1], kind: match[2] as BookingMessageKind, slot: { date: match[3], start: Number(match[4]), staffId: match[5] } } : undefined;
 }
 export function bookingMessage(state: DemoState, booking: Booking, kind: BookingMessageKind) {
   const { language } = state.localization;

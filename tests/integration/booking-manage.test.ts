@@ -42,6 +42,9 @@ let terms!: AcceptedTerms;
 let calls = 0;
 
 beforeAll(async () => {
+  // The routes judge links and cutoffs by Date.now(); pin it to the store's clock so the fixed dates hold whenever this runs.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(CLOCK);
   vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
   vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
   vi.stubEnv("SESSION_SECRET", randomBytes(32).toString("hex"));
@@ -71,6 +74,7 @@ afterAll(async () => {
   for (const table of ["tenant_effect", "tenant_idempotency", "tenant_action", "tenant_state"])
     await db.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id = $1`, tenantId);
   vi.unstubAllEnvs();
+  vi.useRealTimers();
   await db.$disconnect();
 });
 
@@ -90,7 +94,7 @@ async function booked(start: number, date = DATE) {
   const response = await book(start, date);
   expect(response.status).toBe(201);
   const { ref } = await response.json();
-  return { ref: ref as string, token: /#t=(v1\.[^\s"]+)/.exec(mails[before].text)![1] };
+  return { ref: ref as string, token: /#t=(v1\.[^\s"]+)/.exec(mails[before].text)![1], seen: { staffId, date, start } };
 }
 
 const change = (route: typeof CANCEL, ref: string, body: object, key: string = randomUUID()) => route(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings/${ref}/x`, {
@@ -102,12 +106,12 @@ const drain = () => drainPendingEffects({ prisma: db as unknown as PrismaClient,
 
 describe("cancel by token", () => {
   it("frees the time for someone else, refuses a second cancel, and sends exactly one e-mail", async () => {
-    const { ref, token } = await booked(540);
+    const { ref, token, seen } = await booked(540);
     expect(await busy(DATE)).toContain(540);
     mails.length = 0;
 
     const key = randomUUID();
-    const response = await change(CANCEL, ref, { token }, key);
+    const response = await change(CANCEL, ref, { token, expected: seen }, key);
     expect(response.status).toBe(200);
     expect((await response.json()).booking).toMatchObject({ status: "cancelled" });
     expect(await busy(DATE)).not.toContain(540);
@@ -116,8 +120,8 @@ describe("cancel by token", () => {
     expect(mails[0].text).not.toContain("#t=");
 
     // A replay is the same answer and no second e-mail; a new key for the same cancel is refused.
-    expect((await change(CANCEL, ref, { token }, key)).status).toBe(200);
-    const again = await change(CANCEL, ref, { token });
+    expect((await change(CANCEL, ref, { token, expected: seen }, key)).status).toBe(200);
+    const again = await change(CANCEL, ref, { token, expected: seen });
     expect([again.status, await again.json()]).toEqual([409, { error: "not_changeable" }]);
     await drain();
     expect(mails).toHaveLength(1);
@@ -128,10 +132,10 @@ describe("cancel by token", () => {
 
 describe("move by token", () => {
   it("frees the old time, takes the new one, and sends exactly one e-mail with a fresh link", async () => {
-    const { ref, token } = await booked(600);
+    const { ref, token, seen } = await booked(600);
     mails.length = 0;
 
-    const response = await change(MOVE, ref, { token, staffId, date: NEXT_DATE, start: 660 });
+    const response = await change(MOVE, ref, { token, expected: seen, staffId, date: NEXT_DATE, start: 660 });
     expect(response.status).toBe(200);
     expect((await response.json()).booking).toMatchObject({ date: NEXT_DATE, start: 660, status: "booked" });
     expect(await busy(DATE)).not.toContain(600);
@@ -144,16 +148,20 @@ describe("move by token", () => {
 
     // The new time is taken for others, and the old one can be booked.
     const taken = await booked(720, NEXT_DATE);
-    const clash = await change(MOVE, taken.ref, { token: taken.token, staffId, date: NEXT_DATE, start: 660 });
+    const clash = await change(MOVE, taken.ref, { token: taken.token, expected: taken.seen, staffId, date: NEXT_DATE, start: 660 });
     expect([clash.status, await clash.json()]).toEqual([409, { error: "slot_unavailable" }]);
     expect((await book(600)).status).toBe(201);
   });
 
   it("sends an e-mail for every move, also back to a time it had before", async () => {
-    const { ref, token } = await booked(840);
+    const { ref, token, seen } = await booked(840);
     mails.length = 0;
     const times = [[NEXT_DATE, 900], [DATE, 840], [NEXT_DATE, 900]] as const;
-    for (const [date, start] of times) expect((await change(MOVE, ref, { token, staffId, date, start })).status).toBe(200);
+    let now = seen;
+    for (const [date, start] of times) {
+      expect((await change(MOVE, ref, { token, expected: now, staffId, date, start })).status).toBe(200);
+      now = { staffId, date, start };
+    }
     await drain();
     expect(mails).toHaveLength(3);
     expect(new Set(mails.map((m) => m.idempotencyKey)).size).toBe(3);

@@ -57,9 +57,9 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const { booking: view } = await response.json();
-    expect(Object.keys(view).sort()).toEqual(["date", "duration", "freeUntil", "salon", "serviceId", "staffFirstName", "staffId", "start", "status", "treatment"]);
-    expect(view).toMatchObject({ date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02" }, freeUntil: { date: "2026-11-23", time: 600 } });
-    expect(Object.keys(view.salon).sort()).toEqual(["address", "phone"]);
+    expect(Object.keys(view).sort()).toEqual(["closesAt", "date", "duration", "freeUntil", "salon", "serviceId", "staffFirstName", "staffId", "start", "status", "treatment"]);
+    expect(view).toMatchObject({ date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02" }, freeUntil: { date: "2026-11-23", time: 600 }, closesAt: Date.parse("2026-11-23T10:00:00+01:00") });
+    expect(Object.keys(view.salon).sort()).toEqual(["address", "email", "phone"]);
     const text = JSON.stringify(view);
     for (const secret of ["Private note", "lisa@example.test", booking.customerId, booking.id, base.customers[0].lastName, base.customers[0].phone]) expect(text).not.toContain(secret);
   });

@@ -19,7 +19,7 @@ const Server = ServerSalonProvider as unknown as ComponentType<{ state: typeof s
 
 const view: PublicBookingView = {
   serviceId: state.services[0].id, staffId: state.services[0].staffIds[0], treatment: state.services[0].name, staffFirstName: "Anna",
-  date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02", address: "Dalagatan 34" },
+  date: "2026-11-24", start: 600, duration: 60, status: "booked", salon: { phone: "08-555 01 02", email: "info@salong-fiktiv.example", address: "Dalagatan 34" },
 };
 const render = (over: Partial<PublicBookingView> = {}) => renderToString(createElement(Server, { state, issuedAt: "fictional-token" },
   createElement(ManageBooking, { slug: "salong-fiktiv", id: "ref-fictional", token: "fictional-token", view: { ...view, ...over }, onChanged: () => undefined })));
@@ -35,13 +35,22 @@ describe("the booking link's changes", () => {
     expect(html).not.toContain("call the salon");
   });
 
-  it("offers only the salon's phone number after the deadline, in either language", () => {
+  it("offers only the salon's contact details after the deadline, in either language", () => {
     const html = render();
     expect(html).not.toContain("Cancel booking");
     expect(html).not.toContain("Change time");
-    expect(html).toContain("call the salon on 08-555 01 02");
+    expect(html).toContain("closed for this booking");
+    expect(html).toContain('href="tel:0855501' + '02"');
+    expect(html).toContain('href="mailto:info@salong-fiktiv.example"');
+    expect(html).toContain("Dalagatan 34");
     setLocale("sv");
-    expect(render()).toContain("08-555 01 02");
+    expect(render()).toContain("Kontakta salongen");
+  });
+
+  it("still says so, and makes sense, for a salon with no contact details", () => {
+    const html = render({ salon: { phone: "", email: "", address: "" } });
+    expect(html).toContain("Please contact the salon to change or cancel it.");
+    expect(html).not.toContain("href=");
   });
 
   it("offers nothing for a cancelled or completed visit", () => {

@@ -1990,6 +1990,8 @@ const messages = {
   "bookingView.needLink": "Öppna länken i ditt bekräftelsemejl för att se bokningen.",
   "bookingView.notFound": "Länken kan vara gammal eller ofullständig. Ring salongen om du behöver hjälp.",
   "bookingView.slotTaken": "Den tiden blev just upptagen. Välj en annan.",
+  "bookingView.closed": "Det går inte längre att ändra eller avboka den här bokningen online. Kontakta salongen för att ändra eller avboka.",
+  "bookingView.changed": "Bokningen har ändrats under tiden. Kontrollera uppgifterna ovan och bekräfta igen.",
   "bookingView.changeTime": "Ändra tid",
   "bookingView.notChangeable": "Den här bokningen kan inte längre ändras online.",
   "bookingView.failed": "Något gick fel. Försök igen om en stund.",

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { confirmationEmail } from "../concept/booking/confirmation-email";
 import { parseMessageReference } from "../concept/booking/messages";
+import type { StaffId } from "../concept/data/types";
 import { createRegistry, type ResolutionReason } from "../concept/connections/server/registry";
 import { isEmail } from "../concept/connections/core";
 import type { EmailPort } from "../concept/connections/ports/email";
@@ -63,9 +64,15 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     // A public booking goes to the address typed on it, never to a profile that happens to share its phone number.
     const to = (booking?.publicRef ? booking.contactEmail : booking?.contactEmail || customer?.email || "")?.trim() ?? "";
     // Erased, cancelled or without a usable address: nothing to send, and nothing to retry. Checked on every attempt.
-    // A cancellation is the one message about a booking that is no longer booked, and has no use for a link to manage it.
+    // A cancellation is about a booking that is no longer booked and has no use for a link to manage it; a move
+    // describes the move it was made for, so it still goes out when a later cancellation came first.
     const cancelled = message.kind === "cancellation";
-    if (!state || !booking || booking.status !== (cancelled ? "cancelled" : "booked") || !customer || !isEmail(to)) return;
+    const status = cancelled ? ["cancelled"] : message.kind === "moved" ? ["booked", "cancelled"] : ["booked"];
+    if (!state || !booking || !status.includes(booking.status) || !customer || !isEmail(to)) return;
+    // The slot the change agreed to is in its reference; the message and its link are made from that, not from the booking as it stands.
+    const visit = cancelled || message.kind === "moved"
+      ? { ...booking, ...message.slot, staffId: message.slot.staffId as StaffId, status: cancelled ? booking.status : "booked" as const }
+      : booking;
     // Paused, not lost: the view of a public booking is off with these flags, so its link is held back too.
     if (booking.publicRef && !publicBookingOn()) return "deferred";
 
@@ -73,7 +80,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const live = kept?.live ?? !SIMULATED_ON_PURPOSE.has(resolution.reason);
     const firstAttemptAt = kept?.firstAttemptAt ?? now();
     const first: DeliveryState = {
-      live, firstAttemptAt, mail: kept?.mail ?? confirmationEmail(state, booking, message.kind, booking.publicRef && !cancelled ? LINK_MARK : undefined, firstAttemptAt),
+      live, firstAttemptAt, mail: kept?.mail ?? confirmationEmail(state, visit, message.kind, booking.publicRef && !cancelled ? LINK_MARK : undefined, firstAttemptAt),
     };
     if (!kept?.mail || kept.live === undefined) await note(id, first);
     if (live && !resolution.live) {
@@ -88,7 +95,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       return "failed";
     }
 
-    const link = cancelled ? undefined : bookingLink(tenantId, state, booking, resolution.live);
+    const link = cancelled ? undefined : bookingLink(tenantId, state, visit, resolution.live);
     const fill = (text: string) => text.split(LINK_MARK).join(link ?? "");
     const { subject, text, html } = first.mail!;
     // Past the deadline the request must not start: the outbox is already retrying it.

@@ -14,7 +14,7 @@ import { applyCustomerReview, type CustomerReviewAction } from "./booking/review
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { cleanImportedCustomer, MAX_IMPORT_ROWS, normalizeEmail } from "./customers/csv";
-import { changeRule, earliestBookingStart } from "./booking/policy";
+import { earliestBookingStart, freeChangeOpen, LEAD_MINUTES, visitTime } from "./booking/policy";
 import { PUBLIC_WINDOW_DAYS } from "./booking/public-projection";
 import { acceptedTerms, type AcceptedTerms } from "./booking/public-terms";
 import { addDays } from "./data/dates";
@@ -38,7 +38,7 @@ import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
 import { eraseCustomer } from "./customers/erase";
 import { placeOrders, receiveGoods, type Delivery, type NewOrder } from "./stock/orders";
-import { redeemGiftCard, returnRedemptions, sellGiftCard } from "./giftcards/cards";
+import { paidWithCards, redeemGiftCard, returnRedemptions, sellGiftCard } from "./giftcards/cards";
 import { sellPackage, consumePackageVisit } from "./packages/packages";
 import { sellProduct } from "./stock/sales";
 import { deduct, roundAmount, usesOfService } from "./stock/usage";
@@ -88,8 +88,8 @@ export type DemoAction =
       | { fictionalCustomer: { id: string; name: string; since: DateKey }; source: "assistant" }
     ))
   | { type: "online/book"; guest: OnlineGuest; notice?: OnlineNotice; serviceId: string; staffId: StaffId; date: DateKey; start: number; public?: PublicBooking }
-  | { type: "online/cancel"; id: string; at: OnlineGuest["at"]; public: PublicChange }
-  | { type: "online/move"; id: string; at: OnlineGuest["at"]; public: PublicChange; staffId: StaffId; date: DateKey; start: number }
+  | { type: "online/cancel"; id: string; at: OnlineGuest["at"]; instant: number; public: PublicChange; expected: ExpectedVisit }
+  | { type: "online/move"; id: string; at: OnlineGuest["at"]; instant: number; public: PublicChange; expected: ExpectedVisit; staffId: StaffId; date: DateKey; start: number }
   | { type: "online/waitlist"; guest: OnlineGuest; notice: OnlineNotice; serviceId: string; staffId?: StaffId }
   | { type: "service/price"; id: string; price: number }
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
@@ -153,6 +153,13 @@ export interface PublicBooking {
   slug: string;
   terms: AcceptedTerms;
   publicRef: string;
+}
+
+/** The visit as the customer saw it when they chose to change it; a change is refused if the booking is no longer that. */
+export interface ExpectedVisit {
+  date: DateKey;
+  start: number;
+  staffId: StaffId;
 }
 
 /**
@@ -299,27 +306,29 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
 }
 
-/** Why a guest cannot change a booking from its link: it is not theirs to change online, or the free-cancellation deadline has passed and the salon must be called. */
-export type OnlineChangeBlock = "not_changeable" | "call_salon";
+/** Why a guest cannot change a booking from its link: it is not theirs to change online, it is no longer the visit they saw, or the free-cancellation deadline has passed (or money is involved) and the salon must be called. */
+export type OnlineChangeBlock = "not_changeable" | "changed" | "call_salon";
 
 /**
  * Whether the holder of a booking link may still cancel or move it by themselves,
- * decided by the trusted clock `at`: a booked visit of this salon, free of any
- * payment (a deposit or a fee is the salon's to settle), before the deadline of
- * the terms it was booked under. Nothing is ever charged or refunded here.
+ * decided at the store's trusted `instant`: a booked visit of this salon that is
+ * still the one they saw, before the deadline of the terms it was booked under,
+ * and free of any payment (a deposit, a fee or a gift card is the salon's to
+ * settle). Nothing is ever charged or refunded here.
  */
-export function onlineChangeBlock(state: DemoState, id: string, slug: string, at: OnlineGuest["at"]): OnlineChangeBlock | undefined {
+export function onlineChangeBlock(state: DemoState, id: string, slug: string, instant: number, expected?: ExpectedVisit): OnlineChangeBlock | undefined {
   const booking = state.bookings.find((b) => b.id === id);
   const paid = booking?.protection?.deposit || booking?.protection?.decision || booking?.protection?.refund;
-  if (!booking || slug !== state.salon.slug || !booking.publicRef || booking.status !== "booked" || paid || !findCustomer(state, booking.customerId)) return "not_changeable";
-  return changeRule(booking, at.date, at.time) === "free" ? undefined : "call_salon";
+  if (!booking || slug !== state.salon.slug || !booking.publicRef || booking.status !== "booked" || !findCustomer(state, booking.customerId)) return "not_changeable";
+  if (expected && (expected.date !== booking.date || expected.start !== booking.start || expected.staffId !== booking.staffId)) return "changed";
+  return paid || paidWithCards(state, booking.id) || !freeChangeOpen(booking, instant) ? "call_salon" : undefined;
 }
 
 function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "online/cancel" | "online/move" }>, now: number): DemoState {
   const { id, at } = action;
   const booking = state.bookings.find((b) => b.id === id);
   const customer = findCustomer(state, booking?.customerId);
-  if (!booking || !customer || onlineChangeBlock(state, id, action.public.slug, at)) return state;
+  if (!booking || !customer || onlineChangeBlock(state, id, action.public.slug, action.instant, action.expected)) return state;
   const service = findService(state, booking.serviceId);
   const name = fullName(customer);
   const when = (visit: Pick<Booking, "date" | "start">) => `${formatDayLong(visit.date)} ${formatTime(visit.start)}`;
@@ -337,7 +346,7 @@ function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "onl
   const { staffId, date, start } = action;
   const bookable = bookableServices(state).find((s) => s.id === booking.serviceId);
   const same = staffId === booking.staffId && date === booking.date && start === booking.start;
-  if (same || !bookable?.staffIds.includes(staffId) || date < at.date || date > addDays(at.date, PUBLIC_WINDOW_DAYS) || start < earliestBookingStart(date, at.date, at.time)) return state;
+  if (same || !bookable?.staffIds.includes(staffId) || date < at.date || date > addDays(at.date, PUBLIC_WINDOW_DAYS) || visitTime({ date, start }).toMillis() < action.instant + LEAD_MINUTES * 60_000) return state;
   const moved = moveBooking(state, id, date, start, staffId);
   if (moved === state) return state;
   const noted = reduce(moved, { type: "inbox/add", item: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name, service: service?.name ?? "", from: when(booking), to: when({ date, start }) })) });

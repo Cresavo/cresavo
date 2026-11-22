@@ -2042,6 +2042,8 @@ const messages = {
   "bookingView.needLink": "Open the link in your confirmation e-mail to see this booking.",
   "bookingView.notFound": "The link may be old or incomplete. Call the salon if you need help.",
   "bookingView.slotTaken": "That time was just taken. Please choose another.",
+  "bookingView.closed": "Online changes and cancellations are closed for this booking. Please contact the salon to change or cancel it.",
+  "bookingView.changed": "This booking was changed in the meantime. Please check the details above and confirm again.",
   "bookingView.changeTime": "Change time",
   "bookingView.notChangeable": "This booking can no longer be changed online.",
   "bookingView.failed": "Something went wrong. Please try again in a moment.",

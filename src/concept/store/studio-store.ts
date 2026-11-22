@@ -44,6 +44,14 @@ export interface ApplyOptions {
    * Refused applies are not remembered, so a retry runs the rules again.
    */
   idempotencyKey?: string;
+  /**
+   * Called under the tenant's lock once the change is accepted and about to be
+   * written, never for a replay or a refused change; throwing aborts the apply.
+   * A caller reserves its allowance here, so only new commits count against it
+   * and no two can both take the last one. Stores that do not commit under a
+   * lock ignore it.
+   */
+  beforeCommit?: () => Promise<void>;
 }
 
 /**
@@ -188,7 +196,7 @@ export function actionFingerprint(action: DemoAction): string {
 /**
  * The action with the caller-reported times that decide eligibility or access
  * replaced by the store's clock: the booking cutoff of an online request
- * (`guest.at`, or `at` of a customer's cancel or move), whether a review comes after the visit, and the start or end of
+ * (`guest.at`, or `at` and `instant` of a customer's cancel or move), whether a review comes after the visit, and the start or end of
  * a support grant. Pure event stamps (`stock/order`, `customers/message`) are
  * kept as reported. Stores call this unless they trust the caller's clock.
  */
@@ -201,9 +209,10 @@ export function withTrustedTimes(action: DemoAction, at: number): DemoAction {
     case "online/waitlist":
       return { ...action, guest: { ...action.guest, at: local } };
     case "review/submit":
+      return { ...action, at: local };
     case "online/cancel":
     case "online/move":
-      return { ...action, at: local };
+      return { ...action, at: local, instant: at };
     case "support/grant":
     case "support/revoke":
       return { ...action, at };

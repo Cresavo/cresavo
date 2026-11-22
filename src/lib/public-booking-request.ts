@@ -32,8 +32,11 @@ export const MAX_MANAGE_BODY_BYTES = 2048;
 
 const token = z.string().min(1).max(300);
 
-export const cancelBookingSchema = z.object({ token }).strict();
+/** The visit as the customer saw it; the change is refused if the booking is no longer that. */
+const expected = z.object({ staffId: z.string().min(1).max(64), date: dateSchema, start: z.number().int().min(0).max(1439) }).strict();
+
+export const cancelBookingSchema = z.object({ token, expected }).strict();
 
 export const moveBookingSchema = z.object({
-  token, staffId: z.string().min(1).max(64), date: dateSchema, start: z.number().int().min(0).max(1439),
+  token, expected, staffId: z.string().min(1).max(64), date: dateSchema, start: z.number().int().min(0).max(1439),
 }).strict();
