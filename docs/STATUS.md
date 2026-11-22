@@ -65,15 +65,25 @@ Start with the [demo and product tour](../README.md) or see the
 
 ## Before a real pilot
 
-The studio still needs to store salons on the server through `StudioStore`,
-and the provider API and gateway need to move from the legacy engine to it
-(see the migration path in [ADR 1](design/ARCHITECTURE_DECISIONS.md)). Real customer use
-requires verified tenant isolation, production authentication and access
-controls, backups and restore, monitoring, and a security and privacy review.
-The launch waiting list needs a storage provider and a current privacy policy
-before it can accept sign-ups. Use fictional data and simulated messages in
-the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [roadmap](ROADMAP.md).
+Built and tested, but switched off in the public demo:
+- owner accounts with a salon stored on the server (`StudioStore` on Postgres), sessions, lock-out and password reset;
+- live public booking with cancel and move links, and booking e-mails through an outbox;
+- customer data rights (export, correction, erasure) and retention sweeps.
 
-Reminders by text and e-mail, payments and other providers have a connections
-foundation: simulated by default, live adapters behind a flag
-([connections guide](integrations/README.md)).
+Also in place:
+- cross-tenant tests for the owner and public APIs and the store;
+- rate limits on every public route that writes, sends mail or costs money;
+- an axe check of the main pages;
+- least-privilege database roles (`prisma/grants/roles.sql`);
+- a [backup and restore drill](operations/BACKUP_RESTORE.md) and an [incident runbook](operations/INCIDENT_RUNBOOK.md).
+
+Still open before real customer data:
+- owner MFA;
+- database-level tenant enforcement (RLS);
+- encryption and server-side access control for journals;
+- staff roles;
+- monitoring;
+- an external security review;
+- legal review of the DPA, the DPIA and the retention periods.
+
+The provider API and gateway still run on the legacy engine (the migration path is in [ADR 1](design/ARCHITECTURE_DECISIONS.md)). The open owner steps are tracked in issue #148. Until then, use fictional data and simulated messages. See the [pilot gate](QUALITY_SECURITY.md) and [roadmap](ROADMAP.md).

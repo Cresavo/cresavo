@@ -1,6 +1,7 @@
 import { describeAi } from "@/concept/ai/overview";
 import { canStoreKey, removeBusinessKey, saveBusinessKey, settingsInput } from "@/concept/ai/business-settings";
 import { DEMO_BUSINESS, updateBusinessAi } from "@/concept/ai/demo-store";
+import { demoWriteLimited } from "@/concept/server/demo-write-limit";
 import { withRequestLog } from "@/concept/server/logger";
 import { fromSameOrigin } from "@/concept/server/same-origin";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -15,6 +16,7 @@ function mutationGuard(request: Request) {
   const blocked = publicReadonlyResponse(request);
   if (blocked) return blocked;
   if (!fromSameOrigin(request)) return Response.json({ error: "Invalid origin" }, { status: 403 });
+  return demoWriteLimited(request);
 }
 
 /** Task list with provider/model and the cost log. No keys, no payloads. */
