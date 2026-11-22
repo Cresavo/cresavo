@@ -18,6 +18,8 @@ export interface DeliveryState {
   reason?: string;
   /** The code of the last attempt's error (`EMAIL_NOT_CONFIGURED`, `EMAIL_RETRYABLE`, ...), never its text. Kept by the outbox. */
   lastError?: string;
+  /** Attempts that do not count toward the outbox's limit (deferrals, and those before an operator's retry). Kept by the outbox; `attempts` itself never goes down. */
+  attemptBase?: number;
   /** What an operator settled by hand with `npm run effects:reconcile` (`sent`, `not_sent`, `retried`). */
   reconciled?: string;
   /** The message as first rendered, resent unchanged under the same key. */

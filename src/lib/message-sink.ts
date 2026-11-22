@@ -92,6 +92,15 @@ export function messageAddress(doc: unknown, reference: string | undefined): str
 }
 
 /**
+ * Whether a stored booking e-mail still has someone to go to, by the sink's own rule: the booking exists, is booked
+ * (cancelled for a cancellation notice; either for a move), and its customer is not erased and has an address.
+ */
+export function messageDeliverable(doc: unknown, reference: string | undefined): boolean {
+  const message = reference ? parseMessageReference(reference) : undefined;
+  return !!message && !!recipientOf(doc, message);
+}
+
+/**
  * Who the message goes to, or undefined when there is nothing to send and nothing to retry: erased, cancelled
  * or without a usable address. A public booking goes to the address typed on it, never to a profile that
  * happens to share its phone number. Checked on every attempt, and again under the lock before a real send.
@@ -173,9 +182,9 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const message = port === "email" && reference ? parseMessageReference(reference) : undefined;
     // An earlier attempt sent it and was only too slow to say so; or one already decided it fails and crashed before saying so.
     if (!message || kept?.sent) return;
-    if (kept?.reason) return "failed";
     // Paused by the operator (CONCEPT_EMAIL_PAUSED=1): a row claimed just before the switch waits, keeping its attempt.
     if (emailDeliveryPaused()) return "deferred";
+    if (kept?.reason) return "failed";
     const [row] = await prisma.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;
     const found = row && recipientOf(row.doc, message);
     if (!found) return "skipped";
@@ -217,6 +226,11 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       if (stored === "lost") throw new Error("EMAIL_CLAIM_LOST");
       frozen = stored;
     }
+    // A snapshot whose message retention has purged cannot be resent as it was: it fails for a person, before anything is marked.
+    if (!frozen.mail?.subject || typeof frozen.mail.text !== "string" || typeof frozen.mail.html !== "string" || !frozen.from) {
+      await noteClaim(delivery, { reason: "snapshot_purged", ...SETTLED });
+      return "failed";
+    }
     const { firstAttemptAt, mail, from, replyTo } = frozen;
     // A send that may have left is repeated only where the provider will recognise the key.
     // The key only helps at the provider the first request went to: a row dispatched elsewhere, or before that was recorded, is not repeated.
@@ -244,6 +258,11 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     if (signal.aborted) {
       await release();
       throw new Error("EMAIL_TIMEOUT");
+    }
+    // The last moment the pause can hold it: nothing has been requested yet.
+    if (emailDeliveryPaused()) {
+      await release();
+      return "deferred";
     }
     // A simulated send keeps no address, only a reference to the customer, and never touches a live adapter.
     const adapter = live || !resolution.live ? resolution.adapter : simulatedEmail({ outbox: createOutbox(1) });

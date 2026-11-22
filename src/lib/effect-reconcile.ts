@@ -1,25 +1,34 @@
 import type { PrismaClient } from "@prisma/client";
 import { parseMessageReference } from "../concept/booking/messages";
+import { ERROR_CODES } from "../concept/connections/core";
 import type { DeliveryState, OutboxEntry } from "../concept/connections/simulated/outbox";
+import { EFFECT_ERROR_CODES } from "../concept/store/effect-outbox";
 import type { ListedEffect, ReconcileAction } from "./effect-reconcile-cli";
 import { maskAddress } from "./effect-reconcile-cli";
-import { messageAddress } from "./message-sink";
+import { messageAddress, messageDeliverable } from "./message-sink";
 
 // What `npm run effects:reconcile` does to the e-mail outbox (`tenant_effect`,
 // docs/operations/INCIDENT_RUNBOOK.md#reconciling-the-e-mail-outbox). An
 // operator reopens or settles a row by hand; the deliverer's rules stay as
 // they are (src/lib/message-sink.ts):
 //
-// - `retry` puts a `failed` e-mail back to pending with its attempts reset,
+// - `retry` puts a `failed` e-mail back to pending with a fresh attempt budget,
 //   keeping what the first attempt froze (message, link, sender, reply-to) so
-//   the resend is the same under the same idempotency key. A row that may have
-//   left (`dispatched`) is reopened only with `--force-maybe-duplicate`, which
-//   also drops the marker: the operator has accepted a possible second copy.
+//   the resend is the same under the same idempotency key. `attempts` is never
+//   lowered (it is also each claim's identity, so a stale deliverer can never
+//   write over a newer claim): the budget starts again from `attemptBase`. A
+//   send that may have left (`dispatched`, or uncertain) is reopened only with
+//   `--force-maybe-duplicate`, which also drops the marker: the operator has
+//   accepted a possible second copy. A booking that is gone, cancelled (unless
+//   the e-mail is the cancellation) or whose customer was erased is refused, as
+//   is a snapshot whose message retention has purged.
 // - `mark-sent` and `mark-failed` settle an `uncertain` row after a look at the
 //   provider's log. `mark-failed` keeps the marker, so a retry of it still
 //   needs the force flag.
-// - Each id is decided and changed in its own transaction under the row's lock,
-//   only for the tenant the operator named; running it again changes nothing.
+// - Each id is decided and changed in its own transaction: a retry first takes
+//   the tenant's lock (shared, as a deliverer does; an erasure takes it
+//   exclusively), then the row's, and the row is only ever looked up within the
+//   tenant the operator named. Running it again changes nothing.
 //
 // Nothing personal is printed or returned: no body, no address but its domain.
 // The tenant's audit log (`tenant_action`) records the studio's own changes,
@@ -27,6 +36,27 @@ import { messageAddress } from "./message-sink";
 
 /** Longest wait for a row a deliverer is writing: its writes take milliseconds. */
 const LOCK_TIMEOUT = "3000ms";
+/** Error codes of a terminal attempt that may have reached the provider. */
+const MAYBE_SENT_ERRORS = new Set(["EMAIL_UNCERTAIN", "STUDIO_STORE_SINK_TIMEOUT"]);
+/** The reasons the sink and this tool write, and the provider codes it maps: the only ones shown. */
+const REASONS = new Set<string>([...ERROR_CODES, "uncertain", "reconcile", "not_sent", "snapshot_purged"]);
+
+/**
+ * A failed e-mail that may have been sent: marked so by the sink, or out of attempts with a request that may have
+ * left (a `dispatched` marker, or a last error that says so). Settled by a person, never resent unforced.
+ */
+export function isUncertain(status: string, delivery: DeliveryState): boolean {
+  if (status !== "failed") return false;
+  if (delivery.reason) return delivery.reason === "uncertain";
+  return delivery.dispatched === true || MAYBE_SENT_ERRORS.has(delivery.lastError ?? "");
+}
+
+/** What a list may show as a row's error: an allowlisted reason or code, else `other`. */
+export function shownError(delivery: DeliveryState): string | undefined {
+  if (delivery.reason) return REASONS.has(delivery.reason) ? delivery.reason : "other";
+  if (delivery.lastError) return EFFECT_ERROR_CODES.has(delivery.lastError) ? delivery.lastError : "other";
+  return undefined;
+}
 
 /** What the decision needs of a locked row. */
 export interface EffectRow {
@@ -34,6 +64,9 @@ export interface EffectRow {
   tenant_id: string;
   kind: string;
   status: string;
+  attempts: number;
+  /** Whether the booking still has someone to send to (see `messageDeliverable`); read under the tenant's lock. */
+  deliverable: boolean;
   /** Erased by a customer erasure: never reopened. */
   erased: boolean;
   /** A deliverer's claim that has not run out: it may still be sending. */
@@ -42,7 +75,7 @@ export interface EffectRow {
 }
 
 export type Decision =
-  | { outcome: "change"; status: "pending" | "delivered" | "failed"; delivery: DeliveryState; resetAttempts: boolean }
+  | { outcome: "change"; status: "pending" | "delivered" | "failed"; delivery: DeliveryState; reopen: boolean }
   | { outcome: "unchanged" | "refused"; reason: string };
 
 const without = (delivery: DeliveryState, keys: readonly (keyof DeliveryState)[]): DeliveryState =>
@@ -59,30 +92,33 @@ export function decide(action: ReconcileAction, row: EffectRow | undefined, tena
   if (row.erased) return refused("erased");
   if (row.status === "cancelled") return refused("cancelled");
   const delivery: DeliveryState = row.payload.delivery ?? {};
-  const uncertain = row.status === "failed" && delivery.reason === "uncertain";
+  const uncertain = isUncertain(row.status, delivery);
 
   if (action === "retry") {
     if (row.status === "pending") return unchanged("pending");
     if (row.status === "delivered") return unchanged("delivered");
     if (row.leased) return refused("leased");
     if (delivery.sent) return refused("already_sent");
-    if (delivery.dispatched && !forceMaybeDuplicate) return refused("dispatched");
+    if ((delivery.dispatched || uncertain || delivery.reason === "not_sent") && !forceMaybeDuplicate) return refused(delivery.dispatched ? "dispatched" : "uncertain");
+    // Retention blanked the message but kept its sender: it cannot be resent as it was.
+    if (delivery.reason === "snapshot_purged" || (!delivery.mail && (delivery.from || delivery.link || delivery.replyTo))) return refused("snapshot_purged");
+    if (!row.deliverable) return refused("booking_gone");
     // The reason would fail it again at once; the frozen message, link, sender and reply-to stay for the resend.
     const cleared = without(delivery, forceMaybeDuplicate ? ["reason", "lastError", "dispatched", "provider", "account"] : ["reason", "lastError"]);
-    return { outcome: "change", status: "pending", delivery: { ...cleared, reconciled: "retried" }, resetAttempts: true };
+    return { outcome: "change", status: "pending", delivery: { ...cleared, attemptBase: row.attempts, reconciled: "retried" }, reopen: true };
   }
   if (action === "mark-sent") {
     if (row.status === "delivered") return unchanged("delivered");
     if (!uncertain) return refused(row.status === "failed" ? "not_uncertain" : row.status);
     if (row.leased) return refused("leased");
     const settled = without(delivery, ["reason", "lastError", "dispatched", "provider", "account", "mail", "link", "from", "replyTo"]);
-    return { outcome: "change", status: "delivered", delivery: { ...settled, sent: true, reconciled: "sent" }, resetAttempts: false };
+    return { outcome: "change", status: "delivered", delivery: { ...settled, sent: true, reconciled: "sent" }, reopen: false };
   }
   if (row.status === "failed" && delivery.reconciled === "not_sent") return unchanged("not_sent");
   if (!uncertain) return refused(row.status === "failed" ? "not_uncertain" : row.status);
   if (row.leased) return refused("leased");
   // The marker stays: a request did leave once, so a later retry still has to be forced.
-  return { outcome: "change", status: "failed", delivery: { ...without(delivery, ["lastError"]), reason: "not_sent", reconciled: "not_sent" }, resetAttempts: false };
+  return { outcome: "change", status: "failed", delivery: { ...without(delivery, ["lastError"]), reason: "not_sent", reconciled: "not_sent" }, reopen: false };
 }
 
 export interface ReconcileResult {
@@ -100,18 +136,22 @@ export async function reconcileEffect(
 ): Promise<ReconcileResult> {
   const decision = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${LOCK_TIMEOUT}, true)`;
-    const [row] = await tx.$queryRaw<EffectRow[]>`
-      SELECT id, tenant_id, kind, status, erased_at IS NOT NULL AS erased,
+    // The tenant first, in the order a deliverer takes them: the booking is judged after any erasure that finished.
+    const [state] = action === "retry"
+      ? await tx.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${options.tenantId} FOR SHARE`
+      : [];
+    const [found] = await tx.$queryRaw<Array<Omit<EffectRow, "deliverable">>>`
+      SELECT id, tenant_id, kind, status, attempts, erased_at IS NOT NULL AS erased,
              coalesce(leased_until > clock_timestamp(), false) AS leased, payload
-      FROM tenant_effect WHERE id = ${effectId} FOR UPDATE`;
+      FROM tenant_effect WHERE id = ${effectId} AND tenant_id = ${options.tenantId} FOR UPDATE`;
+    const row = found && { ...found, deliverable: !!state && messageDeliverable(state.doc, found.payload?.reference) };
     const decided = decide(action, row, options.tenantId, options.forceMaybeDuplicate);
     if (decided.outcome !== "change" || !options.apply) return decided;
-    const reset = decided.resetAttempts;
+    const reopen = decided.reopen;
     await tx.$executeRaw`
       UPDATE tenant_effect SET status = ${decided.status},
         payload = jsonb_set(payload, '{delivery}', ${JSON.stringify(decided.delivery)}::jsonb),
-        attempts = CASE WHEN ${reset}::boolean THEN 0 ELSE attempts END,
-        next_attempt_at = CASE WHEN ${reset}::boolean THEN least(next_attempt_at, clock_timestamp()) ELSE next_attempt_at END,
+        next_attempt_at = CASE WHEN ${reopen}::boolean THEN least(next_attempt_at, clock_timestamp()) ELSE next_attempt_at END,
         leased_until = NULL,
         delivered_at = CASE WHEN ${decided.status} = 'delivered' THEN clock_timestamp() END
       WHERE id = ${effectId} AND tenant_id = ${options.tenantId}`;
@@ -155,10 +195,10 @@ export async function listUnsettled(prisma: PrismaClient, options: { tenantId?: 
       id: row.id,
       tenantId: row.tenant_id,
       kind: `${row.payload?.port ?? row.kind}/${message?.kind ?? row.payload?.action ?? "-"}`,
-      state: delivery.reason === "uncertain" ? "uncertain" : "failed",
+      state: isUncertain("failed", delivery) ? "uncertain" : "failed",
       ...(row.age_ms === null ? {} : { ageMs: row.age_ms }),
       attempts: row.attempts,
-      ...(delivery.reason ?? delivery.lastError ? { error: delivery.reason ?? delivery.lastError } : {}),
+      ...(shownError(delivery) ? { error: shownError(delivery) } : {}),
       dispatched: delivery.dispatched === true,
       ...(delivery.reconciled ? { reconciled: delivery.reconciled } : {}),
       recipient: email ? maskAddress(messageAddress(docs.get(row.tenant_id), row.payload.reference)) : "-",

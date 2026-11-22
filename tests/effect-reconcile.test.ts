@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DeliveryState } from "@/concept/connections/simulated/outbox";
-import { decide, type EffectRow } from "@/lib/effect-reconcile";
+import { decide, isUncertain, shownError, type EffectRow } from "@/lib/effect-reconcile";
 import { formatAge, formatList, maskAddress, parseReconcileArgs } from "@/lib/effect-reconcile-cli";
 
 // The operator's reconcile tool without a database: its command line, how a row
@@ -18,6 +18,8 @@ describe("the command line", () => {
     expect(parseReconcileArgs(["mark-sent", "e-1", "--tenant", "salon-1", "--apply", "--actor", "jane.d"]))
       .toMatchObject({ command: "mark-sent", apply: true, actor: "jane.d" });
     expect(parseReconcileArgs(["retry", "e-1", "--tenant", "salon-1", "--force-maybe-duplicate"])).toMatchObject({ forceMaybeDuplicate: true, actor: "operator" });
+    // An actor is an opaque id: a shell user that looks like an address is not echoed into the audit line.
+    expect(parseReconcileArgs(["retry", "e-1", "--tenant", "salon-1"], { USER: "jane@example.test" })).toMatchObject({ actor: "operator" });
   });
 
   it("refuses what it cannot do safely", () => {
@@ -31,6 +33,7 @@ describe("the command line", () => {
       [["retry", "e 1", "--tenant", "t"], "invalid_id"],
       [["retry", "e-1", "--tenant", "t'; --"], "invalid_tenant"],
       [["retry", "e-1", "--tenant", "t", "--actor", "a b"], "invalid_actor"],
+      [["retry", "e-1", "--tenant", "t", "--actor", "jane@example.test"], "invalid_actor"],
       [["retry", "e-1", "--tenant", "t", "--limit", "3"], "limit_is_for_list"],
       [["list", "e-1"], "list_takes_no_ids"],
       [["list", "--apply"], "list_changes_nothing"],
@@ -80,19 +83,19 @@ describe("what each action decides", () => {
     firstAttemptAt: 1, mail: { subject: "s", text: "t", html: "h" }, link: { url: "https://x.example/b", exp: 2 }, from: "\"Salon\" <bookings@x.example>", replyTo: "salon@x.example",
   };
   const row = (status: string, delivery: DeliveryState = {}, over: Partial<EffectRow> = {}): EffectRow => ({
-    id: "e-1", tenant_id: "t-1", kind: "message", status, erased: false, leased: false,
+    id: "e-1", tenant_id: "t-1", kind: "message", status, attempts: 10, deliverable: true, erased: false, leased: false,
     payload: { id: "o-1", port: "email", action: "send", body: "x", cost: null, live: true, delivery }, ...over,
   });
 
   it("retries a failed row that never left, keeping what was frozen", () => {
     expect(decide("retry", row("failed", { ...frozen, lastError: "EMAIL_NOT_CONFIGURED" }), "t-1"))
-      .toEqual({ outcome: "change", status: "pending", delivery: { ...frozen, reconciled: "retried" }, resetAttempts: true });
+      .toEqual({ outcome: "change", status: "pending", delivery: { ...frozen, attemptBase: 10, reconciled: "retried" }, reopen: true });
   });
 
   it("retries a dispatched row only when forced, and then drops the marker but not the frozen message", () => {
     const dispatched = row("failed", { ...frozen, dispatched: true, provider: "resend", account: "abcd", reason: "uncertain" });
     expect(decide("retry", dispatched, "t-1")).toEqual({ outcome: "refused", reason: "dispatched" });
-    expect(decide("retry", dispatched, "t-1", true)).toEqual({ outcome: "change", status: "pending", delivery: { ...frozen, reconciled: "retried" }, resetAttempts: true });
+    expect(decide("retry", dispatched, "t-1", true)).toEqual({ outcome: "change", status: "pending", delivery: { ...frozen, attemptBase: 10, reconciled: "retried" }, reopen: true });
   });
 
   it("refuses another tenant's row, anything not an e-mail, erased, cancelled, sent or leased rows", () => {
@@ -106,6 +109,38 @@ describe("what each action decides", () => {
     expect(decide("retry", row("failed", {}, { leased: true }), "t-1")).toEqual({ outcome: "refused", reason: "leased" });
   });
 
+  it("treats an exhausted send that may have left as uncertain, even without a marker", () => {
+    const exhausted = row("failed", { ...frozen, lastError: "EMAIL_UNCERTAIN" });
+    expect(isUncertain("failed", exhausted.payload.delivery!)).toBe(true);
+    expect(isUncertain("failed", { lastError: "STUDIO_STORE_SINK_TIMEOUT" })).toBe(true);
+    expect(isUncertain("failed", { lastError: "EMAIL_NOT_CONFIGURED" })).toBe(false);
+    expect(isUncertain("failed", { dispatched: true, lastError: "EMAIL_RETRYABLE" })).toBe(true);
+    expect(isUncertain("pending", { reason: "uncertain" })).toBe(false);
+    expect(decide("retry", exhausted, "t-1")).toEqual({ outcome: "refused", reason: "uncertain" });
+    expect(decide("retry", exhausted, "t-1", true)).toMatchObject({ outcome: "change", status: "pending" });
+    expect(decide("mark-sent", exhausted, "t-1")).toMatchObject({ outcome: "change", status: "delivered" });
+    // Settled as not sent, it still needs the force flag to go out again.
+    expect(decide("retry", row("failed", { ...frozen, reason: "not_sent" }), "t-1")).toEqual({ outcome: "refused", reason: "uncertain" });
+  });
+
+  it("refuses a booking that is gone, cancelled or erased, and a snapshot retention purged", () => {
+    expect(decide("retry", row("failed", frozen, { deliverable: false }), "t-1")).toEqual({ outcome: "refused", reason: "booking_gone" });
+    const purged = { firstAttemptAt: 1, from: frozen.from, link: frozen.link };
+    expect(decide("retry", row("failed", purged), "t-1")).toEqual({ outcome: "refused", reason: "snapshot_purged" });
+    expect(decide("retry", row("failed", { reason: "snapshot_purged" }), "t-1")).toEqual({ outcome: "refused", reason: "snapshot_purged" });
+    // Never frozen (it ran out of attempts before the first render): rebuilt from the booking.
+    expect(decide("retry", row("failed", { lastError: "EMAIL_NOT_CONFIGURED" }), "t-1")).toMatchObject({ outcome: "change" });
+  });
+
+  it("shows only allowlisted reasons and codes", () => {
+    expect(shownError({ reason: "invalid_input" })).toBe("invalid_input");
+    expect(shownError({ reason: "uncertain" })).toBe("uncertain");
+    expect(shownError({ reason: "LISA@EXAMPLE.TEST" })).toBe("other");
+    expect(shownError({ lastError: "EMAIL_NOT_CONFIGURED" })).toBe("EMAIL_NOT_CONFIGURED");
+    expect(shownError({ lastError: "CUSTOMER_LISA_BERG" })).toBe("other");
+    expect(shownError({})).toBeUndefined();
+  });
+
   it("changes nothing the second time", () => {
     expect(decide("retry", row("pending", { reconciled: "retried" }), "t-1")).toEqual({ outcome: "unchanged", reason: "pending" });
     expect(decide("retry", row("delivered", { sent: true }), "t-1")).toEqual({ outcome: "unchanged", reason: "delivered" });
@@ -115,9 +150,9 @@ describe("what each action decides", () => {
 
   it("settles only an uncertain row as sent or not sent", () => {
     const uncertain = row("failed", { firstAttemptAt: 1, dispatched: true, provider: "postmark", reason: "uncertain", lastError: "EMAIL_UNCERTAIN" });
-    expect(decide("mark-sent", uncertain, "t-1")).toEqual({ outcome: "change", status: "delivered", delivery: { firstAttemptAt: 1, sent: true, reconciled: "sent" }, resetAttempts: false });
+    expect(decide("mark-sent", uncertain, "t-1")).toEqual({ outcome: "change", status: "delivered", delivery: { firstAttemptAt: 1, sent: true, reconciled: "sent" }, reopen: false });
     expect(decide("mark-failed", uncertain, "t-1")).toEqual({
-      outcome: "change", status: "failed", delivery: { firstAttemptAt: 1, dispatched: true, provider: "postmark", reason: "not_sent", reconciled: "not_sent" }, resetAttempts: false,
+      outcome: "change", status: "failed", delivery: { firstAttemptAt: 1, dispatched: true, provider: "postmark", reason: "not_sent", reconciled: "not_sent" }, reopen: false,
     });
     expect(decide("mark-sent", row("failed", { reason: "invalid_input" }), "t-1")).toEqual({ outcome: "refused", reason: "not_uncertain" });
     expect(decide("mark-failed", row("failed", { lastError: "EMAIL_NOT_CONFIGURED" }), "t-1")).toEqual({ outcome: "refused", reason: "not_uncertain" });
