@@ -58,6 +58,8 @@ export interface Salon {
   /** The lunch break on long days; null = no break. */
   lunch: Interval | null;
   closures: Closure[];
+  /** Set only by the server's public projection: the last day the booking page offers. Later days count as closed. */
+  bookableUntil?: DateKey;
 }
 
 export interface Staff {

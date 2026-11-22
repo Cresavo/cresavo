@@ -31,7 +31,7 @@ export const needOf = (service: Pick<Service, "id" | "duration">): Need => ({ se
 
 /** Opening hours of a day; null when the weekday is closed or the day is a closure. */
 export function openingFor(salon: Salon, date: DateKey) {
-  if (salon.closures.some((c) => c.date === date)) return null;
+  if (salon.closures.some((c) => c.date === date) || (salon.bookableUntil && date > salon.bookableUntil)) return null;
   return salon.hours[weekday(date)] ?? null;
 }
 

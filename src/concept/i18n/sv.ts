@@ -252,6 +252,7 @@ const messages = {
   "account.language": "Språk för din salong",
   "account.error.invalid": "Kontrollera fälten: lösenordet behöver minst 15 tecken och salongen ett namn.",
   "account.error.email_taken": "Den e-postadressen har redan ett konto. Logga in i stället.",
+  "account.error.slug_unavailable": "Vi kunde inte ge din salong en bokningsadress just nu. Försök igen.",
   "account.error.invalid_credentials": "Fel e-post eller lösenord.",
   "account.error.tooMany": "För många försök. Vänta några minuter och försök igen.",
   "account.error.generic": "Något gick fel. Försök igen.",

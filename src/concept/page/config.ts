@@ -10,6 +10,8 @@ export interface PageConfig {
   instagram: string;
   /** The owner's own CSS as typed. It is sanitised and scoped every time it is rendered (`pageCss`). */
   css: string;
+  /** Set only by the server's public projection: `css` already sanitised and scoped, so the owner's raw text never leaves the server. */
+  sanitizedCss?: string;
 }
 
 export const DEFAULT_PAGE: PageConfig = { theme: DEFAULT_THEME, sections: DEFAULT_SECTIONS, instagram: "", css: "" };
@@ -35,4 +37,4 @@ export function normalizePage(input: Partial<PageConfig> | undefined): PageConfi
 export const hasSection = (page: PageConfig, kind: PageSection["kind"]) => page.sections.some((s) => s.kind === kind);
 
 /** The owner's CSS as it reaches the page. */
-export const pageCss = (page: PageConfig) => sanitizeCss(page.css);
+export const pageCss = (page: PageConfig) => page.sanitizedCss ?? sanitizeCss(page.css);

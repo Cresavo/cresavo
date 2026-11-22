@@ -1,116 +1,145 @@
 import { addDays } from "../data/dates";
-import type { Booking, DateKey, DemoState, Interval, Review, Salon, Service, Staff, StaffBlock, StaffException } from "../data/types";
-import { normalizePage } from "../page/config";
+import { isActive } from "../data/slots";
+import type { Booking, DateKey, DemoState, Interval, ResourceKind, Review, Salon, Service, Staff, StaffBlock, StaffException, StaffId } from "../data/types";
+import { normalizePage, type PageConfig } from "../page/config";
+import { sanitizeCss } from "../page/css";
 import { salonClock } from "../tools/clock";
-import { publicName } from "./reviews";
-import { DEFAULT_REMINDER_SETTINGS } from "./reminders";
 import type { CheckoutHold } from "./protection";
+import { DEFAULT_REMINDER_SETTINGS } from "./reminders";
+import { publicName, recentReviews } from "./reviews";
 
 // What the server may send to anyone who opens a salon's booking page. The
 // result is a DemoState so the booking page and slots.ts run unchanged, but
-// every object in it is built from explicit public fields, never spread from
-// the stored one: a field added to a stored type, or smuggled into the stored
-// document, stays private until it is listed here. A key added to DemoState
-// fails to compile until it is copied on purpose or emptied. Never send
-// `publicView()` from the server; it only hides treatments.
+// every value in it is read from the stored document through a leaf check
+// (`text`, `num`, `list`): a field that is not listed, or not of the expected
+// type, is dropped, and nested objects are never passed through. A key added
+// to DemoState fails to compile until it is copied on purpose or emptied.
+// Never send `publicView()` from the server; it only hides treatments.
 
-/** How far ahead the booking page offers times; busy blocks stop there too. */
+/** How far ahead the booking page offers times; later days count as closed, and busy blocks stop there too. */
 export const PUBLIC_WINDOW_DAYS = 28;
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
-const interval = (value: Interval | null | undefined): Interval | null => value ? { start: value.start, end: value.end } : null;
+const text = (value: unknown): string => typeof value === "string" ? value : "";
+const optionalText = (value: unknown): string | undefined => typeof value === "string" ? value : undefined;
+const num = (value: unknown): number => typeof value === "number" && Number.isFinite(value) ? value : 0;
+const list = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
-const week = (stored: Record<number, Interval | null>): Record<number, Interval | null> =>
-  Object.fromEntries(WEEKDAYS.map((day) => [day, interval(stored[day])]));
+const interval = (value: Interval | null | undefined): Interval | null => value ? { start: num(value.start), end: num(value.end) } : null;
 
-const salon = (stored: Salon): Salon => ({
-  name: stored.name, slug: stored.slug, tagline: stored.tagline, address: stored.address, area: stored.area,
-  phone: stored.phone, email: stored.email, orgNumber: "",
-  hours: Object.fromEntries(WEEKDAYS.map((day) => [day, stored.hours[day] ? { open: stored.hours[day].open, close: stored.hours[day].close } : null])),
-  lunch: stored.lunch ? { start: stored.lunch.start, end: stored.lunch.end } : null,
-  closures: stored.closures.map(({ id, date }) => ({ id, date, name: "" })),
+const week = (stored: Record<number, Interval | null> | undefined): Record<number, Interval | null> =>
+  Object.fromEntries(WEEKDAYS.map((day) => [day, interval(stored?.[day])]));
+
+const salon = (stored: Salon, bookableUntil: DateKey): Salon => ({
+  name: text(stored.name), slug: text(stored.slug), tagline: text(stored.tagline), address: text(stored.address), area: text(stored.area),
+  phone: text(stored.phone), email: text(stored.email), orgNumber: "",
+  hours: Object.fromEntries(WEEKDAYS.map((day) => [day, stored.hours?.[day] ? { open: num(stored.hours[day].open), close: num(stored.hours[day].close) } : null])),
+  lunch: stored.lunch ? { start: num(stored.lunch.start), end: num(stored.lunch.end) } : null,
+  closures: (stored.closures ?? []).map((closure) => ({ id: text(closure.id), date: text(closure.date), name: "" })),
+  bookableUntil,
 });
 
 const offering = (stored: Service): Service => ({
-  id: stored.id, name: stored.name, category: stored.category, staffIds: [...stored.staffIds], duration: stored.duration,
-  price: stored.price, description: stored.description, recallWeeks: 0, image: stored.image, resourceIds: stored.resourceIds && [...stored.resourceIds],
+  id: text(stored.id), name: text(stored.name), category: text(stored.category), staffIds: list(stored.staffIds) as StaffId[],
+  duration: num(stored.duration), price: num(stored.price), description: text(stored.description), recallWeeks: 0,
+  image: optionalText(stored.image), resourceIds: list(stored.resourceIds),
 });
 
 /** A team member as the page shows them: first name and photo, and the title and bio only on cards. */
 const teammate = (stored: Staff, cards: boolean): Staff => ({
-  id: stored.id, photo: stored.photo, firstName: stored.firstName, lastName: "", role: "", title: cards ? stored.title : "",
-  week: week(stored.week), bio: cards ? stored.bio : "", phone: "",
+  id: text(stored.id) as StaffId, photo: optionalText(stored.photo), firstName: text(stored.firstName), lastName: "", role: "",
+  title: cards ? text(stored.title) : "", week: week(stored.week), bio: cards ? text(stored.bio) : "", phone: "",
 });
 
 /** A day off keeps its date but not its reason. */
-const exception = (stored: StaffException): StaffException => stored.kind === "off"
-  ? { id: stored.id, staffId: stored.staffId, date: stored.date, kind: "off", reason: "other" }
-  : { id: stored.id, staffId: stored.staffId, date: stored.date, kind: "shift", start: stored.start, end: stored.end };
+const exception = (stored: StaffException): StaffException => {
+  const own = { id: text(stored.id), staffId: text(stored.staffId) as StaffId, date: text(stored.date) };
+  return stored.kind === "shift" ? { ...own, kind: "shift", start: num(stored.start), end: num(stored.end) } : { ...own, kind: "off", reason: "other" };
+};
 
-const block = (stored: StaffBlock): StaffBlock => ({ id: stored.id, staffId: stored.staffId, date: stored.date, start: stored.start, end: stored.end, reason: "admin" });
+const block = (stored: StaffBlock): StaffBlock => ({
+  id: text(stored.id), staffId: text(stored.staffId) as StaffId, date: text(stored.date), start: num(stored.start), end: num(stored.end), reason: "admin",
+});
 
 /** Someone else's visit, as the page needs it to hide the time: no customer, price or source. */
 const busy = (stored: Booking, index: number): Booking => ({
-  id: `busy-${index}`, customerId: "", staffId: stored.staffId, serviceId: "", date: stored.date, start: stored.start,
-  duration: stored.duration, price: 0, status: "booked", source: "online", resourceId: stored.resourceId,
+  id: `busy-${index}`, customerId: "", staffId: text(stored.staffId) as StaffId, serviceId: "", date: text(stored.date), start: num(stored.start),
+  duration: num(stored.duration), price: 0, status: "booked", source: "online", resourceId: optionalText(stored.resourceId),
 });
 
 /** A hold that frees its time when it expires, with nothing of the guest. */
 const heldTime = (stored: CheckoutHold, index: number): CheckoutHold => ({
-  id: `held-${index}`, serviceId: "", staffId: stored.staffId, date: stored.date, start: stored.start, duration: stored.duration,
-  resourceId: stored.resourceId, expiresAt: stored.expiresAt,
+  id: `held-${index}`, serviceId: "", staffId: text(stored.staffId) as StaffId, date: text(stored.date), start: num(stored.start), duration: num(stored.duration),
+  resourceId: optionalText(stored.resourceId), expiresAt: num(stored.expiresAt),
   terms: { version: 0, freeHours: 0, latePercent: 0, noShowPercent: 0, currency: "", priceMinor: 0, depositMinor: 0 },
-  guest: { name: "", phone: "", at: { date: stored.date, time: 0 } },
+  guest: { name: "", phone: "", at: { date: text(stored.date), time: 0 } },
   notice: { title: "", body: "" },
 });
 
-/** Only reviews the owner approved, by display name: no customer, staff or booking id. */
-function reviewsOf(state: DemoState): Review[] {
+/**
+ * Approved reviews, for the hero's rating and count. Text, author and reply
+ * are sent only for the ones the page's reviews section shows; without that
+ * section the payload is ratings alone. No customer, staff or booking ids.
+ */
+function reviewsOf(state: DemoState, page: PageConfig): Review[] {
   if (!state.modules.reviews) return [];
-  return state.reviews.filter((item) => item.approved === true).map((item, index) => {
-    const customer = state.customers.find((c) => c.id === item.customerId);
+  const approved = state.reviews.filter((item) => item.approved === true && Number.isInteger(item.rating) && item.rating >= 1 && item.rating <= 5);
+  const section = page.sections.find((candidate) => candidate.kind === "reviews");
+  const shown = new Set(section ? recentReviews(approved, section.variant === "quote" ? 1 : 3) : []);
+  return approved.map((item, index) => {
+    const open = shown.has(item);
+    const customer = open ? state.customers.find((c) => c.id === item.customerId) : undefined;
     return {
-      id: `review-${index}`, customerId: "", staffId: "staff-0", date: item.date, rating: item.rating, text: item.text,
-      source: item.source, approved: true, reply: item.reply, author: customer ? publicName(customer.firstName, customer.lastName) : "",
+      id: `review-${index}`, customerId: "", staffId: "staff-0", date: text(item.date), rating: item.rating, text: open ? text(item.text) : "",
+      source: item.source === "Google" ? "Google" : "Booking page", approved: true, reply: open ? optionalText(item.reply) : undefined,
+      author: customer ? publicName(text(customer.firstName), text(customer.lastName)) : undefined,
     };
   });
 }
 
 export function publicSalonView(state: DemoState, now: Date): DemoState {
-  const today = salonClock(now).today;
+  const { today, minutes } = salonClock(now);
   const last = addDays(today, PUBLIC_WINDOW_DAYS);
   const inWindow = ({ date }: { date: DateKey }) => date >= today && date <= last;
+  // A visit or hold that has already ended today no longer occupies anything.
+  const ended = ({ date, start, duration }: { date: DateKey; start: number; duration: number }) => date === today && start + duration <= minutes;
   const page = normalizePage(state.page);
   const cards = page.sections.some((section) => section.kind === "staff" && section.variant !== "names");
+  const services = state.services.filter((service) => !service.hidden).map(offering);
+  const serviceIds = new Set(services.map((service) => service.id));
+  const categoryIds = new Set(services.map((service) => service.category));
+  const resourceIds = new Set(services.flatMap((service) => service.resourceIds ?? []));
+  const policy = state.cancellationPolicy;
   return {
-    version: state.version,
-    generatedFor: state.generatedFor,
+    version: num(state.version),
+    generatedFor: text(state.generatedFor),
     seq: 0,
-    pack: state.pack,
-    industry: state.industry,
-    salon: salon(state.salon),
-    localization: { language: state.localization.language, bilingual: state.localization.bilingual, currency: state.localization.currency },
+    pack: text(state.pack) as DemoState["pack"],
+    industry: state.industry ? text(state.industry) as DemoState["industry"] : null,
+    salon: salon(state.salon, last),
+    localization: { language: state.localization.language === "sv" ? "sv" : "en", bilingual: state.localization.bilingual === true, currency: text(state.localization.currency) },
     cancellationPolicy: {
-      version: state.cancellationPolicy.version, freeHours: state.cancellationPolicy.freeHours, latePercent: state.cancellationPolicy.latePercent,
-      noShowPercent: state.cancellationPolicy.noShowPercent, deposits: { ...state.cancellationPolicy.deposits },
-      newCustomersOnly: state.cancellationPolicy.newCustomersOnly, exemptServices: [...state.cancellationPolicy.exemptServices],
+      version: num(policy.version), freeHours: num(policy.freeHours), latePercent: num(policy.latePercent), noShowPercent: num(policy.noShowPercent),
+      deposits: Object.fromEntries(Object.entries(policy.deposits ?? {}).filter(([id, amount]) => serviceIds.has(id) && typeof amount === "number").map(([id, amount]) => [id, num(amount)])),
+      newCustomersOnly: policy.newCustomersOnly === true, exemptServices: list(policy.exemptServices).filter((id) => serviceIds.has(id)),
     },
     // Only the reviews switch is the customer's to see; the rest of the studio's modules stay off here.
     modules: {
-      journal: false, stock: false, campaigns: false, finance: false, reviews: state.modules.reviews, waitlist: false,
+      journal: false, stock: false, campaigns: false, finance: false, reviews: state.modules.reviews === true, waitlist: false,
       assistant: false, giftcards: false, packages: false, domain: false,
     },
-    page,
-    categories: state.categories.map(({ id, name }) => ({ id, name })),
-    services: state.services.filter((service) => !service.hidden).map(offering),
+    // The owner's raw CSS stays on the server; the page gets the sanitised, scoped text.
+    page: { ...page, css: "", sanitizedCss: sanitizeCss(page.css) },
+    categories: state.categories.filter((category) => categoryIds.has(category.id)).map((category) => ({ id: text(category.id), name: text(category.name) })),
+    services,
     staff: state.staff.map((person) => teammate(person, cards)),
-    resources: state.resources.map(({ id, name, kind }) => ({ id, name, kind })),
+    resources: state.resources.filter((resource) => resourceIds.has(resource.id)).map((resource) => ({ id: text(resource.id), name: text(resource.name), kind: text(resource.kind) as ResourceKind })),
     exceptions: state.exceptions.filter(inWindow).map(exception),
     blocks: (state.blocks ?? []).filter(inWindow).map(block),
-    bookings: state.bookings.filter((b) => b.status === "booked" && inWindow(b)).map(busy),
-    checkoutHolds: state.checkoutHolds.filter((hold) => hold.expiresAt > now.getTime() && inWindow(hold)).map(heldTime),
-    reviews: reviewsOf(state),
+    bookings: state.bookings.filter((b) => isActive(b) && inWindow(b) && !ended(b)).map(busy),
+    checkoutHolds: state.checkoutHolds.filter((hold) => hold.expiresAt > now.getTime() && inWindow(hold) && !ended(hold)).map(heldTime),
+    reviews: reviewsOf(state, page),
     customers: [],
     retiredServices: [],
     reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },

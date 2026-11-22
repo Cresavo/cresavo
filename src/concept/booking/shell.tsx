@@ -26,10 +26,10 @@ import { UnknownAddress } from "./unknown-address";
 export function BookShell({ children, visitorLanguage }: { children: ReactNode; visitorLanguage: Locale | null }) {
   const state = usePublicDemo();
   const fromServer = useServerSalon() !== null;
-  // The server looks salons up by lower-case address; the demo compares the path as typed.
-  const pathSlug = useParams<{ slug: string }>()?.slug ?? "";
-  const slug = fromServer ? pathSlug.toLowerCase() : pathSlug;
-  const path = usePathname()?.replace(/\/$/, "") || "/";
+  // The server looks salons up by lower-case address; the demo compares the address and path as typed.
+  const canonical = (text: string) => fromServer ? text.toLowerCase() : text;
+  const slug = canonical(useParams<{ slug: string }>()?.slug ?? "");
+  const path = canonical(usePathname()?.replace(/\/$/, "") || "/");
   const widget = path === widgetPath(slug) || path === "/widget";
   const otherSlug = useWorkspaceSlug(state?.industry ? "demo" : "own");
   useEffect(() => {
@@ -47,7 +47,7 @@ export function BookShell({ children, visitorLanguage }: { children: ReactNode; 
     document.querySelector('meta[name="description"]')?.setAttribute("content", translate(language, "language.bookingDescription"));
   }, [language, path]);
   return (
-    <ConceptLanguage language={language} currency={state?.localization.currency ?? DEFAULT_CURRENCY} immediate={fromServer}>
+    <ConceptLanguage language={language} currency={state?.localization.currency ?? DEFAULT_CURRENCY}>
       <PageProvider>
         <Frame slug={slug} widget={widget} switchLanguage={allowSwitch ? {
           language,

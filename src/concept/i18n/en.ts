@@ -252,6 +252,7 @@ const messages = {
   "account.language": "Language for your salon",
   "account.error.invalid": "Check the fields: the password needs at least 15 characters and the salon a name.",
   "account.error.email_taken": "That email already has an account. Sign in instead.",
+  "account.error.slug_unavailable": "We could not give your salon a booking address just now. Try again.",
   "account.error.invalid_credentials": "Wrong email or password.",
   "account.error.tooMany": "Too many attempts. Wait a few minutes and try again.",
   "account.error.generic": "Something went wrong. Try again.",
