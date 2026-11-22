@@ -317,6 +317,19 @@ describe("a delivery racing an erasure or another claim", () => {
     expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 2 }]);
   });
 
+  it("leaves a cancelled row cancelled when the customer was erased between the claim and the sink's read", async () => {
+    const before = await pendingBooking(780, "0735551705");
+    const { state } = (await holder.store.load(tenantId))!;
+    const customer = state.customers.find((c) => c.phone.replace(/\D/g, "").endsWith("735551705"))!;
+    const erasing: EffectSink = async (delivery, signal) => {
+      await holder.store.eraseSubject(tenantId, customer.id);
+      return realSink(delivery, signal);
+    };
+    await drainWith(erasing);
+    expect(mails).toHaveLength(before);
+    expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 2 }]);
+  });
+
   it("sends nothing when an erasure holding the tenant's lock clears the address first", async () => {
     const before = await pendingBooking(660, "0735551703");
     const [{ doc }] = await db.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;

@@ -272,7 +272,7 @@ conditions hold; SMS and payments are acknowledged without sending.
   acknowledgement, a Resend "request in progress" 409) keeps it, and a later
   claim that finds `dispatched` without `sent` repeats the request
   automatically **only on Resend, within 23 hours of the first attempt**
-  (Resend keeps keys for 24). Postmark ignores the key, so there, and on Resend
+  (Resend keeps keys for 24), and only if the first request went to Resend too: the provider is recorded with `dispatched`, so a request that went to Postmark, or was dispatched before that was recorded, is never repeated through Resend. A 200 reply without a readable receipt counts as a send that may have left. Postmark ignores the key, so there, and on Resend
   after 23 hours, the effect is marked `failed` with reason `uncertain`: check
   the provider's activity for that message and resend it by hand if it never
   went out. A Resend 409 for a key with a different body fails with reason

@@ -37,9 +37,12 @@ export interface EffectDelivery {
  * Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`.
  * Returning `"failed"` marks it failed at once, for a permanent error a retry cannot fix (a bad address).
  * Returning `"deferred"` leaves it pending without using up an attempt (delivery is paused).
+ * Returning `"skipped"` acknowledges that there was nothing to send (an erased or cancelled booking): the row becomes
+ * `delivered` only if it is still pending under this claim, so an erasure's `cancelled` stands.
  * `signal` aborts when the sink timeout is over: check it before anything that cannot be undone.
  */
-export type EffectSink = (delivery: EffectDelivery, signal: AbortSignal) => void | "failed" | "deferred" | Promise<void | "failed" | "deferred">;
+export type SinkOutcome = void | "failed" | "deferred" | "skipped";
+export type EffectSink = (delivery: EffectDelivery, signal: AbortSignal) => SinkOutcome | Promise<SinkOutcome>;
 
 export type EffectSinks = Record<StoreEffect["kind"], EffectSink>;
 
@@ -188,7 +191,7 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
 /** Sends one claimed row and records the outcome for that row only. */
 async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number | undefined): Promise<DeliveryOutcome> {
   const sink = sinkFor(ctx, row);
-  let result: void | "failed" | "deferred";
+  let result: SinkOutcome;
   try {
     if (!sink) throw new Error("STUDIO_STORE_NO_SINK");
     const delivery: EffectDelivery = {
@@ -201,6 +204,13 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   }
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "deferred") return recordFailure(ctx, row, "deferred");
+  if (result === "skipped") {
+    const skippedAt = await ctx.clock();
+    await ctx.db.$executeRaw`
+      UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${skippedAt}::float8 / 1000)
+      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`;
+    return "delivered";
+  }
   // The send happened, so it is recorded as delivered whatever happened to the
   // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
   const at = await ctx.clock();

@@ -97,10 +97,19 @@ function recipientOf(doc: unknown, message: BookingMessage): Recipient | undefin
 
 /** The sink for `sinks.message` of salon tenants. `registry` is the e-mail connection and `now` the clock; tests pass their own. */
 export function messageSink(prisma: PrismaClient, registry: Registry = createRegistry(), now: () => number = Date.now): EffectSink {
-  /** Merges into the effect's bookkeeping; a null removes a key. */
-  const note = (id: string, patch: Patch) => prisma.$executeRaw`
+  /** Merges into the effect's bookkeeping, a null removing a key, but only for the latest claim of a still pending effect: a stale deliverer changes nothing. */
+  const noteClaim = ({ id, attempt }: EffectDelivery, patch: Patch) => prisma.$executeRaw`
     UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb))
-    WHERE id = ${id}`;
+    WHERE id = ${id} AND status = 'pending' AND attempts = ${attempt}`;
+
+  /**
+   * The provider accepted the message: recorded with the effect's status in one statement, whatever became of the
+   * claim or the row since (a timeout, an erasure that cancelled it). Nothing personal is written back.
+   */
+  const confirm = (id: string, patch: Patch) => prisma.$executeRaw`
+    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb)),
+      status = 'delivered', leased_until = NULL, delivered_at = clock_timestamp()
+    WHERE id = ${id} AND status <> 'delivered'`;
 
   /** Why a guarded write changed nothing. */
   const standing = async (db: Pick<PrismaClient, "$queryRaw">, id: string): Promise<Standing> => {
@@ -128,13 +137,14 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    * that finished and before any that has not. The marker is set only while the effect is pending, not erased and
    * this claim is the latest: a stalled deliverer whose lease ran out finds its claim gone.
    */
-  const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage) => prisma.$transaction(async (tx) => {
+  const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage, provider: string) => prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${DISPATCH_LOCK_TIMEOUT}, true)`;
     const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId} FOR SHARE`;
     const current = row && recipientOf(row.doc, message);
     if (!current) return "skip" as const;
     const marked = await tx.$executeRaw`
-      UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb) || '{"dispatched": true}'::jsonb)
+      UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb)
+        || jsonb_build_object('dispatched', true, 'provider', coalesce(payload->'delivery'->>'provider', ${provider}::text)))
       WHERE id = ${id} AND status = 'pending' AND erased_at IS NULL AND attempts = ${attempt}`;
     return marked ? { to: current.to } : standing(tx, id);
   });
@@ -148,7 +158,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     if (kept?.reason) return "failed";
     const [row] = await prisma.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;
     const found = row && recipientOf(row.doc, message);
-    if (!found) return;
+    if (!found) return "skipped";
     const { state, booking, customer, visit } = found;
     const cancelled = message.kind === "cancellation";
     // Paused, not lost: the view of a public booking is off with these flags, so its link is held back too.
@@ -156,7 +166,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
 
     const resolution = await registry.resolve("email", tenantId);
     // Fixed when the store staged the effect. A row from before that was recorded is judged by this worker's configuration.
-    const live = effect.record.live ?? !SIMULATED_ON_PURPOSE.has(resolution.reason);
+    const live = effect.record.live ?? kept?.live ?? !SIMULATED_ON_PURPOSE.has(resolution.reason);
     if (live && !resolution.live) {
       // Names the reason only: never a value of the configuration.
       console.warn(`[message-sink] a booking e-mail waits: the e-mail connection resolved to "${resolution.reason}" but a real send was intended`);
@@ -167,11 +177,17 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
 
     let frozen: Frozen;
     if (kept?.mail && kept.from) frozen = kept as Frozen;
-    else {
-      const firstAttemptAt = now();
-      const link = cancelled ? undefined : bookingLinkBase(state, visit);
+    else if (kept?.dispatched && live) {
+      // Written before the sender and link were frozen, and a request may already have left: it cannot be rebuilt
+      // as it was, so it is not sent again.
+      await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
+      return "failed";
+    } else {
+      // A row written before the sender and link were frozen keeps its first time and its message.
+      const firstAttemptAt = kept?.firstAttemptAt ?? now();
+      const link = (kept?.mail ? kept.mail.text.includes(LINK_MARK) : !cancelled) ? bookingLinkBase(state, visit) : undefined;
       const first: Frozen = {
-        firstAttemptAt, mail: confirmationEmail(state, visit, message.kind, link && LINK_MARK, firstAttemptAt),
+        firstAttemptAt, mail: kept?.mail ?? confirmationEmail(state, visit, message.kind, link && LINK_MARK, firstAttemptAt),
         ...(link ? { link } : {}),
         from: `"${displayName(state.salon.name)}" <bookings@${productDomain()}>`,
         ...(isEmail(state.salon.email) ? { replyTo: state.salon.email } : {}),
@@ -183,9 +199,12 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     }
     const { firstAttemptAt, mail, from, replyTo } = frozen;
     // A send that may have left is repeated only where the provider will recognise the key.
-    const keyed = !live || (resolution.adapter.info.provider === "resend" && now() - firstAttemptAt < RESEND_KEY_WINDOW_MS);
+    // The key only helps at the provider the first request went to: a row dispatched elsewhere, or before that was recorded, is not repeated.
+    const provider = resolution.adapter.info.provider;
+    const origin = kept?.dispatched ? kept.provider : provider;
+    const keyed = !live || (origin === "resend" && provider === "resend" && now() - firstAttemptAt < RESEND_KEY_WINDOW_MS);
     if (live && kept?.dispatched && !keyed) {
-      await note(id, { reason: "uncertain", ...SETTLED });
+      await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
       return "failed";
     }
 
@@ -193,14 +212,14 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const fill = (text: string) => text.split(LINK_MARK).join(href ?? "");
     let to = `customer:${customer.id}`;
     if (live) {
-      const gate = await dispatch(delivery, message);
-      if (gate === "skip") return;
+      const gate = await dispatch(delivery, message, provider);
+      if (gate === "skip") return "skipped";
       if (gate === "gone") return "failed";
       if (gate === "lost") throw new Error("EMAIL_CLAIM_LOST");
       to = gate.to;
     }
     // The marker stays when an earlier attempt may have sent: only a request that left nothing behind is released.
-    const release = async () => { if (!kept?.dispatched) await note(id, { dispatched: null }); };
+    const release = async () => { if (!kept?.dispatched) await noteClaim(delivery, { dispatched: null, provider: null }); };
     if (signal.aborted) {
       await release();
       throw new Error("EMAIL_TIMEOUT");
@@ -212,7 +231,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       subject: mail.subject, text: fill(mail.text), html: fill(mail.html), language: state.localization.language, idempotencyKey: id, tracking: false,
     });
     if (result.ok) {
-      await note(id, { sent: true, dispatched: null, ...SETTLED });
+      await confirm(id, { sent: true, dispatched: null, provider: null, ...SETTLED });
       return;
     }
     const { code, providerCode } = result.error;
@@ -220,7 +239,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     if (UNCERTAIN.has(code) || inProgress) {
       // The request may have been carried out, or is still running. It stays dispatched: the next claim decides by provider and age.
       if (keyed) throw new Error(inProgress ? "EMAIL_RETRYABLE" : "EMAIL_UNCERTAIN");
-      await note(id, { reason: "uncertain", ...SETTLED });
+      await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
       return "failed";
     }
     // Nothing was sent. A rate limit and a bad or missing API key will pass.
@@ -229,7 +248,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       throw new Error("EMAIL_RETRYABLE");
     }
     // A bad address, an unverified domain, other 4xx; and a same key with a changed body, which only a person can settle.
-    await note(id, { reason: code === "conflict" ? "reconcile" : code, ...SETTLED });
+    await noteClaim(delivery, { reason: code === "conflict" ? "reconcile" : code, ...SETTLED });
     return "failed";
   };
 }

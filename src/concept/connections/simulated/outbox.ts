@@ -4,6 +4,10 @@ import type { Money, PortName } from "../core";
 export interface DeliveryState {
   /** Epoch milliseconds of the first attempt. */
   firstAttemptAt?: number;
+  /** Before the live flag moved to the effect itself (`OutboxEntry.live`): read only, so a row written then keeps its intent. */
+  live?: boolean;
+  /** The provider the first request went to, recorded with `dispatched`: only that provider's idempotency key can make a repeat safe. */
+  provider?: string;
   /** The provider accepted it. A retry that finds this only acknowledges. */
   sent?: boolean;
   /** Committed before the provider is called, and cleared only when nothing was sent: a request that may have left. */

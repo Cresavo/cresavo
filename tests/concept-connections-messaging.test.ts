@@ -107,6 +107,11 @@ describe("Resend email", () => {
   const email = (fetch: typeof globalThis.fetch, webhookSecret?: string) => resendEmail({ apiKey: "re_SECRET_0123456789abcdef", webhookSecret, fetch });
   const message = { to: ["guest@example.com"], from: "Salon <hello@salon.example>", subject: "Your booking", text: "See you", tags: { kind: "reminder" }, idempotencyKey: "b-1-reminder" };
 
+  it("treats a 200 without a readable receipt as uncertain, not rejected: the message may have been queued", async () => {
+    const { fetch } = scriptedFetch({ status: 200, body: {} });
+    expect(await email(fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
+  });
+
   it("posts JSON with bearer auth and the idempotency key", async () => {
     const { fetch, calls } = scriptedFetch({ status: 200, body: { id: "4ef9a417-02e9-4d39-ad75-9611e0fcc33c" } });
     const result = await email(fetch).send(message);
@@ -155,6 +160,11 @@ describe("Resend email", () => {
 describe("Postmark email", () => {
   const email = (fetch: typeof globalThis.fetch) => postmarkEmail({ serverToken: "SECRETpostmarktoken", webhookUser: "hooks", webhookPassword: "SECRETpostmarkhookpw", fetch });
   const message = { to: ["a@example.com", "b@example.com"], from: "hello@salon.example", subject: "Hi", text: "Body", tags: { kind: "receipt" } };
+
+  it("treats a 200 without a readable receipt as uncertain, and an error code as a refusal", async () => {
+    expect(await email(scriptedFetch({ status: 200, body: { ErrorCode: 0 } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
+    expect(await email(scriptedFetch({ status: 200, body: { MessageID: "x", ErrorCode: 406 } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "unknown" } });
+  });
 
   it("posts PascalCase JSON with the server token header", async () => {
     const { fetch, calls } = scriptedFetch({ status: 200, body: { MessageID: "b7bc2f4a", ErrorCode: 0, Message: "OK" } });

@@ -68,13 +68,22 @@ const database = {
     throw new Error(`unexpected query: ${text}`);
   },
   $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
-    if (sql(strings).includes('"dispatched": true')) {
-      const [, attempt] = values as [string, number];
+    const text = sql(strings);
+    if (text.includes("jsonb_build_object('dispatched'")) {
+      const [provider, , attempt] = values as [string, string, number];
       if (!open(attempt)) return 0;
-      merge({ dispatched: true });
+      merge({ dispatched: true, provider: stored.provider ?? provider });
       return 1;
     }
-    merge(JSON.parse(values[0] as string));
+    if (text.includes("status = 'delivered'")) {
+      merge(JSON.parse(values[0] as string));
+      row.status = "delivered";
+      return 1;
+    }
+    // A write for the latest claim of a pending effect.
+    const [patch, , attempt] = values as [string, string, number];
+    if (!open(attempt)) return 0;
+    merge(JSON.parse(patch));
     return 1;
   },
   $transaction: async (work: (tx: unknown) => unknown) => work(database),
@@ -86,7 +95,7 @@ const run = (over: Partial<{ port: "email" | "sms"; reference: string; live: boo
   const delivery: EffectDelivery = {
     id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: row.attempts,
     effect: { kind: "message", record: {
-      id: "o-1", port: over.port ?? "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, live: over.live ?? true,
+      id: "o-1", port: over.port ?? "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, live: "live" in over ? over.live : true,
       reference: over.reference ?? messageReference(booking, "confirmation", "email"), delivery: structuredClone(stored),
     } },
   };
@@ -140,6 +149,7 @@ describe("the message sink", () => {
     const cancelled = at("2026-11-27", 720, 7, "cancellation");
     for (const reference of [first, second, cancelled]) {
       stored = {};
+      row.status = "pending";
       expect(await run({ reference })).toBeUndefined();
     }
     expect(sent).toHaveLength(3);
@@ -174,7 +184,7 @@ describe("the message sink", () => {
   it("never falls back to the profile address for a public booking whose own address is gone (customer B erased)", async () => {
     // Customer A's visit was booked with B's address; erasing B cleared it. A's profile is not the recipient.
     doc = withBooking({ contactEmail: undefined }, profileEmail);
-    expect(await run()).toBeUndefined();
+    expect(await run()).toBe("skipped");
     expect(sent).toHaveLength(0);
   });
 
@@ -187,7 +197,7 @@ describe("the message sink", () => {
     ["a missing tenant", () => { doc = undefined; }],
   ])("skips, acknowledged and unsent, for %s", async (_name, arrange) => {
     arrange();
-    expect(await run()).toBeUndefined();
+    expect(await run()).toBe("skipped");
     expect(sent).toHaveLength(0);
   });
 
@@ -266,7 +276,7 @@ describe("a send that may have left", () => {
 
   it("is not repeated on Postmark after a crash left the request started", async () => {
     provider = "postmark";
-    stored = { firstAttemptAt: T0, dispatched: true, from: "f", mail: { subject: "s", text: "t", html: "h" } };
+    stored = { firstAttemptAt: T0, dispatched: true, provider: "resend", from: "f", mail: { subject: "s", text: "t", html: "h" } };
     expect(await run()).toBe("failed");
     expect(stored.reason).toBe("uncertain");
     expect(sent).toHaveLength(0);
@@ -342,7 +352,7 @@ describe("the dispatch", () => {
 
   it("sends nothing when an erasure cleared the address after the booking was read", async () => {
     beforeDispatch = () => { doc = withBooking({ contactEmail: undefined }); };
-    expect(await run()).toBeUndefined();
+    expect(await run()).toBe("skipped");
     expect(sent).toHaveLength(0);
     expect(stored.dispatched).toBeUndefined();
   });
@@ -381,7 +391,8 @@ describe("the dispatch", () => {
     expect(sent).toHaveLength(2);
     expect(sent[1].idempotencyKey).toBe(sent[0].idempotencyKey);
     // The same conflict past the window is not retried: someone reconciles it.
-    stored = frozen({ dispatched: true });
+    stored = frozen({ dispatched: true, provider: "resend" });
+    row.status = "pending";
     clock = T0 + 23 * HOUR + 1;
     expect(await run()).toBe("failed");
     expect(stored.reason).toBe("uncertain");
@@ -389,7 +400,7 @@ describe("the dispatch", () => {
   });
 
   it("repeats a request a crash left started on Resend within the window, under the same key", async () => {
-    stored = frozen({ dispatched: true });
+    stored = frozen({ dispatched: true, provider: "resend" });
     clock = T0 + HOUR;
     await run();
     expect(sent).toHaveLength(1);
@@ -401,7 +412,7 @@ describe("the dispatch", () => {
     outcome = fail(connectionError("email", "resend", "rate_limited"));
     await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
     expect(stored.dispatched).toBeUndefined();
-    stored = frozen({ dispatched: true });
+    stored = frozen({ dispatched: true, provider: "resend" });
     await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
     expect(stored.dispatched).toBe(true);
   });
@@ -413,6 +424,66 @@ describe("the dispatch", () => {
     expect(stored.mail).toBeUndefined();
     expect(await run()).toBe("failed");
     expect(sent).toHaveLength(1);
+  });
+});
+
+describe("claims, upgrades and providers", () => {
+  const legacy = (over: DeliveryState = {}): DeliveryState => ({ firstAttemptAt: T0, mail: { subject: "Old subject 2026", text: "Old text __BOOKING_LINK__", html: "<p>Old __BOOKING_LINK__</p>" }, ...over });
+
+  it("lets a stale deliverer neither clear nor settle what a newer claim wrote", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    // A is slow to clear its marker; B has claimed since and left its own request possibly sent.
+    atSend = () => { row.attempts = 2; stored = { ...stored, dispatched: true, provider: "resend" }; };
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored.dispatched).toBe(true);
+    stored = {};
+    row.attempts = 1;
+    outcome = fail(connectionError("email", "resend", "invalid_input"));
+    expect(await run()).toBe("failed");
+    expect(stored.reason).toBeUndefined();
+  });
+
+  it("keeps the first time and message of a row written before the sender was frozen, and does not send a dispatched one again", async () => {
+    stored = legacy();
+    clock = T0 + 5 * HOUR;
+    await run();
+    expect(sent[0]).toMatchObject({ subject: "Old subject 2026" });
+    expect(stored.firstAttemptAt).toBe(T0);
+    sent.length = 0;
+    stored = legacy({ dispatched: true });
+    row.status = "pending";
+    clock = T0 + 30 * HOUR;
+    expect(await run()).toBe("failed");
+    expect(stored.reason).toBe("uncertain");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("keeps the intent a row was given before it was on the effect", async () => {
+    stored = { live: true };
+    resolution = { live: false, reason: "live-off" };
+    await expect(run({ live: undefined })).rejects.toThrow("EMAIL_NOT_CONFIGURED");
+    stored = { live: false };
+    resolution = { live: true, reason: "live" };
+    await run({ live: undefined });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("does not repeat a request that went to Postmark through Resend, or one with no recorded provider", async () => {
+    for (const provider of ["postmark", undefined]) {
+      stored = { firstAttemptAt: T0, dispatched: true, ...(provider ? { provider } : {}), from: "f", mail: { subject: "s", text: "t", html: "h" } };
+      row.status = "pending";
+      clock = T0 + HOUR;
+      expect(await run()).toBe("failed");
+      expect(stored.reason).toBe("uncertain");
+    }
+    expect(sent).toHaveLength(0);
+  });
+
+  it("records an acceptance as delivered even when the row was cancelled meanwhile", async () => {
+    atSend = () => { row = { ...row, status: "cancelled", erased: true }; };
+    await run();
+    expect(row.status).toBe("delivered");
+    expect(stored.sent).toBe(true);
   });
 });
 

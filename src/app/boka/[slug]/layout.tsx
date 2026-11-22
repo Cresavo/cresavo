@@ -38,7 +38,8 @@ export default async function BookingLayout({ children, params }: { children: Re
   const { live, requestHeaders } = await publicPageRequest();
   const shell = <BookShell visitorLanguage={visitorLanguage}>{children}</BookShell>;
   // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
-  const boundary = (content: ReactNode) => <div className="studio-root booking-boundary">{content}</div>;
+  // It always scrubs a link token from the address, live or demo, whatever the salon turns out to be.
+  const boundary = (content: ReactNode) => <div className="studio-root booking-boundary"><LinkTokenScrub />{content}</div>;
   if (!live) return boundary(shell);
   // Live: the server's salons only. A missing salon is a 404 and a store failure is an error page, never the browser's own copy.
   let salon;
@@ -46,9 +47,9 @@ export default async function BookingLayout({ children, params }: { children: Re
     await checkRateLimit("public-read", waitlistClientKey(new Headers(requestHeaders)));
     salon = await loadPublicSalon((await params).slug.toLowerCase());
   } catch {
-    return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><LinkTokenScrub /><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
+    return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
   }
   // The boundary that renders this is src/app/boka/not-found.tsx (a layout's own 404 goes to the segment above it); it mounts the scrubber.
   if (!salon) notFound();
-  return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}><LinkTokenScrub />{shell}</ServerSalonProvider>);
+  return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}>{shell}</ServerSalonProvider>);
 }
