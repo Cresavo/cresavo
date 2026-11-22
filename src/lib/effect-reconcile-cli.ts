@@ -20,13 +20,14 @@ export const USAGE = `Usage: npm run effects:reconcile -- <command> [options]
   mark-sent <id...> --tenant <id>          an uncertain e-mail the provider shows as sent
   mark-failed <id...> --tenant <id>        an uncertain e-mail the provider shows as not sent
 
-  Changes nothing without --apply. --actor <id> (opaque, not an e-mail address) names who acts.`;
+  Changes nothing without --apply. --actor <id> (a short lower-case id such as initials) names who acts.`;
 
 const ACTIONS: readonly ReconcileAction[] = ["retry", "mark-sent", "mark-failed"];
 /** Effect and tenant ids as the store makes them; anything else is a typo or worse. */
 const ID = /^[A-Za-z0-9_.:-]{1,200}$/;
-/** An opaque operator id (initials, a staff number), never an e-mail address or other personal detail. */
-const ACTOR = /^[A-Za-z0-9_.-]{1,64}$/;
+/** An opaque operator id (initials, a short staff number), never a name, an e-mail address or a phone number. */
+const ACTOR = /^[a-z0-9_-]{1,32}$/;
+const opaqueActor = (value: string) => ACTOR.test(value) && !/\d{6,}/.test(value);
 const MAX_IDS = 100;
 const MAX_LIMIT = 1000;
 
@@ -70,8 +71,8 @@ export function parseReconcileArgs(argv: readonly string[], env: { USER?: string
   // Every change names its tenant, so an id copied from another salon's list is refused, not acted on.
   if (!tenant) return { error: "tenant_required" };
   if (values["force-maybe-duplicate"] && action !== "retry") return { error: "force_is_for_retry" };
-  if (values.actor !== undefined && !ACTOR.test(values.actor)) return { error: "invalid_actor" };
-  const actor = values.actor ?? (env.USER && ACTOR.test(env.USER) ? env.USER : "operator");
+  if (values.actor !== undefined && !opaqueActor(values.actor)) return { error: "invalid_actor" };
+  const actor = values.actor ?? (env.USER && opaqueActor(env.USER) ? env.USER : "operator");
   return { command: action, ids, tenant, apply: values.apply, forceMaybeDuplicate: values["force-maybe-duplicate"], actor };
 }
 

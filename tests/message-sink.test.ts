@@ -70,9 +70,16 @@ const database = {
   $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = sql(strings);
     if (text.includes("jsonb_build_object('dispatched'")) {
-      const [provider, account, , , attempt] = values as [string, string | undefined, string | undefined, string, number];
+      const [provider, account, , submittedAt, , attempt] = values as [string, string | undefined, string | undefined, number, string, number];
       if (!open(attempt)) return 0;
-      merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }) });
+      merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }), submittedAt: stored.submittedAt ?? submittedAt });
+      return 1;
+    }
+    // Drops this claim's marker when nothing left; guarded by the claim, not by the status.
+    if (text.includes("status IN ('pending', 'failed')")) {
+      const [drop, , attempt] = values as [string[], string, number];
+      if (row.attempts !== attempt || row.erased || stored.sent) return 0;
+      merge(Object.fromEntries(drop.map((key) => [key, null])));
       return 1;
     }
     if (text.includes("status = 'delivered'")) {
@@ -565,12 +572,38 @@ describe("a paused e-mail connection (CONCEPT_EMAIL_PAUSED=1)", () => {
     expect(await run()).toBe("failed");
   });
 
-  it("checks again right before the provider call, and releases the marker it had just set", async () => {
+  it("checks again right before the provider call, and hands the marker it had just set back to the outbox", async () => {
+    beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    // `held`, at once and with no write of its own: the outbox drops the marker in the write that releases the row.
+    expect(await run()).toBe("held");
+    expect(sent).toHaveLength(0);
+    expect(stored).toMatchObject({ dispatched: true, mail: expect.anything() });
+  });
+
+  it("keeps the earlier marker of a send that may have left, deferring rather than holding", async () => {
+    outcome = fail(connectionError("email", "resend", "timeout"));
+    await expect(run()).rejects.toThrow("EMAIL_UNCERTAIN");
+    expect(stored).toMatchObject({ dispatched: true, submittedAt: T0 });
     beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
     expect(await run()).toBe("deferred");
-    expect(sent).toHaveLength(0);
-    expect(stored.dispatched).toBeUndefined();
-    expect(stored.mail).toBeDefined();
+  });
+
+  it("opens the Resend key window at the first request, not at the rendering a pause held back", async () => {
+    beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("held");
+    // What the outbox's release leaves: the frozen message, no marker.
+    stored = Object.fromEntries(Object.entries(stored).filter(([key]) => !["dispatched", "provider", "account", "submittedAt"].includes(key)));
+    beforeDispatch = undefined;
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    clock = T0 + 30 * HOUR;
+    outcome = fail(connectionError("email", "resend", "timeout"));
+    await expect(run()).rejects.toThrow("EMAIL_UNCERTAIN");
+    expect(stored).toMatchObject({ firstAttemptAt: T0, submittedAt: T0 + 30 * HOUR, dispatched: true });
+    clock = T0 + 31 * HOUR;
+    outcome = ok({ id: "m-2", to: ["lisa@example.test"] }, "sent");
+    expect(await run()).toBeUndefined();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].idempotencyKey).toBe(sent[0].idempotencyKey);
   });
 });
 
