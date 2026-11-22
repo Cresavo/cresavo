@@ -1,13 +1,13 @@
 import { encode } from "uqr";
 import { z } from "zod";
 import { BACKDROPS, backdropSvg } from "./backdrops";
-import { box, image, svgImage, text, type PosterNode } from "./element";
+import { box, image, svgImage, text, type PosterNode, type Style } from "./element";
 
 // Poster templates for the server renderer: designed layouts with fixed slots
 // (headline, price, photo, sticker, price list, signature) that the owner fills
 // and adjusts within limits, so every poster stays presentable.
 
-export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots", "beforeafter", "portrait"] as const;
+export const ENGINE_TEMPLATES = ["price", "pricelist", "season", "review", "slots", "beforeafter", "portrait", "fullphoto", "typography"] as const;
 export type EngineTemplate = (typeof ENGINE_TEMPLATES)[number];
 
 export const ENGINE_FORMATS = { post: { width: 1080, height: 1350 }, story: { width: 1080, height: 1920 }, window: { width: 1050, height: 1485 } } as const;
@@ -383,6 +383,66 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
     ...(data.signature.qr ? [box({ position: "absolute", right: 64, bottom: safe }, qrCode(data.signature.qr, 150))] : []));
 }
 
+/**
+ * The largest headline size, and the fewest lines (at most `maxLines`), at which `headline` fits `room` pixels.
+ * A size reaching 60 % of `max` is comfortable; otherwise one more line is tried. The size never goes below
+ * `floor`: a longer text gets another line instead of smaller letters.
+ */
+export function fitHeadline(headline: string, room: number, max: number, floor: number, maxLines: number) {
+  const longest = Math.max(1, ...headline.split(/\s+/).map((word) => word.length));
+  const sizeFor = (lines: number) => Math.min(max, room / (Math.max(longest, Math.ceil(headline.length / lines)) * 0.52));
+  const lines = Array.from({ length: maxLines }, (_, i) => i + 1).find((count) => sizeFor(count) >= max * 0.6) ?? maxLines;
+  return { size: Math.max(floor, Math.floor(sizeFor(lines))), lines };
+}
+
+const QR_SMALL = 120;
+
+/** `parts` joined in one small line that stays on one row, with the QR code at its end when there is one. */
+const smallLine = (parts: string[], qr: string | undefined, width: number, colourOn: string, style: Style = {}) =>
+  box({ width, alignItems: "flex-end", justifyContent: "space-between", ...style },
+    text({ display: "block", fontSize: 32, fontWeight: 700, color: colourOn, maxWidth: width - (qr ? QR_SMALL + 32 : 0), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, parts.filter(Boolean).join("  ·  ")),
+    ...(qr ? [qrCode(qr, QR_SMALL)] : []));
+
+/** The photo over the whole poster under a dark scrim: a big headline, one line, a booking pill and one small contact line. */
+function fullPhotoTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const scale = SCALE[data.textSize];
+  const tall = isStory(width, height);
+  const room = width - 128;
+  const { size, lines } = fitHeadline(data.headline, room, Math.round(150 * scale), Math.round(72 * scale), 2);
+  const shadow = "0 3px 18px rgba(0,0,0,0.45)";
+  const bottom = tall ? STORY_SAFE.bottom + 40 : 64;
+  const lineSize = Math.round(44 * scale);
+  const line = data.price || data.detail;
+  // The text block's height, estimated from its parts, tells where the scrim has to start: strong by the headline's first line.
+  const blockTop = height - bottom - 32 - 40 - (data.cta ? 36 + 88 : 0) - (line ? 24 + lineSize * 1.25 : 0) - Math.round(size * 0.98 * lines);
+  const percent = (y: number) => Math.max(0, Math.round((y / height) * 100));
+  return box({ width, height, position: "relative", fontFamily: "Inter", color: WHITE },
+    image(data.photo, { position: "absolute", left: 0, top: 0, width, height, objectFit: "cover", objectPosition: CROP[data.focus] }),
+    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop + height * 0.03)}%, rgba(0,0,0,0.9) 100%)` }),
+    text({ position: "absolute", left: 64, top: tall ? STORY_SAFE.top + 20 : 64, maxWidth: room, background: "rgba(255,255,255,0.82)", color: "#111111", fontFamily: "Caladea", fontSize: 38, lineHeight: 1, padding: "12px 26px", borderRadius: 999, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, data.signature.salon),
+    box({ position: "absolute", left: 64, bottom, width: room, flexDirection: "column", alignItems: "flex-start", textShadow: shadow },
+      text({ display: "block", width: room, fontFamily: "Inter Display", fontWeight: 900, letterSpacing: -4, fontSize: size, lineHeight: 0.98, lineClamp: lines }, data.headline),
+      ...(line ? [text({ display: "block", width: room, fontSize: lineSize, fontWeight: 700, lineHeight: 1.25, marginTop: 24, lineClamp: 1 }, line)] : []),
+      ...(data.cta ? [text({ background: WHITE, color: "#111111", fontWeight: 800, fontSize: 40, padding: "22px 48px", borderRadius: 999, marginTop: 36, textShadow: "none" }, data.cta)] : []),
+      smallLine([data.signature.phone, data.signature.link], data.signature.qr, room, WHITE, { marginTop: 32 })));
+}
+
+/** Only words: a very large headline, the detail, a thin accent rule and the call to book, on the salon's background colour. */
+function typographyTemplate(data: PosterData, width: number, height: number): PosterNode {
+  const { accent, ink, background } = data.colors;
+  const scale = SCALE[data.textSize];
+  const room = width - 128;
+  const onBackground = onColour(background) === WHITE ? WHITE : ink;
+  const { size, lines } = fitHeadline(data.headline, room, Math.round(230 * scale), Math.round(96 * scale), 3);
+  return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
+    box({ position: "absolute", left: 64, top: 64, width: room, height: height - 128 - 120, flexDirection: "column", justifyContent: "center", alignItems: "flex-start" },
+      text({ display: "block", width: room, ...headingFont(data), fontSize: size, lineHeight: 0.98, lineClamp: lines }, data.headline),
+      ...(data.detail ? [text({ display: "block", width: room, fontSize: Math.round(46 * scale), fontWeight: 600, lineHeight: 1.25, marginTop: 44, lineClamp: 3 }, data.detail)] : []),
+      box({ width: 160, height: 8, background: accent, marginTop: 52 }),
+      ...(data.cta ? [text({ background: accent, color: onColour(accent), fontWeight: 800, fontSize: 40, padding: "22px 48px", borderRadius: 999, marginTop: 52 }, data.cta)] : [])),
+    smallLine([data.signature.salon, data.signature.link], data.signature.qr, room, onBackground, { position: "absolute", left: 64, bottom: 64 }));
+}
+
 const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: number) => PosterNode> = {
   price: priceTemplate,
   pricelist: priceListTemplate,
@@ -391,10 +451,12 @@ const LAYOUTS: Record<EngineTemplate, (data: PosterData, width: number, height: 
   slots: slotsTemplate,
   beforeafter: beforeAfterTemplate,
   portrait: portraitTemplate,
+  fullphoto: fullPhotoTemplate,
+  typography: typographyTemplate,
 };
 
 /** Templates with their own story layout; the others show their post layout as a card inside the story's safe zone. */
-const STORY_LAYOUTS = new Set<EngineTemplate>(["slots", "beforeafter", "portrait"]);
+const STORY_LAYOUTS = new Set<EngineTemplate>(["slots", "beforeafter", "portrait", "fullphoto"]);
 const CARD = { width: 1008, height: 1260 };
 
 export function posterTree(template: EngineTemplate, data: PosterData, format: EngineFormat): PosterNode {

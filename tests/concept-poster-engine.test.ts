@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { qrFor, qrLink, qrTarget, shortLink } from "@/concept/campaigns/poster-engine/client";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
-import { cutoutPlacement, pngSize, posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
+import { cutoutPlacement, fitHeadline, pngSize, posterDataSchema, posterTree } from "@/concept/campaigns/poster-engine/templates";
 import { backdropSvg, BACKDROPS } from "@/concept/campaigns/poster-engine/backdrops";
 import { hasTransparency } from "@/concept/campaigns/poster-engine/client";
 
@@ -185,4 +185,47 @@ describe("season, review and free-times templates", () => {
     for (const part of ["2 tider kvar!", "10:00  ·  13:30", "Fre", "Boka nu →"]) expect(story).toContain(part);
     expect(flat(posterTree("slots", data, "post"))).toContain("070-123 45 67");
   });
+});
+
+describe("full photo and type-only templates", () => {
+  const data = posterDataSchema.parse({ ...input, price: "", cta: "Boka nu →", headline: "Fotvård" });
+
+  it("puts the headline, detail, call to book, salon and contact line on the full photo poster, in post and story", () => {
+    for (const format of ["post", "story"] as const) {
+      const tree = flat(posterTree("fullphoto", data, format));
+      for (const part of ["Fotvård", "Fotbad, nagelvård och fotmassage.", "Boka nu →", "Salong Eko", "070-123 45 67  ·  salongeko.cresavo.com", "data:image/jpeg"]) expect(tree).toContain(part);
+    }
+    // A price replaces the detail line.
+    expect(flat(posterTree("fullphoto", { ...data, price: "750 kr" }, "post"))).toContain("750 kr");
+  });
+
+  it("keeps the full photo story's text out of the bars Instagram lays over the top and bottom", () => {
+    const tree = flat(posterTree("fullphoto", data, "story"));
+    expect(tree).toContain('"top":290');
+    expect(tree).toContain('"bottom":430');
+    expect(tree).not.toContain('"top":270,"width":1008');
+  });
+
+  it("puts the words, rule, call to book, salon and link on the type-only poster, without drawing the photo", () => {
+    const tree = flat(posterTree("typography", data, "post"));
+    for (const part of ["Fotvård", "Fotbad, nagelvård och fotmassage.", "Boka nu →", "Salong Eko", "salongeko.cresavo.com", "#c2557f"]) expect(tree).toContain(part);
+    expect(tree).not.toContain("data:image/jpeg");
+    // In a story it is the post layout as a card between the bars.
+    expect(flat(posterTree("typography", data, "story"))).toContain('"top":270,"width":1008,"height":1260');
+  });
+
+  it("sizes a headline by its length, never below the floor, and gives a longer text more lines", () => {
+    const room = 952;
+    expect(fitHeadline("Fotvård", room, 150, 72, 2)).toEqual({ size: 150, lines: 1 });
+    expect(fitHeadline("Friskvårdsmassage för nacke och axlar", room, 150, 72, 2).lines).toBe(2);
+    expect(fitHeadline("Vårens fotvård", room, 230, 96, 3).lines).toBe(2);
+    for (const headline of ["a", "Ansiktsbehandling", "Friskvårdsmassage för nacke och axlar", "x".repeat(40)]) {
+      expect(fitHeadline(headline, room, 150, 72, 2).size).toBeGreaterThanOrEqual(72);
+      expect(fitHeadline(headline, room, 230, 96, 3).size).toBeGreaterThanOrEqual(96);
+    }
+  });
+
+  it("renders both templates as SVG", async () => {
+    for (const template of ["fullphoto", "typography"] as const) expect((await renderPosterSvg(template, data, "story")).startsWith("<svg")).toBe(true);
+  }, 20_000);
 });

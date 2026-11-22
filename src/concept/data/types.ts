@@ -317,7 +317,7 @@ export interface Holiday {
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
 /** The first five are drawn in the browser; the rest are rendered by the server poster engine. */
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait";
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait" | "fullphoto" | "typography";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {

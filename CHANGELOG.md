@@ -10,6 +10,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- Two poster templates. **Full photo** lets the photo fill the whole poster under a dark gradient with a big headline, one line, a white booking button and one small contact line; it has its own story layout. **Type only** is a poster of words on the salon's background colour: a very large headline, the detail, a thin accent rule and the booking button. The goals now suggest them: Promote suggests Price, Full photo and Portrait; Fill free times suggests Free times, Full photo and Type only.
 - **Start a campaign from a goal.** The campaign studio first asks what the owner wants to do: fill free times, promote a treatment, wellness benefits, sell gift cards or share a review. The goal fills in the campaign's name, offer and dates, and the poster step shows three suggested posters with different compositions above the full list of styles.
 - **One message per poster.**
   - Posters now start from the first sentence of a treatment's description; the full description belongs in the post's text.

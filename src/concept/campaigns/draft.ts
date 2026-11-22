@@ -150,7 +150,7 @@ function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta"
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
 function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "lead" | "backdrop"> {
   if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
-  if (draft.style === "beforeafter") return { cta: translate(state.localization.language, "campaigns.engine.book") };
+  if (draft.style === "beforeafter" || draft.style === "fullphoto" || draft.style === "typography") return { cta: translate(state.localization.language, "campaigns.engine.book") };
   if (draft.style === "portrait") return { cta: translate(state.localization.language, "campaigns.engine.book"), lead: draft.posterEdits.lead ?? translate(state.localization.language, "campaigns.engine.portraitLead"), backdrop: draft.posterEdits.backdrop ?? "bloom" };
   const chosen = state.services.filter((s) => draft.serviceIds.includes(s.id) && !s.hidden);
   const listed = (chosen.length > 1 ? chosen : state.services.filter((s) => !s.hidden)).slice(0, MAX_LIST);
@@ -163,8 +163,11 @@ function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "pri
   };
 }
 
+/** Styles about one treatment: its name is the headline and the first sentence of its description the detail. */
+const NAMED_AFTER_TREATMENT = new Set<PosterStyle>(["price", "beforeafter", "portrait", "fullphoto", "typography"]);
+
 function defaultHeadline(state: DemoState, draft: Draft): string {
-  if (draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
+  if (NAMED_AFTER_TREATMENT.has(draft.style)) return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
   if (draft.style === "season") return state.holidays.find((h) => h.id === draft.holidayId)?.name ?? draft.name;
   if (draft.style === "slots") {
     const free = freeTimes(state, draft.serviceIds[0], draft);
@@ -190,7 +193,7 @@ export function firstSentence(text: string): string {
 
 function defaultDetail(state: DemoState, draft: Draft): string {
   const first = state.services.find((s) => s.id === draft.serviceIds[0]);
-  if ((draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") && first?.description) return firstSentence(first.description);
+  if (NAMED_AFTER_TREATMENT.has(draft.style) && first?.description) return firstSentence(first.description);
   if (draft.style === "slots" && first) return `${first.name} · ${formatDuration(first.duration)}`;
   return listServices(serviceNames(state, draft));
 }
