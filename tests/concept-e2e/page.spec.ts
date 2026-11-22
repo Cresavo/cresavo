@@ -172,8 +172,12 @@ test("dragging a section keeps the booking flow fixed and follows the editor's s
   await handle.focus();
   await page.keyboard.press("Space");
   await expect(page.getByRole("status").filter({ hasText: "Picked up Team, position 2" })).toBeVisible();
-  await page.keyboard.press("ArrowUp");
-  await expect(list.locator("[data-drop-edge]")).toBeVisible();
+  // dnd-kit measures the list after pickup, so an arrow press that lands first moves nothing: repeat it until the
+  // drop edge shows. Up at the top of the list stays there, so the extra presses do not change where it lands.
+  await expect(async () => {
+    await page.keyboard.press("ArrowUp");
+    await expect(list.locator("[data-drop-edge]")).toBeVisible({ timeout: 500 });
+  }).toPass();
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("Space");
 
