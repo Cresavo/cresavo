@@ -10,10 +10,11 @@ import { findCustomer, findService, fullName } from "../selectors";
 import { moduleById, moduleEnabled } from "../modules/registry";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
-export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" }>;
+export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" | "journal/view" }>;
 
+/** A read of a journal has its own log (`journalAccess`) that shows who read what; the activity log is for changes. */
 export function isLogged(action: DemoAction): action is LoggedAction {
-  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran";
+  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran" && action.type !== "journal/view";
 }
 
 export interface Description {
@@ -120,6 +121,14 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: tc("log.customersImport", next.customers.length - prev.customers.length) };
     case "customer/note":
       return { summary: t("log.customerNote", { customer: customerName(next, action.id) }) };
+    case "customer/update":
+      return { summary: t("log.customerUpdate", { customer: customerName(next, action.id) }) };
+    case "booking/update":
+      return { summary: t("log.bookingUpdate", { customer: customerName(next, bookingOf(next, action.id)?.customerId) }) };
+    case "customer/keep":
+      return { summary: t("log.customerKeep", { customer: customerName(next, action.id) }) };
+    case "privacy/journal-retention":
+      return { summary: action.years === null ? t("log.journalRetentionOff") : tc("log.journalRetention", action.years) };
     case "customer/delete":
       return { summary: t("log.customerDelete", { customer: customerName(prev, action.id) }) };
     case "customer/erase":

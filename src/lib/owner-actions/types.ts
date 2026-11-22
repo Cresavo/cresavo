@@ -7,11 +7,11 @@ import type { DemoAction } from "@/concept/actions";
  */
 export const OWNER_ACTION_TYPES = [
   "accounting/connect", "accounting/disconnect", "booking/cancel", "booking/complete", "booking/create", "booking/fee",
-  "booking/move", "campaign/ad", "campaign/launch", "card/dismiss", "category/add", "category/move", "category/remove",
-  "category/rename", "category/reorder", "cost/add", "cost/remove", "customer/delete", "customer/note", "customers/import",
+  "booking/move", "booking/update", "campaign/ad", "campaign/launch", "card/dismiss", "category/add", "category/move", "category/remove",
+  "category/rename", "category/reorder", "cost/add", "cost/remove", "customer/delete", "customer/keep", "customer/note", "customer/update", "customers/import",
   "customers/message", "giftcard/redeem", "giftcard/sell", "inbox/add", "inbox/read", "inbox/read-all", "inbox/reply",
-  "journal/add", "journal/edit", "log/undo", "memory/add", "memory/edit", "memory/forget", "module/preset", "module/toggle",
-  "package/sell", "page/set", "product/sell", "reminder/settings", "resource/add", "resource/remove", "resource/rename",
+  "journal/add", "journal/edit", "journal/view", "log/undo", "memory/add", "memory/edit", "memory/forget", "module/preset", "module/toggle",
+  "package/sell", "page/set", "privacy/journal-retention", "product/sell", "reminder/settings", "resource/add", "resource/remove", "resource/rename",
   "review/approve", "review/reply", "routine/add", "routine/ran", "routine/toggle", "salon/close", "salon/details",
   "salon/hours", "salon/language", "salon/policy", "salon/reopen", "salon/slug", "service/add", "service/delete",
   "service/duplicate", "service/move", "service/price", "service/recall", "service/reorder", "service/resources",

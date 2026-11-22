@@ -1,4 +1,7 @@
-import { sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepOwnerGuardBuckets } from "../src/concept/store/store-sweepers";
+import {
+  sweepActivityPersonalData, sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepJournalAccessRows, sweepOutboxBodies,
+  sweepOwnerGuardBuckets, sweepRateLimits,
+} from "../src/concept/store/store-sweepers";
 import { createDatabaseClient } from "./database.mjs";
 
 try {
@@ -8,7 +11,12 @@ try {
     const expiredIdempotencyKeys = await sweepExpiredIdempotency({ prisma });
     const demoActions = await sweepDemoActions({ prisma });
     const ownerGuardBuckets = await sweepOwnerGuardBuckets({ prisma });
-    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox }));
+    // Retention of personal data (src/concept/privacy/retention.ts).
+    const outboxBodies = await sweepOutboxBodies({ prisma });
+    const rateLimitRows = await sweepRateLimits({ prisma });
+    const activityRows = await sweepActivityPersonalData({ prisma });
+    const journalAccessRows = await sweepJournalAccessRows({ prisma });
+    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox, outboxBodies, rateLimitRows, activityRows, journalAccessRows }));
   } finally {
     await prisma.$disconnect();
   }

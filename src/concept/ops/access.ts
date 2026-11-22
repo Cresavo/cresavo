@@ -20,7 +20,7 @@ export function servedBy(state: DemoState, staffId: StaffId): Set<string> {
 }
 
 /** Pages a staff member may open: their day, their calendar, and the customers they serve with the journal. */
-const STAFF_PAGES = [/^\/studio$/, /^\/studio\/calendar$/, /^\/studio\/customers$/, /^\/studio\/customers\/(?!import$|due-back$)[^/]+$/];
+const STAFF_PAGES = [/^\/studio$/, /^\/studio\/calendar$/, /^\/studio\/customers$/, /^\/studio\/customers\/(?!import$|due-back$|review$)[^/]+$/];
 
 export function canOpen(role: Role, pathname: string): boolean {
   return role === "owner" || STAFF_PAGES.some((page) => page.test(pathname));

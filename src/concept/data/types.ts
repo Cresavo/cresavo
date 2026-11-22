@@ -159,6 +159,10 @@ export interface Customer {
   waitlist: boolean;
   /** A fictional sample a new salon starts with, so its day is not empty. */
   example?: true;
+  /** The day the owner reviewed this customer's retention and decided to keep them (see `privacy/retention.ts`). */
+  keptOn?: DateKey;
+  /** Names, phone numbers and addresses this card had before a correction, kept so an erasure still finds them in old records. Erased with the card. */
+  earlier?: string[];
 }
 
 export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
@@ -454,6 +458,24 @@ export interface ServicePackage {
   usedBy: string[];
 }
 
+/** One read of a customer's journal: who and when, never the content. */
+export interface JournalAccess {
+  id: string;
+  /** Epoch milliseconds, from the store's clock. */
+  at: number;
+  actor: "owner" | "staff";
+  /** Set when the actor is a named staff member. */
+  staffId?: StaffId;
+  /** The customer whose journal was read. Absent when a server load delivered every customer's journal to a device at once. */
+  customerId?: string;
+}
+
+/** The owner's privacy settings. */
+export interface PrivacySettings {
+  /** Years a journal entry is kept before the owner is asked to review it. Null keeps entries until the owner decides. */
+  journalRetentionYears: number | null;
+}
+
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
 
 export interface DemoState {
@@ -517,4 +539,8 @@ export interface DemoState {
   page: PageConfig;
   /** The business's own domain (a paid module), once the owner has started connecting one. */
   domain: DomainConnection | null;
+  /** Who read journals and when, newest first. Optional: salons from before the log have none. */
+  journalAccess?: JournalAccess[];
+  /** Optional: salons that never set it keep journal entries until the owner decides. */
+  privacy?: PrivacySettings;
 }

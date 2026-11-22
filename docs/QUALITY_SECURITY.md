@@ -106,12 +106,25 @@ Security
 Privacy (GDPR)
 - [ ] Data processing agreement template for salons (they are controller,
       we are processor) and a list of sub-processors (hosting, SMS, AI).
+      Drafts: [DPA_TEMPLATE](legal/DPA_TEMPLATE.md),
+      [SUBPROCESSORS](legal/SUBPROCESSORS.md). They need legal review.
 - [ ] Journal entries may be health data (special category): DPIA done,
-      access restricted and logged, retention rules set.
-- [ ] Customer rights: export, correction, deletion, implemented and tested.
+      access restricted and logged, retention rules set. Code: reads are
+      logged (who, when, which customer, never content) and visible to the
+      owner, and the owner sets a review period. Open: the DPIA is a draft
+      ([DPIA_JOURNAL](legal/DPIA_JOURNAL.md)), access is not restricted on the
+      server, and journals still travel to the browser with the whole salon, so
+      the log relies on the studio reporting each read.
+- [x] Customer rights: export, correction, deletion, implemented and tested.
+      (Studio, per customer: JSON and spreadsheet export, every personal field
+      editable, permanent erasure with a confirmation. Legal sign-off on what
+      is kept for bookkeeping is separate.)
 - [ ] AI providers: data processing terms in place, no training on customer
       data, EU processing where possible; personal data minimised in prompts.
-- [ ] Retention and deletion jobs running and tested.
+- [ ] Retention and deletion jobs running and tested. Code and tests are
+      done (`npm run store:sweep`, "Customers due for review"); the periods in
+      `src/concept/privacy/retention.ts` still need the salon's or a lawyer's
+      confirmation, and an operator must schedule the sweep.
 
 Operations
 - [ ] Automated backups with a tested restore (documented restore drill).

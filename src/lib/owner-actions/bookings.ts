@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_BOOKING_TEXT } from "@/concept/customers/rights";
 import { date, id, minutes, required, staffId, text, uuid } from "./primitives";
 
 // Bookings, the inbox and reviews.
@@ -36,9 +37,16 @@ const newBooking = z.strictObject({
   source: z.enum(["online", "phone", "walk-in", "campaign", "assistant"]),
 });
 
+const bookingPatch = z.strictObject({
+  contactEmail: text(254).nullable().optional(),
+  note: text(MAX_BOOKING_TEXT).nullable().optional(),
+  cancelReason: text(MAX_BOOKING_TEXT).nullable().optional(),
+});
+
 const guest = z.strictObject({ name: required(), phone: required(30), email: text(254).optional() });
 
 export const bookingSchemas = {
+  "booking/update": z.strictObject({ type: z.literal("booking/update"), id, patch: bookingPatch }),
   "booking/cancel": z.strictObject({ type: z.literal("booking/cancel"), id, reason: text().optional(), notice: inboxNotice.optional() }),
   "booking/complete": z.strictObject({ type: z.literal("booking/complete"), id }),
   "booking/create": z.union([

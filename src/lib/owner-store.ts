@@ -11,11 +11,22 @@ import { parseOwnerAction } from "./owner-actions/parse";
 
 const holder = globalThis as typeof globalThis & { cresavoOwnerStore?: PostgresStudioStore };
 
+/**
+ * The application role may not update `tenant_action`, so production erases through the SECURITY DEFINER
+ * `erase_subject` function (prisma/grants/erase-subject.sql). Elsewhere the store runs the same statements itself.
+ * `STUDIO_STORE_ERASURE=statements|function` overrides either.
+ */
+function erasureMode(): "statements" | "function" {
+  const chosen = process.env.STUDIO_STORE_ERASURE;
+  if (chosen === "statements" || chosen === "function") return chosen;
+  return process.env.NODE_ENV === "production" ? "function" : "statements";
+}
+
 export function ownerStore(): PostgresStudioStore {
   const hmacSecret = process.env.STUDIO_STORE_HMAC_SECRET;
   if (!hmacSecret || hmacSecret.length < 32) throw new Error("STUDIO_STORE_HMAC_SECRET must be at least 32 characters");
   const prisma = db as unknown as PrismaClient;
-  holder.cresavoOwnerStore ??= new PostgresStudioStore({ prisma, hmacSecret, sinks: { ...SIMULATED_SINKS, message: messageSink(prisma) } });
+  holder.cresavoOwnerStore ??= new PostgresStudioStore({ prisma, hmacSecret, erasure: erasureMode(), sinks: { ...SIMULATED_SINKS, message: messageSink(prisma) } });
   return holder.cresavoOwnerStore;
 }
 

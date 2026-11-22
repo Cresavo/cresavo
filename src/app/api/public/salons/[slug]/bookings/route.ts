@@ -57,6 +57,8 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     if (result.ok) {
       // On a replay the state is the original commit's, so the reference is the one first given out.
       const booking = result.state.bookings.filter((b) => b.publicRef && b.source === "online" && b.status === "booked" && b.serviceId === serviceId && b.staffId === staffId && b.date === date && b.start === start).at(-1);
+      // A retry of a booking whose customer was erased since: the stored answer no longer has it.
+      if (!booking && result.replayed) return publicError("gone", 410);
       if (!booking) throw new Error("PUBLIC_BOOKING_MISSING");
       return publicOk({ ref: booking.publicRef, serviceId, staffId, date, start, duration: booking.duration }, 201);
     }

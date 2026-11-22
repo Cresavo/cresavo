@@ -18,13 +18,18 @@ export interface BookingTokenScope {
   ref: string;
   customerId: string;
   purpose: string;
+  /**
+   * The address the booking's messages go to, as the booking holds it now. The mac covers it, so a link sent to an
+   * address stops working when the owner corrects or removes that address, whatever the public reference is.
+   */
+  contactEmail?: string;
 }
 
 function mac(scope: BookingTokenScope, exp: number) {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) throw new Error("SESSION_SECRET must be at least 32 characters");
   const key = createHmac("sha256", secret).update("booking-link:v1").digest();
-  return createHmac("sha256", key).update([scope.tenantId, scope.bookingId, scope.customerId, scope.purpose, exp].join("|")).digest("hex");
+  return createHmac("sha256", key).update([scope.tenantId, scope.bookingId, scope.ref, scope.customerId, scope.purpose, scope.contactEmail ?? "", exp].join("|")).digest("hex");
 }
 
 /** The end of the visit plus a week, as epoch seconds. */
