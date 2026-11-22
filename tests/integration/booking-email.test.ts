@@ -79,10 +79,10 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-function book(start: number, key: string = randomUUID(), phone = `0735551${100 + ++calls}`) {
+function book(start: number, key: string = randomUUID(), phone = `0735551${100 + ++calls}`, date = DATE) {
   const ip = `10.8.${Math.floor(++calls / 250)}.${calls % 250}`;
   const body = {
-    serviceId, staffId, date: DATE, start, name: "Lisa Berg", phone, email: "lisa@example.test", language: "en", website: "",
+    serviceId, staffId, date, start, name: "Lisa Berg", phone, email: "lisa@example.test", language: "en", website: "",
     terms, issuedAt: issuedAtToken(tenantId, slug, Date.now() - 10_000),
   };
   return POST(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings`, {
@@ -175,6 +175,40 @@ describe("the booking confirmation e-mail", () => {
     const [{ due }] = await db.$queryRaw<Array<{ due: number }>>`
       SELECT (extract(epoch FROM next_attempt_at) * 1000)::float8 AS due FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`;
     expect(due).toBeGreaterThanOrEqual(at + 5_050);
+  });
+
+  it("keeps the plain lease and backoff for other effects after a timeout, so a refund is not delayed", async () => {
+    const id = `payment-${run}`;
+    await db.$executeRaw`
+      INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, next_attempt_at)
+      VALUES (${tenantId}, 9000001, 0, ${id}, 'fingerprint', 'payment', ${JSON.stringify({ id: "o-pay", port: "payments", action: "checkout", body: "Fictional deposit", cost: null })}::jsonb, to_timestamp(0))`;
+    const at = CLOCK + 3_600_000;
+    const hang = { ...sinks, payment: () => new Promise<never>(() => {}) };
+    const report = await deliverDue({
+      db: db as unknown as PrismaClient, clock: async () => at, sinks: hang, simulatedSinks: SIMULATED_SINKS,
+      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
+    }, 10);
+    expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
+    const [row] = await db.$queryRaw<Array<{ due: number; leased: boolean }>>`
+      SELECT (extract(epoch FROM next_attempt_at) * 1000)::float8 AS due, leased_until IS NOT NULL AS leased FROM tenant_effect WHERE id = ${id}`;
+    // The first backoff (2 s), not the message's wait for its lease: nothing is held.
+    expect(row.leased).toBe(false);
+    expect(row.due).toBeGreaterThanOrEqual(at + 2_000);
+    expect(row.due).toBeLessThan(at + 5_000);
+    await db.$executeRaw`DELETE FROM tenant_effect WHERE id = ${id}`;
+  });
+
+  it("gives a send near the end of the drain budget only what is left of it", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    expect((await book(540, randomUUID(), undefined, "2026-11-25")).status).toBe(201);
+    const hang = { ...sinks, message: () => new Promise<never>(() => {}) };
+    const began = performance.now();
+    const report = await deliverDue({
+      db: db as unknown as PrismaClient, clock: async () => CLOCK + 10 * 3_600_000, sinks: hang, simulatedSinks: SIMULATED_SINKS,
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 10_000, budgetMs: 300, tenants: [tenantId],
+    }, 10);
+    expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
+    expect(performance.now() - began).toBeLessThan(3_000);
   });
 
   it("holds a public booking's e-mail without using an attempt while public booking is off", async () => {

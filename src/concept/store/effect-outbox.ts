@@ -100,8 +100,9 @@ export interface DeliveryContext {
 /** Claims the next due effect by the shared rule, or returns undefined when there is none. */
 async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> {
   const now = await ctx.clock();
-  // A claim outlives the sink timeout, so a timed-out send is never raced by a second deliverer.
-  const leaseMs = Math.max(ctx.leaseMs, (ctx.sinkTimeoutMs ?? 0) + LEASE_MARGIN_MS);
+  // A message's claim outlives the sink timeout, so a timed-out send is never raced by a second deliverer.
+  // Other kinds (a refund behind a checkout) keep the plain lease and backoff.
+  const messageLeaseMs = Math.max(ctx.leaseMs, (ctx.sinkTimeoutMs ?? 0) + LEASE_MARGIN_MS);
   const kinds = ctx.sinks ? null : ["demo", "sandbox"];
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
   const [row] = await ctx.db.$queryRaw<ClaimedRow[]>`
@@ -123,8 +124,9 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
       FOR UPDATE OF e SKIP LOCKED
     )
     UPDATE tenant_effect e
-    SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + leaseMs}::float8 / 1000),
-        leased_until = to_timestamp(${now + leaseMs}::float8 / 1000)
+    SET attempts = e.attempts + 1,
+        next_attempt_at = to_timestamp((${now}::float8 + CASE WHEN e.kind = 'message' THEN ${messageLeaseMs}::float8 ELSE ${ctx.leaseMs}::float8 END) / 1000),
+        leased_until = to_timestamp((${now}::float8 + CASE WHEN e.kind = 'message' THEN ${messageLeaseMs}::float8 ELSE ${ctx.leaseMs}::float8 END) / 1000)
     FROM next
     WHERE e.tenant_id = next.tenant_id AND e.seq = next.seq AND e.n = next.n AND e.status = 'pending'
     RETURNING e.id, e.tenant_id, e.seq, e.n, e.kind, e.payload, e.attempts,
@@ -182,7 +184,7 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
 }
 
 /** Sends one claimed row and records the outcome for that row only. */
-async function deliver(ctx: DeliveryContext, row: ClaimedRow): Promise<DeliveryOutcome> {
+async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number | undefined): Promise<DeliveryOutcome> {
   const sink = sinkFor(ctx, row);
   let result: void | "failed" | "deferred";
   try {
@@ -190,10 +192,10 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow): Promise<DeliveryO
     const delivery: EffectDelivery = {
       id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
     };
-    result = await runSink(sink, delivery, ctx.sinkTimeoutMs);
+    result = await runSink(sink, delivery, timeoutMs);
   } catch (error) {
     // Never log the payload or the error: both may hold personal data.
-    return recordFailure(ctx, row, error instanceof Error && error.message === TIMEOUT ? "timeout" : "retry");
+    return recordFailure(ctx, row, error instanceof Error && error.message === TIMEOUT && row.kind === "message" ? "timeout" : "retry");
   }
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "deferred") return recordFailure(ctx, row, "deferred");
@@ -228,7 +230,9 @@ export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<D
   for (let claimed = 0; claimed < limit && (ctx.budgetMs === undefined || performance.now() - started < ctx.budgetMs); claimed++) {
     const row = await claimNext(ctx);
     if (!row) break;
-    const outcome = await deliver(ctx, row);
+    // A send near the end of the budget gets only what is left of it, not a full timeout.
+    const left = ctx.budgetMs === undefined ? undefined : Math.max(1, ctx.budgetMs - (performance.now() - started));
+    const outcome = await deliver(ctx, row, left === undefined ? ctx.sinkTimeoutMs : Math.min(left, ctx.sinkTimeoutMs ?? left));
     if (outcome === "delivered") report.delivered++;
     else if (outcome === "retry") report.retried++;
     else report.failed++;

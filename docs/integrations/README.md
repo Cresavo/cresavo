@@ -247,6 +247,18 @@ delivered after each commit and, for anything left over, by the poller. E-mail
 goes through the e-mail port above, so it is simulated unless the four live
 conditions hold; SMS and payments are acknowledged without sending.
 
+**Do not enable live confirmation e-mail (`CONCEPT_CONNECTIONS_LIVE=1` with an
+e-mail provider, for salons with public booking) before issue #143 is
+closed.** It covers known gaps in this delivery path:
+
+- erasure racing an in-flight dispatch;
+- duplicate sends under a stalled dispatch write, a crash between clearing
+  `dispatched` and recording the failure, or a Resend in-progress 409 beyond the
+  23-hour window;
+- a worker with `live-off` or `not-selected` acknowledging fresh live rows;
+- retry payload drift after a move (token expiry, sender, reply-to);
+- the fragment scrub when the salon is missing.
+
 - **Cron.** Run `npm run effects:drain` every minute (for example a Vercel
   cron or `* * * * *` on a host) with `DATABASE_URL`, `SESSION_SECRET` and the
   **same** `PUBLIC_BOOKING_LIVE`, `OWNER_ACCOUNTS_ENABLED`, `CONCEPT_*` and
