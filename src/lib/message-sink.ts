@@ -38,8 +38,9 @@ export function messageSink(prisma: PrismaClient, registry: { resolve: (port: "e
       ...mail, language: state.localization.language, idempotencyKey: id,
     });
     if (result.ok) return;
-    // A retry cannot fix a bad address or an unverified domain; a timeout or a rate limit it can.
-    if (!result.error.retryable) return "failed";
+    // A retry cannot fix a bad address or an unverified domain; a timeout or a rate limit it can, and so can the
+    // operator's fix of a bad or missing API key, after which the queued confirmations must still go out.
+    if (!result.error.retryable && result.error.code !== "unauthorized") return "failed";
     throw new Error("EMAIL_RETRYABLE");
   };
 }

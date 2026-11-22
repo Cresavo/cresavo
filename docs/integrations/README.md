@@ -252,7 +252,8 @@ conditions hold; SMS and payments are acknowledged without sending.
   It is safe to run several at once. It prints counts only.
 - **Retries.** A timeout, rate limit or provider outage backs off (2 s, 4 s ...
   up to an hour) for 10 attempts. A permanent error (bad address, domain not
-  verified, other 4xx) marks the effect `failed` at once. A send that takes over
+  verified, other 4xx) marks the effect `failed` at once. A rejected API key is
+  retried like an outage, so queued confirmations go out once it is fixed. A send that takes over
   10 s during an apply counts as failed and is retried. `store_metrics()` counts
   `failedEffects` per process.
 - **Sender.** Mail is sent from `bookings@<product domain>`

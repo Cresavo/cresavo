@@ -88,7 +88,7 @@ describe("the message sink", () => {
     expect(await messageSink(prisma, registry)(delivery())).toBe("failed");
     outcome = fail(connectionError("email", "resend", "rejected"));
     expect(await messageSink(prisma, registry)(delivery())).toBe("failed");
-    for (const code of ["timeout", "rate_limited", "provider_unavailable", "network"] as const) {
+    for (const code of ["timeout", "rate_limited", "provider_unavailable", "network", "unauthorized"] as const) {
       outcome = fail(connectionError("email", "resend", code));
       await expect(messageSink(prisma, registry)(delivery())).rejects.toThrow("EMAIL_RETRYABLE");
     }
