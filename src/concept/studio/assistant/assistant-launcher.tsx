@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { MessageCircle } from "lucide-react";
+import { createRoutineAttempts } from "../../assistant/routine-attempts";
 import { dueRun, type Routine } from "../../assistant/routines";
 import type { DemoState } from "../../data/types";
 import type { Clock } from "../../finance/types";
@@ -11,6 +12,7 @@ import { currentRole, useRole } from "../../ops/role";
 import { dispatch } from "../../store";
 import { Button } from "../../ui/button";
 import { showToast } from "../../ui/toast";
+import { useSalonNow } from "../../use-now";
 import { useStudio } from "../use-studio";
 import { AssistantPanel } from "./assistant-panel";
 import { addMessages, messageId, openAssistant } from "./thread-store";
@@ -54,18 +56,24 @@ export function AssistantHeaderButton() {
 
 /** Runs switched-on routines on their schedule while the studio is open. Each run leaves a proposal in the panel. */
 function RoutineRunner() {
-  const { state, today, minutes } = useStudio();
+  const { state, target } = useStudio();
+  const salon = target?.epoch ?? state.salon.slug;
+  // The salon's clock, as the reducer judges it: a browser in another time zone must not try a slot early.
+  const { today, minutes } = useSalonNow();
   const role = useRole();
+  // A run the server refuses is tried again on a later tick, never in a loop, and announced once.
+  const attempts = useRef(createRoutineAttempts());
   useEffect(() => {
     if (role !== "owner") return;
     for (const routine of state.routines) {
       const slot = dueRun(routine, { today, minutes });
-      if (!slot) continue;
-      dispatch({ type: "routine/ran", id: routine.id, at: slot });
+      if (!slot || !attempts.current.shouldAttempt(salon, routine.id, slot, today, minutes)) continue;
+      if (!dispatch({ type: "routine/ran", id: routine.id, at: slot })) continue;
+      if (!attempts.current.firstAnnouncement(salon, routine.id, slot)) continue;
       postRoutineRun(state, routine, { today, minutes });
       showToast(t("assistant.routine.ran", { name: routine.name }), { label: t("assistant.routine.show"), run: () => { if (currentRole() === "owner") openAssistant(); } });
     }
-  }, [state, today, minutes, role]);
+  }, [state, salon, today, minutes, role]);
   return null;
 }
 

@@ -1,5 +1,6 @@
 import { preferredStaffOf, rememberedPreference } from "../assistant/memory";
 import { addDays } from "../data/dates";
+import { recordSettled } from "../account/settled";
 import { freeStarts, isFree, needOf, type Need } from "../data/slots";
 import type { Booking, DateKey, DemoState, Service, StaffId, StockItem } from "../data/types";
 import type { DemoAction } from "../actions";
@@ -144,6 +145,7 @@ function moveProposal(state: DemoState, params: IntentParams, clock: Clock): Pro
   const customer = findCustomer(state, booking?.customerId);
   const date = params.date;
   if (!booking || !customer || !date || !params.time) return message(t("command.notUnderstood"));
+  if (!recordSettled("bookings", booking.id)) return message(t("command.saving"));
   if (date < clock.today) return message(t("command.dayPassed", { day: formatDayLong(date) }));
   const wanted = minutesOf(params.time);
   const build = ({ start }: Candidate): Proposal => ({
@@ -165,6 +167,8 @@ function cancelProposal(state: DemoState, params: IntentParams, clock: Clock): P
   const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
   const customer = findCustomer(state, booking?.customerId);
   if (!booking || !customer) return message(t("command.notUnderstood"));
+  // A booking a pending change made has only a provisional id: a proposal must not carry it to an approval that may come after the server gave that id to another record.
+  if (!recordSettled("bookings", booking.id)) return message(t("command.saving"));
   const offering = !!params.offerWaitingList && state.modules.waitlist;
   const offered = offering ? waitlistCount(state, booking) : 0;
   return {

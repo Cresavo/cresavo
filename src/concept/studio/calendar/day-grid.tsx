@@ -5,6 +5,7 @@ import type { DragEvent, MouseEvent } from "react";
 import { lunchFor, openingFor, workWindow } from "../../data/slots";
 import type { DateKey, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
+import { accountRecordSettled } from "../../store";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
 import { Badge } from "../../ui/badge";
@@ -15,7 +16,7 @@ import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { snapMinutes } from "./gap";
-import { calendarScale, HourLines, TimeAxis } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
 
 const PX_PER_MIN = 1.25;
 const WARNING_BLOCK_HEIGHT = 64;
@@ -32,7 +33,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   const { state, today, minutes, target } = useStudio();
   const hours = openingFor(state.salon, date)!;
   const lunch = lunchFor(state.salon, date);
-  const { open: from, close: to } = hours;
+  const { open, close } = hours;
   const columns = staff.map(person => {
     const shift = workWindow(state, person.id, date);
     const entries = dayBookings(state, date, person.id, resourceId).map(booking => ({
@@ -42,6 +43,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     return { person, shift, entries };
   });
   const entries = columns.flatMap(column => column.entries);
+  const { from, to } = calendarRange(open, close, entries.map(({ booking }) => booking));
   const scale = calendarScale(
     calendarScale(PX_PER_MIN, entries.map(({ booking }) => booking)),
     entries.filter(({ misfit }) => misfit).map(({ booking }) => booking),
@@ -60,7 +62,8 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     event.preventDefault();
     const id = event.dataTransfer.getData(DRAG_TYPE);
     const booking = state.bookings.find((b) => b.id === id);
-    if (!booking) return;
+    // A booking a pending change made has only a provisional id until the server answers.
+    if (!booking || !accountRecordSettled("bookings", id)) return;
     if (booking.staffId !== person.id) {
       const name = state.staff.find((s) => s.id === booking.staffId)!.firstName;
       showActionFailure("reference.sameStaffOnly", undefined, "studio", t("calendar.sameStaffOnly", { name }));

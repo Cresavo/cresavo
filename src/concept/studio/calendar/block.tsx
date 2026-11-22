@@ -10,6 +10,7 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { minuteInGap } from "./gap";
+import { accountRecordSettled } from "../../store";
 import { useStudio } from "../use-studio";
 
 export const DRAG_TYPE = "application/x-eko-booking";
@@ -38,6 +39,8 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
     { key: "before", minutes: booking.bufferBefore ?? 0, style: { bottom: "100%", height: (booking.bufferBefore ?? 0) * scale } },
     { key: "after", minutes: booking.bufferAfter ?? 0, style: { top: "100%", height: (booking.bufferAfter ?? 0) * scale } },
   ].filter((buffer) => buffer.minutes > 0);
+  // Until the server answers, a booking a pending change made has only a provisional id: it cannot be opened or moved yet.
+  const settled = accountRecordSettled("bookings", booking.id);
   const anna = booking.staffId === "anna";
   const onDragStart = (event: DragEvent) => {
     event.dataTransfer.setData(DRAG_TYPE, booking.id);
@@ -49,9 +52,10 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         variant="tertiary"
         size="sm"
         align="start"
-        draggable
+        draggable={settled}
         onDragStart={onDragStart}
-        onClick={onOpen}
+        onClick={settled ? onOpen : undefined}
+        aria-disabled={!settled || undefined}
         className={cx(
           "h-full w-full !items-start overflow-hidden border-l-2 !px-1 !text-minimum",
           anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",

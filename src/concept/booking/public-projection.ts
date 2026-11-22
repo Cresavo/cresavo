@@ -71,7 +71,9 @@ const block = (stored: StaffBlock): StaffBlock => ({
 /** Someone else's visit, as the page needs it to hide the time: no customer, price or source. */
 const busy = (stored: Booking, index: number): Booking => ({
   id: `busy-${index}`, customerId: "", staffId: text(stored.staffId) as StaffId, serviceId: "", date: text(stored.date), start: num(stored.start),
-  duration: num(stored.duration), price: 0, status: "booked", source: "online", resourceId: optionalText(stored.resourceId), ...timing(stored),
+  duration: num(stored.duration), price: 0, status: "booked", source: "online", resourceId: optionalText(stored.resourceId),
+  // A completed visit holds no preparation or clean-up (see `busyOn`): the page must hide exactly the times the store refuses.
+  ...(stored.status === "completed" ? timing({ processing: stored.processing }) : timing(stored)),
 });
 
 /** A hold that frees its time when it expires, with nothing of the guest. */

@@ -12,6 +12,7 @@ vi.mock("@/concept/store", () => ({
   openAccountSalon: (_state: unknown, send: (action: DemoAction, change: AccountChange) => void) => { ctx.send = send; return true; },
   replaceAccountSalon: () => undefined,
   restoreAccountSalon: () => undefined,
+  restoreAccountBase: () => undefined,
   closeAccountSalon: () => undefined,
 }));
 vi.mock("@/concept/ui/toast", () => ({ showToast: (text: string) => ctx.toasts.push(text) }));

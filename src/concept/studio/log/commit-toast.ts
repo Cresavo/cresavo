@@ -14,7 +14,7 @@ import { showUndoRefused } from "./undo-toast";
  * one: log ids repeat across salons, so another salon's entry says nothing.
  */
 export async function undoCommitted(target: Target, id: string): Promise<boolean> {
-  const result = await commitAction(target, { type: "log/undo", id });
+  const result = await commitAction(target, { type: "log/undo", id }, { confirmedIds: true });
   if (result.ok) showToast(t("log.undoneToast"));
   else {
     // The log explains the refusal only while the salon of the change is still the one shown; checked right here.

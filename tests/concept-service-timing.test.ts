@@ -287,6 +287,23 @@ describe("review fixes", () => {
       expect(undoBlockReason(logged, logged.log[0])).toBeUndefined();
     });
 
+    it("holds no clean-up time after a completed visit, so a restore cannot overlap a visit booked in the meantime", () => {
+      // 10:00-11:00 with 15 minutes of clean-up, completed; its customer is deleted and a visit is booked at 11:05.
+      const completed = completeAll(book(empty([padded, trim]), "padded", hm(10), 0));
+      const customerId = completed.bookings[0].customerId;
+      const deleted = reduce(completed, { type: "customer/delete", id: customerId });
+      const taken = book(deleted, "trim", hm(11, 5), 1);
+      expect(taken.bookings).toHaveLength(1);
+      const restored = restoreEntry(taken, taken.trash[0].id);
+      const [back, newer] = restored.bookings.map((b) => ({ status: b.status, start: b.start })).sort((a, b) => a.start - b.start);
+      expect([back, newer]).toEqual([{ status: "completed", start: hm(10) }, { status: "booked", start: hm(11, 5) }]);
+      // A visit that is still booked holds its clean-up as before.
+      const booked = book(empty([padded, trim]), "padded", hm(10), 0);
+      expect(isFree(booked, "anna", day, hm(11, 5), needOf(trim))).toBe(false);
+      expect(isFree(completeAll(booked), "anna", day, hm(11, 5), needOf(trim))).toBe(true);
+      expect(isFree(completeAll(booked), "anna", day, hm(10, 30), needOf(trim))).toBe(false);
+    });
+
     it("keeps the recorded rooms of completed visits in the same bundle", () => {
       const roomA = service("room-a", 30, { resourceIds: ["room-1", "room-2"] });
       const roomB = service("room-b", 30, { staffIds: ["erik"], resourceIds: ["room-1"] });

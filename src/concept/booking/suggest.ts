@@ -14,6 +14,8 @@ export interface OpenSlot {
 export interface Clock {
   today: DateKey;
   minutes: number;
+  /** The trusted instant of this minute, when known: it tells the repeated hour's two passes apart. */
+  instant?: number;
 }
 
 export interface SlotQuery {
@@ -43,11 +45,11 @@ export function openSlots(
   serviceId: string,
   date: DateKey,
   clock: Clock,
-  opts: { staffId?: StaffId; ignoreId?: string } = {},
+  opts: { staffId?: StaffId; ignoreId?: string; instant?: number } = {},
 ): OpenSlot[] {
   const service = state.services.find((s) => s.id === serviceId);
   if (!service || date < clock.today) return [];
-  const after = earliestBookingStart(date, clock.today, clock.minutes);
+  const after = earliestBookingStart(date, clock.today, clock.minutes, opts.instant ?? clock.instant);
   const byStart = new Map<number, OpenSlot>();
   for (const id of service.staffIds.filter((s) => !opts.staffId || s === opts.staffId)) {
     for (const start of freeStarts(state, id, date, moveNeed(state, opts.ignoreId, needOf(service)), { after, step: STEP, ignoreId: opts.ignoreId })) {

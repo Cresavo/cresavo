@@ -1,7 +1,8 @@
 import type { DemoAction } from "../../actions";
 import { t } from "../../i18n";
 import { undoBlockReason, type UndoBlockReason } from "../../log/undo";
-import { currentState, dispatch, dispatchWithLog, type DispatchOptions } from "../../store";
+import { serverLogId } from "../../account/sync";
+import { accountRequestOfLog, currentState, currentTarget, dispatch, dispatchWithLog, type DispatchOptions } from "../../store";
 import { isBookingOrPaymentAction } from "../../support/action-reference";
 import { showActionFailure, showToast } from "../../ui/toast";
 
@@ -40,7 +41,17 @@ export function undoWithToast(id: string): boolean {
 export function showUndoToast(message: string, id: ReturnType<typeof dispatchWithLog>, onUndo?: () => void): boolean {
   if (id === false) return false;
   const undoable = id && currentState()?.log.find(entry => entry.id === id)?.patch;
-  showToast(message, id && undoable ? { label: t("common.undo"), run: () => { if (undoWithToast(id)) onUndo?.(); } } : undefined);
+  const target = currentTarget();
+  const request = id && target?.workspace === "account" ? accountRequestOfLog(id) : undefined;
+  // A signed-in salon shows the change with a provisional log id; Undo waits for the server's own id for it, which no other writer's entry can share.
+  const run = request && target
+    ? () => { void serverLogId(request).then(async (real) => {
+        const { undoCommitted } = await import("./commit-toast");
+        if (!real) showToast(t("log.cannotUndo"));
+        else if (await undoCommitted(target, real)) onUndo?.();
+      }); }
+    : () => { if (id && undoWithToast(id)) onUndo?.(); };
+  showToast(message, id && undoable ? { label: t("common.undo"), run } : undefined);
   return true;
 }
 
