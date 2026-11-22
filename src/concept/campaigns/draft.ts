@@ -12,6 +12,7 @@ import { listServices, offerText } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
 import { isOwnPhoto } from "./own-photo";
+import { isNeutralTone } from "./poster-engine/tone";
 import type { CampaignPrefill } from "./prefill";
 
 /** A campaign being made in the studio, before it is published. */
@@ -23,7 +24,7 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "photoTone">>;
 }
 
 /**
@@ -100,9 +101,16 @@ function freeTimes(state: DemoState, serviceId: string | undefined) {
     if (!slots.length) continue;
     const step = Math.max(1, Math.floor(slots.length / MAX_SLOTS));
     const picked = slots.filter((_, index) => index % step === 0).slice(0, MAX_SLOTS);
-    return { date, today: clock.today, count: slots.length, times: picked.map((slot) => formatTime(slot.start)) };
+    return { date, today: clock.today, count: slots.length, all: slots.map((slot) => formatTime(slot.start)), times: picked.map((slot) => formatTime(slot.start)) };
   }
   return null;
+}
+
+/** The times saved on a Free-times poster that are no longer free on the first day with room, for the poster's treatment. */
+export function bookedPosterTimes(state: DemoState, poster: Pick<CampaignPoster, "style" | "items">, serviceId: string | undefined): string[] {
+  if (poster.style !== "slots" || !serviceId) return [];
+  const free = new Set(freeTimes(state, serviceId)?.all);
+  return (poster.items ?? []).map((item) => item.name).filter((time) => !free.has(time));
 }
 
 /** What the season, review and free-times posters show, from the holiday, the published reviews and the calendar. */
@@ -167,5 +175,6 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
     ...(draft.posterEdits.badges?.length && { badges: draft.posterEdits.badges }),
+    ...(draft.posterEdits.photoTone && !isNeutralTone(draft.posterEdits.photoTone) && { photoTone: draft.posterEdits.photoTone }),
   };
 }

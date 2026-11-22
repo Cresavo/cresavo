@@ -1,8 +1,9 @@
-import type { CampaignPoster, PosterFormat, Salon } from "../../data/types";
+import type { CampaignPoster, PosterFormat, PosterTone, Salon } from "../../data/types";
 import { bookingHome } from "../../booking/links";
 import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
+import { applyWarmth, clampTone, toneFilter, toneKey } from "./tone";
 
 // The browser side of the poster engine: gathers what a template needs, turns
 // photos into JPEG (the renderer cannot read WebP), and asks the server for
@@ -10,6 +11,7 @@ import { FONT_PAIRS, type PageTheme } from "../../page/theme";
 
 const TEMPLATE_COLORS = { accent: "#2f5d50", ink: "#1f2a26", background: "#f7f1e8" };
 const PHOTO_SIDE = 1400;
+const MAX_PHOTOS = 12;
 
 export interface EngineContext {
   salon: Pick<Salon, "name" | "phone" | "slug">;
@@ -22,9 +24,10 @@ export interface EngineContext {
 
 const photos = new Map<string, Promise<string>>();
 
-/** A photo (demo file, upload or object URL) as a JPEG data URL of at most 1400 px. */
-export function jpegPhoto(url: string): Promise<string> {
-  let cached = photos.get(url);
+/** A photo (demo file, upload or object URL) as a JPEG data URL of at most 1400 px, with the owner's tone applied. */
+export function jpegPhoto(url: string, tone?: PosterTone): Promise<string> {
+  const key = `${toneKey(tone)}|${url}`;
+  let cached = photos.get(key);
   if (!cached) {
     cached = (async () => {
       const bitmap = await createImageBitmap(await (await fetch(url)).blob());
@@ -32,12 +35,24 @@ export function jpegPhoto(url: string): Promise<string> {
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(bitmap.width * scale);
       canvas.height = Math.round(bitmap.height * scale);
-      canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.filter = toneFilter(tone);
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const warmth = tone ? clampTone(tone).warmth : 0;
+        if (warmth !== 0) {
+          const image = context.getImageData(0, 0, canvas.width, canvas.height);
+          applyWarmth(image.data, warmth);
+          context.putImageData(image, 0, 0);
+        }
+      }
       bitmap.close();
       return canvas.toDataURL("image/jpeg", 0.86);
     })();
-    cached.catch(() => photos.delete(url));
-    photos.set(url, cached);
+    cached.catch(() => photos.delete(key));
+    // Moving a slider makes a new photo per value: keep only the latest ones.
+    if (photos.size >= MAX_PHOTOS) photos.delete(photos.keys().next().value!);
+    photos.set(key, cached);
   }
   return cached;
 }
@@ -91,8 +106,8 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       quote: cut(poster.quote ?? "", 220),
       author: cut(poster.author ?? "", 40),
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
-      photo: await jpegPhoto(poster.image),
-      ...(poster.style === "beforeafter" && poster.before && { before: await jpegPhoto(poster.before) }),
+      photo: await jpegPhoto(poster.image, poster.photoTone),
+      ...(poster.style === "beforeafter" && poster.before && { before: await jpegPhoto(poster.before, poster.photoTone) }),
       pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
       focus: poster.focus ?? "center",
       textSize: poster.textSize ?? "normal",

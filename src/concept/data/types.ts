@@ -340,6 +340,13 @@ export interface CampaignPoster {
   badges?: string[];
   /** Before/after style: the "before" photo; `image` is the "after" photo. */
   before?: string;
+  /** Engine styles: the owner's light, contrast and warmth adjustment of the photos, in percent. The photo itself is untouched. */
+  photoTone?: PosterTone;
+}
+export interface PosterTone {
+  light: number;
+  contrast: number;
+  warmth: number;
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */
