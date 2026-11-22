@@ -52,7 +52,9 @@ export async function sweepOwnerGuardBuckets({ prisma, now, batch }: SweepOption
       WHERE "expiresAt" <= to_timestamp(${cutoff}::float8 / 1000)
         AND ("key" LIKE 'acct:%' OR "key" LIKE 'strike:%' OR "key" LIKE 'lock:%' OR "key" LIKE 'mbx:%')
       ORDER BY "expiresAt", "key" LIMIT ${limit}
-    )`);
+    )
+    -- Repeated in the delete itself: a row renewed since the selection survives.
+    AND "expiresAt" <= to_timestamp(${cutoff}::float8 / 1000)`);
 }
 
 export async function sweepDemoActions({ prisma, now, batch }: SweepOptions): Promise<number> {

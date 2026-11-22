@@ -97,8 +97,11 @@ export async function verifyOwnerCredentials(input: unknown): Promise<OwnerIdent
   const account = await db.ownerAccount.findUnique({ where: { email } });
   // A capacity error here propagates: no password was judged, so nothing is counted.
   const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, password);
-  // The lock is checked and the failures cleared in one step, so a lock set while the hash ran still refuses this request.
-  if (account?.active && valid && !locked && await guard.succeeded(email)) return { id: account.id, credentialVersion: account.credentialVersion };
+  if (account?.active && valid) {
+    // A correct password never reaches the failure counter, whatever the lock did meanwhile. The lock is checked and
+    // the failures cleared in one step, so a lock set while the hash ran still refuses this request.
+    return !locked && await guard.succeeded(email) ? { id: account.id, credentialVersion: account.credentialVersion } : null;
+  }
   // One counted failure per judged wrong password (a no-op while locked); the fifth locks, atomically.
   await guard.failed(email);
   return null;

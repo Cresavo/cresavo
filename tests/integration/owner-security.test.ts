@@ -8,6 +8,7 @@ import { ok } from "../../src/concept/connections/core";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount, verifyOwnerCredentials } from "../../src/lib/owner-accounts";
 import { GUARD_PREFIXES, LOCK_THRESHOLD, lockDurationMs, loginGuard, mailboxQuota, postgresLoginGuard, postgresMailboxQuota } from "../../src/lib/owner-guard-store";
+import { reserveRateLimit } from "../../src/lib/postgres-rate-limit";
 import { sweepOwnerGuardBuckets } from "../../src/concept/store/store-sweepers";
 import { requestPasswordReset, resetPassword, RESET_TTL_MS, type ResetRegistry } from "../../src/lib/owner-password-reset";
 import {
@@ -162,6 +163,22 @@ describe("account lockout", () => {
   });
 });
 
+describe("a correct password", () => {
+  it("never reaches the failure counter, even when the lock state changed during verification", async () => {
+    await account("correct");
+    const guard = loginGuard();
+    const failed = vi.spyOn(guard, "failed");
+    // The lock was seen as set at the start and has lapsed since, or is set now: either way a correct password is not a failure.
+    vi.spyOn(guard, "locked").mockResolvedValueOnce(true);
+    expect(await verifyOwnerCredentials({ email: email("correct"), password })).toBeNull();
+    vi.spyOn(guard, "succeeded").mockResolvedValueOnce(false);
+    expect(await verifyOwnerCredentials({ email: email("correct"), password })).toBeNull();
+    expect(failed).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+    expect(await verifyOwnerCredentials({ email: email("correct"), password })).not.toBeNull();
+  });
+});
+
 describe("owner guard in Postgres", () => {
   const guard = postgresLoginGuard();
   const quota = postgresMailboxQuota();
@@ -205,6 +222,19 @@ describe("owner guard in Postgres", () => {
     expect(GUARD_PREFIXES).toEqual(["acct:", "strike:", "lock:", "mbx:"]);
     expect(loginGuard()).toBeDefined();
     expect(mailboxQuota()).toBeDefined();
+  });
+
+  it("keeps guard rows out of the shared 10,000-bucket capacity, so a booking bucket is not evicted for them", async () => {
+    await db.rateLimitBucket.deleteMany({});
+    const first = await reserveRateLimit("bookings", `isolation-a-${run}`);
+    expect(first.count).toBe(1);
+    const far = new Date("2100-01-01T00:00:00Z");
+    await db.rateLimitBucket.createMany({ data: Array.from({ length: 10_000 }, (_, n) => ({ key: `${GUARD_PREFIXES[n % 4]}fill-${n}`, generation: "", count: 1, expiresAt: far })) });
+    // A new ordinary bucket would have evicted the oldest row before; now the table holds 10,000 guard rows and one ordinary bucket.
+    expect((await reserveRateLimit("bookings", `isolation-b-${run}`)).count).toBe(1);
+    expect((await reserveRateLimit("bookings", `isolation-a-${run}`)).count).toBe(2);
+    expect(await db.rateLimitBucket.count({ where: { key: { startsWith: "acct:" } } })).toBe(2500);
+    await db.rateLimitBucket.deleteMany({});
   });
 
   it("sweeps expired guard rows and leaves active ones and other buckets alone", async () => {

@@ -1,6 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { DomainError } from "./errors";
+import { GUARD_PREFIXES } from "./owner-guard-keys";
 
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
@@ -28,6 +29,7 @@ export async function reserveRateLimit(
       SELECT clock_timestamp() AS now`;
     await tx.$executeRaw`DELETE FROM "RateLimitBucket" WHERE "key" IN (
       SELECT "key" FROM "RateLimitBucket" WHERE "expiresAt" <= ${now}
+        AND "key" NOT LIKE 'acct:%' AND "key" NOT LIKE 'strike:%' AND "key" NOT LIKE 'lock:%' AND "key" NOT LIKE 'mbx:%'
       ORDER BY "expiresAt", "key" LIMIT 100
     )`;
     const previous = await tx.rateLimitBucket.findUnique({ where: { key } });
@@ -40,8 +42,11 @@ export async function reserveRateLimit(
       );
     if (!consume)
       return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
-    if (!previous && (await tx.rateLimitBucket.count()) >= 10000) {
+    // Owner guard rows have their own caps and never count towards this one or get evicted for it.
+    const ordinary = { NOT: GUARD_PREFIXES.map((prefix) => ({ key: { startsWith: prefix } })) };
+    if (!previous && (await tx.rateLimitBucket.count({ where: ordinary })) >= 10000) {
       const oldest = await tx.rateLimitBucket.findFirstOrThrow({
+        where: ordinary,
         orderBy: [{ expiresAt: "asc" }, { key: "asc" }],
       });
       await tx.rateLimitBucket.delete({ where: { key: oldest.key } });

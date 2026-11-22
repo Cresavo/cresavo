@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import type { Prisma } from "@prisma/client";
+import { GUARD_PREFIXES, LOCK_KEYS, MAILBOX_PREFIX } from "./owner-guard-keys";
 import { postgresStore } from "./rate-limit";
 
 // State for owner sign-in lockout and the reset-mail quota, kept apart from the shared rate-limit buckets:
@@ -129,11 +130,8 @@ export function memoryMailboxQuota(): MailboxQuota {
 
 // ---- Postgres ---------------------------------------------------------------------------------------------
 
-const LOCK_KEYS = ["acct:", "strike:", "lock:"] as const;
-const MAILBOX_PREFIX = "mbx:";
 const ADVISORY = "booking-lab:rate-store:v1";
-/** Every row this module writes starts with one of these; the sweep and the caps look only at them. */
-export const GUARD_PREFIXES = [...LOCK_KEYS, MAILBOX_PREFIX];
+export { GUARD_PREFIXES };
 
 function keyOf(prefix: string, email: string) {
   const secret = process.env.SESSION_SECRET;
