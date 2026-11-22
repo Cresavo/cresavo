@@ -17,6 +17,18 @@ const post = (path: string, length?: number) => proxy(new NextRequest(`https://c
   method: "POST", headers: length === undefined ? {} : { "content-length": String(length) }, body: "{}",
 }));
 
+// The self-hosted entry point refuses the same bodies before Next.js buffers them (it clones a body before it calls the proxy).
+it("refuses an oversized or unbounded owner action body at the HTTP entry point", async () => {
+  const { ownerActionRefusal, OWNER_ACTIONS_MAX_BODY_BYTES: cap } = await import("../scripts/owner-body-limit.mjs");
+  expect(cap).toBe(OWNER_ACTIONS_MAX_BODY_BYTES);
+  expect(ownerActionRefusal("POST", "/api/owner/salon/actions", { "content-length": String(cap + 1) })).toBe(413);
+  expect(ownerActionRefusal("POST", "/api/owner/salon/actions/?x=1", { "content-length": String(cap + 1) })).toBe(413);
+  expect(ownerActionRefusal("POST", "/api/owner/salon/actions", { "transfer-encoding": "chunked" })).toBe(411);
+  expect(ownerActionRefusal("POST", "/api/owner/salon/actions", { "content-length": String(cap) })).toBe(0);
+  expect(ownerActionRefusal("POST", "/api/concept/poster", { "content-length": String(cap + 1) })).toBe(0);
+  expect(ownerActionRefusal("GET", "/api/owner/salon/actions", {})).toBe(0);
+});
+
 it("refuses an owner action body that declares more than the route reads, before Next.js buffers it", async () => {
   const refused = post("/api/owner/salon/actions", OWNER_ACTIONS_MAX_BODY_BYTES + 1);
   expect(refused.status).toBe(413);

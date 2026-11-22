@@ -74,3 +74,67 @@ it("keeps Undo and move off provisional records until the server's answer, then 
   expect(shown.bookings.filter((b) => b.start === second && b.date === date && b.staffId === staffId)).toHaveLength(1);
   if (result.ok) expect(shown.log.find((l) => l.id === result.logId)).toBeDefined();
 });
+
+async function openTab(post: (action: DemoAction, index: number) => Promise<Response>) {
+  vi.resetModules();
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage: storage(), sessionStorage: storage(), setTimeout: () => 0 }));
+  vi.stubGlobal("document", { cookie: "" });
+  let posts = 0;
+  let reads = 0;
+  vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === "POST") return post(JSON.parse(String(init.body)).action as DemoAction, posts++);
+    reads++;
+    if (reads > 1) throw new Error("offline");
+    return Response.json({ state: opened });
+  }));
+  const hint = await import("@/concept/account/hint");
+  vi.spyOn(hint, "ownerHintPresent").mockReturnValue(true);
+  const sync = await import("@/concept/account/sync");
+  const store = await import("@/concept/store");
+  const commit = await import("@/concept/store/commit");
+  expect(await sync.openSignedInSalon()).toBe(true);
+  return { store, commit, sync };
+}
+
+const slots = () => {
+  const service = opened.services[0];
+  const all = freeStarts(opened, service.staffIds[0], date, { serviceId: service.id, duration: service.duration });
+  return [all[0], all.find((s) => s >= all[0] + service.duration + 60)!];
+};
+const visitAt = (at: number): DemoAction => {
+  const service = opened.services[0];
+  return { type: "booking/create", customerId: opened.customers[0].id, serviceId: service.id, staffId: service.staffIds[0], date, start: slots()[at], source: "phone" };
+};
+
+it("refuses an action on a booking a pending change made, before it is queued", async () => {
+  let release!: (response: Response) => void;
+  const answered = new Promise<Response>((resolve) => { release = resolve; });
+  const { store, commit } = await openTab(() => answered);
+  const pending = commit.commitAction(store.currentTarget()!, visitAt(0));
+  const provisional = store.currentState()!.bookings.find((b) => !opened.bookings.some((o) => o.id === b.id))!;
+  expect(store.dispatch({ type: "booking/cancel", id: provisional.id, reason: "test" })).toBe(false);
+  expect(store.dispatch({ type: "log/undo", id: store.currentState()!.log[0].id })).toBe(false);
+  expect(store.currentState()!.bookings.find((b) => b.id === provisional.id)!.status).toBe("booked");
+  release(Response.json({ error: "rejected" }, { status: 422 }));
+  await pending;
+});
+
+it("gives Undo the server's own log id for the change, not the one it was shown with", async () => {
+  const afterB = serverApply(structuredClone(opened), visitAt(0));
+  const afterA = serverApply(afterB, visitAt(1));
+  const { store, sync } = await openTab(async () => Response.json({ state: afterA, version: 3, replayed: false }));
+  expect(store.dispatch(visitAt(1))).toBe(true);
+  const request = store.accountRequestOfLog(store.currentState()!.log[0].id)!;
+  expect(request).toBeTruthy();
+  expect(await sync.serverLogId(request)).toBe(afterA.log[0].id);
+});
+
+it("shows the newest server copy when the last of several queued changes fails and the reload fails too", async () => {
+  const afterOne = serverApply(structuredClone(opened), visitAt(0));
+  const { store } = await openTab(async (_action, index) => index === 0 ? Response.json({ state: afterOne, version: 2, replayed: false }) : Response.json({ error: "rejected" }, { status: 422 }));
+  expect(store.dispatch(visitAt(0))).toBe(true);
+  expect(store.dispatch({ type: "card/dismiss", id: "second-change" })).toBe(true);
+  await vi.waitFor(() => expect(store.currentState()!.dismissedCards).not.toContain("second-change"));
+  await vi.waitFor(() => expect(store.accountRecordSettled("bookings", store.currentState()!.bookings.at(-1)!.id)).toBe(true));
+  expect(store.currentState()!.bookings.map((b) => b.id)).toEqual(afterOne.bookings.map((b) => b.id));
+});

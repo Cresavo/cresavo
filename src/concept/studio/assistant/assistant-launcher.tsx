@@ -11,6 +11,7 @@ import { currentRole, useRole } from "../../ops/role";
 import { dispatch } from "../../store";
 import { Button } from "../../ui/button";
 import { showToast } from "../../ui/toast";
+import { useSalonNow } from "../../use-now";
 import { useStudio } from "../use-studio";
 import { AssistantPanel } from "./assistant-panel";
 import { addMessages, messageId, openAssistant } from "./thread-store";
@@ -54,16 +55,19 @@ export function AssistantHeaderButton() {
 
 /** Runs switched-on routines on their schedule while the studio is open. Each run leaves a proposal in the panel. */
 function RoutineRunner() {
-  const { state, today, minutes } = useStudio();
+  const { state } = useStudio();
+  // The salon's clock, as the reducer judges it: a browser in another time zone must not try a slot early.
+  const { today, minutes } = useSalonNow();
   const role = useRole();
-  // A slot is handled once here: the server judges it by its own clock and may refuse one this clock is ahead on.
-  const handled = useRef(new Map<string, string>());
+  // One attempt per routine, slot and minute: a run the server refuses (its clock is behind this one) is tried again on a later tick, never in a loop.
+  const attempted = useRef(new Map<string, string>());
   useEffect(() => {
     if (role !== "owner") return;
     for (const routine of state.routines) {
       const slot = dueRun(routine, { today, minutes });
-      if (!slot || handled.current.get(routine.id) === slot) continue;
-      handled.current.set(routine.id, slot);
+      const attempt = `${slot} ${today} ${minutes}`;
+      if (!slot || attempted.current.get(routine.id) === attempt) continue;
+      attempted.current.set(routine.id, attempt);
       if (!dispatch({ type: "routine/ran", id: routine.id, at: slot })) continue;
       postRoutineRun(state, routine, { today, minutes });
       showToast(t("assistant.routine.ran", { name: routine.name }), { label: t("assistant.routine.show"), run: () => { if (currentRole() === "owner") openAssistant(); } });

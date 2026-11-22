@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { earliestBookingStart, LEAD_MINUTES } from "@/concept/booking/policy";
 import { createDemoState } from "@/concept/data/generate";
-import { isFree, pickResource } from "@/concept/data/slots";
+import { publicSalonView } from "@/concept/booking/public-projection";
+import { canBlock, freeGaps, freeStarts, isFree, pickResource } from "@/concept/data/slots";
 import type { Booking, DemoState } from "@/concept/data/types";
 
 // Availability around the Europe/Stockholm clock changes judges overlap and lead time in elapsed time.
@@ -77,6 +78,56 @@ describe("a normal day is judged as before", () => {
     const state = withVisit(visit("2027-04-04", 90, 60));
     expect(isFree(state, "anna", "2027-04-04", 120, need(30))).toBe(false);
     expect(isFree(state, "anna", "2027-04-04", 150, need(30))).toBe(true);
+  });
+});
+
+describe("blocks, gaps, shifts and fixed blocks on the clock-change nights", () => {
+  const spring = "2027-03-28";
+  const autumn = "2027-10-31";
+  const closing = (hours: number) => ({
+    ...night, bookings: [] as Booking[],
+    salon: { ...night.salon, hours: { ...night.salon.hours, 0: { open: 0, close: hours * 60 } } },
+    staff: night.staff.map((s) => ({ ...s, week: { ...s.week, 0: { start: 0, end: hours * 60 } } })),
+  });
+
+  it("refuses a block over time a visit really occupies and reports the gap in elapsed terms", () => {
+    const state = withVisit(visit(spring, 90, 60));
+    expect(canBlock(state, "anna", spring, 180, 210)).toBe(false);
+    expect(canBlock(state, "anna", spring, 210, 240)).toBe(true);
+    expect(canBlock(state, "anna", spring, 30, 90)).toBe(true);
+    expect(freeGaps(state, "anna", spring, { min: 1 }).slice(0, 2)).toEqual([{ start: 0, end: 90 }, { start: 210, end: 1440 }]);
+  });
+
+  it("judges the end of a visit against the shift in elapsed time", () => {
+    // Closing at 03:00 on the spring night: 01:30 + 60 minutes ends at 03:30 on the wall clock, after closing.
+    expect(isFree(closing(3), "anna", spring, 90, need(60))).toBe(false);
+    expect(isFree(closing(3), "anna", spring, 30, need(60))).toBe(true);
+    expect(freeStarts(closing(3), "anna", spring, need(60)).at(-1)).toBe(60);
+    // Autumn: 02:30 CEST + 60 minutes ends at 02:30 CET, well before a 03:00 close.
+    expect(isFree(closing(3), "anna", autumn, 150, need(60))).toBe(true);
+  });
+
+  it("keeps a fixed block that starts in the skipped hour in force from the jump", () => {
+    const state = { ...night, blocks: [{ id: "blk", staffId: "anna" as const, date: spring, start: 150, end: 210, reason: "admin" as const }] };
+    expect(isFree(state, "anna", spring, 180, need(30))).toBe(false);
+    expect(isFree(state, "anna", spring, 210, need(30))).toBe(true);
+  });
+
+  it("tells the repeated hour's second 02:30 from the first when the trusted instant is known", () => {
+    const second = Date.parse("2027-10-31T01:30:00Z"); // 02:30 CET, the second pass
+    const first = Date.parse("2027-10-30T23:30:00Z"); // 02:30 CEST
+    expect(earliestBookingStart("2027-10-31", "2027-10-31", 150, second)).toBe(210);
+    expect(earliestBookingStart("2027-10-31", "2027-10-31", 150, first)).toBe(180);
+    // An instant that names another minute is ignored.
+    expect(earliestBookingStart("2027-10-31", "2027-10-31", 150, Date.parse("2027-10-31T05:00:00Z"))).toBe(180);
+  });
+
+  it("projects a completed visit's timing as the store judges it", () => {
+    const completed = visit("2027-04-04", 600, 60, { status: "completed", bufferAfter: 120 });
+    const state = withVisit(completed);
+    expect(isFree(state, "anna", "2027-04-04", 720, need(30))).toBe(true);
+    const projected = publicSalonView(state, new Date("2027-04-01T08:00:00Z"));
+    expect(isFree(projected, "anna", "2027-04-04", 720, need(30))).toBe(true);
   });
 });
 

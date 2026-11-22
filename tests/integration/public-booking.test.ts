@@ -228,6 +228,40 @@ describe("the salon's allowance and account flag, under the store's lock", () =>
     // The owner's own changes are not public writes and still go through.
     expect((await holder.store.apply(salon.tenantId, { type: "card/dismiss", id: "owner-still-writes" })).ok).toBe(true);
   });
+
+  it("makes switching the account off wait for a booking that already checked it", async () => {
+    const salon = await newSalon();
+    let checked!: () => void;
+    const reached = new Promise<void>((resolve) => { checked = resolve; });
+    let proceed!: () => void;
+    const hold = new Promise<void>((resolve) => { proceed = resolve; });
+    const booking = holder.store.apply(salon.tenantId, guest(salon, 540), { actor: "customer", source: "customer-page" }, {
+      requireActiveAccount: true, beforeCommit: async () => { checked(); await hold; },
+    });
+    await reached;
+    let switchedOff = false;
+    const off = db.ownerAccount.updateMany({ where: { tenantId: salon.tenantId }, data: { active: false } }).then(() => { switchedOff = true; });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(switchedOff).toBe(false);
+    proceed();
+    expect((await booking).ok).toBe(true);
+    await off;
+    expect(switchedOff).toBe(true);
+  });
+
+  it("keeps the shared rate store within its 10,000 buckets when a salon's first reservation commits", async () => {
+    const salon = await newSalon();
+    const marker = `capacity-${run}`;
+    await db.$executeRawUnsafe(`INSERT INTO "RateLimitBucket" ("key", "generation", "count", "expiresAt")
+      SELECT '${marker}-' || g, 'g', 1, now() + interval '2 hours' FROM generate_series(1, 10000 - (SELECT count(*) FROM "RateLimitBucket")::int) g`);
+    try {
+      expect((await db.rateLimitBucket.count())).toBeGreaterThanOrEqual(10000);
+      expect((await bookIn(salon, { start: 540 })).status).toBe(201);
+      expect(await db.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
+    } finally {
+      await db.$executeRawUnsafe(`DELETE FROM "RateLimitBucket" WHERE "key" LIKE '${marker}-%'`);
+    }
+  });
 });
 
 const onlineAtOf = async (tenant: string, start: number) =>

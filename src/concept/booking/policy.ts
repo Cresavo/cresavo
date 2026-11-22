@@ -6,13 +6,20 @@ import { DEFAULT_POLICY } from "./protection";
 export const FREE_CHANGE_HOURS = DEFAULT_POLICY.freeHours;
 export const LEAD_MINUTES = 60;
 
+const sameMinute = (instant: number, today: DateKey, minutes: number) => {
+  const local = DateTime.fromMillis(instant, { zone: SALON_TIMEZONE });
+  return local.toISODate() === today && local.hour * 60 + local.minute === minutes;
+};
+
 /**
  * The first start time on `date` (minutes of that day's wall clock) a booking made at `today` `minutes`
  * may have. The lead time is elapsed time, so across a clock change it is not the wall-clock sum;
  * on every other day this is `minutes + LEAD_MINUTES` counted from midnight of `date`.
  */
-export function earliestBookingStart(date: DateKey, today: DateKey, minutes: number): number {
-  const at = visitTime({ date: today, start: minutes }).toMillis() + LEAD_MINUTES * 60_000;
+export function earliestBookingStart(date: DateKey, today: DateKey, minutes: number, instant?: number): number {
+  // The wall clock alone cannot tell the repeated hour's two passes apart: a trusted instant that says the same minute settles it.
+  const known = instant !== undefined && sameMinute(instant, today, minutes) ? instant : visitTime({ date: today, start: minutes }).toMillis();
+  const at = known + LEAD_MINUTES * 60_000;
   const midnight = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).startOf("day");
   const target = DateTime.fromMillis(at, { zone: SALON_TIMEZONE });
   let wall = Math.round((at + target.offset * 60_000 - midnight.toMillis() - midnight.offset * 60_000) / 60_000);

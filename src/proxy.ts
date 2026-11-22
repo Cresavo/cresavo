@@ -89,8 +89,9 @@ const OWNER_ACTIONS_PATH = "/api/owner/salon/actions";
 export const OWNER_ACTIONS_MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024;
 
 /**
- * Next.js clones and buffers a proxied request's body (10 MiB by default) before the route can enforce its own
- * cap, so a body that declares more than the route would ever read is refused here, before any of it is read.
+ * Next.js clones and buffers a proxied request's body (10 MiB by default) before it calls this proxy, so the
+ * self-hosted HTTP entry point (`scripts/server.mjs`, `scripts/owner-body-limit.mjs`) refuses an oversized body
+ * first. This is the second line, for any other way of running the app: it refuses what the route would never read.
  */
 function ownerActionsTooLarge(request: NextRequest) {
   if (request.method !== "POST" || request.nextUrl.pathname.replace(/\/+$/, "") !== OWNER_ACTIONS_PATH) return;

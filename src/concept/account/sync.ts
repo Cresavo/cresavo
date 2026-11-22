@@ -28,6 +28,28 @@ export type Answer =
 
 const waiters = new Map<string, (answer: Answer) => void>();
 
+/** The newest salon the server answered with since the queue was last empty, and whether the screen already shows a server copy at least as new. */
+let latestAnswer: DemoState | null = null;
+let reconciled = true;
+
+// The log entry the server made for a change, by request id: the id the change was shown with here is provisional.
+const answeredLogs = new Map<string, Promise<string | null>>();
+const logSettlers = new Map<string, (id: string | null) => void>();
+
+/** Resolves with the server's log id for the change sent under this request id, or null when it logged none or was refused. */
+export function serverLogId(requestId: string): Promise<string | null> {
+  return answeredLogs.get(requestId) ?? Promise.resolve(null);
+}
+
+function expectLog(requestId: string) {
+  if (answeredLogs.size > 200) {
+    const oldest = answeredLogs.keys().next().value!;
+    answeredLogs.delete(oldest);
+    logSettlers.delete(oldest);
+  }
+  answeredLogs.set(requestId, new Promise((resolve) => { logSettlers.set(requestId, resolve); }));
+}
+
 export const newRequestId = () => crypto.randomUUID().replaceAll("-", "");
 
 /**
@@ -77,13 +99,15 @@ async function readSalon(): Promise<{ state: DemoState } | null> {
 /** Shows the server's copy again. When it cannot be read, the change that was not saved is taken off the screen if nothing newer is shown. */
 async function reload(change: AccountChange) {
   const salon = await readSalon().catch(() => null);
-  if (salon) replaceAccountSalon(salon.state);
+  if (salon) { replaceAccountSalon(salon.state); reconciled = true; }
   else restoreAccountSalon(change);
 }
 
 function send(action: DemoAction, change: AccountChange) {
   const idempotencyKey = change.requestId ?? newRequestId();
+  if (pending === 0) { latestAnswer = null; reconciled = false; }
   pending++;
+  expectLog(idempotencyKey);
   queue = queue.then(async () => {
     let answer: Answer = { ok: false, reason: "unavailable" };
     try {
@@ -97,7 +121,9 @@ function send(action: DemoAction, change: AccountChange) {
       if (response.ok && body?.state) {
         answer = { ok: true, state: body.state, version: body.version, replayed: !!body.replayed };
         // Later changes are already shown; the last answer brings the salon in step.
-        if (pending === 1) replaceAccountSalon(body.state);
+        latestAnswer = body.state;
+        logSettlers.get(idempotencyKey)?.(body.state.log[0]?.id ?? null);
+        if (pending === 1) { replaceAccountSalon(body.state); reconciled = true; }
         return;
       }
       answer = { ok: false, reason: body?.error === "idempotency-mismatch" ? "idempotency-mismatch" : REFUSALS[response.status] ?? "rejected" };
@@ -108,6 +134,10 @@ function send(action: DemoAction, change: AccountChange) {
       showToast(t("account.sync.offline"));
     } finally {
       pending--;
+      logSettlers.get(idempotencyKey)?.(null);
+      logSettlers.delete(idempotencyKey);
+      // A last change that failed leaves the screen on an earlier optimistic state: the newest server copy replaces it.
+      if (pending === 0 && !reconciled && latestAnswer) { replaceAccountSalon(latestAnswer); reconciled = true; }
       waiters.get(idempotencyKey)?.(answer);
       waiters.delete(idempotencyKey);
     }

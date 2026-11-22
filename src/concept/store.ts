@@ -496,6 +496,8 @@ export function dispatchWithLog(
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
     const action = typeof build === "function" ? build(current) : build;
+    // An account change that names a record a pending change made would reach the server under an id it may give to another record.
+    if (workspace === "account" && namesProvisionalRecord(action)) return false;
     const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
     const batch = stageDemoSends(workspace);
     const next = withDemoChannels(batch, () => {
@@ -514,12 +516,20 @@ export function dispatchWithLog(
     let published: OutboxEntry[] = [];
     // The server sends what an account salon's change sends; this tab only shows it.
     if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
-    if (workspace === "account") accountBase ??= current;
-    if (workspace === "account") accountChanged?.(action, { requestId: options.requestId, before: current, after: next, epoch: snapshots.account.epoch });
+    const logId = next.log[0]?.id;
+    const localLogId = logId !== current.log[0]?.id ? logId ?? null : null;
+    if (workspace === "account") {
+      accountBase ??= current;
+      const requestId = options.requestId ?? crypto.randomUUID().replaceAll("-", "");
+      if (localLogId) {
+        if (accountLogRequests.size > 200) accountLogRequests.delete(accountLogRequests.keys().next().value!);
+        accountLogRequests.set(localLogId, requestId);
+      }
+      accountChanged?.(action, { requestId, before: current, after: next, epoch: snapshots.account.epoch });
+    }
     options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
-    const logId = next.log[0]?.id;
-    return logId !== current.log[0]?.id ? logId ?? null : null;
+    return localLogId;
   }
 }
 
@@ -677,6 +687,18 @@ let accountBase: DemoState | undefined;
  * False for a booking or log entry that a still-pending change of the open account salon made: its id is
  * only provisional until the server answers, so Undo and move must not act on it yet.
  */
+/** The request id an account change was sent under, by the log id the change was shown with here (provisional until the server answers). */
+const accountLogRequests = new Map<string, string>();
+export const accountRequestOfLog = (localLogId: string) => accountLogRequests.get(localLogId);
+
+/** True for an action on a booking or log entry that a pending change made: `booking/*` and `log/undo` ids. */
+function namesProvisionalRecord(action: DemoAction): boolean {
+  const id = (action as { id?: unknown }).id;
+  if (typeof id !== "string") return false;
+  if (action.type === "log/undo") return !accountRecordSettled("log", id);
+  return action.type.startsWith("booking/") && !accountRecordSettled("bookings", id);
+}
+
 export function accountRecordSettled(collection: "bookings" | "log", id: string): boolean {
   return !accountBase || active !== "account" || accountBase[collection].some((record) => record.id === id);
 }

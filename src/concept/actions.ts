@@ -285,7 +285,7 @@ function atOnlineLimit(state: DemoState, phone: string, at: OnlineGuest["at"]): 
 
 function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
   const { at } = action.guest;
-  if (action.date < at.date || action.date > addDays(at.date, PUBLIC_WINDOW_DAYS) || action.start < earliestBookingStart(action.date, at.date, at.time)) return state;
+  if (action.date < at.date || action.date > addDays(at.date, PUBLIC_WINDOW_DAYS) || action.start < earliestBookingStart(action.date, at.date, at.time, now)) return state;
   if (action.type === "online/book" && atOnlineLimit(state, action.guest.phone, at)) return state;
   const service = bookableServices(state).find(s => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;

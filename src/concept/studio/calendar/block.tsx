@@ -39,6 +39,8 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
     { key: "before", minutes: booking.bufferBefore ?? 0, style: { bottom: "100%", height: (booking.bufferBefore ?? 0) * scale } },
     { key: "after", minutes: booking.bufferAfter ?? 0, style: { top: "100%", height: (booking.bufferAfter ?? 0) * scale } },
   ].filter((buffer) => buffer.minutes > 0);
+  // Until the server answers, a booking a pending change made has only a provisional id: it cannot be opened or moved yet.
+  const settled = accountRecordSettled("bookings", booking.id);
   const anna = booking.staffId === "anna";
   const onDragStart = (event: DragEvent) => {
     event.dataTransfer.setData(DRAG_TYPE, booking.id);
@@ -50,9 +52,10 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         variant="tertiary"
         size="sm"
         align="start"
-        draggable={accountRecordSettled("bookings", booking.id)}
+        draggable={settled}
         onDragStart={onDragStart}
-        onClick={onOpen}
+        onClick={settled ? onOpen : undefined}
+        aria-disabled={!settled || undefined}
         className={cx(
           "h-full w-full !items-start overflow-hidden border-l-2 !px-1 !text-minimum",
           anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
