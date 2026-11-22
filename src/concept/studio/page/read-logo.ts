@@ -5,7 +5,7 @@ const MAX_WIDTH = 320;
 const MAX_HEIGHT = 120;
 
 /** A picked image file as a small data URL for the header, plus its main colours. Null when it cannot be read or stays too large. */
-export async function readLogo(file: File): Promise<{ logo: string; logoColors: string[] } | null> {
+export async function readLogo(file: Blob): Promise<{ logo: string; logoColors: string[] } | null> {
   if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return null;
   try {
     const bitmap = await createImageBitmap(file);

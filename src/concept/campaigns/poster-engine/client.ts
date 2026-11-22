@@ -3,6 +3,7 @@ import { bookingHome } from "../../booking/links";
 import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
+import { libraryIdOf, posterPhotoRef } from "../../../lib/media/limits";
 import { usesPhoto } from "../poster-layout";
 import { applyLightContrast, applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "./tone";
 
@@ -143,11 +144,22 @@ export const qrFor = (format: PosterFormat, social: boolean, link: string | unde
   format === "window" || social ? qrTarget(link, slug, origin) : undefined;
 const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.elegant.heading]);
 
-/** The request body for one poster. */
-export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext) {
+/**
+ * A library photo the renderer may read itself (`media:<id>`): the owner's untouched photo, unless a tone is
+ * applied or a portrait needs to know whether it is a cut-out, which only the browser works out.
+ */
+const libraryRef = (poster: CampaignPoster, url: string | undefined) => {
+  const id = libraryIdOf(url);
+  return id && isNeutralTone(poster.photoTone) && poster.style !== "portrait" ? posterPhotoRef(id) : undefined;
+};
+
+/** The request body for one poster. With `library`, a library photo is named rather than sent. */
+export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext, { library = false } = {}) {
   const language = context.language ?? getActiveLocale();
+  const ref = library ? libraryRef(poster, poster.image) : undefined;
+  const beforeRef = library ? libraryRef(poster, poster.before) : undefined;
   // Type only has no photo: nothing is fetched, decoded or sent.
-  const photo = usesPhoto(poster.style) ? await posterPhoto(poster.image, poster.photoTone) : undefined;
+  const photo = usesPhoto(poster.style) ? (ref ? { src: ref, cutout: false } : await posterPhoto(poster.image, poster.photoTone)) : undefined;
   const qr = qrFor(format, !!poster.socialQr, context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
   const { rating } = context;
   return {
@@ -168,7 +180,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
       ...(photo && { photo: photo.src }),
       cutout: poster.style === "portrait" && !!photo?.cutout,
-      ...(poster.style === "beforeafter" && poster.before && { before: (await posterPhoto(poster.before, poster.photoTone)).src }),
+      ...(poster.style === "beforeafter" && poster.before && { before: beforeRef ?? (await posterPhoto(poster.before, poster.photoTone)).src }),
       ...(poster.style === "portrait" && { lead: cut(poster.lead ?? "", 30), backdrop: poster.backdrop ?? "bloom" }),
       pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
       focus: poster.focus ?? "center",
@@ -191,18 +203,31 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
 
 const svgs = new Map<string, Promise<string>>();
 
+/** The renderer could not draw a named library photo (a WebP, or one too large); the browser sends a copy instead. */
+class LibraryPhotoUnsuitable extends Error {}
+
 /** The poster's SVG from the server; the same request twice is fetched once. */
 export function fetchPosterSvg(body: Awaited<ReturnType<typeof engineRequest>>): Promise<string> {
   const key = JSON.stringify(body);
   let cached = svgs.get(key);
   if (!cached) {
     cached = fetch("/api/concept/poster", { method: "POST", headers: { "content-type": "application/json" }, body: key })
-      .then((response) => (response.ok ? response.text() : Promise.reject(new Error(`Poster ${response.status}`))));
+      .then((response) => (response.ok ? response.text() : Promise.reject(response.status === 422 && key.includes('"media:') ? new LibraryPhotoUnsuitable() : new Error(`Poster ${response.status}`))));
     cached.catch(() => svgs.delete(key));
     if (svgs.size > 40) svgs.delete(svgs.keys().next().value!);
     svgs.set(key, cached);
   }
   return cached;
+}
+
+/** The poster's SVG. A library photo is read by the renderer itself when it can draw it, and sent from here when it cannot. */
+export async function posterSvg(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext): Promise<string> {
+  try {
+    return await fetchPosterSvg(await engineRequest(poster, format, kicker, context, { library: true }));
+  } catch (error) {
+    if (!(error instanceof LibraryPhotoUnsuitable)) throw error;
+    return fetchPosterSvg(await engineRequest(poster, format, kicker, context));
+  }
 }
 
 let mounted = 0;
