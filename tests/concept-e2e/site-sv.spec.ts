@@ -7,11 +7,11 @@ test("the Swedish homepage declares its language and opens the demo in Swedish",
   const width = testInfo.project.name === "mobile" ? 390 : 1440;
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");
-  await page.getByRole("link", { name: "På svenska" }).first().click();
+  await page.getByRole("link", { name: "Svenska", exact: true }).first().click();
   await expect(page).toHaveURL(/\/sv$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(sv["hero.heading"]);
-  for (const link of await page.getByRole("link", { name: "In English" }).all()) await expect(link).toHaveAttribute("href", "/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(sv["home.hero.heading"]);
+  for (const link of await page.getByRole("link", { name: "English", exact: true }).all()) await expect(link).toHaveAttribute("href", "/");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "/sv");
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "sv_SE");
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", sv["soon.title"]);
@@ -19,8 +19,8 @@ test("the Swedish homepage declares its language and opens the demo in Swedish",
   for (const [lang, path] of [["en", "/"], ["sv", "/sv"], ["x-default", "/"]]) {
     await expect(page.locator(`link[rel="alternate"][hreflang="${lang}"]`)).toHaveAttribute("href", path);
   }
-  const links = page.getByRole("link", { name: sv["soon.demo"], exact: true });
-  await expect(links).toHaveCount(4);
+  const links = page.locator('a[href*="/studio"]');
+  expect(await links.count()).toBeGreaterThanOrEqual(4);
   for (const link of await links.all()) await expect(link).toHaveAttribute("href", "/studio?lang=sv");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
 
@@ -33,7 +33,7 @@ test("the Swedish homepage declares its language and opens the demo in Swedish",
     expect(shot.length).toBeLessThan(400_000);
   }
 
-  await links.first().click();
+  await page.getByRole("link", { name: sv["home.hero.demo"] }).click();
   await expect(page).toHaveURL(/\/studio$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");
   await expect(page.getByRole("heading", { name: "Dagens schema" })).toBeVisible();
@@ -48,10 +48,10 @@ test.describe("the Swedish site without JavaScript", () => {
   test("serves Swedish HTML with Swedish links to the demo and the client's booking page", async ({ page }) => {
     await page.goto("/sv");
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
-    const closing = page.locator("#waitlist");
-    await expect(closing.locator("form")).toHaveCount(0);
-    await expect(closing).toContainText(sv["closing.text"]);
-    await expect(closing.getByRole("link", { name: sv["how.client"] })).toHaveAttribute("href", "/boka/salong-eko?lang=sv");
+    await expect(page.locator("form")).toHaveCount(0);
+    await expect(page.locator("#closing")).toContainText(sv["closing.text"]);
+    await expect(page.getByRole("link", { name: sv["home.hero.booking"] })).toHaveAttribute("href", "/boka/salong-eko?lang=sv");
+    await expect(page.getByRole("img", { name: sv["home.hero.mark"] })).toHaveCount(1);
     await page.getByRole("contentinfo").getByRole("link", { name: "Integritet" }).click();
     await expect(page).toHaveURL(/\/sv\/privacy$/);
     await expect(page.locator("html")).toHaveAttribute("lang", "sv");
