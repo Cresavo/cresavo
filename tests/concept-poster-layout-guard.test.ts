@@ -328,3 +328,13 @@ describe("poster layout guard", () => {
     });
   });
 });
+
+describe("review follow-ups", () => {
+  it("keeps every word of a hyphenated headline by going a little below the floor before cutting", async () => {
+    const { fitText } = await import("@/concept/campaigns/poster-engine/measure");
+    const fit = fitText({ text: "Välkommen till Massage-fotvård-nagelvård", font: "black", room: 952, max: 173, floor: 83, lineHeight: 0.98, maxLines: 2 });
+    const { wrapText } = await import("@/concept/campaigns/poster-engine/measure");
+    expect(wrapText("Välkommen till Massage-fotvård-nagelvård", "black", fit.size, 952, fit.spacing).length).toBeLessThanOrEqual(2);
+    expect(fit.size).toBeGreaterThanOrEqual(Math.floor(83 * 0.7));
+  });
+});

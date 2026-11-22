@@ -71,8 +71,9 @@ const SAFETY = 0.95;
 
 /**
  * The largest size from `max` down to `floor` at which `text` wraps into at most `maxLines` lines that stay within
- * `maxHeight`, with no word wider than `room` (and 5 % to spare). When none does, the size is the floor (smaller only
- * for a word that would run off the poster) and `lines` is the number of lines that fit, for the caller to clamp with an ellipsis.
+ * `maxHeight`, with no word wider than `room` (and 5 % to spare). When none does, the size goes below the floor, to at most
+ * 70 % of it, until the whole text fits (further only for a word that would run off the poster); `lines` is the number of
+ * lines that fit, for the caller to clamp with an ellipsis when even that is not enough.
  */
 export function fitText({ text, font, room, max, floor, lineHeight, maxLines = Infinity, maxHeight = Infinity, tracking = 0, oneLine = false }: FitOptions): { size: number; lines: number; spacing: number } {
   const parts = oneLine ? [text] : pieces(text).flat();
@@ -84,5 +85,8 @@ export function fitText({ text, font, room, max, floor, lineHeight, maxLines = I
   }
   let size = floor;
   while (size > 1 && !wordsFit(size)) size--;
+  // Whole words beat an ellipsis: when the text needs more lines than allowed, keep shrinking, down to 70 % of the floor.
+  const fits = (at: number) => linesAt(at) <= maxLines && linesAt(at) * at * lineHeight <= maxHeight;
+  for (let smaller = size - 1; !fits(size) && smaller >= Math.floor(floor * 0.7); smaller--) if (wordsFit(smaller)) size = smaller;
   return { size, lines: Math.max(1, Math.min(maxLines, Math.floor(maxHeight / (size * lineHeight)), linesAt(size))), spacing: spacingAt(size) };
 }

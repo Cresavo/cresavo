@@ -515,6 +515,9 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
   const qrOnText = Boolean(placement && !placement.clear);
   const qrShift = data.signature.qr && qrOnText ? 174 : 0;
   const footerRoom = (qrOnText ? narrow : width - 128 - 180) - qrShift;
+  // The link and phone shrink a little (36 to 26 px) before anything is cut, so a narrow column still shows the whole number.
+  const footerLine = [data.signature.link, data.signature.phone].filter(Boolean).join("  ·  ");
+  const footerSize = Math.max(26, fitText({ text: footerLine, font: "extrabold", room: footerRoom, max: 36, floor: 26, lineHeight: 1.2, maxLines: 1, oneLine: true }).size);
   return box({ width, height, position: "relative", fontFamily: "Inter", color: CREAM },
     svgImage(backdropSvg(data.backdrop, width, height, data.colors.accent), { position: "absolute", left: 0, top: 0, width, height }),
     person,
@@ -531,7 +534,7 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
       ...(detail ? [text({ display: "block", fontSize: detail.size, fontWeight: 600, lineHeight: 1.25, marginTop: 28, maxWidth: blockColumn, lineClamp: detail.lines }, data.detail)] : []),
       ...(cta ? [text({ display: "block", fontSize: cta.size, fontWeight: 600, lineHeight: 1.25, color: GOLD, marginTop: 14, maxWidth: blockColumn, lineClamp: 1 }, data.cta)] : [])),
     box({ position: "absolute", ...side(MARGIN + qrShift), bottom: safe + 104, width: qrOnText ? narrow - qrShift : width - 128 - (data.signature.qr ? 170 : 0), height: 2, background: CREAM, opacity: 0.4 }),
-    text({ display: "block", position: "absolute", ...side(MARGIN + qrShift), bottom: safe + 40, maxWidth: footerRoom, fontSize: 36, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: shadow }, [data.signature.link, data.signature.phone].filter(Boolean).join("  ·  ")),
+    text({ display: "block", position: "absolute", ...side(MARGIN + qrShift), bottom: safe + 40, maxWidth: footerRoom, fontSize: footerSize, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: shadow }, footerLine),
     ...(data.signature.qr ? [box({ position: "absolute", ...(mirrored !== qrOnText ? { left: MARGIN } : { right: MARGIN }), bottom: safe }, qrCode(data.signature.qr, 150))] : []));
 }
 
