@@ -579,7 +579,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "routine/toggle":
     case "routine/ran":
     case "customers/message":
-      return applyAssistant(state, action);
+      return applyAssistant(state, action, now);
     case "page/set":
     case "salon/slug":
     case "domain/connect":

@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import type { z } from "zod";
 import { onlineChangeBlock, type DemoAction, type ExpectedVisit, type PublicChange } from "@/concept/actions";
 import { publicBookingView } from "@/concept/booking/public-booking-view";
-import type { StaffId } from "@/concept/data/types";
+import type { Booking, StaffId } from "@/concept/data/types";
 import { waitlistClientKey } from "@/concept/site/waitlist-server";
 import { scopedIdempotencyKey } from "@/concept/store/idempotency";
 import { verifyBookingLink } from "./booking-token";
@@ -10,7 +10,7 @@ import { readBoundedJson } from "./bounded-json";
 import { loadPublicTenant } from "./public-booking";
 import { MAX_MANAGE_BODY_BYTES } from "./public-booking-request";
 import { publicError, publicOk, publicRoute } from "./public-http";
-import { checkRateLimit } from "./rate-limit";
+import { checkRateLimit, reserveTenantQuota } from "./rate-limit";
 import { idempotencyKeySchema } from "./validation";
 
 // The one path of a customer's cancel and move from the link in their e-mail.
@@ -19,6 +19,10 @@ import { idempotencyKeySchema } from "./validation";
 
 /** The token of a request body, or "" when it has none; whatever else the body holds is the schema's to judge. */
 const tokenOf = (json: unknown) => json && typeof json === "object" && typeof (json as { token?: unknown }).token === "string" ? (json as { token: string }).token : "";
+
+/** Whether the link's token opens this snapshot's booking now: the one rule of the view, so the refusal path asks it of its own snapshot too. */
+const linkOpens = (token: string, tenantId: string, ref: string, booking: Booking) =>
+  verifyBookingLink(token, { tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage" }, booking);
 
 /** The parts every change shares. The times are placeholders: the store stamps its own clock under the lock. */
 type Common = { at: { date: "1970-01-01"; time: 0 }; instant: 0; public: PublicChange; expected: ExpectedVisit };
@@ -35,7 +39,7 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
     const found = await loadPublicTenant(slug.toLowerCase());
     const booking = found?.state.bookings.find((b) => b.publicRef === ref);
     const token = tokenOf(json);
-    if (!found || !booking || !token || !verifyBookingLink(token, { tenantId: found.tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage" }, booking)) {
+    if (!found || !booking || !token || !linkOpens(token, found.tenantId, ref, booking)) {
       return publicError("not_found", 404);
     }
     const key = idempotencyKeySchema.safeParse(request.headers.get("idempotency-key"));
@@ -48,8 +52,9 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
     const { ownerStore } = await import("@/lib/owner-store");
     const result = await ownerStore().apply(found.tenantId, action, { actor: "customer", source: "customer-page" }, {
       idempotencyKey: scopedIdempotencyKey(action.type === "online/cancel" ? "booking-cancel" : "booking-move", key.data),
-      // The salon's allowance is taken by each new change under the salon's lock, after a retry has been recognised: a committed retry gets its receipt, and no two can take the last one.
-      beforeCommit: async () => void await checkRateLimit("public-tenant", found.tenantId),
+      // The salon's allowance is taken by each new change inside the store's transaction, under the salon's lock and after a retry has been recognised: a committed retry gets its receipt, no two can take the last one, and a commit that fails keeps none. The account is checked under the same lock.
+      requireActiveAccount: true,
+      beforeCommit: (transaction) => reserveTenantQuota(found.tenantId, transaction),
     });
     if (result.ok) {
       const changed = result.state.bookings.find((b) => b.id === booking.id);
@@ -60,6 +65,9 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
       // The reducer refused: say what stands in the way, or else that the time cannot be had.
       const current = await loadPublicTenant(slug.toLowerCase());
       if (current?.tenantId !== found.tenantId) return publicError("not_found", 404);
+      // The salon may have moved the visit earlier meanwhile: the link then expires with it, as the view says.
+      const latest = current.state.bookings.find((b) => b.id === booking.id);
+      if (!latest || !linkOpens(token, found.tenantId, ref, latest)) return publicError("not_found", 404);
       return publicError(onlineChangeBlock(current.state, booking.id, address, Date.now(), expected) ?? "slot_unavailable", 409);
     }
     if (result.reason === "not-found") return publicError("not_found", 404);

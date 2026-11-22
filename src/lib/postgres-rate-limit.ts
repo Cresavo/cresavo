@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { DomainError } from "./errors";
 
@@ -8,18 +9,45 @@ export const rateLimitDatabase = createDatabaseClient(undefined, 1);
 type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant";
 export type Reservation = { key: string; generation: string; count: number };
 
+function bucketKey(route: Route, identity: string) {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
+  return createHmac("sha256", secret).update(`rate-limit:v1:${route}:${identity}`).digest("hex");
+}
+
+const limitOf = (route: Route) =>
+  route === "login" || route === "signup" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : 60;
+
+/**
+ * Takes one unit of a bucket inside the caller's own transaction, so the unit is kept only when that
+ * transaction commits: a booking that fails after its allowance was taken gives it back by rolling
+ * back. The bucket's own lock is per key and held until the caller's transaction ends; it is taken
+ * after the caller's row locks and nothing that holds it waits for them. At the limit this throws
+ * the same 429 as `reserveRateLimit`.
+ */
+export async function reserveRateLimitIn(tx: Prisma.TransactionClient, route: Route, identity: string) {
+  const key = bucketKey(route, identity);
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`booking-lab:rate-bucket:v1:${key}`}, 0))`;
+  const [{ now }] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
+  const previous = await tx.rateLimitBucket.findUnique({ where: { key } });
+  const active = previous && previous.expiresAt > now ? previous : null;
+  if (active && active.count >= limitOf(route))
+    throw new DomainError("Too many attempts. Please try again later.", 429, Math.max(1, Math.ceil((active.expiresAt.getTime() - now.getTime()) / 1000)));
+  const value = {
+    generation: active?.generation ?? randomUUID(),
+    expiresAt: active?.expiresAt ?? new Date(now.getTime() + (route === "public-tenant" ? 60 : 15) * 60_000),
+    count: (active?.count ?? 0) + 1,
+  };
+  await tx.rateLimitBucket.upsert({ where: { key }, create: { key, ...value }, update: value });
+}
+
 export async function reserveRateLimit(
   route: Route,
   identity: string,
   consume = true,
 ): Promise<Reservation> {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
-  const key = createHmac("sha256", secret)
-    .update(`rate-limit:v1:${route}:${identity}`)
-    .digest("hex");
-  const limit =
-    route === "login" || route === "signup" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : 60;
+  const key = bucketKey(route, identity);
+  const limit = limitOf(route);
   return rateLimitDatabase.$transaction(async (tx) => {
     // Small bounded preview store. This lock has no domain/session dependencies;
     // it is released before credential verification or booking processing.

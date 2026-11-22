@@ -10,7 +10,7 @@ import { cx } from "../../ui/cx";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useStudio } from "../use-studio";
 import { BookingBlock } from "./block";
-import { calendarScale, HourLines, TimeAxis } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
 
 const PX_PER_MIN = 0.9;
 
@@ -19,9 +19,9 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   const { state, today } = useStudio();
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const open = days.map((d) => openingFor(state.salon, d)).filter((h) => h !== null);
-  const from = open.length ? Math.min(...open.map((h) => h.open)) : 0;
-  const to = open.length ? Math.max(...open.map((h) => h.close)) : from;
+  const opening = open.length ? { from: Math.min(...open.map((h) => h.open)), to: Math.max(...open.map((h) => h.close)) } : { from: 0, to: 0 };
   const columns = days.map(day => staff.map(person => dayBookings(state, day, person.id, resourceId)));
+  const { from, to } = calendarRange(opening.from, opening.to, columns.flat(2));
   const scale = calendarScale(PX_PER_MIN, columns.flat(2));
 
   return (

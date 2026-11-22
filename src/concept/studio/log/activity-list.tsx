@@ -6,6 +6,7 @@ import { toKey } from "../../data/dates";
 import { formatTime } from "../../data/dates";
 import { t } from "../../i18n";
 import { relativeDay } from "../../i18n/format";
+import { accountRecordSettled } from "../../store";
 import { filterLog, present, type LogFilter } from "../../log/filter";
 import type { LogEntry } from "../../log/types";
 import { undoBlockReason } from "../../log/undo";
@@ -26,6 +27,7 @@ function entryTime(at: number, today: string): string {
 
 function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typeof undoBlockReason>; today: string }) {
   const undoMessage = undoBlockMessageKey(reason);
+  const settled = accountRecordSettled("log", entry.id);
   return (
     <li>
       <ListRow title={entry.summary} meta={<>
@@ -42,7 +44,7 @@ function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typ
         {undoMessage && <span className="block">{t(undoMessage)}</span>}
       </>}
       trailing={entry.undone ? <Badge>{t("log.undone")}</Badge> : !reason && (
-        <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} onClick={() => undoWithToast(entry.id)}>{t("common.undo")}</Button>
+        <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} disabled={!settled} onClick={() => undoWithToast(entry.id)}>{t("common.undo")}</Button>
       )} />
     </li>
   );

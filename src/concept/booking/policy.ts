@@ -1,5 +1,4 @@
 import { DateTime } from "luxon";
-import { diffDays } from "../data/dates";
 import type { Booking, DateKey } from "../data/types";
 import { SALON_TIMEZONE } from "../tools/clock";
 import { DEFAULT_POLICY } from "./protection";
@@ -7,8 +6,19 @@ import { DEFAULT_POLICY } from "./protection";
 export const FREE_CHANGE_HOURS = DEFAULT_POLICY.freeHours;
 export const LEAD_MINUTES = 60;
 
+/**
+ * The first start time on `date` (minutes of that day's wall clock) a booking made at `today` `minutes`
+ * may have. The lead time is elapsed time, so across a clock change it is not the wall-clock sum;
+ * on every other day this is `minutes + LEAD_MINUTES` counted from midnight of `date`.
+ */
 export function earliestBookingStart(date: DateKey, today: DateKey, minutes: number): number {
-  return minutes + LEAD_MINUTES - diffDays(date, today) * 24 * 60;
+  const at = visitTime({ date: today, start: minutes }).toMillis() + LEAD_MINUTES * 60_000;
+  const midnight = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).startOf("day");
+  const target = DateTime.fromMillis(at, { zone: SALON_TIMEZONE });
+  let wall = Math.round((at + target.offset * 60_000 - midnight.toMillis() - midnight.offset * 60_000) / 60_000);
+  // A wall time that happens twice means its first occurrence: move on to the first start that is not before the instant.
+  while (wall >= 0 && wall < 24 * 60 && visitTime({ date, start: wall }).toMillis() < at) wall++;
+  return wall;
 }
 
 export type ChangeRule = "free" | "late" | "past";

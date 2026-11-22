@@ -116,6 +116,40 @@ function activeHolds(ctx: SlotContext, date: DateKey) {
 
 const intersects = (a: Interval, b: Interval) => a.start < b.end && b.start < a.end;
 
+/** Where a day's wall-clock minutes sit on the day's elapsed clock; the identity on every day without a clock change. */
+type Elapsed = (wall: number) => number;
+const IDENTITY: Elapsed = (wall) => wall;
+const elapsedClocks = new Map<DateKey, Elapsed>();
+
+/**
+ * Minutes of real time since the day's midnight for a wall-clock minute. A visit and its buffers last
+ * elapsed minutes, so overlap is judged here: on 2027-03-28 a 60-minute visit at 01:30 ends at 03:30 on
+ * the wall clock, and in the autumn the repeated hour counts twice. A wall time that happens twice means
+ * its first occurrence; one that never happens means the moment after the skipped hour.
+ */
+function elapsedClock(date: DateKey): Elapsed {
+  const known = elapsedClocks.get(date);
+  if (known) return known;
+  const midnight = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).startOf("day");
+  const next = midnight.plus({ days: 1 }).startOf("day");
+  const length = (next.toMillis() - midnight.toMillis()) / 60_000;
+  const clock: Elapsed = length === 24 * 60 ? IDENTITY : (wall) => {
+    if (wall < 0) return wall;
+    if (wall >= 24 * 60) return length + wall - 24 * 60;
+    const time = midnight.set({ hour: Math.floor(wall / 60), minute: wall % 60 }).getPossibleOffsets()[0];
+    return (time.toMillis() - midnight.toMillis()) / 60_000;
+  };
+  if (elapsedClocks.size > 1000) elapsedClocks.clear();
+  elapsedClocks.set(date, clock);
+  return clock;
+}
+
+/** `staffIntervals` placed on the elapsed clock: the visit starts where its start time is, and its parts last elapsed minutes. */
+function elapsedIntervals(clock: Elapsed, timing: VisitTiming | undefined, start: number, duration: number): Interval[] {
+  const base = clock(start);
+  return staffIntervals(timing, 0, duration).map((part) => ({ start: base + part.start, end: base + part.end }));
+}
+
 /** The wait inside a visit where the customer stays and the staff member is free; null when there is none. */
 export function processingGap(timing: VisitTiming | undefined, start: number, duration: number): Interval | null {
   if (!timing?.processing) return null;
@@ -141,22 +175,33 @@ function serviceOf(ctx: SlotContext, serviceId: string): Service | undefined {
   return [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId);
 }
 
-export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
+/**
+ * What keeps a person busy on a day, on the wall clock (`IDENTITY`) or on the day's elapsed clock. A completed
+ * visit holds only its own time: its preparation and clean-up are over, and a restore or undo that brings it
+ * back (never rechecked, since it already happened) cannot then overlap a visit booked in the meantime.
+ */
+function busyOn(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId: string | undefined, clock: Elapsed): Interval[] {
   const visits = ctx.bookings.filter(b => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId);
   const holds = activeHolds(ctx, date).filter(h => h.staffId === staffId && h.id !== ignoreId);
-  const list = [...visits, ...holds].flatMap(b => staffIntervals(b, b.start, b.duration));
+  const list = [...visits, ...holds].flatMap(b => elapsedIntervals(clock, "status" in b && b.status === "completed" ? { processing: b.processing } : b, b.start, b.duration));
   const lunch = lunchFor(ctx.salon, date);
-  if (lunch) list.push(lunch);
-  for (const block of ctx.blocks ?? []) if (block.staffId === staffId && block.date === date) list.push(block);
+  const fixed = [...(lunch ? [lunch] : []), ...(ctx.blocks ?? []).filter((block) => block.staffId === staffId && block.date === date)];
+  for (const { start, end } of fixed) list.push({ start: clock(start), end: clock(end) });
   return list.sort((a, b) => a.start - b.start);
+}
+
+export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
+  return busyOn(ctx, staffId, date, ignoreId, IDENTITY);
 }
 
 /** The room or chair a booking would use: `preferred` if it is free, otherwise the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
 export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string, preferred?: string): string | undefined {
-  const end = start + need.duration;
+  const clock = elapsedClock(date);
+  const from = clock(start);
+  const until = from + need.duration;
   const holds = activeHolds(ctx, date);
   const overlaps = (b: Booking | CheckoutHold, id: string) =>
-    b.resourceId === id && b.id !== ignoreId && start < b.start + b.duration && end > b.start;
+    b.resourceId === id && b.id !== ignoreId && from < clock(b.start) + b.duration && until > clock(b.start);
   return usableResources(ctx, need.serviceId).sort((a, b) => Number(b === preferred) - Number(a === preferred)).find(id =>
     !ctx.bookings.some(b => b.date === date && isActive(b) && overlaps(b, id)) && !holds.some(h => overlaps(h, id)),
   );
@@ -184,10 +229,12 @@ export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start:
   if (!window) return false;
   const end = start + need.duration;
   if (start < window.start || end > window.end) return false;
-  const mine = staffIntervals(need, start, need.duration);
   // Preparation and clean-up stay within the day, so no check has to look at the neighbouring days.
-  if (mine.some((part) => part.start < 0 || part.end > 24 * 60)) return false;
-  if (busyIntervals(ctx, staffId, date, ignoreId).some((busy) => mine.some((part) => intersects(part, busy)))) return false;
+  if (staffIntervals(need, start, need.duration).some((part) => part.start < 0 || part.end > 24 * 60)) return false;
+  // Overlap is judged in elapsed time, so a visit across a clock change blocks what it really overlaps.
+  const clock = elapsedClock(date);
+  const mine = elapsedIntervals(clock, need, start, need.duration);
+  if (busyOn(ctx, staffId, date, ignoreId, clock).some((busy) => mine.some((part) => intersects(part, busy)))) return false;
   return resourceFree(ctx, need, date, start, ignoreId);
 }
 

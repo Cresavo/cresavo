@@ -514,6 +514,7 @@ export function dispatchWithLog(
     let published: OutboxEntry[] = [];
     // The server sends what an account salon's change sends; this tab only shows it.
     if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
+    if (workspace === "account") accountBase ??= current;
     if (workspace === "account") accountChanged?.(action, { requestId: options.requestId, before: current, after: next, epoch: snapshots.account.epoch });
     options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
@@ -665,6 +666,20 @@ export interface AccountChange {
   epoch?: string;
 }
 let accountChanged: ((action: DemoAction, change: AccountChange) => void) | undefined;
+/**
+ * The account salon as the server last confirmed it, kept only while changes wait for the server's answer.
+ * Ids of records made by those changes are allocated here from the local counter, so another writer may
+ * already hold the same ids on the server; ids that are in this state are the server's own.
+ */
+let accountBase: DemoState | undefined;
+
+/**
+ * False for a booking or log entry that a still-pending change of the open account salon made: its id is
+ * only provisional until the server answers, so Undo and move must not act on it yet.
+ */
+export function accountRecordSettled(collection: "bookings" | "log", id: string): boolean {
+  return !accountBase || active !== "account" || accountBase[collection].some((record) => record.id === id);
+}
 
 /**
  * Shows a signed-in owner's salon from the server and selects it. `onChange`
@@ -673,6 +688,7 @@ let accountChanged: ((action: DemoAction, change: AccountChange) => void) | unde
 export function openAccountSalon(state: DemoState, onChange: (action: DemoAction, change: AccountChange) => void) {
   initialize();
   accountChanged = onChange;
+  accountBase = undefined;
   const next = migrateState(state);
   if (!next) return false;
   snapshots.account = { state: next, epoch: `${ACCOUNT_EPOCH}${newEpoch()}` };
@@ -687,6 +703,7 @@ export function replaceAccountSalon(state: DemoState) {
   const snapshot = snapshots.account;
   const next = migrateState(state);
   if (!snapshot.state || !next) return;
+  accountBase = undefined;
   snapshot.state = next;
   keep(next, snapshot.epoch);
   if (active === "account") notify();
@@ -701,6 +718,7 @@ export function restoreAccountSalon(change: AccountChange) {
   const snapshot = snapshots.account;
   if (snapshot.state !== change.after || snapshot.epoch !== change.epoch) return;
   snapshot.state = change.before;
+  if (accountBase === change.before) accountBase = undefined;
   keep(change.before, snapshot.epoch);
   if (active === "account") notify();
 }
@@ -709,6 +727,7 @@ export function restoreAccountSalon(change: AccountChange) {
 export function closeAccountSalon() {
   snapshots.account = {};
   accountChanged = undefined;
+  accountBase = undefined;
   salonRemoved("account");
   if (active === "account") active = "demo";
   notify();

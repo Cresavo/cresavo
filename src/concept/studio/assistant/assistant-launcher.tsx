@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { MessageCircle } from "lucide-react";
 import { dueRun, type Routine } from "../../assistant/routines";
 import type { DemoState } from "../../data/types";
@@ -56,12 +56,15 @@ export function AssistantHeaderButton() {
 function RoutineRunner() {
   const { state, today, minutes } = useStudio();
   const role = useRole();
+  // A slot is handled once here: the server judges it by its own clock and may refuse one this clock is ahead on.
+  const handled = useRef(new Map<string, string>());
   useEffect(() => {
     if (role !== "owner") return;
     for (const routine of state.routines) {
       const slot = dueRun(routine, { today, minutes });
-      if (!slot) continue;
-      dispatch({ type: "routine/ran", id: routine.id, at: slot });
+      if (!slot || handled.current.get(routine.id) === slot) continue;
+      handled.current.set(routine.id, slot);
+      if (!dispatch({ type: "routine/ran", id: routine.id, at: slot })) continue;
       postRoutineRun(state, routine, { today, minutes });
       showToast(t("assistant.routine.ran", { name: routine.name }), { label: t("assistant.routine.show"), run: () => { if (currentRole() === "owner") openAssistant(); } });
     }

@@ -5,6 +5,7 @@ import { setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
 import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
 import { contentSecurityPolicy, createNonce, cspExempt } from "./lib/csp";
+import { MAX_IMPORT_ACTION_BYTES } from "./lib/owner-actions/types";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
@@ -83,8 +84,24 @@ function hostResponse(request: NextRequest, host: string | null | undefined, rou
   return NextResponse.rewrite(url, options);
 }
 
+const OWNER_ACTIONS_PATH = "/api/owner/salon/actions";
+/** What the owner actions route reads at most: its largest action cap plus the envelope (`app/api/owner/salon/actions/route.ts`). */
+export const OWNER_ACTIONS_MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024;
+
+/**
+ * Next.js clones and buffers a proxied request's body (10 MiB by default) before the route can enforce its own
+ * cap, so a body that declares more than the route would ever read is refused here, before any of it is read.
+ */
+function ownerActionsTooLarge(request: NextRequest) {
+  if (request.method !== "POST" || request.nextUrl.pathname.replace(/\/+$/, "") !== OWNER_ACTIONS_PATH) return;
+  if (!(Number(request.headers.get("content-length") ?? 0) > OWNER_ACTIONS_MAX_BODY_BYTES)) return;
+  return NextResponse.json({ error: "too_large" }, { status: 413, headers: { "Cache-Control": "no-store" } });
+}
+
 export function proxy(request: NextRequest) {
   if (sandboxRequested()) return sandboxProxy(request);
+  const tooLarge = ownerActionsTooLarge(request);
+  if (tooLarge) return tooLarge;
   const host = siteRequestHost((name) => request.headers.get(name));
   const { pathname } = request.nextUrl;
   if (/^\/studio\/(?:_|%5[fF])gallery\/?$/.test(pathname) && !galleryAvailable(host)) {

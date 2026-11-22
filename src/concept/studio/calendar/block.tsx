@@ -10,6 +10,7 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { minuteInGap } from "./gap";
+import { accountRecordSettled } from "../../store";
 import { useStudio } from "../use-studio";
 
 export const DRAG_TYPE = "application/x-eko-booking";
@@ -49,7 +50,7 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         variant="tertiary"
         size="sm"
         align="start"
-        draggable
+        draggable={accountRecordSettled("bookings", booking.id)}
         onDragStart={onDragStart}
         onClick={onOpen}
         className={cx(

@@ -514,6 +514,10 @@ export class PostgresStudioStore implements StudioStore {
     // 2. The clock, after the lock. `at` (the event stamp) never goes before the previous entry.
     const clock = await this.clock(tx);
     if (locked.expires_ms !== null && locked.expires_ms <= clock) return { done: { ok: false, reason: "not-found" } };
+    if (options.requireActiveAccount) {
+      const [account] = await tx.$queryRaw<Array<{ active: boolean }>>`SELECT active FROM owner_account WHERE tenant_id = ${tenantId}`;
+      if (!account?.active) return { done: { ok: false, reason: "not-found" } };
+    }
     const stamp = this.trustCallerClock && meta.at !== undefined && Number.isFinite(meta.at) ? Math.floor(meta.at) : clock;
     const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, stamp);
 
@@ -581,7 +585,7 @@ export class PostgresStudioStore implements StudioStore {
     }
 
     // 6. Commit: state, log entry, effects and the key in one transaction.
-    await options.beforeCommit?.();
+    await options.beforeCommit?.(tx);
     const version = locked.version + 1;
     const entry: TenantAction = {
       seq,

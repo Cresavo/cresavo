@@ -8,6 +8,13 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Signed-in studio: Undo and drag-to-move never act on another writer's record (#138).** A booking or Activity entry made by a change that the server has not answered yet has only a provisional id, which another device may already hold for a different record. Undo is now disabled and the booking cannot be dragged until the server's answer replaces the screen with its own ids.
+- **Public booking, cancel and move (#133 items 6-10).** A deactivated owner account takes no booking even when it was switched off after the page was read, a retry gets its original receipt before the salon's quota is looked at (and with Postgres rate limits the quota is taken inside the booking's own transaction, so a commit that fails uses none of it), and a link that a concurrent earlier move has expired answers 404 instead of a booking-specific 409.
+- **Clock changes (#133 items 8 and 11).** Two visits of the same person or room, and the one-hour lead time for online booking, are compared in elapsed time on 2027-03-28 and 2027-10-31 in Europe/Stockholm; a 60-minute visit at 01:30 now blocks a 03:00 booking the same night. Other days are judged exactly as before.
+- **Older findings (#133 items 1-4).** An oversized owner action body is refused by the proxy before Next.js buffers it; a routine's `routine/ran` stamp must be the latest due slot by the store's clock, so a fast browser clock cannot silence later runs; the calendar grid widens to hold a visit's preparation and clean-up; a completed visit no longer holds clean-up time, so restoring it cannot overlap a visit booked in the meantime.
+
 ## [0.7.0] - 2026-11-22
 
 ### Added
