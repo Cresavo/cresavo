@@ -63,20 +63,25 @@ function previewUndo(state: DemoState, entry?: LogEntry): DemoState | UndoBlockR
   if (!entry.patch.collections.bookings) return reverted;
 
   const current = new Map(state.bookings.map((booking) => [booking.id, booking]));
-  for (const [index, booking] of reverted.bookings.entries()) {
-    if (!isActive(booking)) continue;
-    const { id, staffId, date, start } = booking;
-    const beforeUndo = current.get(id);
-    const restored = booking.status === "booked" && beforeUndo?.status !== "booked";
-    const moved = beforeUndo && (beforeUndo.staffId !== staffId || beforeUndo.date !== date || beforeUndo.start !== start);
-    if (!restored && !moved) continue;
+  // Recorded rooms are kept when possible; if that leaves a visit out, everything is placed again without them.
+  const place = (keepRooms: boolean): DemoState | UndoBlockReason => {
+    const next = { ...reverted, bookings: [...reverted.bookings] };
+    for (const [index, booking] of next.bookings.entries()) {
+      if (!isActive(booking)) continue;
+      const { id, staffId, date, start } = booking;
+      const beforeUndo = current.get(id);
+      const restored = booking.status === "booked" && beforeUndo?.status !== "booked";
+      const moved = beforeUndo && (beforeUndo.staffId !== staffId || beforeUndo.date !== date || beforeUndo.start !== start);
+      if (!restored && !moved) continue;
 
-    if (!isFree(reverted, staffId, date, start, booking, id)) return "time-taken";
-    // The bookings patch gives the reverted state its own array. Reserve the
-    // room here so the next restored booking sees it too.
-    reverted.bookings[index] = { ...booking, resourceId: pickResource(reverted, booking, date, start, id, booking.resourceId) };
-  }
-  return reverted;
+      if (!isFree(next, staffId, date, start, booking, id)) return "time-taken";
+      // Reserve the room here so the next restored booking sees it too.
+      next.bookings[index] = { ...booking, resourceId: pickResource(next, booking, date, start, id, keepRooms ? booking.resourceId : undefined) };
+    }
+    return next;
+  };
+  const kept = place(true);
+  return typeof kept === "string" ? place(false) : kept;
 }
 
 /** The reason a log entry cannot be undone, if any. */

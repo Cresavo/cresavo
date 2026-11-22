@@ -11,7 +11,7 @@ import { minuteInGap } from "@/concept/studio/calendar/gap";
 import { liveSlot } from "@/concept/studio/inbox/live-slot";
 import { utilisation } from "@/concept/selectors";
 import { restoreEntry } from "@/concept/trash/trash";
-import type { DemoState, Service } from "@/concept/data/types";
+import type { DemoState, Service, StaffId } from "@/concept/data/types";
 import { serviceIssues, type ServiceDraft } from "@/concept/services/edit";
 
 // Tuesday 24 November 2026: the demo salon is open, and Anna works 09:00-17:00.
@@ -29,7 +29,7 @@ const empty = (services: Service[], rooms = 2): DemoState => {
   const base = createDemoState("2026-11-16");
   return { ...base, services, bookings: [], checkoutHolds: [], resources: base.resources.slice(0, rooms) };
 };
-const book = (state: DemoState, serviceId: string, start: number, customer = 0, staffId: "anna" | "erik" = "anna") =>
+const book = (state: DemoState, serviceId: string, start: number, customer = 0, staffId: StaffId = "anna") =>
   reduce(state, { type: "booking/create", customerId: state.customers[customer].id, serviceId, staffId, date: day, start, source: "phone" });
 
 describe("staff busy time", () => {
@@ -296,6 +296,38 @@ describe("review fixes", () => {
       const deleted = reduce(state, { type: "customer/delete", id: state.bookings[0].customerId });
       const restored = restoreEntry(deleted, deleted.trash[0].id);
       expect(restored.bookings.map((b) => [b.status, b.resourceId])).toEqual([["completed", "room-2"], ["completed", "room-1"]]);
+    });
+
+    describe("when keeping the recorded rooms would strand a visit", () => {
+      // Visit A recorded room 2 and B room 3 (valid together). Room 3 is then taken by a third stylist.
+      // Keeping A in room 2 leaves B with no room; placing both afresh gives A room 1 and B room 2.
+      const setup = () => {
+        const a = service("room-a", 30, { resourceIds: ["room-1", "room-2", "room-3"] });
+        const b = service("room-b", 30, { staffIds: ["erik"], resourceIds: ["room-2", "room-3"] });
+        const c = service("room-c", 30, { staffIds: ["staff-3"], resourceIds: ["room-3"] });
+        const base = empty([a, b, c, trim]);
+        const third = { ...base.staff[1], id: "staff-3" as const, firstName: "Third" };
+        const rooms = [...base.resources.slice(0, 2), { id: "room-3", name: "Room 3", kind: "room" as const }];
+        const booked = book(book({ ...base, staff: [...base.staff, third], resources: rooms }, "room-a", hm(10)), "room-b", hm(10), 0, "erik");
+        const recorded = { ...booked, bookings: booked.bookings.map((x) => ({ ...x, resourceId: x.serviceId === "room-a" ? "room-2" : "room-3" })) };
+        return { recorded, customerId: recorded.bookings[0].customerId };
+      };
+      const rooms = (state: DemoState) => state.bookings.filter((x) => x.serviceId !== "room-c").map((x) => [x.status, x.resourceId]);
+
+      it("places the customer's visits again without them on restore", () => {
+        const { recorded, customerId } = setup();
+        const deleted = reduce(recorded, { type: "customer/delete", id: customerId });
+        const taken = book(deleted, "room-c", hm(10), 1, "staff-3");
+        expect(taken.bookings[0].resourceId).toBe("room-3");
+        expect(rooms(restoreEntry(taken, taken.trash[0].id))).toEqual([["booked", "room-1"], ["booked", "room-2"]]);
+      });
+
+      it("places the visits again without them on undo", () => {
+        const { recorded, customerId } = setup();
+        const logged = applyAction(recorded, { type: "customer/delete", id: customerId }, meta);
+        const taken = book(logged, "room-c", hm(10), 1, "staff-3");
+        expect(rooms(undoEntry(taken, taken.log[0].id))).toEqual([["booked", "room-1"], ["booked", "room-2"]]);
+      });
     });
 
     it("keeps the recorded rooms of upcoming visits in the same bundle", () => {
