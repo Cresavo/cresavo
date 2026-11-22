@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { usesPhoto } from "@/concept/campaigns/poster-layout";
+import { namesLibraryPhoto } from "@/lib/media/limits";
 import { renderPosterSvg } from "@/concept/campaigns/poster-engine/render";
 import { ENGINE_FORMATS, ENGINE_TEMPLATES, posterDataSchema } from "@/concept/campaigns/poster-engine/templates";
 import { withRequestLog } from "@/concept/server/logger";
@@ -49,12 +50,19 @@ export const POST = withRequestLog("/api/concept/poster", async (request: Reques
   if (!limit.ok) return json({ error: "rate_limited" }, 429, { "Retry-After": String(limit.retryAfter) });
   const body = await readLimited(request, MAX_BODY);
   if (body === null) return json({ error: "too_large" }, 413);
-  let parsed;
+  let raw: unknown;
   try {
-    parsed = requestSchema.safeParse(JSON.parse(body));
+    raw = JSON.parse(body);
   } catch {
     return json({ error: "invalid" }, 400);
   }
+  // A library photo (`media:<id>`) is read through the media store, for the signed-in owner's own business only.
+  if (namesLibraryPhoto(raw)) {
+    const { withLibraryPhotos } = await import("@/lib/media/poster-photos");
+    const resolved = await withLibraryPhotos(request, raw as { data: Record<string, unknown> }).catch(() => ({ ok: false as const, reason: "photo_unsuitable" as const }));
+    if (!resolved.ok) return json({ error: resolved.reason }, resolved.reason === "signed_out" ? 401 : 422);
+  }
+  const parsed = requestSchema.safeParse(raw);
   if (!parsed.success) return json({ error: "invalid" }, 400);
   try {
     const svg = await renderPosterSvg(parsed.data.template, parsed.data.data, parsed.data.format);
