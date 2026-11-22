@@ -172,6 +172,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       ...(poster.style === "portrait" && { lead: cut(poster.lead ?? "", 30), backdrop: poster.backdrop ?? "bloom" }),
       pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
       focus: poster.focus ?? "center",
+      arrangement: poster.arrangement ?? "standard",
       textSize: poster.textSize ?? "normal",
       colors: context.theme?.colors
         ? { accent: context.theme.colors.accent, ink: context.theme.colors.text, background: context.theme.colors.background }

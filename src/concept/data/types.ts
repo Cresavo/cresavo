@@ -329,6 +329,8 @@ export interface CampaignPoster {
   /** The owner's adjustments; unset means the template's own choice. */
   textSize?: PosterTextSize;
   focus?: PosterFocus;
+  /** Where the template puts its parts: its own arrangement or the mirrored one. Templates without one ignore it. */
+  arrangement?: PosterArrangement;
   /** Engine styles: the price shown large, a small sticker and the treatments with prices, from the price list. */
   price?: string;
   sticker?: [string, string];
@@ -361,6 +363,8 @@ export interface PosterTone {
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */
 export type PosterFocus = "top" | "center" | "bottom";
+/** Standard, or the same parts mirrored (Full photo: text at the top instead of the bottom). */
+export type PosterArrangement = "standard" | "mirrored";
 
 /** Simulated results: the demo never talks to a real channel. */
 export interface CampaignStats {

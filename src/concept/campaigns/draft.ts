@@ -34,7 +34,7 @@ export interface Draft extends CampaignPrefill {
   copyStale?: Channel[];
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
-  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
+  posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "arrangement" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
 }
 
 /**
@@ -45,6 +45,7 @@ export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster, signOf
   const posterEdits: Draft["posterEdits"] = {
     ...(last?.textSize && { textSize: last.textSize }),
     ...(last?.focus && { focus: last.focus }),
+    ...(last?.arrangement && { arrangement: last.arrangement }),
     ...(last?.badges?.length && { badges: last.badges }),
     ...(last?.socialQr && { socialQr: true }),
   };
@@ -315,6 +316,7 @@ export function resolvePoster(state: DemoState, draft: Draft): CampaignPoster {
     ...(isEngineStyle(draft.style) && engineFields(state, draft)),
     ...(draft.posterEdits.textSize && { textSize: draft.posterEdits.textSize }),
     ...(draft.posterEdits.focus && { focus: draft.posterEdits.focus }),
+    ...(draft.posterEdits.arrangement && { arrangement: draft.posterEdits.arrangement }),
     ...(draft.posterEdits.badges?.length && { badges: draft.posterEdits.badges }),
     ...(draft.posterEdits.socialQr && { socialQr: true }),
     ...(draft.posterEdits.photoTone && !isNeutralTone(draft.posterEdits.photoTone) && { photoTone: draft.posterEdits.photoTone }),

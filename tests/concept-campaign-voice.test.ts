@@ -17,9 +17,17 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+// Generating the demo salon takes a few hundred milliseconds, so each language is built once and shared;
+// tests treat the state as read-only.
+const states = new Map<"en" | "sv", DemoState>();
 const inLanguage = (language: "en" | "sv"): DemoState => {
-  const base = createDemoState(today);
-  return { ...base, localization: { ...base.localization, language } };
+  let state = states.get(language);
+  if (!state) {
+    const base = createDemoState(today);
+    state = { ...base, localization: { ...base.localization, language } };
+    states.set(language, state);
+  }
+  return state;
 };
 
 const draftFor = (state: DemoState, goal: NonNullable<Draft["goal"]>, extra: Partial<Draft> = {}): Draft => ({

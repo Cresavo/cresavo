@@ -13,8 +13,8 @@ export type PosterChild = PosterNode | string;
 export const box = (style: Style, ...children: PosterChild[]): PosterNode =>
   ({ type: "div", props: { style: { display: "flex", ...style }, children } });
 
-/** One run of text. */
-export const text = (style: Style, value: string): PosterNode => ({ type: "div", props: { style: { display: "flex", ...style }, children: value } });
+/** One run of text. Satori clamps lines (`lineClamp`) only on a block element. */
+export const text = (style: Style, value: string): PosterNode => ({ type: "div", props: { style: { display: style.lineClamp ? "block" : "flex", ...style }, children: value } });
 
 export const image = (src: string, style: Style): PosterNode => ({ type: "img", props: { src, style } });
 
