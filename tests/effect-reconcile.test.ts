@@ -17,6 +17,8 @@ describe("the command line", () => {
       .toEqual({ command: "retry", ids: ["e-1", "e-2"], tenant: "salon-1", apply: false, forceMaybeDuplicate: false, actor: "ops" });
     expect(parseReconcileArgs(["mark-sent", "e-1", "--tenant", "salon-1", "--apply", "--actor", "jd-01"]))
       .toMatchObject({ command: "mark-sent", apply: true, actor: "jd-01" });
+    // A staff handle; the runbook asks for one rather than a full name.
+    expect(parseReconcileArgs(["retry", "e-1", "--tenant", "salon-1", "--actor", "janedoe"])).toMatchObject({ actor: "janedoe" });
     expect(parseReconcileArgs(["retry", "e-1", "--tenant", "salon-1", "--force-maybe-duplicate"])).toMatchObject({ forceMaybeDuplicate: true, actor: "operator" });
     // An actor is an opaque id: a shell user that looks like an address is not echoed into the audit line.
     for (const USER of ["jane@example.test", "Jane Doe", "jane.doe", "0735551234", "x".repeat(33)]) {
@@ -39,6 +41,8 @@ describe("the command line", () => {
       [["retry", "e-1", "--tenant", "t", "--actor", "Jane"], "invalid_actor"],
       [["retry", "e-1", "--tenant", "t", "--actor", "jane.doe"], "invalid_actor"],
       [["retry", "e-1", "--tenant", "t", "--actor", "0735551234"], "invalid_actor"],
+      [["retry", "e-1", "--tenant", "t", "--actor", "073-555-1234"], "invalid_actor"],
+      [["retry", "e-1", "--tenant", "t", "--actor", "ops_12_34_56"], "invalid_actor"],
       [["retry", "e-1", "--tenant", "t", "--actor", "x".repeat(33)], "invalid_actor"],
       [["retry", "e-1", "--tenant", "t", "--limit", "3"], "limit_is_for_list"],
       [["list", "e-1"], "list_takes_no_ids"],
@@ -69,16 +73,16 @@ describe("what is shown of a row", () => {
 
   it("groups rows per tenant and prints no content", () => {
     const lines = formatList([
-      { id: "e-1", tenantId: "t-1", kind: "email/confirmation", state: "uncertain", ageMs: 3_600_000, attempts: 1, error: "uncertain", dispatched: true, recipient: "***@example.test" },
+      { id: "e-1", tenantId: "t-1", kind: "email/confirmation", state: "uncertain", ageMs: 3_600_000, attempts: 1, error: "uncertain", dispatched: true, firstAttemptAt: Date.UTC(2026, 10, 16, 9), submittedAt: Date.UTC(2026, 10, 17, 9, 30), recipient: "***@example.test" },
       { id: "e-2", tenantId: "t-1", kind: "email/cancellation", state: "failed", attempts: 10, error: "EMAIL_NOT_CONFIGURED", dispatched: false, recipient: "-" },
       { id: "e-3", tenantId: "t-2", kind: "payments/checkout", state: "failed", attempts: 10, dispatched: false, reconciled: "retried", recipient: "-" },
     ]);
     expect(lines).toEqual([
       "tenant t-1",
-      "  e-1  email/confirmation  uncertain  age 1h0m  attempts 1  error uncertain  dispatched  to ***@example.test",
-      "  e-2  email/cancellation  failed  age -  attempts 10  error EMAIL_NOT_CONFIGURED  not-dispatched  to -",
+      "  e-1  email/confirmation  uncertain  age 1h0m  attempts 1  error uncertain  dispatched  rendered 2026-11-16T09:00:00Z  submitted 2026-11-17T09:30:00Z  to ***@example.test",
+      "  e-2  email/cancellation  failed  age -  attempts 10  error EMAIL_NOT_CONFIGURED  not-dispatched  rendered -  submitted -  to -",
       "tenant t-2",
-      "  e-3  payments/checkout  failed  age -  attempts 10  error -  not-dispatched  reconciled retried  to -",
+      "  e-3  payments/checkout  failed  age -  attempts 10  error -  not-dispatched  rendered -  submitted -  reconciled retried  to -",
     ]);
     expect(formatList([])).toEqual(["No failed or uncertain effects."]);
   });

@@ -265,7 +265,7 @@ describe("reconciling the e-mail outbox", () => {
     expect(mails).toHaveLength(1);
   });
 
-  it("settles an uncertain row as not sent, and never resends one whose snapshot was dropped when it settled", async () => {
+  it("settles an uncertain row as not sent, and resends the same frozen message only when forced", async () => {
     provider = "postmark";
     outcome = fail(connectionError("email", "postmark", "network"));
     const id = await book(840);
@@ -276,10 +276,19 @@ describe("reconciling the e-mail outbox", () => {
     expect(await act("retry", id)).toEqual({ effectId: id, outcome: "refused", reason: "dispatched" });
     expect(await act("retry", id, { tenantId: `other-${run}`, force: true })).toEqual({ effectId: id, outcome: "refused", reason: "not_found" });
 
-    // Marked uncertain, the sink dropped the frozen message: a forced retry would send new content, so the salon follows up.
-    expect(await act("retry", id, { force: true })).toEqual({ effectId: id, outcome: "refused", reason: "snapshot_missing" });
-    expect(await effect(id)).toMatchObject({ status: "failed", delivery: { reason: "not_sent" } });
-    expect(mails).toHaveLength(1);
+    // Marked uncertain, the row kept its frozen message, so the resend is exactly the first one.
+    const before = (await effect(id)).delivery!;
+    expect(before).toMatchObject({ mail: expect.anything(), from: expect.any(String), submittedAt: expect.any(Number) });
+    expect(await act("retry", id, { force: true })).toEqual({ effectId: id, outcome: "change" });
+    const reopened = await effect(id);
+    expect(reopened).toMatchObject({ status: "pending", attempts: 1, delivery: { attemptBase: 1, mail: before.mail, from: before.from } });
+    expect(reopened.delivery).not.toHaveProperty("dispatched");
+    expect(reopened.delivery).not.toHaveProperty("reason");
+    provider = "resend";
+    outcome = ok({ id: "m-5", to: [] }, "sent");
+    expect(await drain(CLOCK + 2 * HOUR)).toEqual({ delivered: 1, retried: 0, failed: 0 });
+    expect(mails).toHaveLength(2);
+    expect(mails[1]).toMatchObject({ to: ["lisa@example.test"], idempotencyKey: id, subject: mails[0].subject, text: mails[0].text, from: mails[0].from });
   });
 
   it("refuses an id that does not exist, and changes nothing on a dry run of a mark", async () => {
@@ -299,7 +308,7 @@ describe("reconciling the e-mail outbox", () => {
     const cli = (...args: string[]) => exec(process.execPath, ["--import", "tsx", "scripts/reconcile-effects.mts", ...args], { env: process.env, timeout: 60_000 });
     const { stdout: listed } = await cli("list", "--tenant", tenantId);
     expect(listed).toContain(`tenant ${tenantId}`);
-    expect(listed).toMatch(new RegExp(`${id}  email/confirmation  failed  age \\S+  attempts 2  error EMAIL_NOT_CONFIGURED  not-dispatched  to \\*\\*\\*@example\\.test`));
+    expect(listed).toMatch(new RegExp(`${id}  email/confirmation  failed  age \\S+  attempts 2  error EMAIL_NOT_CONFIGURED  not-dispatched  rendered -  submitted -  to \\*\\*\\*@example\\.test`));
     expect(listed).not.toMatch(/lisa@|Lisa|Fictional/);
 
     const { stdout, stderr } = await cli("retry", id, "--tenant", tenantId, "--actor", "ops-test");

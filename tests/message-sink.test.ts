@@ -223,6 +223,24 @@ describe("failures", () => {
     expect(stored.mail).toBeUndefined();
   });
 
+  it("starts the key window only with a request that may have been carried out", async () => {
+    // Refused outright: no submission is recorded.
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored).not.toHaveProperty("submittedAt");
+    outcome = fail(connectionError("email", "resend", "invalid_input"));
+    expect(await run()).toBe("failed");
+    expect(stored).not.toHaveProperty("submittedAt");
+  });
+
+  it("keeps the frozen message of a send marked uncertain, so a confirmed non-delivery can be resent as it was", async () => {
+    provider = "postmark";
+    outcome = fail(connectionError("email", "postmark", "timeout"));
+    expect(await run()).toBe("failed");
+    expect(stored).toMatchObject({ reason: "uncertain", dispatched: true, submittedAt: T0, mail: expect.anything(), from: expect.any(String) });
+    expect(stored).not.toHaveProperty("lastError");
+  });
+
   it("throws, for a retry, on a rate limit or a bad API key, and has sent nothing", async () => {
     for (const code of ["rate_limited", "unauthorized"] as const) {
       outcome = fail(connectionError("email", "resend", code));

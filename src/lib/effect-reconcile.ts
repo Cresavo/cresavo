@@ -212,6 +212,8 @@ export async function listUnsettled(prisma: PrismaClient, options: { tenantId?: 
       attempts: row.attempts,
       ...(shownError(delivery) ? { error: shownError(delivery) } : {}),
       dispatched: delivery.dispatched === true,
+      ...(typeof delivery.firstAttemptAt === "number" ? { firstAttemptAt: delivery.firstAttemptAt } : {}),
+      ...(typeof delivery.submittedAt === "number" ? { submittedAt: delivery.submittedAt } : {}),
       ...(delivery.reconciled ? { reconciled: delivery.reconciled } : {}),
       recipient: email ? maskAddress(messageAddress(docs.get(row.tenant_id), row.payload.reference)) : "-",
     };
