@@ -6,6 +6,7 @@ import { translate } from "@/concept/i18n";
 import { createRegistry, type ResolutionReason } from "@/concept/connections/server/registry";
 import type { EmailPort } from "@/concept/connections/ports/email";
 import { productDomain } from "@/concept/page/address";
+import { scoped } from "@/concept/store/tenant-scope";
 import { db } from "./db";
 import { ownerEmailSchema } from "./owner-accounts";
 import { hashPassword, newPasswordSchema } from "./password";
@@ -91,7 +92,7 @@ export async function requestPasswordReset(input: unknown, registry: ResetRegist
   const quota = mailboxQuota();
   if (!(await quota.available(account.email))) return;
   try {
-    const tenant = await db.tenantState.findUnique({ where: { tenantId: account.tenantId }, select: { doc: true } });
+    const tenant = await scoped(db, { tenant: account.tenantId }, (tx) => tx.tenantState.findUnique({ where: { tenantId: account.tenantId }, select: { doc: true } }));
     const language = (tenant?.doc as { localization?: { language?: unknown } } | null)?.localization?.language === "sv" ? "sv" : "en";
     const resolution = await registry.resolve("email", account.tenantId);
     if (resolution.live && !trackingOff(resolution.adapter.info.provider)) {

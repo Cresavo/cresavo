@@ -10,6 +10,7 @@ import { createOutbox, type DeliveryState } from "../concept/connections/simulat
 import { productDomain } from "../concept/page/address";
 import type { EffectDelivery, EffectSink } from "../concept/store/effect-outbox";
 import { migrateSaved } from "../concept/store/studio-store";
+import { enterScope, scoped } from "../concept/store/tenant-scope";
 import { bookingLink, bookingLinkBase } from "./booking-link";
 
 // Delivers a salon's `booking-message/send` effects (docs/integrations/README.md).
@@ -38,6 +39,8 @@ import { bookingLink, bookingLinkBase } from "./booking-link";
 //   fails as `uncertain` for someone to reconcile.
 // - The link's token is minted only for a real send, at delivery, so it is
 //   never stored or logged.
+// - Every read and write runs in the delivery's own tenant scope (row-level
+//   security, src/concept/store/tenant-scope.ts), also under the poller.
 
 /** Resend keeps an idempotency key 24 hours; stop retrying a little before. */
 const RESEND_KEY_WINDOW_MS = 23 * 3_600_000;
@@ -98,20 +101,20 @@ function recipientOf(doc: unknown, message: BookingMessage): Recipient | undefin
 /** The sink for `sinks.message` of salon tenants. `registry` is the e-mail connection and `now` the clock; tests pass their own. */
 export function messageSink(prisma: PrismaClient, registry: Registry = createRegistry(), now: () => number = Date.now): EffectSink {
   /** Merges into the effect's bookkeeping, a null removing a key, but only for the latest claim of a still pending effect: a stale deliverer changes nothing. */
-  const noteClaim = ({ id, attempt }: EffectDelivery, patch: Patch) => prisma.$executeRaw`
+  const noteClaim = ({ id, tenantId, attempt }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$executeRaw`
     UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb))
-    WHERE id = ${id} AND status = 'pending' AND attempts = ${attempt}`;
+    WHERE id = ${id} AND status = 'pending' AND attempts = ${attempt}`);
 
   /**
    * The provider accepted the message: recorded with the effect's status in one statement, whatever became of the
    * claim or the row since (a timeout, an erasure that cancelled it). Nothing personal is written back.
    */
-  const confirm = (id: string, patch: Patch) => prisma.$executeRaw`
+  const confirm = ({ id, tenantId }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$executeRaw`
     UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb)),
       status = 'delivered', leased_until = NULL, delivered_at = clock_timestamp()
-    WHERE id = ${id} AND status <> 'delivered'`;
+    WHERE id = ${id} AND status <> 'delivered'`);
 
-  /** Why a guarded write changed nothing. */
+  /** Why a guarded write changed nothing. Run inside a transaction in the effect's tenant scope. */
   const standing = async (db: Pick<PrismaClient, "$queryRaw">, id: string): Promise<Standing> => {
     const [row] = await db.$queryRaw<Array<{ open: boolean }>>`
       SELECT (status = 'pending' AND erased_at IS NULL) AS open FROM tenant_effect WHERE id = ${id}`;
@@ -122,14 +125,15 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    * Freezes the first rendering on the effect, unless an earlier attempt did, and returns what is stored. Only
    * while the effect is pending, not erased and this claim is the latest: erased content is never written back.
    */
-  const freeze = async ({ id, attempt }: EffectDelivery, first: Frozen): Promise<Frozen | Standing> => {
-    const [row] = await prisma.$queryRaw<Array<{ delivery: Frozen }>>`
+  const freeze = ({ id, tenantId, attempt }: EffectDelivery, first: Frozen): Promise<Frozen | Standing> => prisma.$transaction(async (tx) => {
+    await enterScope(tx, { tenant: tenantId });
+    const [row] = await tx.$queryRaw<Array<{ delivery: Frozen }>>`
       UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}',
         CASE WHEN payload->'delivery' ? 'from' THEN payload->'delivery' ELSE coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(first)}::jsonb END)
       WHERE id = ${id} AND status = 'pending' AND erased_at IS NULL AND attempts = ${attempt}
       RETURNING payload->'delivery' AS delivery`;
-    return row ? row.delivery : standing(prisma, id);
-  };
+    return row ? row.delivery : standing(tx, id);
+  });
 
   /**
    * The last check before a real send, and the commit of `dispatched`, in one transaction. The tenant's row is
@@ -138,6 +142,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    * this claim is the latest: a stalled deliverer whose lease ran out finds its claim gone.
    */
   const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage, provider: string, account: string | undefined) => prisma.$transaction(async (tx) => {
+    await enterScope(tx, { tenant: tenantId });
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${DISPATCH_LOCK_TIMEOUT}, true)`;
     const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId} FOR SHARE`;
     const current = row && recipientOf(row.doc, message);
@@ -157,7 +162,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     // An earlier attempt sent it and was only too slow to say so; or one already decided it fails and crashed before saying so.
     if (!message || kept?.sent) return;
     if (kept?.reason) return "failed";
-    const [row] = await prisma.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;
+    const [row] = await scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`);
     const found = row && recipientOf(row.doc, message);
     if (!found) return "skipped";
     const { state, booking, customer, visit } = found;
@@ -233,7 +238,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       subject: mail.subject, text: fill(mail.text), html: fill(mail.html), language: state.localization.language, idempotencyKey: id, tracking: false,
     });
     if (result.ok) {
-      await confirm(id, { sent: true, dispatched: null, provider: null, account: null, ...SETTLED });
+      await confirm(delivery, { sent: true, dispatched: null, provider: null, account: null, ...SETTLED });
       return;
     }
     const { code, providerCode } = result.error;

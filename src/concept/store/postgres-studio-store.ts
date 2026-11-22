@@ -37,6 +37,7 @@ import { effectId, requestFingerprint, stagedChannels } from "./staged-channels"
 import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
 import { notifyTenantChange, PostgresNotifications } from "./postgres-notifications";
 import { DOCUMENT_SIZE_REFUSAL, MAX_DOCUMENT_BYTES, StoreMetrics } from "./store-metrics";
+import { enterScope, scoped, type StoreScope } from "./tenant-scope";
 import {
   actionFingerprint,
   detach,
@@ -84,6 +85,11 @@ import {
 //
 // The row lock waits at most `lockTimeoutMs` (2 s); a lock timeout is
 // `conflict`, so the caller retries instead of piling up connections.
+//
+// Every statement runs in a transaction that first sets its row-level security
+// scope (tenant-scope.ts): the tenant it is for, or, to resolve a sandbox token,
+// that sandbox's key. The setting is transaction-local and RLS-ready; it is
+// enforced only once an operator has run prisma/grants/rls-enable.sql.
 
 export { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS };
 export const DEMO_TENANT_ID = "demo";
@@ -322,12 +328,14 @@ export class PostgresStudioStore implements StudioStore {
     return locked;
   }
 
-  /** Runs one transaction; a lock timeout becomes `conflict`. */
+  /** Runs one transaction in `scope`; a lock timeout becomes `conflict`. */
   private async transaction<T extends { commit?: DocumentCommit }>(
+    scope: StoreScope,
     run: (tx: Tx) => Promise<T>,
   ): Promise<T | { lockTimeout: true }> {
     try {
       return await this.prisma.$transaction(async (tx) => {
+        await enterScope(tx, scope);
         await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${this.lockTimeoutMs}ms`}, true)`;
         const result = await run(tx);
         if (result.commit) {
@@ -344,9 +352,9 @@ export class PostgresStudioStore implements StudioStore {
 
   /** True while the tenant exists and has not expired, by the store clock. */
   private async live(tenantId: TenantId, now: number): Promise<{ doc: unknown; version: number } | undefined> {
-    const [row] = await this.prisma.$queryRaw<Array<{ doc: unknown; version: number }>>`
+    const [row] = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ doc: unknown; version: number }>>`
       SELECT doc, version FROM tenant_state
-      WHERE tenant_id = ${tenantId} AND (expires_at IS NULL OR expires_at > to_timestamp(${now}::float8 / 1000))`;
+      WHERE tenant_id = ${tenantId} AND (expires_at IS NULL OR expires_at > to_timestamp(${now}::float8 / 1000))`);
     return row;
   }
 
@@ -367,7 +375,7 @@ export class PostgresStudioStore implements StudioStore {
     const sandboxKey = `sbx_${createHash("sha256").update(token).digest("hex").slice(0, 32)}`;
     return {
       load: async () => {
-        const tenantId = await this.sandboxTenantId(this.prisma, sandboxKey);
+        const tenantId = await this.prisma.$transaction((tx) => this.sandboxTenantId(tx, sandboxKey));
         const snapshot = tenantId ? await this.load(tenantId) : null;
         return tenantId && snapshot ? { tenantId, ...snapshot } : null;
       },
@@ -381,9 +389,11 @@ export class PostgresStudioStore implements StudioStore {
     };
   }
 
-  private async sandboxTenantId(db: Tx | PrismaClient, sandboxKey: string): Promise<TenantId | undefined> {
+  /** Resolves the key in the sandbox scope, which sees that sandbox's row only. The caller enters the tenant's scope next. */
+  private async sandboxTenantId(tx: Tx, sandboxKey: string): Promise<TenantId | undefined> {
+    await enterScope(tx, { sandboxKey });
     // The exact match also resolves sandboxes created before IDs included a lifetime suffix.
-    const [row] = await db.$queryRaw<Array<{ tenant_id: TenantId }>>`
+    const [row] = await tx.$queryRaw<Array<{ tenant_id: TenantId }>>`
       SELECT tenant_id FROM tenant_state WHERE kind = 'sandbox'
         AND (tenant_id = ${sandboxKey} OR starts_with(tenant_id, ${`${sandboxKey}_`}))`;
     return row?.tenant_id;
@@ -396,7 +406,8 @@ export class PostgresStudioStore implements StudioStore {
     // Erasure also redacts the log and the outbox: only `eraseSubject` runs it.
     if (isErasure(action)) return { ok: false, reason: "rejected" };
     const own = detach(action);
-    const result = await this.transaction(async (tx): Promise<ApplyOutcome> => {
+    const scope: StoreScope = "sandboxKey" in target ? { sandboxKey: target.sandboxKey } : { tenant: target.tenantId };
+    const result = await this.transaction(scope, async (tx): Promise<ApplyOutcome> => {
       // 1. The row lock.
       let tenantId: TenantId;
       let created = false;
@@ -406,6 +417,7 @@ export class PostgresStudioStore implements StudioStore {
         await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${sandboxKey}, 0))`;
         const existing = await this.sandboxTenantId(tx, sandboxKey);
         tenantId = existing ?? `${sandboxKey}_${randomUUID()}`;
+        await enterScope(tx, { tenant: tenantId });
         if (!existing) {
           const now = await databaseClock(tx);
           const fixture = createDemoState(salonClock(new Date(now)).today);
@@ -467,7 +479,7 @@ export class PostgresStudioStore implements StudioStore {
 
   private async replace(tenantId: TenantId, action: SystemAction, replacement?: DemoState): Promise<ReplacementResult> {
     const start = performance.now();
-    const result = await this.transaction(async (tx): Promise<{ replaced: ReplacementResult; commit?: DocumentCommit }> => {
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ replaced: ReplacementResult; commit?: DocumentCommit }> => {
       const locked = await this.lock(tx, tenantId);
       const clock = await this.clock(tx);
       if (!locked || (locked.expires_ms !== null && locked.expires_ms <= clock) ||
@@ -654,6 +666,7 @@ export class PostgresStudioStore implements StudioStore {
         sinkTimeoutMs: EFFECT_SINK_TIMEOUT_MS,
         budgetMs: DRAIN_BUDGET_MS,
         tenants: [tenantId],
+        scope: { tenant: tenantId },
       }, DRAIN_LIMIT);
       this.metrics.failedEffects(report.failed);
     } catch {
@@ -689,7 +702,7 @@ export class PostgresStudioStore implements StudioStore {
   async eraseSubject(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<EraseResult> {
     const start = performance.now();
     if (typeof customerId !== "string" || !customerId) return { ok: false, reason: "not-found" };
-    const result = await this.transaction(async (tx): Promise<{ erased: EraseResult; commit?: DocumentCommit }> => {
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ erased: EraseResult; commit?: DocumentCommit }> => {
       const locked = await this.lock(tx, tenantId);
       if (!locked) return { erased: { ok: false, reason: "not-found" } };
       const clock = await this.clock(tx);
@@ -853,14 +866,14 @@ export class PostgresStudioStore implements StudioStore {
     if (!(await this.live(tenantId, await this.clock(this.prisma)))) return { entries: [], next: null };
     const limit = Math.max(1, Math.min(HISTORY_MAX_LIMIT, Math.floor(query.limit) || 1));
     const after = Math.max(0, Math.floor(query.after ?? 0));
-    const rows = await this.prisma.$queryRaw<Array<{
+    const rows = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{
       seq: bigint; action: TenantAction["action"]; actor: TenantAction["actor"]; source: TenantAction["source"];
       at_ms: number; idempotency_key: string | null; resulting_version: number;
     }>>`
       SELECT a.seq, a.action, a.actor, a.source, (extract(epoch FROM a.at) * 1000)::float8 AS at_ms, a.idempotency_key, a.resulting_version
       FROM tenant_action a
       WHERE a.tenant_id = ${tenantId} AND a.seq > ${after}::bigint
-      ORDER BY a.seq LIMIT ${limit + 1}`;
+      ORDER BY a.seq LIMIT ${limit + 1}`);
     const entries = rows.slice(0, limit).map((row): TenantAction => ({
       seq: Number(row.seq),
       tenantId,

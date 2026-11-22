@@ -4,6 +4,7 @@ import { resolveHost } from "@/concept/page/resolve";
 import { checkSlug } from "@/concept/page/slug";
 import { siteRequestHost } from "@/concept/site/request-host";
 import { migrateSaved } from "@/concept/store/studio-store";
+import { scoped } from "@/concept/store/tenant-scope";
 import { issuedAtToken } from "./public-issued-at";
 import { isPublicReadonly } from "./public-readonly";
 
@@ -39,8 +40,9 @@ export async function findSalonTenant(slug: string): Promise<string | null> {
   const checked = checkSlug(slug);
   if (!checked.ok) return null;
   const { db } = await import("./db");
-  const [row] = await db.$queryRaw<Array<{ tenant_id: string }>>`
-    SELECT tenant_id FROM tenant_state WHERE kind = 'salon' AND (doc #>> '{salon,slug}') = ${checked.slug}`;
+  // The address scope sees the one salon row with this address, and nothing else (row-level security).
+  const [row] = await scoped(db, { salonSlug: checked.slug }, (tx) => tx.$queryRaw<Array<{ tenant_id: string }>>`
+    SELECT tenant_id FROM tenant_state WHERE kind = 'salon' AND (doc #>> '{salon,slug}') = ${checked.slug}`);
   return row?.tenant_id ?? null;
 }
 
@@ -55,10 +57,10 @@ export async function loadPublicTenant(slug: string, now = new Date()): Promise<
   const checked = checkSlug(slug);
   if (!checked.ok) return null;
   const { db } = await import("./db");
-  const [row] = await db.$queryRaw<Array<{ tenant_id: string; doc: unknown }>>`
+  const [row] = await scoped(db, { salonSlug: checked.slug }, (tx) => tx.$queryRaw<Array<{ tenant_id: string; doc: unknown }>>`
     SELECT t.tenant_id, t.doc FROM tenant_state t JOIN owner_account a ON a.tenant_id = t.tenant_id
     WHERE t.kind = 'salon' AND a.active AND (t.expires_at IS NULL OR t.expires_at > ${now})
-      AND (t.doc #>> '{salon,slug}') = ${checked.slug}`;
+      AND (t.doc #>> '{salon,slug}') = ${checked.slug}`);
   const state = row && migrateSaved(row.doc);
   return state ? { tenantId: row.tenant_id, state } : null;
 }

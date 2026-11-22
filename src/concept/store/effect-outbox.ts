@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { detach, effectOf, type StoreEffect, type TenantId } from "./studio-store";
+import { OUTBOX_SCOPE, scoped, type StoreScope } from "./tenant-scope";
 
 // Delivery of the `tenant_effect` outbox (docs/design/STUDIO_STORE.md, step 2,
 // item 4). The in-apply drain of `PostgresStudioStore` and the poller
@@ -18,6 +19,11 @@ import { detach, effectOf, type StoreEffect, type TenantId } from "./studio-stor
 // One row is claimed per statement and acknowledged on its own, and no
 // connection is held while a sink runs. A failed send backs off exponentially;
 // after `maxAttempts` the row becomes `failed` for an operator to look at.
+//
+// Each statement runs in its own transaction under the context's row-level
+// security scope: the tenant for the in-apply drain, `outbox` for the poller
+// (tenant-scope.ts). The outbox scope reads effects and tenant kind and expiry
+// across tenants and may change only effects that are not yet delivered.
 
 export type TenantKind = "salon" | "demo" | "sandbox";
 
@@ -100,6 +106,8 @@ export interface DeliveryContext {
   budgetMs?: number;
   /** Only these tenants' effects (the in-apply drain passes its own). */
   tenants?: readonly TenantId[];
+  /** The row-level security scope of every statement: the in-apply drain's own tenant. Default: the outbox scope. */
+  scope?: StoreScope;
 }
 
 /** Claims the next due effect by the shared rule, or returns undefined when there is none. */
@@ -110,7 +118,7 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
   const messageLeaseMs = Math.max(ctx.leaseMs, (ctx.sinkTimeoutMs ?? 0) + LEASE_MARGIN_MS);
   const kinds = ctx.sinks ? null : ["demo", "sandbox"];
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
-  const [row] = await ctx.db.$queryRaw<ClaimedRow[]>`
+  const [row] = await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$queryRaw<ClaimedRow[]>`
     WITH next AS (
       SELECT e.tenant_id, e.seq, e.n
       FROM tenant_effect e
@@ -135,7 +143,7 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
     FROM next
     WHERE e.tenant_id = next.tenant_id AND e.seq = next.seq AND e.n = next.n AND e.status = 'pending'
     RETURNING e.id, e.tenant_id, e.seq, e.n, e.kind, e.payload, e.attempts,
-      (SELECT s.kind::text FROM tenant_state s WHERE s.tenant_id = e.tenant_id) AS tenant_kind`;
+      (SELECT s.kind::text FROM tenant_state s WHERE s.tenant_id = e.tenant_id) AS tenant_kind`);
   return row;
 }
 
@@ -176,7 +184,7 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
   const now = await ctx.clock();
   const permanent = kind === "permanent";
   const deferred = kind === "deferred";
-  const [outcome] = await ctx.db.$queryRaw<Array<{ status: string }>>`
+  const [outcome] = await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$queryRaw<Array<{ status: string }>>`
     UPDATE tenant_effect SET
       leased_until = CASE WHEN ${kind === "timeout"}::boolean THEN leased_until END,
       attempts = CASE WHEN ${deferred}::boolean THEN greatest(attempts - 1, 0) ELSE attempts END,
@@ -184,7 +192,7 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
       next_attempt_at = CASE WHEN ${kind === "timeout"}::boolean THEN next_attempt_at
         ELSE to_timestamp(${now + (deferred ? DEFER_MS : effectBackoffMs(row.attempts))}::float8 / 1000) END
     WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}
-    RETURNING status`;
+    RETURNING status`);
   return outcome?.status === "failed" ? "failed" : "retry";
 }
 
@@ -206,18 +214,18 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   if (result === "deferred") return recordFailure(ctx, row, "deferred");
   if (result === "skipped") {
     const skippedAt = await ctx.clock();
-    const changed = await ctx.db.$executeRaw`
+    const changed = await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$executeRaw`
       UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${skippedAt}::float8 / 1000)
-      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`;
+      WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`);
     // Nothing was sent, and a row that was cancelled meanwhile (an erasure) stays so.
     return changed ? "delivered" : "skipped";
   }
   // The send happened, so it is recorded as delivered whatever happened to the
   // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
   const at = await ctx.clock();
-  await ctx.db.$executeRaw`
+  await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$executeRaw`
     UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${at}::float8 / 1000)
-    WHERE id = ${row.id} AND status <> 'delivered'`;
+    WHERE id = ${row.id} AND status <> 'delivered'`);
   return "delivered";
 }
 
@@ -236,11 +244,11 @@ export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<D
   // with no outcome (the deliverer died), they are cancelled, never sent again.
   const now = await ctx.clock();
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
-  await ctx.db.$executeRaw`
+  await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$executeRaw`
     UPDATE tenant_effect SET status = 'cancelled', leased_until = NULL
     WHERE status = 'pending' AND erased_at IS NOT NULL
       AND (leased_until IS NULL OR leased_until <= to_timestamp(${now}::float8 / 1000))
-      AND (${tenants}::text[] IS NULL OR tenant_id = ANY(${tenants}::text[]))`;
+      AND (${tenants}::text[] IS NULL OR tenant_id = ANY(${tenants}::text[]))`);
   const started = performance.now();
   for (let claimed = 0; claimed < limit && (ctx.budgetMs === undefined || performance.now() - started < ctx.budgetMs); claimed++) {
     const row = await claimNext(ctx);
@@ -277,7 +285,8 @@ export interface DrainPendingEffectsOptions {
 /**
  * The outbox poller: one run over every tenant's due effects, for a cron or a
  * worker loop. Safe to run several at once; they never take the same row.
- * Effects of demo and sandbox tenants go to the simulated sinks only.
+ * Effects of demo and sandbox tenants go to the simulated sinks only. Runs in
+ * the outbox scope; sinks set their own tenant's scope for what they read and write.
  */
 export async function drainPendingEffects(options: DrainPendingEffectsOptions): Promise<DrainReport> {
   const { prisma } = options;
@@ -291,6 +300,7 @@ export async function drainPendingEffects(options: DrainPendingEffectsOptions): 
     maxAttempts: positive(options.maxAttempts, EFFECT_MAX_ATTEMPTS),
     sinkTimeoutMs: EFFECT_SINK_TIMEOUT_MS,
     tenants: options.tenants,
+    scope: OUTBOX_SCOPE,
   }, limit);
 }
 

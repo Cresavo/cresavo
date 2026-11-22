@@ -36,6 +36,13 @@
 --        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-roles.sql \
 --          -v app_login=<..> -v sweeper_login=<..> -v support_login=<..>
 --      Both must return no rows.
+--   6. Row-level security on the store tables (docs/design/STUDIO_STORE.md,
+--      "Row-level security"), once the deployed application sets its scopes,
+--      as the table owner:
+--        psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql
+--        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql
+--      Rollback: prisma/grants/rls-disable.sql. The migration has the policies;
+--      until this step they have no effect.
 --
 -- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The four roles below are NOLOGIN
 -- group roles. The operator creates one login per use without a password and

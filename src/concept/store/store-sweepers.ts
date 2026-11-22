@@ -3,6 +3,12 @@ import type { DemoAction } from "../actions";
 import { activityCutoff, monthsBefore, OUTBOX_BODY_MS, RATE_LIMIT_MS, RETENTION } from "../privacy/retention";
 import { databaseClock } from "./effect-outbox";
 import { PERSONAL_FIELDS, redactAction } from "./erasure";
+import { enterScope, scoped, SWEEP_SCOPE } from "./tenant-scope";
+
+// Every statement on a store table runs in the sweep scope (tenant-scope.ts):
+// once row-level security is on, only a member of cresavo_sweeper may use it,
+// and it allows no more than these sweeps do (migration store_rls_policies).
+// The rate-limit table has no row-level security.
 
 /** Set in an audit row's action once the age-based redaction has run on it. `redacted_at` is also set by an erasure, which only covers one customer. */
 const RETENTION_MARK = "retentionRedacted";
@@ -34,7 +40,7 @@ async function sweepRows(limit: number, remove: () => Promise<number>) {
 export async function sweepExpiredIdempotency({ prisma, now, batch }: SweepOptions): Promise<number> {
   const limit = batchSize(batch);
   const cutoff = await (now ? now() : databaseClock(prisma));
-  return sweepRows(limit, () => prisma.$executeRaw`
+  return sweepRows(limit, () => scoped(prisma, SWEEP_SCOPE, (db) => db.$executeRaw`
     WITH expired AS (
       SELECT tenant_id, key FROM tenant_idempotency
       WHERE expires_at <= to_timestamp(${cutoff}::float8 / 1000)
@@ -42,7 +48,7 @@ export async function sweepExpiredIdempotency({ prisma, now, batch }: SweepOptio
       FOR UPDATE SKIP LOCKED
     )
     DELETE FROM tenant_idempotency i USING expired e
-    WHERE i.tenant_id = e.tenant_id AND i.key = e.key`);
+    WHERE i.tenant_id = e.tenant_id AND i.key = e.key`));
 }
 
 /**
@@ -66,7 +72,7 @@ export async function sweepOwnerGuardBuckets({ prisma, now, batch }: SweepOption
 export async function sweepDemoActions({ prisma, now, batch }: SweepOptions): Promise<number> {
   const limit = batchSize(batch);
   const cutoff = await (now ? now() : databaseClock(prisma)) - DEMO_LOG_RETENTION_MS;
-  return sweepRows(limit, () => prisma.$executeRaw`
+  return sweepRows(limit, () => scoped(prisma, SWEEP_SCOPE, (db) => db.$executeRaw`
     WITH expired AS (
       SELECT a.tenant_id, a.seq FROM tenant_action a JOIN tenant_state s USING (tenant_id)
       WHERE s.kind = 'demo' AND a.at < to_timestamp(${cutoff}::float8 / 1000)
@@ -74,7 +80,7 @@ export async function sweepDemoActions({ prisma, now, batch }: SweepOptions): Pr
       FOR UPDATE OF a SKIP LOCKED
     )
     DELETE FROM tenant_action a USING expired e
-    WHERE a.tenant_id = e.tenant_id AND a.seq = e.seq`);
+    WHERE a.tenant_id = e.tenant_id AND a.seq = e.seq`));
 }
 
 interface SandboxSweepCounts {
@@ -90,6 +96,7 @@ export async function sweepExpiredSandboxes({ prisma, now, batch }: SweepOptions
   const counts = { tenants: 0, actions: 0, effects: 0, idempotencyKeys: 0 };
   counts.tenants = await sweepRows(limit, async () => {
     const deleted = await prisma.$transaction(async (tx) => {
+      await enterScope(tx, SWEEP_SCOPE);
       // Hold the tenant locks through all four deletes so applies cannot
       // append rows to a sandbox left behind by this batch.
       const rows = await tx.$queryRaw<Array<{ tenant_id: string }>>`
@@ -123,7 +130,7 @@ export async function sweepExpiredSandboxes({ prisma, now, batch }: SweepOptions
 export async function sweepOutboxBodies({ prisma, now, batch }: SweepOptions): Promise<number> {
   const limit = batchSize(batch);
   const cutoff = await (now ? now() : databaseClock(prisma)) - OUTBOX_BODY_MS;
-  return sweepRows(limit, () => prisma.$executeRaw`
+  return sweepRows(limit, () => scoped(prisma, SWEEP_SCOPE, (db) => db.$executeRaw`
     WITH due AS (
       SELECT e.tenant_id, e.seq, e.n FROM tenant_effect e
       LEFT JOIN tenant_action a ON a.tenant_id = e.tenant_id AND a.seq = e.seq
@@ -145,7 +152,7 @@ export async function sweepOutboxBodies({ prisma, now, batch }: SweepOptions): P
       || CASE WHEN e.payload ? 'subject' THEN jsonb_build_object('subject', '[redacted]') ELSE '{}'::jsonb END
       || CASE WHEN e.payload ? 'to' AND coalesce(e.payload ->> 'to', '') !~ '^customer:[A-Za-z0-9_.:-]+(, *customer:[A-Za-z0-9_.:-]+)*$'
               THEN jsonb_build_object('to', '[redacted]') ELSE '{}'::jsonb END
-    FROM due d WHERE e.tenant_id = d.tenant_id AND e.seq = d.seq AND e.n = d.n`);
+    FROM due d WHERE e.tenant_id = d.tenant_id AND e.seq = d.seq AND e.n = d.n`));
 }
 
 /** Deletes rate-limit rows that expired more than `RETENTION.rateLimitDays` ago. */
@@ -176,15 +183,16 @@ export async function sweepActivityPersonalData({ prisma, now, batch }: SweepOpt
   const cutoff = activityCutoff(at);
   const types = Object.keys(PERSONAL_FIELDS);
   // A caller's key can embed an address, whatever the action was: every old row loses it.
-  const keys = await sweepRows(limit, () => prisma.$executeRaw`
+  const keys = await sweepRows(limit, () => scoped(prisma, SWEEP_SCOPE, (db) => db.$executeRaw`
     WITH old AS (
       SELECT tenant_id, seq FROM tenant_action
       WHERE at < to_timestamp(${cutoff}::float8 / 1000) AND idempotency_key IS NOT NULL
       ORDER BY at, tenant_id, seq LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     )
-    UPDATE tenant_action a SET idempotency_key = NULL FROM old o WHERE a.tenant_id = o.tenant_id AND a.seq = o.seq`);
+    UPDATE tenant_action a SET idempotency_key = NULL FROM old o WHERE a.tenant_id = o.tenant_id AND a.seq = o.seq`));
   const redacted = await sweepRows(limit, () => prisma.$transaction(async (tx) => {
+    await enterScope(tx, SWEEP_SCOPE);
     const rows = await tx.$queryRaw<Array<{ tenant_id: string; seq: bigint; action: DemoAction }>>`
       SELECT tenant_id, seq, action FROM tenant_action
       WHERE at < to_timestamp(${cutoff}::float8 / 1000) AND NOT (action ? ${RETENTION_MARK}) AND action ->> 'type' = ANY(${types}::text[])
@@ -208,12 +216,12 @@ export async function sweepActivityPersonalData({ prisma, now, batch }: SweepOpt
 export async function sweepJournalAccessRows({ prisma, now, batch }: SweepOptions): Promise<number> {
   const limit = batchSize(batch);
   const cutoff = monthsBefore(await (now ? now() : databaseClock(prisma)), RETENTION.journalAccessLogMonths);
-  return sweepRows(limit, () => prisma.$executeRaw`
+  return sweepRows(limit, () => scoped(prisma, SWEEP_SCOPE, (db) => db.$executeRaw`
     WITH old AS (
       SELECT tenant_id, seq FROM tenant_action
       WHERE action ->> 'type' = 'journal/view' AND at < to_timestamp(${cutoff}::float8 / 1000)
       ORDER BY at, tenant_id, seq LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     )
-    DELETE FROM tenant_action a USING old o WHERE a.tenant_id = o.tenant_id AND a.seq = o.seq`);
+    DELETE FROM tenant_action a USING old o WHERE a.tenant_id = o.tenant_id AND a.seq = o.seq`));
 }
