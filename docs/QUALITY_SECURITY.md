@@ -127,11 +127,18 @@ Privacy (GDPR)
       confirmation, and an operator must schedule the sweep.
 
 Operations
-- [ ] Automated backups with a tested restore (documented restore drill).
+- [ ] Automated backups with a tested restore (documented restore drill:
+      [BACKUP_RESTORE](operations/BACKUP_RESTORE.md); tick when its drill log
+      has a passing row and the maintainer has confirmed RPO and RTO).
+- [ ] Least-privilege database roles in place for app, sweeper and support
+      (`prisma/grants/roles.sql`, with `studio-store.sql` and `erase-subject.sql`;
+      `verify-studio-store.sql` returns no rows).
 - [ ] Error tracking and alerting to phone; status page.
 - [ ] Structured logs with request id, retention defined.
 - [ ] Runbook for incidents, including personal data breach notification
-      (72 hours to the supervisory authority).
+      (72 hours to the supervisory authority):
+      [INCIDENT_RUNBOOK](operations/INCIDENT_RUNBOOK.md). Written; the breach
+      section is a placeholder until legal has approved it.
 - [ ] Load test of booking and calendar for expected peak.
 
 Quality
