@@ -15,6 +15,7 @@ import {
   deliverDue,
   EFFECT_LEASE_MS,
   EFFECT_MAX_ATTEMPTS,
+  EFFECT_SINK_TIMEOUT_MS,
   SIMULATED_SINKS,
   type EffectSinks,
   type TenantKind,
@@ -87,6 +88,8 @@ const SANDBOX_TTL_MS = 24 * 60 * 60 * 1000;
 export const LOCK_TIMEOUT_MS = 2_000;
 /** Most effects one apply's drain delivers, its own and any earlier ones it unblocks. */
 const DRAIN_LIMIT = 100;
+/** Longest an apply's own drain keeps claiming after the commit; the poller takes what is left. */
+const DRAIN_BUDGET_MS = 5_000;
 const TRANSACTION = { maxWait: 5_000, timeout: 15_000 } as const;
 
 export { EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, type TenantKind };
@@ -620,15 +623,18 @@ export class PostgresStudioStore implements StudioStore {
     try {
       // Claims one row at a time, so a refund another apply queued behind this
       // apply's checkout is claimed as soon as the checkout is acknowledged.
-      await deliverDue({
+      const report = await deliverDue({
         db: this.prisma,
         clock: () => this.clock(this.prisma),
         sinks: this.sinks,
         simulatedSinks: this.simulatedSinks,
         leaseMs: this.leaseMs,
         maxAttempts: this.maxAttempts,
+        sinkTimeoutMs: EFFECT_SINK_TIMEOUT_MS,
+        budgetMs: DRAIN_BUDGET_MS,
         tenants: [tenantId],
       }, DRAIN_LIMIT);
+      this.metrics.failedEffects(report.failed);
     } catch {
       // The change is committed and its effects are in the outbox; the poller delivers what is left.
     }

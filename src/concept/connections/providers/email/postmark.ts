@@ -42,6 +42,7 @@ export function postmarkEmail(options: { serverToken: string; webhookUser?: stri
           ...(message.html ? { HtmlBody: message.html } : {}),
           ...(message.replyTo ? { ReplyTo: message.replyTo } : {}),
           ...(tags.length ? { Tag: tags[0][1], Metadata: Object.fromEntries(tags) } : {}),
+          ...(message.tracking === false ? { TrackLinks: "None", TrackOpens: false } : {}),
           MessageStream: "outbound",
         }),
       }, codeOf, { idempotent: false });

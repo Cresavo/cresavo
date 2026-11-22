@@ -240,6 +240,66 @@ exists. Variable names are in `.env.example`.
    JPEG/PNG. The adapter waits (bounded) for the media container to finish
    before publishing. Publishing is not idempotent.
 
+## Booking e-mails and the outbox cron
+
+A salon's booking confirmations (and reminders) are `tenant_effect` rows,
+delivered after each commit and, for anything left over, by the poller. E-mail
+goes through the e-mail port above, so it is simulated unless the four live
+conditions hold; SMS and payments are acknowledged without sending.
+
+**Do not enable live confirmation e-mail (`CONCEPT_CONNECTIONS_LIVE=1` with an
+e-mail provider, for salons with public booking) before issue #143 is
+closed.** It covers known gaps in this delivery path:
+
+- erasure racing an in-flight dispatch;
+- duplicate sends under a stalled dispatch write, a crash between clearing
+  `dispatched` and recording the failure, or a Resend in-progress 409 beyond the
+  23-hour window;
+- a worker with `live-off` or `not-selected` acknowledging fresh live rows;
+- retry payload drift after a move (token expiry, sender, reply-to);
+- the fragment scrub when the salon is missing.
+
+- **Cron.** Run `npm run effects:drain` every minute (for example a Vercel
+  cron or `* * * * *` on a host) with `DATABASE_URL`, `SESSION_SECRET` and the
+  **same** `PUBLIC_BOOKING_LIVE`, `OWNER_ACCOUNTS_ENABLED`, `CONCEPT_*` and
+  provider settings as the web app. It is safe to run several at once and
+  prints counts only. An apply delivers its own effects for at most about 5 s
+  and leaves the rest to the cron.
+- **Retries.** A rate limit, an outage or a rejected API key backs off (2 s,
+  4 s ... up to an hour) for 10 attempts, so queued confirmations go out once
+  the key is fixed. A permanent error (bad address, unverified domain, other
+  4xx) marks the effect `failed` at once, with the reason in the effect's
+  `delivery.reason`. `store_metrics()` counts `failedEffects` per process.
+- **Sending twice.** The first attempt freezes the message and its time on the
+  effect, and every retry resends exactly that under the same idempotency key
+  (the effect id). A send that may have left (timeout, dropped connection, a
+  crash before the acknowledgement) is retried automatically **only on Resend,
+  within 23 hours of the first attempt** (Resend keeps keys for 24). Postmark
+  ignores the key, so there, and on Resend after 23 hours, the effect is marked
+  `failed` with reason `uncertain`: check the provider's activity for that
+  message and resend it by hand if it never went out. A Resend 409 for a key
+  with a different body fails with reason `reconcile`. **Recommended: Resend.**
+- **Live or simulated.** The first attempt decides whether an effect was meant
+  for a real send (any resolution except `live-off`, `not-selected` and
+  `public-demo`). A worker that then lacks the credentials fails the attempt
+  (and logs the resolution reason, never a value) instead of "delivering" it to
+  the simulator; give it the credentials and the row goes out.
+- **Public booking flags.** While `PUBLIC_BOOKING_LIVE` or
+  `OWNER_ACCOUNTS_ENABLED` is off, a public booking's e-mail waits unsent
+  without using an attempt, because the page its link opens is off too.
+- **Sender and tracking.** Mail is sent from `bookings@<product domain>`
+  (`NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN`), so that domain must be verified with
+  the provider. Replies go to the salon's own address. The link holds a bearer
+  token: Postmark messages turn link and open tracking off; on Resend, **turn
+  click tracking off for the sending domain**, or the provider sees and
+  rewrites the link.
+- **Link.** Each public booking's e-mail links to the booking page by its
+  public reference, with a signed token in the address fragment, valid until a
+  week after the visit as it stands. It is made when a real e-mail is sent and
+  never stored; a simulated send gets a link that opens nothing. The address is
+  the one typed on the booking: a profile address is used only for a visit the
+  owner made.
+
 ## Add a new provider
 
 Follow these steps to add one adapter. Use `providers/sms/twilio.ts` as the

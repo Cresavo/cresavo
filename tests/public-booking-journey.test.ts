@@ -20,13 +20,14 @@ const api = `/api/public/salons/${slug}`;
 describe("a business's own address", () => {
   const route = (path: string, host = `${slug}.${product}`) => routeHost(host, path, DEMO_DIRECTORY, product);
 
-  it("lets the page's own same-origin calls reach the public API: free times and booking", () => {
+  it("lets the page's own same-origin calls reach the public API: free times, booking and one booking's view", () => {
     expect(route(api)).toEqual({ action: "next" });
     expect(route(`${api}/bookings`)).toEqual({ action: "next" });
+    expect(route(`${api}/bookings/0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d`)).toEqual({ action: "next" });
   });
 
   it("lets through nothing else of the API, and no other business's", () => {
-    for (const path of [`${api}/bookings/b-1`, `${api}/other`, "/api/public/salons/another-salong", "/api/public/salons/another-salong/bookings", "/api/public/salons", "/api/owner/salon/actions"]) {
+    for (const path of [`${api}/bookings/ref-1/cancel`, `${api}/bookings/`, `${api}/bookings/${"a".repeat(65)}`, `${api}/bookings/a.b`, "/api/public/salons/another-salong/bookings/ref-1", `${api}/other`, "/api/public/salons/another-salong", "/api/public/salons/another-salong/bookings", "/api/public/salons", "/api/owner/salon/actions"]) {
       expect(route(path), path).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
     }
   });
