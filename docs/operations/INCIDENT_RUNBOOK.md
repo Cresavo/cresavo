@@ -177,6 +177,14 @@ only needed again if the rotation is rolled back.
 
 ### `OWNER_MFA_KEY`
 
+Deploy order: a build from before two-step sign-in ignores it, signs enrolled
+owners in with the password alone and accepts every session. Finish rolling
+out (no older worker left) before owners turn it on, and never roll back to
+such a build while any `owner_account.totp_enabled_at` is set. Sessions opened
+by an older worker lack `owner_session.mfa_verified_at` and are refused by the
+current build.
+
+
 Encrypts every owner's authenticator secret (AES-256-GCM, stored as
 `v1:<iv>:<tag>:<ciphertext>` in `owner_account.totp_secret_enc`) and, through a
 key derived from it, keys the recovery-code hashes (`owner_recovery_code`).
