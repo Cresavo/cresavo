@@ -1,4 +1,4 @@
-import { crc32 } from "node:zlib";
+import { crc32, deflateSync } from "node:zlib";
 
 // Generated test images: the container structure of a phone photo (metadata segments around the picture
 // data), with an invented GPS position. The picture data is filler, which the metadata stripping copies
@@ -122,4 +122,20 @@ export function metadataWebp(): Buffer {
   header.writeUInt32LE(body.length + 4, 4);
   header.write("WEBP", 8, "latin1");
   return Buffer.concat([header, body]);
+}
+
+/** A real, decodable PNG of one colour, with a text chunk naming the GPS mark. Each `seed` is another picture. */
+export function realPng(width = 24, height = 16, seed = 0): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.alloc(1 + width * 3);
+  for (let x = 0; x < width; x++) row.set([(seed * 37) & 0xff, (seed * 11 + 90) & 0xff, 160], 1 + x * 3);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    Buffer.from("\x89PNG\r\n\x1a\n", "latin1"), pngChunk("IHDR", ihdr),
+    pngChunk("tEXt", Buffer.from(`Location\0${GPS_MARK}`, "latin1")),
+    pngChunk("IDAT", deflateSync(raw)), pngChunk("IEND", Buffer.alloc(0)),
+  ]);
 }
