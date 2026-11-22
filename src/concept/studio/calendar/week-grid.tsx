@@ -57,6 +57,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                           compact
                           top={(b.start - from) * scale + 1}
                           height={b.duration * scale - 2}
+                          scale={scale}
                           onOpen={() => onOpen({ kind: "booking", id: b.id })}
                         />
                       ))}

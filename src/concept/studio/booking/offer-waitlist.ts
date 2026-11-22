@@ -23,7 +23,7 @@ const sameSlot = (booking: Booking | undefined, shown: ShownSlot): booking is Bo
 
 /** Whether the time the visit held is still free in the latest schedule: nobody else booked or holds it. */
 const stillFree = (state: DemoState, booking: Booking) =>
-  isFree(state, booking.staffId, booking.date, booking.start, { serviceId: booking.serviceId, duration: booking.duration }, booking.id);
+  isFree(state, booking.staffId, booking.date, booking.start, booking, booking.id);
 
 /** Offers the slot a cancelled booking freed to the waiting list. False when nothing was saved or sent. */
 export function offerSlotToWaitlist(shown: ShownSlot, clock: Clock): boolean {
