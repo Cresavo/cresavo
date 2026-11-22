@@ -21,7 +21,7 @@ let TENANT = "";
 
 const query = vi.hoisted(() => vi.fn());
 const apply = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/db", () => ({ db: { $queryRaw: query } }));
+vi.mock("@/lib/db", async () => ({ db: (await import("./helpers/scoped-db")).withStoreScopes({ $queryRaw: query }) }));
 vi.mock("@/lib/owner-store", () => ({ ownerStore: () => ({ apply }) }));
 
 const base = createDemoState("2026-11-16");
