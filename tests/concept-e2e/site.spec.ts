@@ -109,8 +109,8 @@ test("the dot fields size from their host and never grow", async ({ page }) => {
   expect(first.canvas - first.host).toBeLessThanOrEqual(80);
   await page.waitForTimeout(1500);
   expect(await size()).toEqual(first);
-  await page.locator("#open").scrollIntoViewIfNeeded();
-  await expect(page.locator("#open [data-ready]")).toHaveCount(1);
+  // The hero wordmark is the page's one moving moment; nothing else draws in dots.
+  await expect(page.locator("canvas")).toHaveCount(1);
 });
 
 test("the client card's tabs follow the arrow keys and the questions open from the keyboard", async ({ page }) => {

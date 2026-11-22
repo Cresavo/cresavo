@@ -1,0 +1,55 @@
+# Product site design rules
+
+Applies to the product homepage (`src/concept/site/home/`), the about and
+privacy pages and any new marketing page. Claude Code, Codex and Grok read this
+before they change a page. The studio follows [DESIGN_SYSTEM](DESIGN_SYSTEM.md).
+
+The site should look like a salon owner's tool made by people, not a template.
+Calm, mobile first, less is more: only show what the visitor needs right now.
+
+## Banned: the usual signs of a generated page
+
+- Purple, violet or indigo accents. The accent is a deep, neutral plum in light
+  mode and apricot in dark mode (`--plum` in `home.module.css`).
+- Gradient text, glow blobs, glassmorphism, noise or blur used as decoration.
+- Emoji as icons. Use the line icons in `home/icons.tsx` or none.
+- Centring everything. Only the short hero lines may be centred, from 600 px.
+  Body sections, closing asks and lists are left-aligned.
+- One word in a headline picked out with colour, italics or a gradient.
+- All-caps "eyebrow" labels above headings (`PRODUCT`, `PRICING`). The heading
+  says it; a short sentence-case note in muted text is the most it gets.
+- `01 / 02 / 03` numbering on things that are not real, ordered steps.
+- Rows of identical cards with the same border, radius and shadow as the
+  default layout. Vary the layout or flatten it into rules and plain text.
+- Fade-and-slide-up on every section. The page has one intentional motion
+  moment, the dot wordmark in the hero; everything else is there at first paint.
+- Framed utility buttons. Menu, theme toggle and similar controls are plain
+  text or icon buttons; a second action beside the primary one is a text link.
+- Generic hero copy ("Supercharge your workflow", "All-in-one platform"). Say
+  what Cresavo does for a salon, in the words of `en.ts` and `sv.ts`.
+- Disclaimers and fine print added to soften a claim. Don't add the claim.
+
+## Type and spacing
+
+- At most two type families. Today: Inter for everything, a monospace only for
+  the code line.
+- Spacing on a 4 px scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64 …).
+- Body text 16 px or larger (17 px on the homepage); nothing a visitor must
+  read below 13 px.
+- Headings tight (letter-spacing about −0.025em), body at line-height 1.5–1.6.
+
+## Quality floor
+
+- Every interactive element has a visible `:focus-visible` state and a target of
+  at least 44 × 44 px on touch.
+- Text contrast meets WCAG AA (4.5:1, 3:1 for large text) in light and dark.
+- Works at 375 and 390 px without sideways scrolling.
+- `prefers-reduced-motion: reduce` shows the finished page with nothing moving.
+- English and Swedish stay in parity; no new claims without the maintainer.
+
+## Before you say done
+
+Screenshot the page at 390 and 1280 px, in light and dark, for `/` and `/sv`,
+and check each screenshot against this list. Report what you saw, not what you
+meant to build. Run `npm run lint`, `npx tsc --noEmit`, `npm test` and
+`npm run test:concept` (it includes the axe checks).
