@@ -240,6 +240,28 @@ exists. Variable names are in `.env.example`.
    JPEG/PNG. The adapter waits (bounded) for the media container to finish
    before publishing. Publishing is not idempotent.
 
+## Booking e-mails and the outbox cron
+
+A salon's booking confirmations (and reminders) are `tenant_effect` rows,
+delivered after each commit and, for anything left over, by the poller. E-mail
+goes through the e-mail port above, so it is simulated unless the four live
+conditions hold; SMS and payments are acknowledged without sending.
+
+- **Cron.** Run `npm run effects:drain` every minute (for example a Vercel
+  cron or `* * * * *` on a host) with `DATABASE_URL` and `SESSION_SECRET` set.
+  It is safe to run several at once. It prints counts only.
+- **Retries.** A timeout, rate limit or provider outage backs off (2 s, 4 s ...
+  up to an hour) for 10 attempts. A permanent error (bad address, domain not
+  verified, other 4xx) marks the effect `failed` at once. A send that takes over
+  10 s during an apply counts as failed and is retried. `store_metrics()` counts
+  `failedEffects` per process.
+- **Sender.** Mail is sent from `bookings@<product domain>`
+  (`NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN`), so that domain must be verified with
+  the provider. Replies go to the salon's own address.
+- **Link.** Each e-mail has a link to the booking page with a signed token in
+  the address fragment, valid until a week after the visit. It is made when the
+  e-mail is sent and never stored.
+
 ## Add a new provider
 
 Follow these steps to add one adapter. Use `providers/sms/twilio.ts` as the

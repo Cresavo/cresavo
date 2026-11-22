@@ -17,6 +17,12 @@ export interface BookingMessageAction {
   at: { date: string; time: number };
 }
 export function messageSlot(booking: Booking) { return `${booking.date}:${booking.start}:${booking.staffId}`; }
+/** The stable id of one logical send, kept on the outbox entry so a delivery can tell which booking and message it is for. */
+export function messageReference(booking: Booking, kind: BookingMessageKind, channel: MessageChannel) { return `${booking.id}-${kind}-${channel}-${messageSlot(booking)}`; }
+export function parseMessageReference(reference: string): { bookingId: string; kind: BookingMessageKind } | undefined {
+  const match = /^(.+)-(confirmation|reminder)-(?:sms|email)-\d{4}-\d{2}-\d{2}:/.exec(reference);
+  return match ? { bookingId: match[1], kind: match[2] as BookingMessageKind } : undefined;
+}
 export function bookingMessage(state: DemoState, booking: Booking, kind: BookingMessageKind) {
   const { language } = state.localization;
   const stored = findService(state, booking.serviceId);
@@ -42,7 +48,7 @@ export function sendBookingMessage(state: DemoState, action: BookingMessageActio
       !["sms", "email"].includes(action.channel) || !["confirmation", "reminder"].includes(action.kind) ||
       messageWasSent(state, booking, action.kind, action.channel)) return state;
   const message = bookingMessage(state, booking, action.kind);
-  const sent = sendDemoMessage({ channel: action.channel, to: { customerId: booking.customerId }, subject: message.subject, body: message.body, reference: `${booking.id}-${action.kind}-${action.channel}-${messageSlot(booking)}` });
+  const sent = sendDemoMessage({ channel: action.channel, to: { customerId: booking.customerId }, subject: message.subject, body: message.body, reference: messageReference(booking, action.kind, action.channel) });
   if (!sent) return state;
   return {
     ...state, seq: state.seq + 1,

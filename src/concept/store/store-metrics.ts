@@ -24,6 +24,7 @@ export class StoreMetrics {
   private warnings = 0;
   private actionsNeeded = 0;
   private sizeRefusals = 0;
+  private failedEffectCount = 0;
   private last?: CommitSample;
 
   record(sample: CommitSample) {
@@ -39,6 +40,10 @@ export class StoreMetrics {
     this.sizeRefusals++;
   }
 
+  failedEffects(count: number) {
+    this.failedEffectCount += count;
+  }
+
   snapshot() {
     const applyP95Ms = percentile(this.samples, 0.95);
     const documentBytes = this.last?.documentBytes ?? 0;
@@ -48,6 +53,7 @@ export class StoreMetrics {
       warnings: this.warnings,
       actionsNeeded: this.actionsNeeded,
       sizeRefusals: this.sizeRefusals,
+      failedEffects: this.failedEffectCount,
       documentBytes,
       bookings,
       applyDurationMs: this.last?.applyDurationMs ?? 0,

@@ -3,13 +3,15 @@
 //
 //   npm run effects:drain -- [--limit 100] [--lease-ms 60000] [--max-attempts 10]
 //
-// Staging only: no live provider sinks are wired yet, so only demo and sandbox
-// tenants' effects are delivered (to the simulated sinks, which send nothing).
-// Salon effects are left pending, unclaimed, for the live sinks of a later step.
+// Salon booking e-mails go through the e-mail connection (simulated unless a
+// provider is live); payments and SMS are acknowledged without sending. Demo and
+// sandbox tenants only ever reach the simulated sinks. Run it every minute as
+// the backstop for effects an apply could not deliver (docs/integrations/README.md).
 // Prints counts only: never payloads, which may hold personal data.
 import { parseArgs } from "node:util";
 import type { PrismaClient } from "@prisma/client";
-import { drainPendingEffects } from "../src/concept/store/effect-outbox";
+import { drainPendingEffects, SIMULATED_SINKS } from "../src/concept/store/effect-outbox";
+import { messageSink } from "../src/lib/message-sink";
 import { createDatabaseClient } from "./database.mjs";
 
 const { values } = parseArgs({
@@ -25,6 +27,7 @@ const prisma = createDatabaseClient(process.env.DATABASE_URL, 2) as PrismaClient
 try {
   const report = await drainPendingEffects({
     prisma,
+    sinks: { ...SIMULATED_SINKS, message: messageSink(prisma) },
     limit: number(values.limit),
     leaseMs: number(values["lease-ms"]),
     maxAttempts: number(values["max-attempts"]),

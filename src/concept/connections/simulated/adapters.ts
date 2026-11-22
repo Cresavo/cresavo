@@ -80,7 +80,7 @@ export function simulatedEmail({ outbox, currency = "EUR" }: SimulatedOptions, g
     if (conflict) return conflict;
     const id = idFor("email", "send", [message.to, message.subject, message.text, message.idempotencyKey]);
     const cost = zero(currency);
-    outbox.record({ id, port: "email", action: "send", to: message.to.join(", "), subject: message.subject, body: message.text, cost });
+    outbox.record({ id, port: "email", action: "send", to: message.to.join(", "), subject: message.subject, body: message.text, reference: message.reference, cost });
     return ok({ id, to: message.to }, "simulated", cost, id);
   };
   return {

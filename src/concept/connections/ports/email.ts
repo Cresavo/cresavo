@@ -16,6 +16,8 @@ export interface EmailMessage {
   /** Short key/value labels for the provider's dashboard. No personal data. */
   tags?: Record<string, string>;
   idempotencyKey?: string;
+  /** Your own stable id for the send. Kept by the simulated adapter; never sent to a provider. */
+  reference?: string;
 }
 
 export interface EmailReceipt {
