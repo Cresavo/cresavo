@@ -15,17 +15,18 @@ export type ParsedArgs = ReconcileCommand | { error: string };
 export const USAGE = `Usage: npm run effects:reconcile -- <command> [options]
 
   list [--tenant <id>] [--limit 200]       failed and uncertain effects, per tenant
-  retry <id...> --tenant <id>              a failed e-mail back to pending, attempts reset;
+  retry <id...> --tenant <id>              a failed e-mail back to pending, with a fresh budget;
         [--force-maybe-duplicate]          only if it never left, unless forced
   mark-sent <id...> --tenant <id>          an uncertain e-mail the provider shows as sent
   mark-failed <id...> --tenant <id>        an uncertain e-mail the provider shows as not sent
 
-  Changes nothing without --apply. --actor <name> names who acts in the log line.`;
+  Changes nothing without --apply. --actor <id> (opaque, not an e-mail address) names who acts.`;
 
 const ACTIONS: readonly ReconcileAction[] = ["retry", "mark-sent", "mark-failed"];
 /** Effect and tenant ids as the store makes them; anything else is a typo or worse. */
 const ID = /^[A-Za-z0-9_.:-]{1,200}$/;
-const ACTOR = /^[A-Za-z0-9_.@-]{1,64}$/;
+/** An opaque operator id (initials, a staff number), never an e-mail address or other personal detail. */
+const ACTOR = /^[A-Za-z0-9_.-]{1,64}$/;
 const MAX_IDS = 100;
 const MAX_LIMIT = 1000;
 
@@ -69,8 +70,8 @@ export function parseReconcileArgs(argv: readonly string[], env: { USER?: string
   // Every change names its tenant, so an id copied from another salon's list is refused, not acted on.
   if (!tenant) return { error: "tenant_required" };
   if (values["force-maybe-duplicate"] && action !== "retry") return { error: "force_is_for_retry" };
-  const actor = values.actor ?? env.USER ?? "operator";
-  if (!ACTOR.test(actor)) return { error: "invalid_actor" };
+  if (values.actor !== undefined && !ACTOR.test(values.actor)) return { error: "invalid_actor" };
+  const actor = values.actor ?? (env.USER && ACTOR.test(env.USER) ? env.USER : "operator");
   return { command: action, ids, tenant, apply: values.apply, forceMaybeDuplicate: values["force-maybe-duplicate"], actor };
 }
 

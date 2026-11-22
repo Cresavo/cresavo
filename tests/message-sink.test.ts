@@ -556,6 +556,34 @@ describe("a paused e-mail connection (CONCEPT_EMAIL_PAUSED=1)", () => {
     expect(await run()).toBeUndefined();
     expect(sent).toHaveLength(1);
   });
+
+  it("holds a row with a saved failure reason too: the pause is checked first", async () => {
+    stored = { reason: "invalid_input" };
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("deferred");
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    expect(await run()).toBe("failed");
+  });
+
+  it("checks again right before the provider call, and releases the marker it had just set", async () => {
+    beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("deferred");
+    expect(sent).toHaveLength(0);
+    expect(stored.dispatched).toBeUndefined();
+    expect(stored.mail).toBeDefined();
+  });
+});
+
+describe("a snapshot retention has purged", () => {
+  it("fails for a person before anything is marked or sent", async () => {
+    stored = { firstAttemptAt: T0, from: "\"Salon\" <bookings@example.test>", link: { url: "https://example.test/b", exp: 1 } };
+    let dispatched = false;
+    beforeDispatch = () => { dispatched = true; };
+    expect(await run()).toBe("failed");
+    expect(dispatched).toBe(false);
+    expect(sent).toHaveLength(0);
+    expect(stored).toEqual({ firstAttemptAt: T0, reason: "snapshot_purged" });
+  });
 });
 
 describe("the public demo and an unconfigured server", () => {

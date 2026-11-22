@@ -296,8 +296,8 @@ The support role can still count them and see time and attempts:
 settles `failed` e-mail rows by hand. Run it with `DATABASE_URL` of a login
 that may read and update `tenant_effect` (the schema owner; the support role
 cannot). **It changes nothing without `--apply`**: a dry run prints what would
-happen. Every action names its tenant with `--tenant`, and an id of another
-tenant is refused.
+happen. Every action names its tenant with `--tenant`, and an id is only
+looked up within that tenant: another tenant's id is `not_found`.
 
 ```sh
 npm run effects:reconcile -- list [--tenant <tenant>]
@@ -310,15 +310,25 @@ npm run effects:reconcile -- mark-failed <id...> --tenant <tenant> [--apply]
   (`email/confirmation`, ...), `failed` or `uncertain`, age, attempts, the last
   error code (`EMAIL_NOT_CONFIGURED` for a row that ran out of attempts while
   the connection was off, or the failure's reason), whether a request may have
-  left (`dispatched`) and the recipient as `***@domain`. It never prints a
-  message body or an address.
-- **`retry`** puts a `failed` e-mail back to `pending` with its attempts reset;
-  the next drain sends it. It resends what the first attempt froze: the same
-  message, booking link, sender and reply-to, under the same idempotency key,
-  even if the salon has changed its name or address since. It is refused for a
-  row that may have left (`dispatched`, which every `uncertain` row is) unless
+  left (`dispatched`) and the recipient as `***@domain`. A row that ran out of
+  attempts after a request that may have left (`EMAIL_UNCERTAIN`, a sink
+  timeout, or a `dispatched` marker) is shown and treated as `uncertain`. Only
+  known codes and reasons are shown (anything else as `other`); it never prints
+  a message body or an address.
+- **`retry`** puts a `failed` e-mail back to `pending` with a fresh budget of
+  10 attempts; the next drain sends it. The `attempts` column keeps counting
+  (it also tells one claim from the next, so a stalled worker can never write
+  over a newer one); the budget starts again from `delivery.attemptBase`. It
+  resends what the first attempt froze: the same message, booking link, sender
+  and reply-to, under the same idempotency key, even if the salon has changed
+  its name or address since. It is refused for a row that may have left
+  (`dispatched`, `uncertain`, or settled `not_sent`) unless
   `--force-maybe-duplicate` is given; that drops the marker and accepts that
-  the customer may get the message twice. Use this after an outage that
+  the customer may get the message twice. It is also refused when the booking
+  is gone, cancelled (except for a cancellation notice) or its customer erased
+  (`booking_gone`, checked under the salon's lock), and when retention has
+  purged the frozen message (`snapshot_purged`): that one cannot be resent as
+  it was, so the salon follows up by hand. Use this after an outage that
   outlasted the 10 attempts, once the cause is fixed.
 - **`mark-sent`** settles an `uncertain` row the provider's log shows as sent:
   it becomes `delivered`.
@@ -329,9 +339,10 @@ npm run effects:reconcile -- mark-failed <id...> --tenant <tenant> [--apply]
 Each id is decided and changed in its own transaction under the row's lock. A
 row a deliverer still holds, an erased or cancelled row and anything that is
 not an e-mail are refused. Running the same command again changes nothing
-(`unchanged`). Each id prints one JSON line (`event: "effect_reconcile"`, actor
-from `--actor` or the shell user, action, tenant, effect id, dry run, outcome,
-reason): that line is the audit record, because the tenant's own audit log
+(`unchanged`). Each id prints one JSON line (`event: "effect_reconcile"`, actor,
+action, tenant, effect id, dry run, outcome, reason). The actor is an opaque id
+from `--actor` (initials or a staff number; an e-mail address is rejected) or
+the shell user, else `operator`: that line is the audit record, because the tenant's own audit log
 (`tenant_action`) holds the studio's changes only. Copy the lines into the
 incident record. The exit code is 1 when any id was refused.
 
