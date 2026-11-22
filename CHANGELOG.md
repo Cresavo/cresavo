@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Two-step sign-in for owner accounts (behind `OWNER_ACCOUNTS_ENABLED`).** An owner can turn on a code from an authenticator app (TOTP, RFC 6238: six digits, 30 seconds, one step either side) on `/account`: confirm the password, scan the QR code or type the key, enter the first code, and save ten single-use recovery codes that are shown once (copy and download). Sign-in then asks for the code, or a recovery code, after a correct password; no session exists until then. Each code works once, also when two requests race; wrong codes count toward the same lock-out as wrong passwords, and only a correct second step clears it. Turning it on or off ends every other session, and new recovery codes replace the old ones. A password reset keeps two-step sign-in on. The secret is stored encrypted (AES-256-GCM) and the recovery codes as keyed hashes, under the new `OWNER_MFA_KEY`; without it, setup and the sign-in of an enrolled account answer "not configured" and are never skipped. `OWNER_MFA_REQUIRED=1` (off by default) limits an account without two-step sign-in to setting it up. New migration `20261122140000_owner_mfa`; run `prisma/grants/roles.sql` again after deploying it. English and Swedish ("Tvåstegsverifiering").
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

@@ -102,6 +102,21 @@ Reset links do not work for an inactive account. To restore access, set
 `active = true`, have the owner reset the password straight away through a
 verified route, and watch the sign-ins.
 
+A password reset does not turn two-step sign-in off. An owner who lost both
+the authenticator and every recovery code can only be let back in by an
+operator, as the schema owner, after verifying who they are through a channel
+other than the account's e-mail:
+
+```sql
+BEGIN;
+UPDATE owner_account SET totp_secret_enc = NULL, totp_pending_enc = NULL, totp_pending_expires_at = NULL,
+  totp_enabled_at = NULL, totp_last_step = NULL, credential_version = credential_version + 1 WHERE id = '<account id>';
+DELETE FROM owner_recovery_code WHERE account_id = '<account id>';
+COMMIT;
+```
+
+The owner then signs in with the password and sets two-step sign-in up again.
+
 ## Key rotation
 
 Rotation is for a leak or a departure, or on schedule. Generate the new value
@@ -121,6 +136,8 @@ Used as an HMAC key by several features. Rotating it invalidates:
   admins sign in again; budgets keyed by the old values start over.
 - **Password-reset links** (30 minutes): outstanding links stop working; owners
   request a new one.
+- **Pending two-step sign-ins** (5 minutes): an owner between the password and
+  the code starts again with the password.
 - **Booking links in e-mails already sent** (`src/lib/booking-token.ts`): the
   customer's "manage my booking" link in a sent confirmation stops working.
   Customers must be told to contact the salon, or the salon cancels and rebooks
@@ -157,6 +174,30 @@ after the rotation no longer matches its stored fingerprint and is answered
 the client sees an error for that retry and must check the state. Rotate in a
 quiet period, or accept that. There is no two-key overlap; the old value is
 only needed again if the rotation is rolled back.
+
+### `OWNER_MFA_KEY`
+
+Encrypts every owner's authenticator secret (AES-256-GCM, stored as
+`v1:<iv>:<tag>:<ciphertext>` in `owner_account.totp_secret_enc`) and, through a
+key derived from it, keys the recovery-code hashes (`owner_recovery_code`).
+**There is no re-encryption yet: a new value makes every stored secret and
+recovery code unreadable.** After a rotation, every owner with two-step sign-in
+gets "not configured" (503) at the code step, cannot turn it off or get new
+codes, and cannot sign in. Nothing is skipped: no one gets in without the
+second step. Accounts without two-step sign-in are unaffected.
+
+- Rotate only after a leak of the key *together with* the database, since
+  either alone reveals nothing. Plan it with the owners: after deploying the
+  new value, clear two-step sign-in for each enrolled account with the SQL in
+  [containing one account](#containing-one-account) and ask them to set it up
+  again.
+- If the key is lost or removed by mistake, put the old value back: the
+  stored secrets work again at once.
+- Follow-up (not built): accept the old key next to the new one and
+  re-encrypt on use, using the `v1:` prefix for a `v2:` format.
+- Removing `OWNER_MFA_KEY` is not an off switch for two-step sign-in: it locks
+  every enrolled owner out. `OWNER_MFA_REQUIRED` can be set back to `0` at any
+  time; it only stops making two-step sign-in mandatory.
 
 ### Other secrets
 
