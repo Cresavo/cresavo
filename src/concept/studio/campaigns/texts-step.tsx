@@ -4,7 +4,7 @@ import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "../../campaigns/channels";
 import { postRequest } from "../../campaigns/copy";
 import { applyVoice, ownerVoice } from "../../campaigns/voice";
-import { draftLink, draftOffer, offerSignature, refreshCopy, type Draft } from "../../campaigns/draft";
+import { canApplyAiText, draftLink, draftOffer, editCopy, offerSignature, refreshCopy, type Draft } from "../../campaigns/draft";
 import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
@@ -31,8 +31,8 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   useEffect(() => {
     const current = latest.current;
     if (current.copyFor === signature) return;
-    const { copy, copyFor, regenerated } = refreshCopy(state, current, voice);
-    onChange({ copy, copyFor });
+    const { copy, copyFor, regenerated, stale } = refreshCopy(state, current, voice);
+    onChange({ copy, copyFor, copyStale: stale });
     const offer = draftOffer(state, current);
     const link = draftLink(state, current);
     let cancelled = false;
@@ -44,7 +44,7 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
         runAiTask<{ text: string; hashtags: string[] }>("write-post", request, !!state.industry)
           .then(({ output, log }) => {
             const now = latest.current;
-            if (cancelled || log.source !== "ai" || now.copyFor !== signature || now.copy[channel] !== copy[channel]) return;
+            if (cancelled || log.source !== "ai" || !canApplyAiText(now, channel, signature, copy[channel])) return;
             const post = applyVoice(output, voice);
             onChange({ copy: { ...now.copy, [channel]: assembleCopy(channel, post.text, post.hashtags, link, language, post.signOff) } });
           })
@@ -60,7 +60,7 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
 
   const rewrite = () => {
     const { copy, copyFor } = refreshCopy(state, { ...draft, copyEdited: [] }, voice);
-    onChange({ copy, copyFor, copyEdited: [] });
+    onChange({ copy, copyFor, copyEdited: [], copyStale: [] });
   };
 
   return (
@@ -87,8 +87,9 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
               id={`copy-${channel}`}
               value={text}
               rows={channel === "sms" ? 4 : 5}
-              onChange={(event) => onChange({ copy: { ...draft.copy, [channel]: event.target.value }, copyEdited: [...new Set([...(draft.copyEdited ?? []), channel])] })}
+              onChange={(event) => onChange(editCopy(draft, channel, event.target.value))}
             />
+            {draft.copyStale?.includes(channel) && <p role="status" className="text-sm text-danger">{t("campaigns.publish.checkTexts", { channels: t(`channel.${channel}`) })}</p>}
           </Card>
         );
       })}

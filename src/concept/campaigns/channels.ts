@@ -28,7 +28,10 @@ function truncate(text: string, max: number): string {
 }
 
 /** The body without the sign-off it already ends with (an AI text may repeat it). */
-const withoutSignOff = (body: string, signOff: string) => (body.endsWith(signOff) ? body.slice(0, -signOff.length).trimEnd() : body);
+const withoutSignOff = (body: string, signOff: string) => {
+  const start = body.length - signOff.length;
+  return body.endsWith(signOff) && (start === 0 || /\s/.test(body[start - 1])) ? body.slice(0, start).trimEnd() : body;
+};
 
 /**
  * Final text for a channel: the written body (shortened if needed), trackable link and, where they belong,

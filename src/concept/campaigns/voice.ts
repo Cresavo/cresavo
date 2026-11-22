@@ -24,7 +24,8 @@ const QUOTED_OR_CREDITED = /[“”"«»]|(?:^|\s)[–—-]\s*\p{Lu}/u;
 const WORD = /[\p{L}\p{N}]+/gu;
 
 const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-const EMOJI_GRAPHEME = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+/** A pictograph, a flag, or a keycap such as 1\uFE0F\u20E3. */
+const EMOJI_GRAPHEME = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u;
 const graphemes = (text: string) => Array.from(SEGMENTER.segment(text), (part) => part.segment);
 /** Whole emoji, so flags, skin tones and joined emoji are found and removed as one. */
 const hasEmoji = (text: string) => graphemes(text).some((g) => EMOJI_GRAPHEME.test(g));
@@ -40,13 +41,29 @@ const published = (state: Pick<DemoState, "campaigns">): Campaign[] =>
 /** The texts of the channels the campaign was published on. */
 const texts = (campaign: Campaign) => campaign.channels.flatMap((channel) => campaign.copy?.[channel] ?? []);
 
+/** A campaign name shorter than this is not matched in a closing line ("Go" says nothing about "Good luck!"). */
+const MIN_NAME = 4;
+const QUOTES = /[“”"«»'’]/g;
+const plain = (text: string) => text.replace(QUOTES, "").trim().toLowerCase();
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+interface Avoid {
+  /** The campaign's own name, when it is long enough to be a name. */
+  campaign?: RegExp;
+  /** Every word of every customer's first and last name. */
+  names: Set<string>;
+  /** Published reviews, whole and by first sentence, without quotation marks. */
+  reviews: Set<string>;
+}
+
 /**
  * The last line of a text that is the owner's own words: not the link, hashtags or a line the writer adds itself,
- * and not a quote, a credit, the campaign's name or a customer's name.
+ * and not a quote, a credit, a review, the campaign's name or a customer's name.
  */
-function closingLine(text: string, avoid: { campaign: string; names: Set<string> }): string | undefined {
+function closingLine(text: string, avoid: Avoid): string | undefined {
   const own = (line: string) => line && !LINK.test(line) && line.replace(HASHTAG, "").trim() && !isStockPhrase(line) && !QUOTED_OR_CREDITED.test(line)
-    && !(avoid.campaign && line.toLowerCase().includes(avoid.campaign))
+    && !avoid.campaign?.test(line)
+    && !avoid.reviews.has(plain(line))
     && !(line.match(WORD) ?? []).some((word) => avoid.names.has(word.toLowerCase()));
   return text.split("\n").map((line) => line.trim()).filter(own).at(-1);
 }
@@ -73,11 +90,16 @@ function median(values: number[]): number {
  * line and the hashtags they keep coming back to, whether they use emoji, and how long their captions are.
  * Lines and hashtags the rule-based writer adds itself do not count.
  */
-export function ownerVoice(state: Pick<DemoState, "campaigns" | "customers">): OwnerVoice {
+export function ownerVoice(state: Pick<DemoState, "campaigns" | "customers" | "reviews">): OwnerVoice {
   const campaigns = published(state);
   if (!campaigns.length) return NEUTRAL_VOICE;
-  const names = new Set(state.customers.flatMap((c) => [c.firstName, c.lastName]).filter((name) => name.length > 1).map((name) => name.toLowerCase()));
-  const closings = (c: Campaign) => c.channels.flatMap((channel) => closingLine(c.copy?.[channel] ?? "", { campaign: c.name.trim().toLowerCase(), names }) ?? []);
+  const names = new Set(state.customers.flatMap((c) => `${c.firstName} ${c.lastName}`.match(WORD) ?? []).filter((word) => word.length > 1).map((word) => word.toLowerCase()));
+  const reviews = new Set(state.reviews.flatMap((r) => [plain(r.text), plain(r.text.split(/(?<=[.!?])\s/)[0] ?? "")]).filter(Boolean));
+  const closings = (c: Campaign) => {
+    const name = c.name.trim();
+    const campaign = name.length >= MIN_NAME ? new RegExp(`(?<![\\p{L}\\p{N}])${escaped(name)}(?![\\p{L}\\p{N}])`, "iu") : undefined;
+    return c.channels.flatMap((channel) => closingLine(c.copy?.[channel] ?? "", { campaign, names, reviews }) ?? []);
+  };
   const signOff = recurring(campaigns.map((c) => closings(c).filter((line) => line.length <= MAX_SIGN_OFF)))[0];
   const hashtags = recurring(campaigns.map((c) => texts(c).flatMap((text) => text.match(HASHTAG) ?? []).filter((tag) => isHashtag(tag) && !isStockPhrase(tag)))).slice(0, MAX_HASHTAGS);
   const captions = campaigns.flatMap((c) => (c.channels.includes("instagram") && c.copy?.instagram) || []);

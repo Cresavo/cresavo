@@ -28,6 +28,8 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   /** Channels whose text the owner has changed by hand; a new offer never overwrites them. */
   copyEdited?: Channel[];
+  /** Edited channels whose offer changed after the owner wrote them: to be looked over; cleared when edited again. */
+  copyStale?: Channel[];
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
   posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "arrangement" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
@@ -119,6 +121,19 @@ export function refreshCopy(state: DemoState, draft: Draft, voice: OwnerVoice) {
   for (const channel of CHANNELS) copy[channel] = stale.includes(channel) ? draft.copy[channel] : rulesCopy(channel, offer, link, state.localization.language, voice);
   return { copy, copyFor: offerSignature(state, draft), regenerated, stale };
 }
+
+/** The patch for a hand edit: the owner's text, the channel marked as edited, and no longer waiting to be checked. */
+export function editCopy(draft: Draft, channel: Channel, text: string): Pick<Draft, "copy" | "copyEdited" | "copyStale"> {
+  return {
+    copy: { ...draft.copy, [channel]: text },
+    copyEdited: [...new Set([...(draft.copyEdited ?? []), channel])],
+    copyStale: (draft.copyStale ?? []).filter((c) => c !== channel),
+  };
+}
+
+/** Whether a late AI text may replace a channel's text: same offer, not edited by hand, still the text it was started from. */
+export const canApplyAiText = (draft: Draft, channel: Channel, signature: string, written: string | undefined) =>
+  draft.copyFor === signature && !(draft.copyEdited ?? []).includes(channel) && draft.copy[channel] === written;
 
 /** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
 export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {
