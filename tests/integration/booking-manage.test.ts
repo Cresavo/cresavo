@@ -148,4 +148,14 @@ describe("move by token", () => {
     expect([clash.status, await clash.json()]).toEqual([409, { error: "slot_unavailable" }]);
     expect((await book(600)).status).toBe(201);
   });
+
+  it("sends an e-mail for every move, also back to a time it had before", async () => {
+    const { ref, token } = await booked(840);
+    mails.length = 0;
+    const times = [[NEXT_DATE, 900], [DATE, 840], [NEXT_DATE, 900]] as const;
+    for (const [date, start] of times) expect((await change(MOVE, ref, { token, staffId, date, start })).status).toBe(200);
+    await drain();
+    expect(mails).toHaveLength(3);
+    expect(new Set(mails.map((m) => m.idempotencyKey)).size).toBe(3);
+  });
 });

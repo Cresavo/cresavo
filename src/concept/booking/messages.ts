@@ -16,10 +16,12 @@ export interface BookingMessageAction {
   channel: MessageChannel;
   kind: BookingMessageKind;
   at: { date: string; time: number };
+  /** Tells one send of the same message to the same time from another, for a visit moved away and back. */
+  occasion?: number;
 }
-export function messageSlot(booking: Booking) { return `${booking.date}:${booking.start}:${booking.staffId}`; }
+export function messageSlot(booking: Booking, occasion?: number) { return `${booking.date}:${booking.start}:${booking.staffId}${occasion === undefined ? "" : `#${occasion}`}`; }
 /** The stable id of one logical send, kept on the outbox entry so a delivery can tell which booking and message it is for. */
-export function messageReference(booking: Booking, kind: BookingMessageKind, channel: MessageChannel) { return `${booking.id}-${kind}-${channel}-${messageSlot(booking)}`; }
+export function messageReference(booking: Booking, kind: BookingMessageKind, channel: MessageChannel, occasion?: number) { return `${booking.id}-${kind}-${channel}-${messageSlot(booking, occasion)}`; }
 export function parseMessageReference(reference: string): { bookingId: string; kind: BookingMessageKind } | undefined {
   const match = /^(.+)-(confirmation|reminder|cancellation|moved)-(?:sms|email)-\d{4}-\d{2}-\d{2}:/.exec(reference);
   return match ? { bookingId: match[1], kind: match[2] as BookingMessageKind } : undefined;
@@ -38,8 +40,8 @@ export function bookingMessage(state: DemoState, booking: Booking, kind: Booking
   const body = customerText(state, "messages.withManageLink", { details, link: path });
   return { subject, body, details, path };
 }
-export function messageWasSent(state: DemoState, booking: Booking, kind: BookingMessageKind, channel: MessageChannel) {
-  return state.inbox.some(item => item.bookingId === booking.id && item.delivery?.kind === kind && item.delivery.channel === channel && item.delivery.slot === messageSlot(booking));
+export function messageWasSent(state: DemoState, booking: Booking, kind: BookingMessageKind, channel: MessageChannel, occasion?: number) {
+  return state.inbox.some(item => item.bookingId === booking.id && item.delivery?.kind === kind && item.delivery.channel === channel && item.delivery.slot === messageSlot(booking, occasion));
 }
 /** Sent through the SMS or email port with the simulated adapter; nothing leaves the demo. Repeated sends for the same booking/time are idempotent. */
 export function sendBookingMessage(state: DemoState, action: BookingMessageAction): DemoState {
@@ -48,9 +50,9 @@ export function sendBookingMessage(state: DemoState, action: BookingMessageActio
   if (!booking || booking.status !== (action.kind === "cancellation" ? "cancelled" : "booked") || booking.date < action.at.date ||
       (booking.date === action.at.date && booking.start <= action.at.time) ||
       !["sms", "email"].includes(action.channel) || !["confirmation", "reminder", "cancellation", "moved"].includes(action.kind) ||
-      messageWasSent(state, booking, action.kind, action.channel)) return state;
+      messageWasSent(state, booking, action.kind, action.channel, action.occasion)) return state;
   const message = bookingMessage(state, booking, action.kind);
-  const sent = sendDemoMessage({ channel: action.channel, to: { customerId: booking.customerId }, subject: message.subject, body: message.body, reference: messageReference(booking, action.kind, action.channel) });
+  const sent = sendDemoMessage({ channel: action.channel, to: { customerId: booking.customerId }, subject: message.subject, body: message.body, reference: messageReference(booking, action.kind, action.channel, action.occasion) });
   if (!sent) return state;
   return {
     ...state, seq: state.seq + 1,
@@ -58,7 +60,7 @@ export function sendBookingMessage(state: DemoState, action: BookingMessageActio
       id: `i-${state.seq}`, kind: "system", customerId: booking.customerId, bookingId: booking.id,
       date: action.at.date, time: action.at.time, title: t("messages.sentTitle", { channel: t(`messages.channel.${action.channel}`), subject: message.subject }),
       body: sent.body, read: false, handled: true,
-      delivery: { kind: action.kind, channel: action.channel, slot: messageSlot(booking) },
+      delivery: { kind: action.kind, channel: action.channel, slot: messageSlot(booking, action.occasion) },
     }, ...state.inbox],
   };
 }

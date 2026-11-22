@@ -325,7 +325,8 @@ function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "onl
   const when = (visit: Pick<Booking, "date" | "start">) => `${formatDayLong(visit.date)} ${formatTime(visit.start)}`;
   const notice = (kind: "cancel" | "reschedule", title: string, body: string) =>
     ({ kind, customerId: customer.id, bookingId: id, date: at.date, time: at.time, title, body, read: false, handled: kind === "reschedule" });
-  const mail = (next: DemoState, kind: "cancellation" | "moved") => sendBookingMessage(next, { type: "booking-message/send", bookingId: id, kind, channel: "email", at });
+  // Each change is its own message: the counter tells a move back to a time the visit had before from the first one.
+  const mail = (next: DemoState, kind: "cancellation" | "moved") => sendBookingMessage(next, { type: "booking-message/send", bookingId: id, kind, channel: "email", at, occasion: next.seq });
   if (action.type === "online/cancel") {
     const cancelled = reduce(state, {
       type: "booking/cancel", id, reason: t("booking.cancel.reason"),

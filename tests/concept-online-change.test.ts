@@ -81,6 +81,16 @@ describe("online/move", () => {
     expect(next.inbox.filter((i) => i.delivery?.kind === "moved")).toHaveLength(1);
   });
 
+  it("tells the customer of every move, also one back to a time the visit had before (A to B to A to B is three messages)", () => {
+    const there = move();
+    const back = move({ date, start });
+    const state = [there, back, there].reduce((current, action) => reduce(current, action), booked);
+    expect(state.bookings.find((b) => b.id === visit.id)).toMatchObject({ date: "2026-11-25", start: target });
+    const sent = state.inbox.filter((i) => i.delivery?.kind === "moved");
+    expect(sent).toHaveLength(3);
+    expect(new Set(sent.map((i) => i.delivery!.slot)).size).toBe(3);
+  });
+
   it("moves within its own overlapping time, since its own slot is not in the way", () => {
     const next = reduce(booked, move({ date, start: start + 30 }));
     expect(next.bookings.find((b) => b.id === visit.id)?.start).toBe(start + 30);
