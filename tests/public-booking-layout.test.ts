@@ -39,6 +39,7 @@ async function layout(slug: string) {
 const live = () => {
   vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
   vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
+  vi.stubEnv("SESSION_SECRET", "synthetic-session-secret-of-32-chars!!");
 };
 
 beforeEach(() => {

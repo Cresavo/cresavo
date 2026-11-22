@@ -22,9 +22,9 @@ const guest = { name: "Test Person", phone: "070-000 00 01", at: { date: today, 
 const notice = { title: "New booking", body: "" };
 const ids = (state: DemoState, category?: string) => state.services.filter((s) => !category || s.category === category).map((s) => s.id);
 
-/** The first day from a month ahead where Erik has room for the treatment, and the first start that day. */
+/** The first day from three weeks ahead (inside the 28 days the public page books) where Erik has room for the treatment, and the first start that day. */
 function freeSlot(state: DemoState, need: { serviceId: string; duration: number }) {
-  let date = addDays(today, 30);
+  let date = addDays(today, 21);
   while (!freeStarts(state, "erik", date, need).length) date = addDays(date, 1);
   return { date, start: freeStarts(state, "erik", date, need)[0] };
 }

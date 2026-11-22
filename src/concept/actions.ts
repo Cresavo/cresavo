@@ -13,6 +13,8 @@ import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { cleanImportedCustomer, MAX_IMPORT_ROWS, normalizeEmail } from "./customers/csv";
 import { earliestBookingStart } from "./booking/policy";
+import { PUBLIC_WINDOW_DAYS } from "./booking/public-projection";
+import { addDays } from "./data/dates";
 import { cleanSignOff } from "./campaigns/channels";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
@@ -167,7 +169,7 @@ function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item:
 
 function createBooking(
   state: DemoState,
-  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
+  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource; contactEmail?: string },
   protection?: BookingProtection,
   /** The timing the slot was checked with; a paid hold keeps the one it reserved. */
   timing?: VisitTiming,
@@ -192,6 +194,7 @@ function createBooking(
     price: protection ? Number(majorString({ amountMinor: protection.terms.priceMinor, currency: protection.terms.currency })) : service.price,
     status: "booked",
     resourceId: pickResource(state, need, input.date, input.start),
+    ...(input.contactEmail ? { contactEmail: input.contactEmail } : {}),
   };
   return { state: { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] }, booking };
 }
@@ -234,9 +237,19 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
 
 type OnlineRequest = Extract<DemoAction, { type: "online/book" | "online/hold" }>;
 
+/** Upcoming online bookings one phone number may hold at a salon, so one number cannot fill the book. */
+export const MAX_UPCOMING_ONLINE_PER_PHONE = 3;
+
+function atOnlineLimit(state: DemoState, phone: string, today: DateKey): boolean {
+  const wanted = normalizePhone(phone);
+  const owners = new Set(state.customers.filter((c) => normalizePhone(c.phone) === wanted).map((c) => c.id));
+  return state.bookings.filter((b) => owners.has(b.customerId) && b.source === "online" && b.status === "booked" && b.date >= today).length >= MAX_UPCOMING_ONLINE_PER_PHONE;
+}
+
 function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoState {
   const { at } = action.guest;
-  if (action.date < at.date || action.start < earliestBookingStart(action.date, at.date, at.time)) return state;
+  if (action.date < at.date || action.date > addDays(at.date, PUBLIC_WINDOW_DAYS) || action.start < earliestBookingStart(action.date, at.date, at.time)) return state;
+  if (action.type === "online/book" && atOnlineLimit(state, action.guest.phone, at.date)) return state;
   const service = bookableServices(state).find(s => s.id === action.serviceId);
   if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, action.guest.phone));
@@ -265,7 +278,7 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
 
 function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection, timing?: VisitTiming): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection, timing);
+  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online", contactEmail: action.guest.email?.trim() }, protection, timing);
   if (!created) return state;
   const bookingId = created.booking.id;
   const notified = reduce(created.state, {

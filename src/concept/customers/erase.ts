@@ -130,7 +130,7 @@ const JOURNAL_FIELDS = [...JOURNAL_TEXT, ...JOURNAL_TEXT.map((field) => `version
  */
 export const DOCUMENT_FREE_TEXT: Partial<Record<keyof DemoState, readonly string[]>> = {
   customers: ["*.note"],
-  bookings: ["*.note", "*.cancelReason", "*.protection.decision.reason"],
+  bookings: ["*.note", "*.cancelReason", "*.protection.decision.reason", "*.contactEmail"],
   journals: JOURNAL_FIELDS.map((field) => `*.${field}`),
   reviews: ["*.text", "*.reply"],
   inbox: INBOX_TEXT.map((field) => `*.${field}`),
@@ -138,7 +138,7 @@ export const DOCUMENT_FREE_TEXT: Partial<Record<keyof DemoState, readonly string
   giftCards: ["*.recipient", "*.message"],
   tickets: ["*.question", "*.screen.*", "*.activity.*.summary"],
   trash: [
-    "*.customer.note", "*.bookings.*.note", "*.bookings.*.cancelReason", "*.reviews.*.text", "*.reviews.*.reply",
+    "*.customer.note", "*.bookings.*.note", "*.bookings.*.cancelReason", "*.bookings.*.contactEmail", "*.reviews.*.text", "*.reviews.*.reply",
     ...JOURNAL_FIELDS.map((field) => `*.journals.*.${field}`), ...INBOX_TEXT.map((field) => `*.inbox.*.${field}`),
   ],
 };

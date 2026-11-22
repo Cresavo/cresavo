@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
 import { t } from "../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { useServerSalon } from "../server-salon";
 import { usePublicDemo } from "../store";
 import { ActionFailure } from "../ui/action-failure";
 import { StaffAvatar } from "../ui/avatar";
@@ -25,6 +26,8 @@ import { findService } from "../selectors";
 export function Confirmation({ id }: { id: string }) {
   const state = usePublicDemo();
   const now = useSalonNow();
+  // On a salon's own page the visit is the salon's; changing it and previewing messages come with later steps, so the customer is asked to call.
+  const fromServer = useServerSalon() !== null;
   const booking = state?.bookings.find((b) => b.id === id);
   const service = state && findService(state, booking?.serviceId);
   const person = state?.staff.find((s) => s.id === booking?.staffId);
@@ -88,21 +91,21 @@ export function Confirmation({ id }: { id: string }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <RepeatBookingLink state={state} booking={booking} variant={reviewIsPrimary ? "secondary" : "primary"} />
-        {active && <ButtonLink href={`${bookingPage(state.salon.slug, booking.id)}#manage`} variant="secondary">{t("booking.manageLink")}</ButtonLink>}
+        {active && !fromServer && <ButtonLink href={`${bookingPage(state.salon.slug, booking.id)}#manage`} variant="secondary">{t("booking.manageLink")}</ButtonLink>}
       </div>
       <div id="manage" className="scroll-mt-4 space-y-3">
-        {active && <BookingActions state={state} now={now} booking={booking} />}
+        {active && (fromServer ? <p className="text-meta">{t("booking.changeByPhone", { phone: state.salon.phone })}</p> : <BookingActions state={state} now={now} booking={booking} />)}
         {rule === "free" && <p className="text-meta text-text-secondary">{freeUntilText(booking)}</p>}
         {active && booking.protection && <p className="text-meta text-text-secondary">{policyText(booking.protection.terms)}</p>}
       </div>
 
-      {active && !cancelled && <MessagePreviews state={state} booking={booking} now={now} />}
-      <ReviewForm state={state} booking={booking} now={now} variant="primary" />
+      {active && !cancelled && !fromServer && <MessagePreviews state={state} booking={booking} now={now} />}
+      {!fromServer && <ReviewForm state={state} booking={booking} now={now} variant="primary" />}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-4 text-meta">
-        <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
+        {!fromServer && <Link href={myBookingsFor(state.salon.slug, booking.customerId)} className="flex min-h-11 items-center font-medium text-action underline-offset-2 hover:underline">
           {t("booking.seeMyBookings")}
-        </Link>
+        </Link>}
         <Link href={bookingHome(state.salon.slug)} className="flex min-h-11 items-center text-text-secondary underline-offset-2 hover:underline">
           {t("booking.backToSalon")}
         </Link>
