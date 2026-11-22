@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import type { Locale } from "@/lib/locale";
 import { translate, type MessageKey } from "../i18n";
+import { closeAccountSalon } from "../store";
 import { Button } from "../ui/button";
 import { Field, Select, TextInput } from "../ui/controls";
 import { Notice } from "../ui/notice";
@@ -109,11 +110,25 @@ export function SignOutButton({ language }: { language: Locale }) {
 export function SignOutEverywhereButton({ language }: { language: Locale }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   async function signOutEverywhere() {
     setBusy(true);
-    await fetch("/api/owner/logout-all", { method: "POST" }).catch(() => undefined);
+    setFailed(false);
+    const response = await fetch("/api/owner/logout-all", { method: "POST" }).catch(() => undefined);
+    // 401 means this session had already ended; the other devices may still be signed in, so ask the owner to sign in and retry.
+    if (!response?.ok) {
+      setFailed(true);
+      setBusy(false);
+      return;
+    }
+    closeAccountSalon();
     router.push("/account/login");
     router.refresh();
   }
-  return <Button variant="secondary" loading={busy} onClick={signOutEverywhere}>{translate(language, "account.logoutAll")}</Button>;
+  return (
+    <div className="space-y-2">
+      {failed && <Notice tone="danger" role="alert">{translate(language, "account.logoutAll.failed")}</Notice>}
+      <Button variant="secondary" loading={busy} onClick={signOutEverywhere}>{translate(language, "account.logoutAll")}</Button>
+    </div>
+  );
 }

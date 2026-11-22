@@ -48,7 +48,7 @@ function recordingRegistry(live: boolean) {
     resolve: async () => ({
       live, reason: live ? "live" : "live-off",
       adapter: {
-        info: { port: "email", provider: "test", kind: "simulated", capabilities: ["send"], secrets: [] },
+        info: { port: "email", provider: "postmark", kind: "simulated", capabilities: ["send"], secrets: [] },
         send: async (message) => { sent.push(message); return ok({ id: "m-1", to: message.to }, "queued"); },
       },
     }),
@@ -96,6 +96,24 @@ describe("account lockout", () => {
     expect(await verifyOwnerCredentials({ email: email("clear"), password })).not.toBeNull();
     for (let n = 0; n < 4; n++) await verifyOwnerCredentials({ email: email("clear"), password: "wrong password here" });
     expect(await verifyOwnerCredentials({ email: email("clear"), password })).not.toBeNull();
+  });
+
+  it("counts simultaneous failures as one lock-out and never lets a late guess through", async () => {
+    vi.setSystemTime(START);
+    await account("burst");
+    // Four at a time is what the password hasher admits; three rounds cross the threshold of five more than once.
+    for (let round = 0; round < 3; round++) {
+      const guesses = await Promise.all(Array.from({ length: 4 }, () => verifyOwnerCredentials({ email: email("burst"), password: "wrong password here" })));
+      expect(guesses.every((g) => g === null)).toBe(true);
+    }
+    // One strike: the lock is 15 minutes, not 30 or more.
+    vi.setSystemTime(new Date(START.getTime() + minutes(16)));
+    expect(await verifyOwnerCredentials({ email: email("burst"), password })).not.toBeNull();
+    // Simultaneous tries, one with the right password: it works, since the account is not locked yet.
+    vi.setSystemTime(START);
+    await account("burst-ok");
+    const mixed = await Promise.all(Array.from({ length: 4 }, (_, n) => verifyOwnerCredentials({ email: email("burst-ok"), password: n === 3 ? password : "wrong password here" })));
+    expect(mixed.filter((m) => m !== null)).toHaveLength(1);
   });
 
   it("doubles the lock each time within a day", async () => {
@@ -250,6 +268,34 @@ describe("password reset", () => {
     expect(sent).toHaveLength(1);
   });
 
+  it("charges the mailbox quota only for mail that is sent, so discarded requests cannot use up recovery", async () => {
+    const { registry, sent } = recordingRegistry(true);
+    await account("quota");
+    const at = START.getTime();
+    // Unknown fields, unknown addresses and malformed bodies send nothing and cost nothing.
+    for (let n = 0; n < 6; n++) await requestPasswordReset({ email: email("quota"), extra: n }, registry, at);
+    await requestPasswordReset({ email: email("ghost") }, registry, at);
+    expect(sent).toHaveLength(0);
+    // The genuine request still gets its mail, three times in the window, then no more.
+    for (let n = 0; n < 5; n++) await requestPasswordReset({ email: email("quota") }, registry, at + n);
+    expect(sent).toHaveLength(3);
+  });
+
+  it("does not send the link through a provider that cannot turn link tracking off", async () => {
+    const { registry, sent } = recordingRegistry(true);
+    const resolve = registry.resolve;
+    const resend: ResetRegistry = { resolve: async (port, business) => { const r = await resolve(port, business); r.adapter.info.provider = "resend"; return r; } };
+    await account("tracking");
+    await requestPasswordReset({ email: email("tracking") }, resend, START.getTime());
+    expect(sent).toHaveLength(0);
+    vi.stubEnv("OWNER_RESET_TRACKING_OFF", "1");
+    await requestPasswordReset({ email: email("tracking") }, resend, START.getTime());
+    vi.unstubAllEnvs();
+    vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
+    vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "book.example");
+    expect(sent).toHaveLength(1);
+  });
+
   describe("routes", () => {
     const origin = "http://localhost";
     const post = (path: string, body: unknown, ip: string, cookie?: string) => new NextRequest(`${origin}${path}`, {
@@ -268,13 +314,10 @@ describe("password reset", () => {
       expect(await malformed.json()).toEqual({ ok: true });
     });
 
-    it("limits requests per address and per mailbox, with the same answer for any address", async () => {
+    it("limits requests per address and answers the same for any address", async () => {
       const ip = "203.0.113.20";
       for (let n = 0; n < 5; n++) expect((await resetRequestRoute(post("/api/owner/password/reset-request", { email: `n${n}-${run}@example.test` }, ip))).status).toBe(200);
       expect((await resetRequestRoute(post("/api/owner/password/reset-request", { email: `n9-${run}@example.test` }, ip))).status).toBe(429);
-      const target = email("flooded");
-      for (let n = 0; n < 3; n++) expect((await resetRequestRoute(post("/api/owner/password/reset-request", { email: target }, `203.0.113.${30 + n}`))).status).toBe(200);
-      expect((await resetRequestRoute(post("/api/owner/password/reset-request", { email: target }, "203.0.113.40"))).status).toBe(429);
     });
 
     it("rejects a cross-site request and a bad token", async () => {

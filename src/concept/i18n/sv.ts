@@ -269,6 +269,7 @@ const messages = {
   "account.logout": "Logga ut",
   "account.logoutAll": "Logga ut överallt",
   "account.logoutAll.hint": "Avslutar din inloggning på alla enheter, även den här. Använd det om du tappat en enhet eller loggat in på en delad dator.",
+  "account.logoutAll.failed": "Det gick inte att logga ut överallt. Dina andra enheter kan fortfarande vara inloggade. Logga in igen om du blev utloggad och försök sedan igen.",
   "account.login.forgot": "Glömt lösenordet?",
   "account.reset.title": "Återställ ditt lösenord",
   "account.reset.requestText": "Skriv e-postadressen du registrerade dig med. Finns ett konto skickar vi en länk som gäller i 30 minuter.",

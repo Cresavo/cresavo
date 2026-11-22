@@ -5,7 +5,7 @@ import { createSalon, salonDraft, suggestedSlug } from "@/concept/onboarding/sal
 import { checkSlug, SLUG_MAX } from "@/concept/page/slug";
 import { salonClock } from "@/concept/tools/clock";
 import { db } from "./db";
-import { accountLocked, clearFailedLogins, recordFailedLogin } from "./owner-lockout";
+import { accountLocked, clearFailedLogins, LOCK_THRESHOLD, lockAccount, refundLoginAttempt, reserveLoginAttempt } from "./owner-lockout";
 import { hashPassword, newPasswordSchema, verifyPasswordHash } from "./password";
 import { findSalonTenant } from "./public-booking";
 import { assertWritable } from "./public-readonly";
@@ -92,12 +92,25 @@ export async function verifyOwnerCredentials(input: unknown): Promise<OwnerIdent
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return null;
   const { email, password } = parsed.data;
-  const [account, locked] = await Promise.all([db.ownerAccount.findUnique({ where: { email } }), accountLocked(email)]);
-  const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, password);
-  if (account?.active && valid && !locked) {
+  // Reserved before the password is checked, so simultaneous guesses cannot all count as "under the limit".
+  const lockedAtStart = await accountLocked(email);
+  const attempt = lockedAtStart ? null : await reserveLoginAttempt(email);
+  let valid = false;
+  let account;
+  try {
+    account = await db.ownerAccount.findUnique({ where: { email } });
+    valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, password);
+  } catch (error) {
+    // No password was judged: the attempt does not count.
+    if (attempt !== null) await refundLoginAttempt(email);
+    throw error;
+  }
+  // Checked again: a lock set while the hash was running still refuses this request.
+  if (account?.active && valid && attempt !== null && !(await accountLocked(email))) {
     await clearFailedLogins(email);
     return { id: account.id, credentialVersion: account.credentialVersion };
   }
-  if (!locked) await recordFailedLogin(email);
+  // The last attempt failed, or the count was already full: lock. A locked account answers like a wrong password.
+  if (!lockedAtStart && (attempt === null || attempt >= LOCK_THRESHOLD)) await lockAccount(email);
   return null;
 }

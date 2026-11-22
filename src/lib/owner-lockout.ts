@@ -1,5 +1,5 @@
 import { DomainError } from "./errors";
-import { checkRateLimit, clearRateLimit } from "./rate-limit";
+import { checkRateLimit, clearRateLimit, refundBucketUse } from "./rate-limit";
 import { RATE_POLICY } from "./rate-limit-policy";
 
 // Per-account lockout for owner sign-in, on top of the per-address limit.
@@ -9,10 +9,15 @@ import { RATE_POLICY } from "./rate-limit-policy";
 // up to 8 hours. The counters live in the shared rate-limit store, keyed by the
 // e-mail address typed, so an unknown address locks exactly like a known one and
 // the answer never reveals whether an account exists.
+//
+// An attempt is reserved before the password is checked, so concurrent requests
+// cannot all slip under the threshold. Creating the lock is the one atomic step
+// (the lock bucket admits a single use): only the request that creates it records
+// the strike, so a burst of failures counts as one lock-out.
 
 const BASE_LOCK_MS = 15 * 60_000;
 const MAX_LOCK_MS = 8 * 3600_000;
-const THRESHOLD = RATE_POLICY["login-account"].limit;
+export const LOCK_THRESHOLD = RATE_POLICY["login-account"].limit;
 
 /** How long the nth lock within a day lasts. */
 export const lockDurationMs = (strikes: number) => Math.min(MAX_LOCK_MS, BASE_LOCK_MS * 2 ** Math.max(0, strikes - 1));
@@ -31,15 +36,27 @@ async function refused(operation: () => unknown) {
 /** True while the account is locked. Reads only; it uses up nothing. */
 export const accountLocked = (email: string) => refused(() => checkRateLimit("login-lock", email, false));
 
-/** Counts one wrong password; the fifth locks the account and starts a new count after the lock. */
-export async function recordFailedLogin(email: string, now = Date.now()) {
-  // A refusal means the count is already at the threshold (a concurrent request got there first).
-  let failures = THRESHOLD;
-  await refused(async () => { failures = await checkRateLimit("login-account", email); });
-  if (failures < THRESHOLD) return;
-  let strikes = RATE_POLICY["login-strikes"].limit;
-  await refused(async () => { strikes = await checkRateLimit("login-strikes", email); });
-  await refused(() => checkRateLimit("login-lock", email, true, now, lockDurationMs(strikes)));
+/**
+ * Reserves one attempt before the password is checked. Returns the attempt's number, or null when the account
+ * is already out of attempts (locked, or other requests took the last ones).
+ */
+export async function reserveLoginAttempt(email: string): Promise<number | null> {
+  let count: number | null = null;
+  await refused(async () => { count = await checkRateLimit("login-account", email); });
+  return count;
+}
+
+/** Gives back an attempt that was reserved but never judged. */
+export const refundLoginAttempt = (email: string) => refundBucketUse("login-account", email);
+
+/** Locks the account. Only the request that creates the lock records the strike and starts the next count. */
+export async function lockAccount(email: string, now = Date.now()) {
+  let strikes = 0;
+  await refused(async () => { strikes = await checkRateLimit("login-strikes", email, false); });
+  strikes = Math.min(strikes, RATE_POLICY["login-strikes"].limit - 1) + 1;
+  const created = !(await refused(() => checkRateLimit("login-lock", email, true, now, lockDurationMs(strikes))));
+  if (!created) return;
+  await refused(() => checkRateLimit("login-strikes", email));
   await clearRateLimit("login-account", email);
 }
 

@@ -269,6 +269,7 @@ const messages = {
   "account.logout": "Sign out",
   "account.logoutAll": "Sign out everywhere",
   "account.logoutAll.hint": "Ends your sign-in on every device, this one included. Use it if you lost a device or signed in on a shared computer.",
+  "account.logoutAll.failed": "Could not sign out everywhere. Your other devices may still be signed in. Sign in again if you were signed out, then try again.",
   "account.login.forgot": "Forgot your password?",
   "account.reset.title": "Reset your password",
   "account.reset.requestText": "Enter the email you signed up with. If it has an account, we send a link that works for 30 minutes.",

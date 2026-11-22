@@ -11,10 +11,14 @@ export type Reservation = { key: string; generation: string; count: number };
 function bucketKey(route: RateRoute, identity: string) {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
-  return createHmac("sha256", secret)
+  const digest = createHmac("sha256", secret)
     .update(`rate-limit:v1:${route}:${identity}`)
     .digest("hex");
+  // Account locks carry a prefix: they are exempt from the capacity limit and from eviction below.
+  return route === "login-lock" ? `${LOCK_PREFIX}${digest}` : digest;
 }
+
+const LOCK_PREFIX = "lock:";
 
 export async function reserveRateLimit(
   route: RateRoute,
@@ -44,8 +48,10 @@ export async function reserveRateLimit(
       );
     if (!consume)
       return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
-    if (!previous && (await tx.rateLimitBucket.count()) >= 10000) {
+    const evictable = { key: { not: { startsWith: LOCK_PREFIX } } };
+    if (!previous && route !== "login-lock" && (await tx.rateLimitBucket.count({ where: evictable })) >= 10000) {
       const oldest = await tx.rateLimitBucket.findFirstOrThrow({
+        where: evictable,
         orderBy: [{ expiresAt: "asc" }, { key: "asc" }],
       });
       await tx.rateLimitBucket.delete({ where: { key: oldest.key } });
@@ -59,6 +65,14 @@ export async function reserveRateLimit(
       where: { key }, create: { key, ...value }, update: value,
     });
     return { key, generation: value.generation, count: value.count };
+  }, { maxWait: 30000, timeout: 10000 });
+}
+
+export async function decrementRateLimit(route: RateRoute, identity: string) {
+  const key = bucketKey(route, identity);
+  await rateLimitDatabase.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking-lab:rate-store:v1'))`;
+    await tx.rateLimitBucket.updateMany({ where: { key, count: { gt: 0 } }, data: { count: { decrement: 1 } } });
   }, { maxWait: 30000, timeout: 10000 });
 }
 

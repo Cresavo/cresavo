@@ -17,6 +17,9 @@ function postgresStore() {
   return mode === "postgres";
 }
 
+const isLock = (route: RateRoute) => route === "login-lock";
+const lockBuckets = new Map<string, { count: number; until: number }>();
+
 export function clientIp(headers: Headers) {
   return verifiedClientAddress(headers, process.env.BOOKING_ADDRESS_SECRET);
 }
@@ -35,9 +38,13 @@ export function checkRateLimit(
     );
   for (const [key, bucket] of buckets)
     if (bucket.until <= now) buckets.delete(key);
+  for (const [key, bucket] of lockBuckets)
+    if (bucket.until <= now) lockBuckets.delete(key);
+  // Account locks live apart from the capped map: evicting one would unlock an account early.
+  const store = isLock(route) ? lockBuckets : buckets;
   const key = `${route}:${ip}`;
   const policy = RATE_POLICY[route];
-  const bucket = buckets.get(key) ?? { count: 0, until: now + (windowMs ?? policy.windowMs) };
+  const bucket = store.get(key) ?? { count: 0, until: now + (windowMs ?? policy.windowMs) };
   const limit = policy.limit;
   if (bucket.count >= limit)
     throw new DomainError(
@@ -46,18 +53,25 @@ export function checkRateLimit(
       Math.max(1, Math.ceil((bucket.until - now) / 1000)),
     );
   if (consume) {
-    if (!buckets.has(key) && buckets.size >= 10000)
-      buckets.delete(buckets.keys().next().value!);
+    if (store === buckets && !store.has(key) && store.size >= 10000)
+      store.delete(store.keys().next().value!);
     bucket.count++;
-    buckets.set(key, bucket);
+    store.set(key, bucket);
   }
   return bucket.count;
+}
+
+/** Gives back one use of a bucket, for an attempt that was reserved but never judged (the password check had no capacity). */
+export async function refundBucketUse(route: RateRoute, identity: string) {
+  if (postgresStore()) return (await import("./postgres-rate-limit")).decrementRateLimit(route, identity);
+  const bucket = (isLock(route) ? lockBuckets : buckets).get(`${route}:${identity}`);
+  if (bucket && bucket.count > 0) bucket.count--;
 }
 
 /** Forgets one identity's bucket: a successful login clears its failures, a password reset its lock. */
 export async function clearRateLimit(route: RateRoute, identity: string) {
   if (postgresStore()) return (await import("./postgres-rate-limit")).clearRateLimit(route, identity);
-  buckets.delete(`${route}:${identity}`);
+  (isLock(route) ? lockBuckets : buckets).delete(`${route}:${identity}`);
 }
 
 export const LOGIN_FAILURE_DELAY_MS = 100;

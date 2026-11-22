@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { DomainError } from "./errors";
+import { checkRateLimit } from "./rate-limit";
 import { z } from "zod";
 import { BRAND } from "@/concept/brand";
 import { translate } from "@/concept/i18n";
@@ -48,6 +50,13 @@ const sameSignature = (a: string, b: string) => {
 export type ResetRegistry = { resolve: (port: "email", business: string) => Promise<{ adapter: EmailPort; live: boolean; reason: ResolutionReason }> };
 let defaultRegistry: ResetRegistry | undefined;
 
+/**
+ * Providers that can switch link tracking off for one message. The reset link is a bearer secret, so it must not
+ * go through a tracking redirect. Resend tracks per sending domain: set OWNER_RESET_TRACKING_OFF=1 once the
+ * sending domain is verified with click tracking disabled, to allow it.
+ */
+const trackingOff = (provider: string) => provider === "postmark" || process.env.OWNER_RESET_TRACKING_OFF === "1";
+
 const resetPage = (token: string) => `https://${productDomain()}/account/reset#t=${token}`;
 
 function resetEmail(language: Locale, link: string | undefined) {
@@ -68,7 +77,9 @@ function resetEmail(language: Locale, link: string | undefined) {
  * Sends the reset e-mail when an active account has this address; does nothing otherwise, and never says which.
  * Simulated unless the e-mail connection is live: a simulated message names the account by reference and carries
  * no link, so nothing that opens a reset is ever recorded. Failures are logged without detail and swallowed, so
- * the caller's answer is the same either way.
+ * the caller's answer is the same either way. The mailbox quota (3 per 15 minutes) is charged here, once the
+ * address is known to be valid and to have an account, so requests that send nothing never use it up; over the
+ * quota the request is dropped silently, with the same answer.
  */
 export async function requestPasswordReset(input: unknown, registry: ResetRegistry = (defaultRegistry ??= createRegistry()), now = Date.now()) {
   assertWritable();
@@ -80,9 +91,19 @@ export async function requestPasswordReset(input: unknown, registry: ResetRegist
   });
   if (!account?.active) return;
   try {
+    await checkRateLimit("password-reset-email", account.email);
+  } catch (error) {
+    if (error instanceof DomainError && error.status === 429) return;
+    throw error;
+  }
+  try {
     const tenant = await db.tenantState.findUnique({ where: { tenantId: account.tenantId }, select: { doc: true } });
     const language = (tenant?.doc as { localization?: { language?: unknown } } | null)?.localization?.language === "sv" ? "sv" : "en";
     const resolution = await registry.resolve("email", account.tenantId);
+    if (resolution.live && !trackingOff(resolution.adapter.info.provider)) {
+      console.warn(`[owner-password-reset] the e-mail was not sent: provider "${resolution.adapter.info.provider}" cannot turn link tracking off per message`);
+      return;
+    }
     const mail = resetEmail(language, resolution.live ? resetPage(mintToken(account, now)) : undefined);
     const result = await resolution.adapter.send({
       // A simulated send keeps a reference to the account, not the address.
@@ -111,10 +132,10 @@ export async function resetPassword(input: unknown, now = Date.now()): Promise<R
   const [id, expiry, versionText, signature] = token.split(".");
   const expires = Number(expiry), version = Number(versionText);
   const account = await db.ownerAccount.findUnique({ where: { id }, select: { email: true, active: true, credentialVersion: true, passwordHash: true } });
-  // The password is hashed whether or not the token is good, so the answer does not come back faster for a bad one.
-  const passwordHash = await hashPassword(password);
+  // The token is checked before any password is hashed: a bad token costs a lookup, not a password hash.
   if (!account?.active || expires <= now || expires > now + RESET_TTL_MS || account.credentialVersion !== version
     || !sameSignature(sign(id, expires, version, account.passwordHash), signature)) return { ok: false, reason: "invalid_token" };
+  const passwordHash = await hashPassword(password);
   // Conditional on the version the token was issued for: the first request wins, a concurrent one updates nothing.
   const updated = await db.ownerAccount.updateMany({
     where: { id, active: true, credentialVersion: version },
