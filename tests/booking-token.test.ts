@@ -59,3 +59,21 @@ describe("booking tokens", () => {
     expect(() => mintBookingToken(scope, exp)).toThrow("SESSION_SECRET");
   });
 });
+
+describe("booking tokens and the booking's address", () => {
+  it("stop working when the address the link was sent to changes or is removed, and work again only for that address", () => {
+    const sent = { ...scope, contactEmail: "gast@example.test" };
+    const token = mintBookingToken(sent, exp);
+    expect(verifyBookingToken(token, sent, NOW)).toBe(true);
+    expect(verifyBookingToken(token, { ...sent, contactEmail: "ratt@example.test" }, NOW)).toBe(false);
+    expect(verifyBookingToken(token, { ...sent, contactEmail: "" }, NOW)).toBe(false);
+    expect(verifyBookingToken(token, { ...scope }, NOW)).toBe(false);
+  });
+
+  it("cover the public reference, so another reference never verifies against the same mac", () => {
+    const token = mintBookingToken(scope, exp);
+    const [v, , e, mac] = token.split(".");
+    expect(verifyBookingToken([v, "another-ref", e, mac].join("."), { ...scope, ref: "another-ref" }, NOW)).toBe(false);
+  });
+});
+

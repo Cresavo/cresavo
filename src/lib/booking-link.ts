@@ -24,6 +24,6 @@ export function bookingLinkBase(state: DemoState, booking: Booking): BookingLink
  * from the booking and the frozen expiry, so a retry makes the same link.
  */
 export function bookingLink(tenantId: string, booking: Booking, base: BookingLinkBase, redeemable: boolean): string {
-  const scope = { tenantId, bookingId: booking.id, ref: booking.publicRef!, customerId: booking.customerId, purpose: "manage" };
+  const scope = { tenantId, bookingId: booking.id, ref: booking.publicRef!, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" };
   return `${base.url}#t=${redeemable ? mintBookingToken(scope, base.exp) : SIMULATED_TOKEN}`;
 }

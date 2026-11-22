@@ -7,7 +7,7 @@ import type { OutboxEntry } from "../connections/simulated/outbox";
 import { createDemoState } from "../data/generate";
 import { withSlotClock } from "../data/slots";
 import type { Customer, DateKey, DemoState } from "../data/types";
-import { customerIdentifiers, findErasable, mentionsCustomer, phoneDigits, scrubDeep, scrubText } from "../customers/erase";
+import { customerIdentifiers, customerPhoneDigits, findErasable, mentionsCustomer, scrubDeep, scrubText } from "../customers/erase";
 import { withTenantPresentation } from "../i18n/presentation";
 import { defaultMeta, prepareAction } from "../log/capture";
 import { salonClock } from "../tools/clock";
@@ -29,6 +29,9 @@ import {
   plainTextPatterns,
   redactAction,
   redactEffectPayload,
+  erasedKey,
+  keyHoldsIdentifier,
+  redactReplay,
 } from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
 import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
@@ -538,7 +541,7 @@ export class PostgresStudioStore implements StudioStore {
     if (key !== undefined) {
       const [known] = await tx.$queryRaw<Array<{ fingerprint_hmac: string; result: Replay }>>`
         SELECT fingerprint_hmac, result FROM tenant_idempotency
-        WHERE tenant_id = ${tenantId} AND key = ${key} AND expires_at > to_timestamp(${clock}::float8 / 1000)`;
+        WHERE tenant_id = ${tenantId} AND key IN (${key}, ${erasedKey(key)}) AND expires_at > to_timestamp(${clock}::float8 / 1000)`;
       if (known) {
         const a = Buffer.from(known.fingerprint_hmac, "hex");
         const b = Buffer.from(fingerprint, "hex");
@@ -672,7 +675,7 @@ export class PostgresStudioStore implements StudioStore {
    *   `inFlightMessages`, and if it had already dispatched it still records
    *   the true outcome. Other messages and delivered payments only lose the
    *   identifiers. Pending payments are kept so a refund still goes out.
-   * - `tenant_idempotency` rows whose stored result mentions them are deleted.
+   * - `tenant_idempotency` rows whose stored result mentions them stay, so a retry is answered and never applied twice: the customer is removed from the stored snapshot and their identifiers replaced, and a key that holds an identifier is replaced by its hash.
    *   Other keys keep protecting their retries.
    * - The document runs `customer/erase` like any apply (a new version and a
    *   log entry without the name), when it still holds the customer, live or
@@ -719,7 +722,8 @@ export class PostgresStudioStore implements StudioStore {
   private async redactLog(tx: Tx, tenantId: TenantId, customerId: string, customer: Customer | undefined, clock: number): Promise<EraseCounts> {
     const identifiers = customer ? customerIdentifiers(customer) : [];
     const contacts = customer ? customerIdentifiers({ ...customer, firstName: "", lastName: "" }) : [];
-    const digits = customer ? phoneDigits(customer.phone) : "";
+    const phones = customer ? customerPhoneDigits(customer) : new Set<string>();
+    const digits = [...phones];
     const patterns = jsonTextPatterns(identifiers);
     const keyPatterns = plainTextPatterns(identifiers);
     const at = new Date(clock).toISOString();
@@ -728,16 +732,16 @@ export class PostgresStudioStore implements StudioStore {
       WHERE tenant_id = ${tenantId}
         AND (subject_ids @> ARRAY[${customerId}]::text[] OR action::text ILIKE ANY(${patterns}::text[])
           OR idempotency_key ILIKE ANY(${keyPatterns}::text[])
-          OR (${digits} <> '' AND EXISTS (
+          OR (cardinality(${digits}::text[]) > 0 AND EXISTS (
             SELECT 1 FROM jsonb_path_query(a.action, 'lax $.**.phone') p
             WHERE jsonb_typeof(p) = 'string'
-              AND regexp_replace(regexp_replace(regexp_replace(p #>> '{}', '\\D', '', 'g'), '^(00)?46', ''), '^0', '') = ${digits})))
+              AND regexp_replace(regexp_replace(regexp_replace(p #>> '{}', '\\D', '', 'g'), '^(00)?46', ''), '^0', '') = ANY(${digits}::text[]))))
       ORDER BY seq`;
     const named: bigint[] = [];
     let redactedActions = 0;
     for (const row of actions) {
       // Named by id, email or phone: redact by the map. A name alone only has the name replaced.
-      const theirs = row.subject || mentionsCustomer(row.action, customerId, contacts, digits);
+      const theirs = row.subject || mentionsCustomer(row.action, customerId, contacts, phones);
       if (theirs) named.push(row.seq);
       const action = scrubDeep(theirs ? redactAction(row.action) : row.action, identifiers);
       const key = row.key === null ? null : scrubText(row.key, identifiers);
@@ -783,10 +787,23 @@ export class PostgresStudioStore implements StudioStore {
       await tx.$executeRaw`UPDATE tenant_effect SET payload = ${JSON.stringify(scrubbed)}::jsonb WHERE id = ${row.id}`;
       redactedEffects++;
     }
-    // Stored results are state copies: forget those that hold the customer, keep the rest.
-    const idempotencyKeys = await tx.$executeRaw`
-      DELETE FROM tenant_idempotency WHERE tenant_id = ${tenantId}
-        AND (result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))`;
+    // Stored results are state copies. A row is never deleted (a retry would run again): the customer is removed from its snapshot and their
+    // identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
+    const replays = await tx.$queryRaw<Array<{ key: string; result: unknown }>>`
+      SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}
+        AND (key ILIKE ANY(${keyPatterns}::text[]) OR result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))
+      FOR UPDATE`;
+    let idempotencyKeys = 0;
+    for (const replay of replays) {
+      const key = keyHoldsIdentifier(replay.key, identifiers) ? erasedKey(replay.key) : replay.key;
+      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts));
+      // A row that is already redacted (a repeated erasure) is left alone and not counted.
+      if (key === replay.key && result === JSON.stringify(replay.result)) continue;
+      await tx.$executeRaw`
+        UPDATE tenant_idempotency SET key = ${key}, result = ${result}::jsonb
+        WHERE tenant_id = ${tenantId} AND key = ${replay.key}`;
+      idempotencyKeys++;
+    }
     return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
   }
 

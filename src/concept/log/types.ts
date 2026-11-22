@@ -45,4 +45,6 @@ export interface LogEntry extends LogMeta {
   /** Present when the change can be undone. */
   patch?: StatePatch;
   undone?: boolean;
+  /** The entry is older than the retention period for personal data: its text and undo data are gone (see `privacy/retention.ts`). */
+  aged?: true;
 }

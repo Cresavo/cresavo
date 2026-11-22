@@ -321,7 +321,7 @@ describe("Postgres studio metrics", () => {
 
     const log = [...sent.state.log, ...Array.from({ length: 100 - sent.state.log.length }, (_, i) => ({
       id: `legacy-${i}`, type: "customer/note", summary: i === 99 - sent.state.log.length ? "Historical note ".repeat(200) : "",
-      at: 0, actor: "owner", source: "button",
+      at: grantedAt, actor: "owner", source: "button",
     }))];
     // The redaction marker is longer than the name it replaces in this note.
     const customers = sent.state.customers.map((item) => item.id === other.id
@@ -357,6 +357,7 @@ describe("Postgres studio metrics", () => {
       .toEqual([{ redacted: true }]);
     expect(await db.$queryRaw`SELECT status FROM tenant_effect WHERE tenant_id = ${tenantId}`)
       .toEqual([{ status: "cancelled" }]);
-    expect(await db.$queryRaw`SELECT key FROM tenant_idempotency WHERE tenant_id = ${tenantId}`).toEqual([]);
+    expect(await db.$queryRaw`SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}`).toMatchObject([{ key: "send" }]);
+    expect(JSON.stringify(await db.$queryRaw`SELECT result FROM tenant_idempotency WHERE tenant_id = ${tenantId}`)).not.toContain("Jo Li");
   });
 });

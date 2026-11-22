@@ -135,7 +135,7 @@ describe("the message sink", () => {
   it("puts a token for this booking in the link, made at delivery", async () => {
     await run();
     const token = /#t=(v1\.[^\s"]+)/.exec(sent[0].text)![1];
-    expect(verifyBookingToken(token, { tenantId: TENANT, bookingId: "b-1", ref: REF, customerId: booking.customerId, purpose: "manage" }, Date.parse("2026-11-20T10:00:00Z"))).toBe(true);
+    expect(verifyBookingToken(token, { tenantId: TENANT, bookingId: "b-1", ref: REF, customerId: booking.customerId, purpose: "manage", contactEmail: "lisa@example.test" }, Date.parse("2026-11-20T10:00:00Z"))).toBe(true);
     expect(sent[0].text).toContain(`/booking/${REF}#t=v1.${REF}.`);
     expect(sent[0].text).not.toContain("/booking/b-1");
   });

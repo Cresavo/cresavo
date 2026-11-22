@@ -12,6 +12,7 @@ import { Button, ButtonLink, buttonClass } from "../../ui/button";
 import { Notice } from "../../ui/notice";
 import { Card, Section } from "../../ui/card";
 import type { OpenSheet } from "../booking/booking-sheets";
+import { JournalRead } from "../customers/journal-read";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 
@@ -65,6 +66,7 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
           <p className="text-sm text-text-secondary">
             <span className="font-medium text-text">{t("next.lastAdvice")} </span>
             {advice}
+            <JournalRead customerId={customer.id} />
           </p>
         )}
         <div className="flex flex-wrap gap-2 [&>*]:flex-1">

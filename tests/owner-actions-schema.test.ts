@@ -19,7 +19,8 @@ type Parsed = { [K in OwnerActionType]: z.output<(typeof OWNER_ACTION_SCHEMAS)[K
 
 // Compile-time: what a schema produces is a DemoAction member, and it accepts every member the union allows.
 type NotProduced = { [K in OwnerActionType]: Parsed[K] extends Member<K> ? never : K }[OwnerActionType];
-type NotAccepted = { [K in OwnerActionType]: Member<K> extends Parsed[K] ? never : K }[OwnerActionType];
+// `journal/view` is deliberately narrower over HTTP: an owner session reports its own read of one journal; staff reads and bulk loads are the server's.
+type NotAccepted = { [K in Exclude<OwnerActionType, "journal/view">]: Member<K> extends Parsed[K] ? never : K }[Exclude<OwnerActionType, "journal/view">];
 expectTypeOf<NotProduced>().toEqualTypeOf<never>();
 expectTypeOf<NotAccepted>().toEqualTypeOf<never>();
 
@@ -70,6 +71,11 @@ const EXAMPLES: { [K in OwnerActionType]: Member<K> } = {
   "cost/remove": { type: "cost/remove", id: "cost-4" },
   "customer/delete": { type: "customer/delete", id: "k-7" },
   "customer/note": { type: "customer/note", id: "k-7", note: "Prefers Erik" },
+  "customer/update": { type: "customer/update", id: "k-7", patch: { firstName: "Lena", phone: "070-123 45 68", birthday: null, tags: ["Regular"], waitlist: false } },
+  "booking/update": { type: "booking/update", id: "b-12", patch: { contactEmail: "lena@example.test", note: null } },
+  "customer/keep": { type: "customer/keep", id: "k-7", on: "2026-11-22" },
+  "journal/view": { type: "journal/view", customerId: "k-7", actor: "owner" },
+  "privacy/journal-retention": { type: "privacy/journal-retention", years: 5 },
   "customers/import": { type: "customers/import", customers: [customer] },
   "customers/message": { type: "customers/message", texts: [{ customerId: "k-7", title: "Time for a visit", body: "It has been six weeks.", recallServiceId: "s-1" }], at },
   "giftcard/redeem": { type: "giftcard/redeem", code: "EKO-7K2Q-93XD", bookingId: "b-12", date: "2026-11-22" },
@@ -316,5 +322,33 @@ describe("owner action schemas", () => {
     expect(ownerAction(JSON.parse(JSON.stringify(EXAMPLES["booking/move"])))).toEqual(EXAMPLES["booking/move"]);
     expect(ownerAction({ type: "booking/move", id: "b-1" })).toBeNull();
     expect(ownerAction({ type: "customer/note", id: "k-7", note: "x".repeat(70_000) })).toBeNull();
+  });
+});
+
+describe("customer rights actions are strict", () => {
+  it("lets booking/update carry only the three text fields, never status, price, time, staff or money", () => {
+    const base = { type: "booking/update", id: "b-12" };
+    expect(ownerAction({ ...base, patch: { contactEmail: "a@example.test", note: null, cancelReason: "Ill" } })).not.toBeNull();
+    for (const field of ["status", "price", "date", "start", "duration", "staffId", "serviceId", "customerId", "protection", "source", "resourceId", "publicRef", "id"]) {
+      expect(ownerAction({ ...base, patch: { [field]: "x" } }), field).toBeNull();
+    }
+    expect(ownerAction({ ...base, patch: {}, status: "completed" })).toBeNull();
+    expect(ownerAction({ ...base, patch: { note: "x".repeat(501) } })).toBeNull();
+    expect(ownerAction({ ...base, patch: { contactEmail: "x".repeat(255) } })).toBeNull();
+  });
+
+  it("lets customer/update carry only the card's own fields", () => {
+    const base = { type: "customer/update", id: "k-7" };
+    expect(ownerAction({ ...base, patch: { firstName: "Lena", birthday: null, tags: ["a"] } })).not.toBeNull();
+    for (const field of ["id", "since", "example", "keptOn", "earlier", "note"]) expect(ownerAction({ ...base, patch: { [field]: "x" } }), field).toBeNull();
+    expect(ownerAction({ ...base, patch: { firstName: "" } })).toBeNull();
+    expect(ownerAction({ ...base, patch: { tags: Array.from({ length: 21 }, (_, i) => `t${i}`) } })).toBeNull();
+  });
+
+  it("accepts a journal read only as the owner's own, of one customer", () => {
+    expect(ownerAction({ type: "journal/view", customerId: "k-7", actor: "owner" })).not.toBeNull();
+    expect(ownerAction({ type: "journal/view", actor: "owner" })).toBeNull();
+    expect(ownerAction({ type: "journal/view", customerId: "k-7", actor: "staff" })).toBeNull();
+    expect(ownerAction({ type: "journal/view", customerId: "k-7", actor: "owner", staffId: "erik" })).toBeNull();
   });
 });

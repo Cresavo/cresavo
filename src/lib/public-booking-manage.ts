@@ -22,7 +22,7 @@ const tokenOf = (json: unknown) => json && typeof json === "object" && typeof (j
 
 /** Whether the link's token opens this snapshot's booking now: the one rule of the view, so the refusal path asks it of its own snapshot too. */
 const linkOpens = (token: string, tenantId: string, ref: string, booking: Booking) =>
-  verifyBookingLink(token, { tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage" }, booking);
+  verifyBookingLink(token, { tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" }, booking);
 
 /** The parts every change shares. The times are placeholders: the store stamps its own clock under the lock. */
 type Common = { at: { date: "1970-01-01"; time: 0 }; instant: 0; public: PublicChange; expected: ExpectedVisit };
@@ -58,6 +58,7 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
     });
     if (result.ok) {
       const changed = result.state.bookings.find((b) => b.id === booking.id);
+      if (!changed && result.replayed) return publicError("gone", 410);
       if (!changed) throw new Error("PUBLIC_BOOKING_MISSING");
       return publicOk({ booking: publicBookingView(result.state, changed) });
     }

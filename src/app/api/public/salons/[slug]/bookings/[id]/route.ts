@@ -24,7 +24,7 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     const { slug, id } = await params;
     const found = body.success ? await loadPublicTenant(slug.toLowerCase()) : null;
     const booking = found?.state.bookings.find((b) => b.publicRef === id);
-    if (!body.success || !found || !booking || !verifyBookingLink(body.data.token, { tenantId: found.tenantId, bookingId: booking.id, ref: id, customerId: booking.customerId, purpose: "manage" }, booking)) {
+    if (!body.success || !found || !booking || !verifyBookingLink(body.data.token, { tenantId: found.tenantId, bookingId: booking.id, ref: id, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" }, booking)) {
       return publicError("not_found", 404);
     }
     return publicOk({ booking: publicBookingView(found.state, booking) });

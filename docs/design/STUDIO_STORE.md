@@ -299,7 +299,7 @@ customerId)` runs one transaction under the row lock:
      - If pending, the row becomes `cancelled` (with `erased_at`), whether or not a deliverer holds it. A deliverer holding it right now (`leased_until` in the future) is reported in `inFlightMessages`. The message sink rechecks the booking under the tenant's lock and commits its `dispatched` marker only while the row is still pending and not erased, so one that had not dispatched yet sends nothing. One that had dispatched still records a successful send as `delivered` (with the redacted payload); a failed one stays `cancelled` and is never retried.
    - **Other recipients' messages**, even from the same multi-recipient action, keep their status. They only lose an identifier that appears in their text.
    - **Delivered payments** only lose identifiers, so the amount and reference stay for the books. A pending payment is kept so a refund still goes out (see open questions).
-3. **`tenant_idempotency`.** Rows whose stored result (a state copy) holds the customer's id or an identifier are deleted. Other keys keep protecting their retries, so a typo or a repeated erasure never makes a keyed change apply twice.
+3. **`tenant_idempotency`.** Rows whose stored result (a state copy) holds the customer's id or an identifier are never deleted, so a retry is always answered and never applied a second time: the customer's records, card, trash entry and checkout holds (by any phone number they had) are removed from the stored snapshot, undo data is dropped from its history, and their identifiers are replaced. A key that itself holds an identifier is stored under `erased-<sha256>`, and the replay lookup also tries that form. Another customer's replay therefore returns the same answer after the erasure. Other keys keep protecting their retries, so a typo or a repeated erasure never makes a keyed change apply twice.
 4. **The document.** `customer/erase` runs like an apply: a new version and a `tenant_action` row `{ type: "customer/erase", id }`. It can commit above the document size limit. If the document no longer holds the customer, only the tables are redacted and the version stays.
 
 The result reports the counts, the pending payments kept and the in-flight
@@ -373,6 +373,26 @@ Pure helpers (`jsonEqual`, `withTrustedTimes`, effect ids, `subjectIds`,
 - `resetDemoTenant({ generatedFor })` operates on the seeded `demo` tenant of kind `demo`. It regenerates the fixture under the same row lock and records a `system/reset` action with payload `{ generatedFor }`. Requests for the date already in the document or an older date do not write. The document's ID counter is preserved, and the version keeps the audit sequence increasing even after all earlier demo entries have been purged.
 - `openSandboxTenant(token)` returns a handle with `load` and `apply`. Its first successful apply creates and changes the day's deterministic salon-local fixture in one transaction. Rejected first applies leave no tenant. The database clock sets a fixed 24-hour expiry. Expired tenants are unavailable to loads, writes, history and outbox claims. If a token is reused after its expired rows are swept, the new sandbox gets a new tenant ID. `load()` and the committed action entry return that ID. Pair it with `expectedVersion` for edits through `store.apply`, and with the cursor for `history`. A token-only `apply` accepts an omitted version or version `0` for the initial write. The caller will own token validity when an API is added.
 - `npm run store:sweep` runs one pass using the supplied `DATABASE_URL` and prints JSON counts. It deletes expired sandboxes and all their rows, expired idempotency keys and demo audit rows older than seven days. The sweepers use at most 500 selected rows or tenants per batch by default and skip locks held by another transaction. Each sandbox batch locks the tenant rows and deletes their data atomically. The cron connection needs maintenance privileges on the four store tables, including `DELETE` on `tenant_action` and `tenant_effect`. The application audit grants stay append-only.
+
+### Retention of personal data
+
+The periods live in `src/concept/privacy/retention.ts`. They are defaults: the salon (controller) or a lawyer must confirm them before the pilot gate is signed off.
+
+| Data | Default | How it is enforced |
+| --- | --- | --- |
+| Inactive customers | 3 years after the last visit | Never automatic. "Customers due for review" lists them in the studio (`customersDueForReview`). The owner keeps, deletes (30 days in the trash) or erases. A kept customer returns after 12 months. |
+| Journal entries | The owner's setting (`state.privacy`) | Never automatic. Privacy lists customers with entries older than the chosen period. |
+| Activity log, personal data | 13 months | `sweepActivityPersonalData` replaces the personal fields of old `tenant_action` rows (`PERSONAL_FIELDS`) with `[redacted]`, sets `redacted_at` and clears the informational `idempotency_key`. The document's own history (`state.log`) is aged by `ageActivityLog` whenever the salon changes: older entries keep type, time and actor. |
+| Message bodies in the outbox | 90 days | `sweepOutboxBodies` blanks body, subject, address and delivery copy of non-pending messages whose action is older than 90 days. A `customer:<id>` reference stays. |
+| Rate-limit rows | 1 day | `sweepRateLimits` deletes `RateLimitBucket` rows that expired more than a day ago. |
+| Idempotency keys | 24 hours | `sweepExpiredIdempotency` (unchanged). |
+| Journal access log | 24 months | Pruned when a new read is logged. |
+
+`npm run store:sweep` runs all of them and prints their counts. The cron connection needs `UPDATE ("action", "idempotency_key", "redacted_at")` and `DELETE` on `tenant_action`, `UPDATE ("payload")` on `tenant_effect` and `DELETE` on `"RateLimitBucket"` in addition to the grants above. Age-based redaction of an audit row is marked inside its action (`retentionRedacted`), not by `redacted_at`, which an erasure also sets for one customer only. Every old row loses its informational `idempotency_key`, and `journal/view` audit rows are deleted after 24 months (`sweepJournalAccessRows`). The outbox sweep judges body, subject, address and the stored mail copy separately and keeps the delivery outcome (`sent`, `reason`). The application role keeps append-only access to `tenant_action`. Nothing schedules the script yet: the operator runs it (daily is enough).
+
+### Journal read log
+
+`journal/view` records one read of a journal in `state.journalAccess` (who, when, which customer, no content). It is not an activity entry. The studio sends it when a journal is shown (the customer's journal tab, the history list, the last advice on a booking and on Today). The owner salon load (`GET /api/owner/salon`) logs one entry without a customer when the salon holds journal entries, because the document delivers every journal to the browser; it is logged at most every ten minutes. Missing: the journals still travel with the document, so a modified client can read without reporting. Logging every read on the server needs a route that returns one customer's journal.
 
 The lifecycle integration tests cover notification delivery and reconnect,
 privileged replacement, demo-only reset and retention, sandbox expiry and
@@ -506,8 +526,8 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
   - A payment still pending at erasure keeps its payload until it is delivered, and nothing redacts it afterwards. Payment payloads hold no names today.
   - The effect `fingerprint` is a SHA-256 of the full request.
   - `purgeExpired` erases expired trash entries in the document. A future salon trash sweeper still needs to invoke `eraseSubject` for those customers to redact their retained table rows.
-  - The browser and memory stores refuse erasure, and the studio has no "erase now" control yet. Its trash and undo are unchanged.
-  - `erasure: "function"` has not been run under a role without `UPDATE` on `tenant_action`, because the test database cannot create roles.
+  - The browser and memory stores refuse erasure as a plain `apply`. The studio's "Erase permanently" runs `customer/erase` through the browser's own dispatch for the demo and own-browser salons, and through `POST /api/owner/salon/erase` (`eraseSubject`) for account salons.
+  - The owner store erases through `erase_subject` when `NODE_ENV=production` (override with `STUDIO_STORE_ERASURE=statements|function`). `erasure: "function"` has not been run under a role without `UPDATE` on `tenant_action`, because the test database cannot create roles.
 - **Poller fairness.** A run claims in `(tenant_id, seq, n)` order up to `limit`, so with a large backlog one tenant's rows can delay another's until the next run. Live provider sinks are not wired, so `npm run effects:drain` delivers only demo and sandbox effects for now.
 - **Browser dirty checks.** UI comparisons such as the booking-rules draft
   still use `JSON.stringify`. They only see browser state today. Revisit them
