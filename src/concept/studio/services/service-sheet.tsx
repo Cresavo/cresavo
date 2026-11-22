@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Copy, Trash2 } from "lucide-react";
 import type { DemoState, Service, StaffId } from "../../data/types";
 import { t } from "../../i18n";
-import { DURATION_STEP, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MAX_PRICE, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
+import { DURATION_STEP, MAX_BUFFER, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MAX_PRICE, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
 import { currentState, dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Field, Select, Switch, TextArea, TextInput } from "../../ui/controls";
@@ -34,10 +34,14 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
   const [price, setPrice] = useState(service ? String(service.price) : "");
   const [description, setDescription] = useState(service?.description ?? "");
   const [staffIds, setStaffIds] = useState<StaffId[]>(service?.staffIds ?? state.staff.map((p) => p.id).slice(0, 1));
+  const [bufferBefore, setBufferBefore] = useState(String(service?.bufferBefore ?? ""));
+  const [bufferAfter, setBufferAfter] = useState(String(service?.bufferAfter ?? ""));
+  const [processingAfter, setProcessingAfter] = useState(String(service?.processing?.after ?? ""));
+  const [processingDuration, setProcessingDuration] = useState(String(service?.processing?.duration ?? ""));
   const [visible, setVisible] = useState(!service?.hidden);
   const [tried, setTried] = useState(false);
 
-  const draft: ServiceDraft = { name, category: categoryId, duration: Number(duration), price: price.trim() === "" ? Number.NaN : Number(price), description, staffIds };
+  const draft: ServiceDraft = { name, category: categoryId, duration: Number(duration), price: price.trim() === "" ? Number.NaN : Number(price), description, staffIds, bufferBefore: Number(bufferBefore), bufferAfter: Number(bufferAfter), processing: processingDuration.trim() === "" ? undefined : { after: Number(processingAfter), duration: Number(processingDuration) } };
   const issues = serviceIssues(state, draft, service?.id);
   const problem = (...kinds: ServiceIssue[]) => (tried ? kinds.find((kind) => issues.includes(kind)) : undefined);
   const hint = (...kinds: ServiceIssue[]) => {
@@ -73,7 +77,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
   };
 
   const toggleStaff = (id: StaffId) => setStaffIds((current) => (current.includes(id) ? current.filter((other) => other !== id) : [...current, id]));
-  const moreIssue = problem("description", "staff");
+  const moreIssue = problem("description", "staff", "buffer", "processing");
 
   return (
     <Sheet
@@ -118,6 +122,29 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
             <Field label={t("services.description")} hint={hint("description") ?? t("services.descriptionHint")}>
               <TextArea value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => setDescription(e.target.value)} />
             </Field>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">{t("services.timing")}</legend>
+              <div className="grid gap-3 min-[360px]:flex">
+                <Field width="number" label={t("services.bufferBefore")}>
+                  <TextInput type="number" inputMode="numeric" min={0} max={MAX_BUFFER} step={DURATION_STEP} value={bufferBefore} onChange={(e) => setBufferBefore(e.target.value)} aria-invalid={!!problem("buffer")} />
+                </Field>
+                <Field width="number" label={t("services.bufferAfter")}>
+                  <TextInput type="number" inputMode="numeric" min={0} max={MAX_BUFFER} step={DURATION_STEP} value={bufferAfter} onChange={(e) => setBufferAfter(e.target.value)} aria-invalid={!!problem("buffer")} />
+                </Field>
+              </div>
+              {problem("buffer") && <p role="alert" className="text-xs text-danger">{t("services.issue.buffer")}</p>}
+              <p className="text-xs text-text-secondary">{t("services.bufferHint")}</p>
+              <div className="grid gap-3 min-[360px]:flex">
+                <Field width="number" label={t("services.processingAfter")}>
+                  <TextInput type="number" inputMode="numeric" min={0} max={MAX_DURATION} step={DURATION_STEP} value={processingAfter} onChange={(e) => setProcessingAfter(e.target.value)} aria-invalid={!!problem("processing")} />
+                </Field>
+                <Field width="number" label={t("services.processingDuration")}>
+                  <TextInput type="number" inputMode="numeric" min={DURATION_STEP} max={MAX_DURATION} step={DURATION_STEP} value={processingDuration} onChange={(e) => setProcessingDuration(e.target.value)} aria-invalid={!!problem("processing")} />
+                </Field>
+              </div>
+              {problem("processing") && <p role="alert" className="text-xs text-danger">{t("services.issue.processing")}</p>}
+              <p className="text-xs text-text-secondary">{t("services.processingHint")}</p>
+            </fieldset>
             {state.staff.length > 1 && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">{t("services.staff")}</p>

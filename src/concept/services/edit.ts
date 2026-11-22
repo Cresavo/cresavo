@@ -1,4 +1,4 @@
-import type { DateKey, DemoState, Service, ServiceCategory, StaffId } from "../data/types";
+import type { DateKey, DemoState, Processing, Service, ServiceCategory, StaffId } from "../data/types";
 
 // The price list as the owner edits it: treatments and their headings. Pure
 // functions; the reducer calls `applyServiceAction`, and the form asks
@@ -8,6 +8,7 @@ export const MIN_DURATION = 5;
 export const MAX_DURATION = 8 * 60;
 export const DURATION_STEP = 5;
 export const MAX_PRICE = 100_000;
+export const MAX_BUFFER = 120;
 export const MAX_NAME = 60;
 export const MAX_DESCRIPTION = 240;
 const DEFAULT_RECALL_WEEKS = 6;
@@ -20,9 +21,14 @@ export interface ServiceDraft {
   price: number;
   description: string;
   staffIds: StaffId[];
+  /** Left out or 0 = none. */
+  bufferBefore?: number;
+  bufferAfter?: number;
+  /** Left out = the staff member is busy for the whole treatment. */
+  processing?: Processing;
 }
 
-export type ServiceIssue = "name" | "nameTaken" | "category" | "duration" | "price" | "staff" | "description";
+export type ServiceIssue = "name" | "nameTaken" | "category" | "duration" | "price" | "staff" | "description" | "buffer" | "processing";
 export type CategoryIssue = "name" | "nameTaken";
 export type Direction = "up" | "down";
 
@@ -50,6 +56,13 @@ export function validServicePrice(price: number): boolean {
   return price >= 0 && price <= MAX_PRICE && price === Math.round(price * 100) / 100;
 }
 
+const validMinutes = (minutes: number, min: number, max: number) => Number.isInteger(minutes) && minutes >= min && minutes <= max && minutes % DURATION_STEP === 0;
+
+function validProcessing({ processing, duration }: ServiceDraft): boolean {
+  if (processing === undefined) return true;
+  return !!processing && validMinutes(processing.after, 0, MAX_DURATION) && validMinutes(processing.duration, DURATION_STEP, MAX_DURATION) && processing.after + processing.duration <= duration;
+}
+
 /** What stops a treatment from being saved; empty when it is fine. `ignoreId` is the treatment being edited. */
 export function serviceIssues(state: DemoState, draft: ServiceDraft, ignoreId?: string): ServiceIssue[] {
   const issues: ServiceIssue[] = [];
@@ -61,6 +74,8 @@ export function serviceIssues(state: DemoState, draft: ServiceDraft, ignoreId?: 
   if (!validServicePrice(draft.price)) issues.push("price");
   if (!draft.staffIds.length || new Set(draft.staffIds).size !== draft.staffIds.length || !draft.staffIds.every((id) => state.staff.some((p) => p.id === id))) issues.push("staff");
   if (draft.description.trim().length > MAX_DESCRIPTION) issues.push("description");
+  if (![draft.bufferBefore ?? 0, draft.bufferAfter ?? 0].every((minutes) => validMinutes(minutes, 0, MAX_BUFFER))) issues.push("buffer");
+  if (!validProcessing(draft)) issues.push("processing");
   return issues;
 }
 
@@ -98,7 +113,18 @@ export function serviceIsReferenced(state: DemoState, id: string): boolean {
   return state.bookings.some((b) => b.serviceId === id) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
 }
 
-const clean = (draft: ServiceDraft): ServiceDraft => ({ ...draft, name: draft.name.trim(), description: draft.description.trim(), staffIds: [...draft.staffIds] });
+/** Timing fields that are zero or unset are left out, so a service without them stays as it was. */
+const NO_TIMING = { bufferBefore: undefined, bufferAfter: undefined, processing: undefined };
+
+const clean = ({ bufferBefore, bufferAfter, processing, ...draft }: ServiceDraft): ServiceDraft => ({
+  ...draft,
+  name: draft.name.trim(),
+  description: draft.description.trim(),
+  staffIds: [...draft.staffIds],
+  ...(bufferBefore ? { bufferBefore } : {}),
+  ...(bufferAfter ? { bufferAfter } : {}),
+  ...(processing ? { processing: { after: processing.after, duration: processing.duration } } : {}),
+});
 
 function movedIds(items: { id: string }[], id: string, direction: Direction): string[] {
   const ids = items.map((item) => item.id);
@@ -140,7 +166,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
     }
     case "service/update": {
       if (!state.services.some((s) => s.id === action.id) || serviceIssues(state, action.service, action.id).length) return state;
-      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, ...clean(action.service) } : s)) };
+      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, ...NO_TIMING, ...clean(action.service) } : s)) };
     }
     case "service/visibility": {
       const service = state.services.find((s) => s.id === action.id);

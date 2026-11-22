@@ -117,6 +117,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                     misfit={misfit}
                     top={(booking.start - from) * scale + 1}
                     height={booking.duration * scale - 2}
+                    scale={scale}
                     onOpen={() => onOpen({ kind: "booking", id: booking.id })}
                   />
                 ))}

@@ -91,6 +91,18 @@ export interface Service {
   resourceIds?: string[];
   /** Kept in the studio but not offered on the booking page or to customers' assistants. */
   hidden?: boolean;
+  /** Minutes of preparation before the customer arrives; the staff member is busy. Default 0. */
+  bufferBefore?: number;
+  /** Minutes of cleaning up after the customer leaves; the staff member is busy. Default 0. */
+  bufferAfter?: number;
+  /** A wait inside the treatment, such as colour developing: the customer stays but the staff member is free for short work. */
+  processing?: Processing;
+}
+
+/** A gap that starts `after` minutes into a treatment and lasts `duration` minutes. */
+export interface Processing {
+  after: number;
+  duration: number;
 }
 
 export type ResourceKind = "room" | "chair" | "equipment";

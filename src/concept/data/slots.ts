@@ -100,10 +100,35 @@ function activeHolds(ctx: SlotContext, date: DateKey) {
   return ctx.checkoutHolds.filter(h => h.date === date && h.expiresAt > now);
 }
 
+const intersects = (a: Interval, b: Interval) => a.start < b.end && b.start < a.end;
+
+type Timing = Pick<Service, "bufferBefore" | "bufferAfter" | "processing">;
+
+/** The wait inside a visit where the customer stays and the staff member is free; null when there is none. */
+export function processingGap(timing: Timing | undefined, start: number, duration: number): Interval | null {
+  if (!timing?.processing) return null;
+  const gap = { start: start + timing.processing.after, end: Math.min(start + timing.processing.after + timing.processing.duration, start + duration) };
+  return gap.end > gap.start ? gap : null;
+}
+
+/** When the staff member is busy for a visit: preparation, the active parts of the treatment and clean-up, but not the processing gap. */
+export function staffIntervals(timing: Timing | undefined, start: number, duration: number): Interval[] {
+  const end = start + duration;
+  const from = start - (timing?.bufferBefore ?? 0);
+  const to = end + (timing?.bufferAfter ?? 0);
+  const gap = processingGap(timing, start, duration);
+  const parts = gap ? [{ start: from, end: gap.start }, { start: gap.end, end: to }] : [{ start: from, end: to }];
+  return parts.filter((part) => part.end > part.start);
+}
+
+function serviceOf(ctx: SlotContext, serviceId: string): Service | undefined {
+  return [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId);
+}
+
 export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
   const visits = ctx.bookings.filter(b => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId);
   const holds = activeHolds(ctx, date).filter(h => h.staffId === staffId && h.id !== ignoreId);
-  const list = [...visits, ...holds].map(b => ({ start: b.start, end: b.start + b.duration }));
+  const list = [...visits, ...holds].flatMap(b => staffIntervals(serviceOf(ctx, b.serviceId), b.start, b.duration));
   const lunch = lunchFor(ctx.salon, date);
   if (lunch) list.push(lunch);
   for (const block of ctx.blocks ?? []) if (block.staffId === staffId && block.date === date) list.push(block);
@@ -122,7 +147,7 @@ export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start:
 }
 
 function usableResources(ctx: SlotContext, serviceId: string): string[] {
-  const wanted = [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId)?.resourceIds ?? [];
+  const wanted = serviceOf(ctx, serviceId)?.resourceIds ?? [];
   return wanted.filter((id) => ctx.resources.some((r) => r.id === id));
 }
 
@@ -135,7 +160,8 @@ export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start:
   if (!window) return false;
   const end = start + need.duration;
   if (start < window.start || end > window.end) return false;
-  if (!busyIntervals(ctx, staffId, date, ignoreId).every((i) => end <= i.start || start >= i.end)) return false;
+  const mine = staffIntervals(serviceOf(ctx, need.serviceId), start, need.duration);
+  if (busyIntervals(ctx, staffId, date, ignoreId).some((busy) => mine.some((part) => intersects(part, busy)))) return false;
   return resourceFree(ctx, need, date, start, ignoreId);
 }
 
