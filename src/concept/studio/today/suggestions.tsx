@@ -162,7 +162,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       ))}
       {limit.more && shown.length < visible.length && (
         <div className="py-1">
-          <Button variant="link" className="text-text-secondary" onClick={() => setShowAll(true)}>
+          <Button variant="link" onClick={() => setShowAll(true)}>
             {tc("suggest.more", visible.length - shown.length)}
           </Button>
         </div>

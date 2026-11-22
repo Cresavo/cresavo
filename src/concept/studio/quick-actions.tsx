@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { CalendarPlus, MessageCircle, Phone, Plus, Search, type LucideIcon } from "lucide-react";
 import { t } from "../i18n";
 import { canOpen, type Role } from "../ops/access";
-import { Button, IconButton } from "../ui/button";
+import { IconButton } from "../ui/button";
+import { ListRow } from "../ui/list-row";
 import { Sheet } from "../ui/sheet";
 import { openAssistant } from "./assistant/thread-store";
 import { BookingSheets, type OpenSheet } from "./booking/booking-sheets";
@@ -13,8 +14,8 @@ import { BookingSheets, type OpenSheet } from "./booking/booking-sheets";
 const CUSTOMERS = "/studio/customers";
 
 /**
- * Phones: one round button above the tab bar opens the four things an owner does
- * most, over whatever page they are on. Each action reuses an existing sheet or page.
+ * Phones: a plus in the masthead opens the four things an owner does most, over
+ * whatever page they are on. Each action reuses an existing sheet or page.
  */
 export function QuickActions({ role, assistant }: { role: Role; assistant: boolean }) {
   const router = useRouter();
@@ -29,24 +30,17 @@ export function QuickActions({ role, assistant }: { role: Role; assistant: boole
   ];
   return (
     <>
-      <IconButton
-        label={t("quick.title")}
-        variant="primary"
-        aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-        className="studio-quick-button fixed right-4 z-sticky !size-14 !px-0 lg:hidden"
-      >
-        <Plus size={26} aria-hidden />
+      <IconButton label={t("quick.title")} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+        <Plus size={22} aria-hidden />
       </IconButton>
       <Sheet open={open} onClose={() => setOpen(false)} title={t("quick.title")}>
-        <div className="grid grid-cols-2 gap-3">
+        <ul>
           {actions.map(({ label, icon: Icon, run }) => (
-            <Button key={label} variant="secondary" align="start" onClick={run} icon={<Icon size={24} aria-hidden />}
-              className="min-h-24 flex-col !items-start justify-between rounded-lg p-4 text-h3 font-semibold">
-              {label}
-            </Button>
+            <li key={label}>
+              <ListRow onClick={run} title={<span className="text-h3 font-semibold">{label}</span>} leading={<Icon size={22} aria-hidden className="shrink-0" />} />
+            </li>
           ))}
-        </div>
+        </ul>
       </Sheet>
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>

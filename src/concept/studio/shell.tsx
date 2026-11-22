@@ -85,6 +85,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
           <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
+          <QuickActions role={role} assistant={state.modules.assistant} />
           {state.modules.assistant && <AssistantHeaderButton />}
           <HelpButton compact />
         </div>
@@ -100,7 +101,6 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </main>
       <BottomTabs state={state} pathname={pathname} role={role} />
-      <QuickActions role={role} assistant={state.modules.assistant} />
       {state.modules.assistant && <AssistantLauncher />}
       <Toaster />
     </>

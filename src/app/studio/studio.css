@@ -143,12 +143,6 @@ body:has(.studio-root) .demo-banner {
   padding-bottom: calc(var(--studio-bottom-nav) + var(--space-8) + env(safe-area-inset-bottom));
 }
 
-/* The quick-actions button floats just above the tab bar, lifted off the page. */
-.studio-quick-button {
-  bottom: calc(var(--studio-bottom-nav) + var(--space-3) + env(safe-area-inset-bottom));
-  box-shadow: var(--studio-elevation-card), var(--elevation-raised);
-}
-
 .studio-safe-top { padding-top: env(safe-area-inset-top); }
 .studio-safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
