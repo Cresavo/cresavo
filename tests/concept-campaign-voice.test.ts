@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assembleCopy, CHANNEL_LIMIT, CHANNELS } from "@/concept/campaigns/channels";
+import { assembleCopy, CHANNEL_LIMIT, CHANNELS, cleanSignOff } from "@/concept/campaigns/channels";
 import { postRequest, rulesCopy } from "@/concept/campaigns/copy";
-import { defaultPrefill, draftOffer, newDraft, newestReview, offerSignature, refreshCopy, editCopy, canApplyAiText, type Draft } from "@/concept/campaigns/draft";
+import { advertisedTimesPassed, defaultPrefill, draftLink, draftOffer, latestSignOff, newDraft, newestReview, offerSignature, refreshCopy, editCopy, canApplyAiText, type Draft } from "@/concept/campaigns/draft";
 import { applyVoice, NEUTRAL_VOICE, ownerVoice, styleHints } from "@/concept/campaigns/voice";
 import { isHashtag, voiceSchema } from "@/concept/ai/tasks/write-post";
 import { createDemoState } from "@/concept/data/generate";
@@ -92,8 +92,7 @@ describe("goal offer sentence", () => {
 const campaign = (id: string, copy: Partial<Record<Channel, string>>, status: Campaign["status"] = "ended", channels: Channel[] = CHANNELS): Campaign => ({
   id, name: `Campaign ${id}`, serviceIds: [], discountPercent: 0, from: today, to: today, status, channels, copy,
 });
-const customers = [{ firstName: "Mira", lastName: "Quist" }] as DemoState["customers"];
-const stateWith = (...campaigns: Campaign[]) => ({ campaigns, customers, reviews: [] as DemoState["reviews"] });
+const stateWith = (...campaigns: Campaign[]) => ({ campaigns });
 
 describe("ownerVoice", () => {
   it("is neutral without published campaigns", () => {
@@ -102,26 +101,9 @@ describe("ownerVoice", () => {
     expect(styleHints(NEUTRAL_VOICE)).toBeUndefined();
   });
 
-  it("finds a sign-off that repeats", () => {
-    const voice = ownerVoice(stateWith(
-      campaign("a", { instagram: `Autumn offer.\nWarm regards, Anna\nLink in bio: ${link}`, sms: `Hi!\nWarm regards, Anna\n${link}` }),
-      campaign("b", { instagram: `Winter offer.\nWarm regards, Anna\nLink in bio: ${link}\n#Salon`, facebook: `Only this once.\n${link}` }),
-    ));
-    expect(voice.signOff).toBe("Warm regards, Anna");
-  });
-
-  it("does not take a one-off line as a sign-off", () => {
-    const voice = ownerVoice(stateWith(
-      campaign("a", { instagram: `Autumn offer.\nWarm regards, Anna\n${link}` }),
-      campaign("b", { instagram: `Winter offer.\nSee you soon!\n${link}` }),
-    ));
-    expect(voice.signOff).toBeUndefined();
-  });
-
   it("does not take the writer's own closing line or hashtags as the owner's habit", () => {
     const stock = (offer: string) => `${offer}\nBook your time online.\nLink in bio: ${link}\n#Salon #SelfCare`;
     const voice = ownerVoice(stateWith(campaign("a", { instagram: stock("Autumn offer.") }), campaign("b", { instagram: stock("Winter offer.") })));
-    expect(voice.signOff).toBeUndefined();
     expect(voice.hashtags).toEqual([]);
   });
 
@@ -147,10 +129,11 @@ describe("ownerVoice", () => {
 });
 
 describe("applyVoice", () => {
-  const voice = { signOff: "Warm regards, Anna", hashtags: ["#EkoGlow"], emoji: false };
+  const voice = { hashtags: ["#EkoGlow"], emoji: false };
+  const signOff = "Warm regards, Anna";
 
-  it("puts the owner's hashtags first without duplicates and keeps the sign-off apart", () => {
-    expect(applyVoice({ text: "Hi", hashtags: ["#ekoglow", "#Salon"] }, voice)).toEqual({ text: "Hi", hashtags: ["#EkoGlow", "#Salon"], signOff: "Warm regards, Anna" });
+  it("puts the owner's hashtags first without duplicates", () => {
+    expect(applyVoice({ text: "Hi", hashtags: ["#ekoglow", "#Salon"] }, voice)).toEqual({ text: "Hi", hashtags: ["#EkoGlow", "#Salon"] });
   });
 
   it("drops emoji only when the owner never uses them", () => {
@@ -159,50 +142,27 @@ describe("applyVoice", () => {
   });
 
   it.each(CHANNELS)("%s: rules caption stays within the limit and keeps the link", (channel) => {
-    const text = rulesCopy(channel, "Big offer. ".repeat(200), link, "en", { ...voice, signOff: "Warm regards, Anna" });
+    const text = rulesCopy(channel, "Big offer. ".repeat(200), link, "en", voice, signOff);
     expect(text.length).toBeLessThanOrEqual(CHANNEL_LIMIT[channel]);
     expect(text).toContain(link);
   });
 
   it.each(CHANNELS.filter((channel) => channel !== "sms"))("%s: the sign-off goes before the link when it fits", (channel) => {
-    const text = rulesCopy(channel, "Offer.", link, "en", voice);
+    const text = rulesCopy(channel, "Offer.", link, "en", voice, signOff);
     expect(text).toContain(`Warm regards, Anna\n${channel === "facebook" || channel === "newsletter" ? "" : "Link in bio: "}${link}`);
   });
 
   it("changes nothing for a neutral voice", () => {
     expect(rulesCopy("instagram", "Offer.", link, "en", NEUTRAL_VOICE)).toBe(`Offer.\nBook your time online.\nLink in bio: ${link}\n#Salon #SelfCare`);
-    expect(rulesCopy("instagram", "Offer.", link, "en", voice)).toBe(`Offer.\nBook your time online.\nWarm regards, Anna\nLink in bio: ${link}\n#EkoGlow #Salon #SelfCare`);
+    expect(rulesCopy("instagram", "Offer.", link, "en", voice, signOff)).toBe(`Offer.\nBook your time online.\nWarm regards, Anna\nLink in bio: ${link}\n#EkoGlow #Salon #SelfCare`);
   });
 });
 
 describe("what teaches the voice", () => {
-  const review = (id: string) => campaign(id, { instagram: `Review ${id}.\n“Loved it.” – Mira Q.\nLink in bio: ${link}` }, "ended");
-
-  it("never learns a testimonial, a credit, the campaign's name or a customer's name as the sign-off", () => {
-    const voice = ownerVoice(stateWith(review("a"), review("b")));
-    expect(voice.signOff).toBeUndefined();
-    for (const line of ["Loved it. – Mira Q.", "“Loved it.”", "He said \"great\"", "«Bra»", "— Anna", "Thanks, Mira", "Hugs from Quist"]) {
-      const copy = (id: string) => ({ instagram: `Offer ${id}.\n${line}\n${link}` });
-      expect(ownerVoice(stateWith(campaign("a", copy("a")), campaign("b", copy("b")))).signOff).toBeUndefined();
-    }
-    const named = (id: string) => ({ ...campaign(id, { instagram: `Offer ${id}.\nBook Spring Glow today\n${link}` }), name: "Spring Glow" });
-    expect(ownerVoice(stateWith(named("a"), named("b"))).signOff).toBeUndefined();
-  });
-
-  it("does not put a customer's name on a later gift card caption", () => {
-    const voice = ownerVoice(stateWith(review("a"), review("b")));
-    const gift = rulesCopy("instagram", "Give someone time to relax.", link, "en", voice);
-    expect(gift).not.toMatch(/Mira|Loved it/);
-  });
-
-  it("keeps a plain sign-off with a comma", () => {
-    expect(ownerVoice(stateWith(campaign("a", { instagram: `A\nWarm regards, Anna\n${link}` }), campaign("b", { instagram: `B\nWarm regards, Anna\n${link}` }))).signOff).toBe("Warm regards, Anna");
-  });
-
   it("ignores planned campaigns and drafts", () => {
-    const copy = { instagram: `A\nWarm regards, Anna\n${link} ✨ #EkoGlow` };
+    const copy = { instagram: `A\n${link} ✨ #EkoGlow` };
     expect(ownerVoice(stateWith(campaign("a", copy, "planned"), campaign("b", copy, "planned"), campaign("c", copy, "draft")))).toEqual(NEUTRAL_VOICE);
-    expect(ownerVoice(stateWith(campaign("a", copy, "active"), campaign("b", copy, "ended"))).signOff).toBe("Warm regards, Anna");
+    expect(ownerVoice(stateWith(campaign("a", copy, "active"), campaign("b", copy, "ended"))).hashtags).toEqual(["#EkoGlow"]);
   });
 
   it("reads only the channels the campaign went out on", () => {
@@ -254,11 +214,11 @@ describe("sign-off and channel limits", () => {
 
   it("never gives an SMS a sign-off", () => {
     expect(assembleCopy("sms", "Offer.", [], link, "en", "Warm regards, Anna")).not.toContain("Warm regards");
-    expect(rulesCopy("sms", "Offer.", link, "en", { hashtags: [], emoji: true, signOff: "Warm regards, Anna" })).not.toContain("Warm regards");
+    expect(rulesCopy("sms", "Offer.", link, "en", NEUTRAL_VOICE, "Warm regards, Anna")).not.toContain("Warm regards");
   });
 
   it("keeps the offer and the whole link in an SMS with a long link", () => {
-    const text = rulesCopy("sms", "20% off massage.", longLink, "en", { hashtags: [], emoji: true, signOff: "Warm regards, Anna" });
+    const text = rulesCopy("sms", "20% off massage.", longLink, "en", NEUTRAL_VOICE, "Warm regards, Anna");
     expect(text.length).toBeLessThanOrEqual(CHANNEL_LIMIT.sms);
     expect(text).toContain(longLink);
     expect(text).toContain("20% off");
@@ -302,9 +262,9 @@ describe("texts that follow the offer", () => {
 });
 
 describe("what the AI is sent", () => {
-  const voice = { signOff: "Warm regards, Anna", hashtags: ["#EkoGlow"], emoji: false, length: "short" as const };
+  const voice = { hashtags: ["#EkoGlow"], emoji: false, length: "short" as const };
 
-  it("sends only style hints, never the sign-off or hashtags", () => {
+  it("sends only style hints, never hashtags", () => {
     expect(postRequest("promote", "Offer.", "instagram", "en", voice)).toEqual({ offer: "Offer.", channel: "instagram", locale: "en", voice: { emoji: false, length: "short" } });
   });
 
@@ -315,31 +275,6 @@ describe("what the AI is sent", () => {
 
   it("never sends a review to the AI", () => {
     expect(postRequest("review", "“Loved it.” – Mira Q.", "instagram", "en", voice)).toBeNull();
-  });
-});
-
-describe("closing lines that are not the owner's", () => {
-  const pair = (line: string, name = "Spring offer") => [1, 2].map((n) => ({ ...campaign(`c${n}`, { instagram: `Offer ${n}.\n${line}\n${link}` }), name }));
-
-  it("rejects each word of a multi-word customer name", () => {
-    const state = { ...stateWith(...pair("See you soon, Mary")), customers: [{ firstName: "Mary Jane", lastName: "van der Berg" }] as DemoState["customers"] };
-    expect(ownerVoice(state).signOff).toBeUndefined();
-    expect(ownerVoice({ ...state, customers: [] }).signOff).toBe("See you soon, Mary");
-  });
-
-  it("rejects a closing line that is an unquoted review", () => {
-    const text = "Best massage I have ever had. Truly relaxing.";
-    const reviews = [{ text }] as DemoState["reviews"];
-    for (const line of ["Best massage I have ever had.", text.toUpperCase()]) {
-      expect(ownerVoice({ ...stateWith(...pair(line)), reviews }).signOff).toBeUndefined();
-    }
-    expect(ownerVoice({ ...stateWith(...pair("Best massage I have ever had.")), reviews: [] }).signOff).toBe("Best massage I have ever had.");
-  });
-
-  it("matches a campaign name only with 4 characters or more and at word boundaries", () => {
-    expect(ownerVoice(stateWith(...pair("Good luck!", "Go"))).signOff).toBe("Good luck!");
-    expect(ownerVoice(stateWith(...pair("Book Glow today", "Glow"))).signOff).toBeUndefined();
-    expect(ownerVoice(stateWith(...pair("Glowing regards", "Glow"))).signOff).toBe("Glowing regards");
   });
 });
 
@@ -387,5 +322,73 @@ describe("edits and late AI texts", () => {
     expect(canApplyAiText({ ...draft, copyEdited: ["facebook"] }, "facebook", draft.copyFor, written)).toBe(false);
     expect(canApplyAiText(draft, "facebook", "other", written)).toBe(false);
     expect(canApplyAiText({ ...draft, copy: { ...draft.copy, facebook: "x" } }, "facebook", draft.copyFor, written)).toBe(false);
+  });
+});
+
+describe("the owner's own sign-off", () => {
+  it("is cleaned: one line, no control characters, 80 characters, undefined when empty", () => {
+    expect(cleanSignOff("  Warm regards,\nAnna\u0007  ")).toBe("Warm regards, Anna");
+    expect(cleanSignOff("x".repeat(100))).toHaveLength(80);
+    expect(cleanSignOff(" \n\t ")).toBeUndefined();
+    expect(cleanSignOff(undefined)).toBeUndefined();
+  });
+
+  it("starts a new draft from the latest campaign's sign-off", () => {
+    const state = inLanguage("en");
+    const older = { ...campaign("a", {}), signOff: "Old" };
+    const latest = { ...campaign("b", {}), signOff: "Warm regards, Anna" };
+    expect(latestSignOff({ campaigns: [latest, older] })).toBe("Warm regards, Anna");
+    expect(latestSignOff({ campaigns: [campaign("c", {}), older] })).toBeUndefined();
+    expect(newDraft(defaultPrefill(state, today), undefined, "Warm regards, Anna").signOff).toBe("Warm regards, Anna");
+    expect(newDraft(defaultPrefill(state, today)).signOff).toBeUndefined();
+  });
+
+  it("is added to the unedited captions and marks the signature", () => {
+    const state = inLanguage("en");
+    const draft = { ...draftFor(state, "promote"), signOff: "Warm regards, Anna" };
+    const { copy } = refreshCopy(state, draft, NEUTRAL_VOICE);
+    expect(copy.facebook).toContain("Warm regards, Anna");
+    expect(copy.sms).not.toContain("Warm regards");
+    expect(offerSignature(state, draft)).not.toBe(offerSignature(state, { ...draft, signOff: undefined }));
+  });
+});
+
+describe("switching treatment", () => {
+  it("changes the signature even when the sentence is the same, so edited captions are flagged", () => {
+    const state = inLanguage("en");
+    const [a, b] = state.services;
+    const draft = draftFor(state, "fill", { serviceIds: [a.id] });
+    expect(offerSignature(state, { ...draft, serviceIds: [b.id] })).not.toBe(offerSignature(state, draft));
+    const edited: Draft = { ...draft, ...editCopy({ ...draft, ...refreshCopy(state, draft, NEUTRAL_VOICE) }, "instagram", "Mine") };
+    expect(refreshCopy(state, { ...edited, serviceIds: [b.id] }, NEUTRAL_VOICE).stale).toEqual(["instagram"]);
+  });
+});
+
+describe("scheduled free times", () => {
+  const state = inLanguage("en");
+  const fill = draftFor(state, "fill");
+
+  it("blocks a publishing date after the advertised day", () => {
+    expect(advertisedTimesPassed(state, fill, today)).toBe(false);
+    expect(advertisedTimesPassed(state, fill, "2026-11-17")).toBe(true);
+  });
+
+  it("applies to the fill goal only", () => {
+    expect(advertisedTimesPassed(state, draftFor(state, "promote"), "2026-11-30")).toBe(false);
+  });
+});
+
+describe("an SMS review", () => {
+  it("keeps the closing quote mark and the author next to a long link", () => {
+    const base = inLanguage("en");
+    const state = { ...base, reviews: base.reviews.map((r) => ({ ...r, text: "I always feel so welcome here and every treatment is wonderful, thank you." })) };
+    const review = newestReview(state)!;
+    const draft = { ...draftFor(state, "review"), name: "N".repeat(60) };
+    const { copy } = refreshCopy(state, draft, NEUTRAL_VOICE);
+    expect(copy.sms!.length).toBeLessThanOrEqual(CHANNEL_LIMIT.sms);
+    expect(copy.sms).toContain(`” – ${review.author}`);
+    expect(copy.sms!.split("\n").some((line) => line.includes(draftLink(state, draft)))).toBe(true);
+    expect(copy.sms).toContain("…” –");
+    expect(copy.instagram).toContain(`” – ${review.author}`);
   });
 });

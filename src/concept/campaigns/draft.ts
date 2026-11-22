@@ -8,7 +8,7 @@ import { salonClock } from "../tools/clock";
 import type { Goal } from "./goals";
 import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
-import { CHANNELS } from "./channels";
+import { CHANNELS, cleanSignOff } from "./channels";
 import { listServices, offerText, rulesCopy } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
@@ -28,6 +28,8 @@ export interface Draft extends CampaignPrefill {
   copyFor: string;
   /** Channels whose text the owner has changed by hand; a new offer never overwrites them. */
   copyEdited?: Channel[];
+  /** The owner's own closing line, typed in the texts step. */
+  signOff?: string;
   /** Edited channels whose offer changed after the owner wrote them: to be looked over; cleared when edited again. */
   copyStale?: Channel[];
   style: PosterStyle;
@@ -39,15 +41,18 @@ export interface Draft extends CampaignPrefill {
  * A new campaign. With `last`, the poster starts from the owner's latest one: its style,
  * text size and photo crop, so the choices they keep making need not be made again.
  */
-export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster): Draft {
+export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster, signOff?: string): Draft {
   const posterEdits: Draft["posterEdits"] = {
     ...(last?.textSize && { textSize: last.textSize }),
     ...(last?.focus && { focus: last.focus }),
     ...(last?.badges?.length && { badges: last.badges }),
     ...(last?.socialQr && { socialQr: true }),
   };
-  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits };
+  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits, ...(signOff && { signOff }) };
 }
+
+/** The sign-off of the most recently made campaign, so the owner does not type it again. */
+export const latestSignOff = (state: Pick<DemoState, "campaigns">) => state.campaigns[0]?.signOff;
 
 /** The poster of the most recently made campaign (new campaigns come first). */
 export const latestPoster = (state: Pick<DemoState, "campaigns">) => state.campaigns.find((campaign) => campaign.poster)?.poster;
@@ -96,15 +101,41 @@ export function draftOffer(state: DemoState, draft: Draft): string {
       return translate(language, "campaigns.offer.giftcard", { name: draft.name });
     case "review": {
       const review = newestReview(state);
-      return review ? `“${firstSentence(review.text)}”${review.author ? ` – ${review.author}` : ""}` : plain;
+      return review ? reviewOffer(review, firstSentence(review.text)) : plain;
     }
     default:
       return plain;
   }
 }
 
+/** The quote with who said it; the attribution is never part of what is cut. */
+const reviewOffer = (review: { author: string }, quote: string) => `“${quote}”${review.author ? ` – ${review.author}` : ""}`;
+
+/**
+ * An SMS holds 160 characters: the quote is shortened until the whole line with its closing quote mark and
+ * author fits next to the link. Other goals and channels use the plain offer.
+ */
+function smsOffer(state: DemoState, draft: Draft, link: string, voice: OwnerVoice, signOff?: string): string {
+  const offer = draftOffer(state, draft);
+  const review = draft.goal === "review" ? newestReview(state) : null;
+  if (!review) return offer;
+  const sentence = firstSentence(review.text);
+  for (let length = sentence.length; length > 1; length--) {
+    const candidate = reviewOffer(review, length < sentence.length ? `${sentence.slice(0, length - 1).trimEnd()}…` : sentence);
+    if (rulesCopy("sms", candidate, link, state.localization.language, voice, signOff).startsWith(candidate)) return candidate;
+  }
+  return reviewOffer(review, `${sentence.slice(0, 1)}…`);
+}
+
+/** What the texts were written for: language, offer, link, the chosen treatments and the sign-off. */
 export function offerSignature(state: DemoState, draft: Draft): string {
-  return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(state, draft)}`;
+  return [state.localization.language, draftOffer(state, draft), draftLink(state, draft), draft.serviceIds.join(","), cleanSignOff(draft.signOff) ?? ""].join("|");
+}
+
+/** Whether a free-times campaign would go out after the day its texts advertise. */
+export function advertisedTimesPassed(state: DemoState, draft: Draft, publishOn: DateKey): boolean {
+  const free = draft.goal === "fill" ? freeTimes(state, draft.serviceIds[0], draft) : null;
+  return !!free && publishOn > free.date;
 }
 
 /**
@@ -116,8 +147,11 @@ export function refreshCopy(state: DemoState, draft: Draft, voice: OwnerVoice) {
   const regenerated = CHANNELS.filter((channel) => !stale.includes(channel));
   const offer = draftOffer(state, draft);
   const link = draftLink(state, draft);
+  const signOff = cleanSignOff(draft.signOff);
   const copy: Draft["copy"] = {};
-  for (const channel of CHANNELS) copy[channel] = stale.includes(channel) ? draft.copy[channel] : rulesCopy(channel, offer, link, state.localization.language, voice);
+  for (const channel of CHANNELS) {
+    copy[channel] = stale.includes(channel) ? draft.copy[channel] : rulesCopy(channel, channel === "sms" ? smsOffer(state, draft, link, voice, signOff) : offer, link, state.localization.language, voice, signOff);
+  }
   return { copy, copyFor: offerSignature(state, draft), regenerated, stale };
 }
 

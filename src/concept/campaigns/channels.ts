@@ -27,6 +27,14 @@ function truncate(text: string, max: number): string {
   return `${(lastSpace > max / 2 ? cut.slice(0, lastSpace) : cut).trimEnd()}${ELLIPSIS}`;
 }
 
+export const MAX_SIGN_OFF = 80;
+
+/** The sign-off as it is kept: one line of at most 80 characters without control characters; undefined when empty. */
+export function cleanSignOff(text: string | undefined): string | undefined {
+  const clean = (text ?? "").replace(/[\r\n\t]+/g, " ").replace(/\p{Cc}/gu, "").trim().slice(0, MAX_SIGN_OFF).trim();
+  return clean || undefined;
+}
+
 /** The body without the sign-off it already ends with (an AI text may repeat it). */
 const withoutSignOff = (body: string, signOff: string) => {
   const start = body.length - signOff.length;

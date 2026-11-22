@@ -1,9 +1,8 @@
 import { isHashtag, isStockPhrase, type StyleHints } from "../ai/tasks/write-post";
 import type { Campaign, DemoState } from "../data/types";
 
-/** How the owner writes: the style hints plus the sign-off and hashtags that are only ever applied locally. */
+/** How the owner writes: the style hints plus the hashtags, which are only ever applied locally. */
 export interface OwnerVoice extends StyleHints {
-  signOff?: string;
   hashtags: string[];
 }
 
@@ -12,16 +11,11 @@ const RECENT = 5;
 /** A habit needs at least this many campaigns; one text is a one-off. */
 const RECURS = 2;
 const MAX_HASHTAGS = 3;
-const MAX_SIGN_OFF = 80;
 /** Caption length bands, in characters of the Instagram text. */
 const SHORT_UP_TO = 120;
 const MEDIUM_UP_TO = 300;
 
-const LINK = /https?:\/\/|\S\.[a-z]{2,}\/\S/i;
 const HASHTAG = /#[\p{L}\p{N}_]+/gu;
-/** A line that quotes someone or credits them: quotation marks, or a dash followed by a name. */
-const QUOTED_OR_CREDITED = /[“”"«»]|(?:^|\s)[–—-]\s*\p{Lu}/u;
-const WORD = /[\p{L}\p{N}]+/gu;
 
 const SEGMENTER = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 /** A pictograph, a flag, or a keycap such as 1\uFE0F\u20E3. */
@@ -41,33 +35,6 @@ const published = (state: Pick<DemoState, "campaigns">): Campaign[] =>
 /** The texts of the channels the campaign was published on. */
 const texts = (campaign: Campaign) => campaign.channels.flatMap((channel) => campaign.copy?.[channel] ?? []);
 
-/** A campaign name shorter than this is not matched in a closing line ("Go" says nothing about "Good luck!"). */
-const MIN_NAME = 4;
-const QUOTES = /[“”"«»'’]/g;
-const plain = (text: string) => text.replace(QUOTES, "").trim().toLowerCase();
-const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-interface Avoid {
-  /** The campaign's own name, when it is long enough to be a name. */
-  campaign?: RegExp;
-  /** Every word of every customer's first and last name. */
-  names: Set<string>;
-  /** Published reviews, whole and by first sentence, without quotation marks. */
-  reviews: Set<string>;
-}
-
-/**
- * The last line of a text that is the owner's own words: not the link, hashtags or a line the writer adds itself,
- * and not a quote, a credit, a review, the campaign's name or a customer's name.
- */
-function closingLine(text: string, avoid: Avoid): string | undefined {
-  const own = (line: string) => line && !LINK.test(line) && line.replace(HASHTAG, "").trim() && !isStockPhrase(line) && !QUOTED_OR_CREDITED.test(line)
-    && !avoid.campaign?.test(line)
-    && !avoid.reviews.has(plain(line))
-    && !(line.match(WORD) ?? []).some((word) => avoid.names.has(word.toLowerCase()));
-  return text.split("\n").map((line) => line.trim()).filter(own).at(-1);
-}
-
 /** The values that show up in at least two campaigns, most common first. Each campaign counts a value once. */
 function recurring(perCampaign: string[][]): string[] {
   const counts = new Map<string, { shown: string; count: number }>();
@@ -86,26 +53,17 @@ function median(values: number[]): number {
 }
 
 /**
- * How this owner writes, from the texts of their latest published campaigns (nothing is stored): the sign-off
- * line and the hashtags they keep coming back to, whether they use emoji, and how long their captions are.
- * Lines and hashtags the rule-based writer adds itself do not count.
+ * How this owner writes, from the texts of their latest published campaigns (nothing is stored): the hashtags
+ * they keep coming back to, whether they use emoji, and how long their captions are. Hashtags the rule-based
+ * writer adds itself do not count.
  */
-export function ownerVoice(state: Pick<DemoState, "campaigns" | "customers" | "reviews">): OwnerVoice {
+export function ownerVoice(state: Pick<DemoState, "campaigns">): OwnerVoice {
   const campaigns = published(state);
   if (!campaigns.length) return NEUTRAL_VOICE;
-  const names = new Set(state.customers.flatMap((c) => `${c.firstName} ${c.lastName}`.match(WORD) ?? []).filter((word) => word.length > 1).map((word) => word.toLowerCase()));
-  const reviews = new Set(state.reviews.flatMap((r) => [plain(r.text), plain(r.text.split(/(?<=[.!?])\s/)[0] ?? "")]).filter(Boolean));
-  const closings = (c: Campaign) => {
-    const name = c.name.trim();
-    const campaign = name.length >= MIN_NAME ? new RegExp(`(?<![\\p{L}\\p{N}])${escaped(name)}(?![\\p{L}\\p{N}])`, "iu") : undefined;
-    return c.channels.flatMap((channel) => closingLine(c.copy?.[channel] ?? "", { campaign, names, reviews }) ?? []);
-  };
-  const signOff = recurring(campaigns.map((c) => closings(c).filter((line) => line.length <= MAX_SIGN_OFF)))[0];
   const hashtags = recurring(campaigns.map((c) => texts(c).flatMap((text) => text.match(HASHTAG) ?? []).filter((tag) => isHashtag(tag) && !isStockPhrase(tag)))).slice(0, MAX_HASHTAGS);
   const captions = campaigns.flatMap((c) => (c.channels.includes("instagram") && c.copy?.instagram) || []);
   const typical = captions.length ? median(captions.map((text) => text.length)) : undefined;
   return {
-    ...(signOff && { signOff }),
     hashtags,
     emoji: campaigns.some((c) => texts(c).some(hasEmoji)),
     ...(typical !== undefined && { length: typical <= SHORT_UP_TO ? "short" : typical <= MEDIUM_UP_TO ? "medium" : "long" }),
@@ -118,11 +76,11 @@ export const styleHints = (voice: OwnerVoice): StyleHints | undefined =>
 
 /**
  * The rule-based post in the owner's voice: emoji dropped when they never use any, their recurring hashtags
- * first, and their sign-off returned apart so that the channel decides whether it fits.
+ * first.
  */
-export function applyVoice(post: { text: string; hashtags: string[] }, voice: OwnerVoice): { text: string; hashtags: string[]; signOff?: string } {
+export function applyVoice(post: { text: string; hashtags: string[] }, voice: OwnerVoice): { text: string; hashtags: string[] } {
   const text = voice.emoji ? post.text : stripEmoji(post.text).replace(/[ \t]{2,}/g, " ");
   const seen = new Set<string>();
   const hashtags = [...voice.hashtags, ...post.hashtags].filter((tag) => !seen.has(tag.toLowerCase()) && seen.add(tag.toLowerCase()));
-  return { text, hashtags, ...(voice.signOff && { signOff: voice.signOff }) };
+  return { text, hashtags };
 }
