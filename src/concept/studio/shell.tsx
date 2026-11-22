@@ -4,7 +4,7 @@ import { Button } from "@/concept/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
 import { StudioLanguageSwitch } from "./studio-language";
@@ -92,7 +92,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
           <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
-          <QuickActions role={role} assistant={state.modules.assistant} />
+          <QuickActions role={role} assistant={state.modules.assistant} page={`/boka/${state.salon.slug}`} />
           {state.modules.assistant && <AssistantHeaderButton />}
           <HelpButton compact />
         </div>
@@ -186,6 +186,11 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         <Wordmark label="" className="w-32" />
       </Link>
       <p className="mt-3 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
+      {/* The page customers see is one click away from anywhere in the studio. */}
+      <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
+        {t("quick.viewPage")}
+        <ExternalLink size={14} aria-hidden />
+      </a>
       <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <div className="space-y-1">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (

@@ -808,6 +808,7 @@ const messages = {
   "today.closed": "Stängt i dag",
   "quick.title": "Snabbval",
   "quick.findCustomer": "Hitta en kund",
+  "quick.viewPage": "Visa bokningssidan",
   "quick.ask": "Fråga assistenten",
   "today.phoneMode": "Det ringer",
   "today.schedule": "Dagens schema",

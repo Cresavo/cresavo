@@ -822,6 +822,7 @@ const messages = {
   "today.closed": "Closed today",
   "quick.title": "Quick actions",
   "quick.findCustomer": "Find a customer",
+  "quick.viewPage": "View booking page",
   "quick.ask": "Ask the assistant",
   "today.phoneMode": "Someone is calling",
   "today.schedule": "Today's schedule",

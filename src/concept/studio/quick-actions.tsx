@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, MessageCircle, Phone, Plus, Search, type LucideIcon } from "lucide-react";
+import { CalendarPlus, ExternalLink, MessageCircle, Phone, Plus, Search, type LucideIcon } from "lucide-react";
 import { t } from "../i18n";
 import { canOpen, type Role } from "../ops/access";
 import { IconButton } from "../ui/button";
@@ -14,10 +14,10 @@ import { BookingSheets, type OpenSheet } from "./booking/booking-sheets";
 const CUSTOMERS = "/studio/customers";
 
 /**
- * Phones: a plus in the masthead opens the four things an owner does most, over
+ * Phones: a plus in the masthead opens the things an owner does most, over
  * whatever page they are on. Each action reuses an existing sheet or page.
  */
-export function QuickActions({ role, assistant }: { role: Role; assistant: boolean }) {
+export function QuickActions({ role, assistant, page }: { role: Role; assistant: boolean; /** The salon's public booking page. */ page: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [sheet, setSheet] = useState<OpenSheet>(null);
@@ -27,6 +27,7 @@ export function QuickActions({ role, assistant }: { role: Role; assistant: boole
     ...(canOpen(role, CUSTOMERS) ? [{ label: t("quick.findCustomer"), icon: Search, run: run(() => router.push(CUSTOMERS)) }] : []),
     { label: t("today.phoneMode"), icon: Phone, run: run(() => setSheet({ kind: "phone" })) },
     ...(assistant ? [{ label: t("quick.ask"), icon: MessageCircle, run: run(() => openAssistant()) }] : []),
+    { label: t("quick.viewPage"), icon: ExternalLink, run: run(() => router.push(page)) },
   ];
   return (
     <>
