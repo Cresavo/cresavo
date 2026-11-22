@@ -1510,8 +1510,8 @@ const messages = {
   "campaigns.offer.line": "{name}: {percent}% off {services} until {date}.",
   "campaigns.offer.lineNoDiscount": "{name}: {services} until {date}.",
   "campaigns.offer.fill": "Free times {day}: {times}.",
-  "campaigns.offer.wellness": "{name}: {services}, payable with {badges} until {date}.",
-  "campaigns.offer.wellnessNoBadges": "{name}: {services}, payable with your wellness allowance until {date}.",
+  "campaigns.offer.wellness": "{name}: {services}. Pay with {badges}. Valid until {date}.",
+  "campaigns.offer.wellnessNoBadges": "{name}: {services}. Pay with your wellness allowance. Valid until {date}.",
   "campaigns.offer.giftcard": "{name}: give someone time to relax. Ask us at the salon.",
   "campaigns.copy.linkInBio": "Link in bio: {link}",
 

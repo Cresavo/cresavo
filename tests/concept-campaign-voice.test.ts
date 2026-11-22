@@ -59,9 +59,9 @@ describe("goal offer sentence", () => {
   it("wellness: the treatments and the badges the owner picked", () => {
     const en = inLanguage("en");
     const sv = inLanguage("sv");
-    expect(draftOffer(en, draftFor(en, "wellness", { posterEdits: { badges: ["Epassi", "Benify"] } }))).toMatch(/^Kampanj: .*, payable with Epassi, Benify until 4 Dec 2026\.$/);
-    expect(draftOffer(en, draftFor(en, "wellness"))).toContain("payable with your wellness allowance");
-    expect(draftOffer(sv, draftFor(sv, "wellness", { posterEdits: { badges: ["Epassi"] } }))).toMatch(/betala med Epassi till 4 december 2026\.$/);
+    expect(draftOffer(en, draftFor(en, "wellness", { posterEdits: { badges: ["Epassi", "Benify"] } }))).toMatch(/^Kampanj: .*\. Pay with Epassi, Benify\. Valid until 4 Dec 2026\.$/);
+    expect(draftOffer(en, draftFor(en, "wellness"))).toContain("Pay with your wellness allowance");
+    expect(draftOffer(sv, draftFor(sv, "wellness", { posterEdits: { badges: ["Epassi"] } }))).toMatch(/Betala med Epassi\. Gäller till 4 december 2026\.$/);
   });
 
   it("gift card: no price and no validity", () => {
