@@ -513,7 +513,7 @@ export function dispatchWithLog(
     let published: OutboxEntry[] = [];
     // The server sends what an account salon's change sends; this tab only shows it.
     if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
-    if (workspace === "account") accountChanged?.(action, { requestId: options.requestId, before: current });
+    if (workspace === "account") accountChanged?.(action, { requestId: options.requestId, before: current, after: next, epoch: snapshots.account.epoch });
     options.committed?.(published);
     if (workspace === "own") markTrialUsed(now);
     const logId = next.log[0]?.id;
@@ -655,10 +655,12 @@ export function usePublicDemo(): DemoState | null {
 }
 
 const ACCOUNT_EPOCH = "account:";
-/** What the account salon's sync gets with each change: the id to send it under, and the salon as it was before. */
+/** What the account salon's sync gets with each change: the id to send it under, the salon before and after it, and the snapshot's lifetime. */
 export interface AccountChange {
   requestId?: string;
   before: DemoState;
+  after: DemoState;
+  epoch?: string;
 }
 let accountChanged: ((action: DemoAction, change: AccountChange) => void) | undefined;
 
@@ -685,6 +687,19 @@ export function replaceAccountSalon(state: DemoState) {
   if (!snapshot.state || !next) return;
   snapshot.state = next;
   keep(next, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/**
+ * Takes a change that was not saved back off the screen, but only while the screen still shows exactly the
+ * state that change produced, in the same snapshot lifetime. Anything newer (another change, the server's
+ * copy, a reopened salon) is left alone.
+ */
+export function restoreAccountSalon(change: AccountChange) {
+  const snapshot = snapshots.account;
+  if (snapshot.state !== change.after || snapshot.epoch !== change.epoch) return;
+  snapshot.state = change.before;
+  keep(change.before, snapshot.epoch);
   if (active === "account") notify();
 }
 

@@ -3,7 +3,7 @@
 import type { DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
-import { closeAccountSalon, openAccountSalon, replaceAccountSalon, type AccountChange } from "../store";
+import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
 import { showToast } from "../ui/toast";
 import { ownerHintPresent } from "./hint";
@@ -18,6 +18,9 @@ const SALON = "/api/owner/salon";
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
 
+/** How long one request to the server may take before it counts as unreachable. */
+export const REQUEST_TIMEOUT_MS = 15_000;
+
 /** The server's answer for one change: the salon right after it, or why it was not saved. */
 export type Answer =
   | { ok: true; state: DemoState; version: number; replayed: boolean }
@@ -29,9 +32,11 @@ export const newRequestId = () => crypto.randomUUID().replaceAll("-", "");
 
 /**
  * Resolves with the server's answer for the change sent under this request id (its idempotency key). Call it
- * before dispatching the change, and `cancel` when nothing was sent after all.
+ * before dispatching the change, and `cancel` when nothing was sent after all. Null when a change under the
+ * same id is still waiting for its answer: an id is never shared by two waiters.
  */
 export function expectAnswer(requestId: string) {
+  if (waiters.has(requestId)) return null;
   let settle!: (answer: Answer) => void;
   const answer = new Promise<Answer>((resolve) => { settle = resolve; });
   waiters.set(requestId, settle);
@@ -40,28 +45,40 @@ export function expectAnswer(requestId: string) {
 
 const REFUSALS: Record<number, CommitFailure> = { 404: "not-found", 409: "conflict", 422: "rejected" };
 
+/** One request, abandoned after `REQUEST_TIMEOUT_MS`; the body is read within that time. */
+async function request(url: string, init?: RequestInit) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    return { status: response.status, ok: response.ok, body: await response.json().catch(() => null) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function post(action: DemoAction, idempotencyKey: string) {
-  const request = () => fetch(`${SALON}/actions`, {
+  const send = () => request(`${SALON}/actions`, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, idempotencyKey }),
   });
   try {
-    return await request();
+    return await send();
   } catch {
     // One retry with the same key: the server replays a change it already saved.
-    return request();
+    return send();
   }
 }
 
 async function readSalon(): Promise<{ state: DemoState } | null> {
-  const response = await fetch(SALON, { cache: "no-store" });
-  return response.ok ? response.json() : null;
+  const response = await request(SALON, { cache: "no-store" });
+  return response.ok ? response.body : null;
 }
 
-/** Shows the server's copy again. When it cannot be read, a lone change that was not saved is taken back from the screen. */
-async function reload(before: DemoState) {
+/** Shows the server's copy again. When it cannot be read, the change that was not saved is taken off the screen if nothing newer is shown. */
+async function reload(change: AccountChange) {
   const salon = await readSalon().catch(() => null);
   if (salon) replaceAccountSalon(salon.state);
-  else if (pending === 1) replaceAccountSalon(before);
+  else restoreAccountSalon(change);
 }
 
 function send(action: DemoAction, change: AccountChange) {
@@ -76,7 +93,7 @@ function send(action: DemoAction, change: AccountChange) {
         showToast(t("account.sync.signedOut"));
         return;
       }
-      const body = await response.json().catch(() => null);
+      const body = response.body;
       if (response.ok && body?.state) {
         answer = { ok: true, state: body.state, version: body.version, replayed: !!body.replayed };
         // Later changes are already shown; the last answer brings the salon in step.
@@ -84,10 +101,10 @@ function send(action: DemoAction, change: AccountChange) {
         return;
       }
       answer = { ok: false, reason: body?.error === "idempotency-mismatch" ? "idempotency-mismatch" : REFUSALS[response.status] ?? "rejected" };
-      await reload(change.before);
+      await reload(change);
       showToast(t("account.sync.refused"));
     } catch {
-      await reload(change.before);
+      await reload(change);
       showToast(t("account.sync.offline"));
     } finally {
       pending--;

@@ -45,6 +45,7 @@ async function commitToAccount(target: Target, action: DemoAction, options: Comm
   if (shown?.workspace !== target.workspace || shown.epoch !== target.epoch) return { ok: false, reason: "replaced" };
   const requestId = options.idempotencyKey ?? newRequestId();
   const waiting = expectAnswer(requestId);
+  if (!waiting) return { ok: false, reason: "conflict" };
   const localId = dispatchWithLog(action, options.meta, options.guard, { send: options.send, refuseNoOp: true, requestId });
   if (localId === false) {
     waiting.cancel();

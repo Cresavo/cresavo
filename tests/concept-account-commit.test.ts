@@ -146,3 +146,61 @@ it("reports an import as failed when another salon is on screen before the serve
   answer();
   expect(await outcome).toEqual({ ok: false, reason: "failed" });
 });
+
+it("gives up on a request that never answers, so the waiter and the queue are released", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const { commit, target, posts } = await openAccount(async () => reply(salon()));
+    vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") posts.push(JSON.parse(String(init.body)));
+      return new Promise<Response>((resolve, reject) => {
+        if (init?.method !== "POST") resolve(Response.json({ state: salon() }));
+        init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    }));
+    const pending = commit.commitAction(target, { type: "customer/note", id: salon().customers[0].id, note: "slow fictional note" });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await pending).toMatchObject({ ok: false, reason: "unavailable" });
+    expect(posts).toHaveLength(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("refuses a second change under an idempotency key that is still waiting", async () => {
+  let answer!: () => void;
+  const { commit, target, posts } = await openAccount(() => new Promise((resolve) => { answer = () => resolve(reply(salon())); }));
+  const [customer] = salon().customers;
+  const first = commit.commitAction(target, { type: "customer/note", id: customer.id, note: "first fictional note" }, { idempotencyKey: "same-key" });
+  await vi.waitFor(() => expect(posts).toHaveLength(1));
+  expect(await commit.commitAction(target, { type: "customer/note", id: customer.id, note: "second fictional note" }, { idempotencyKey: "same-key" })).toMatchObject({ ok: false, reason: "conflict" });
+  answer();
+  expect(await first).toMatchObject({ ok: true });
+});
+
+it("counts the import from the reducer's own delta, whatever another writer saved", async () => {
+  const server = createServer();
+  const { target } = await openAccount(async ({ action }) => {
+    server.add({ ...salon().customers[0], id: "k-other", phone: "073-410 22 18", email: "other@mail.example" });
+    return reply(server.apply(action), 5);
+  });
+  const { runCustomerImport } = await import("@/concept/customers/run-import");
+  expect(await runCustomerImport(target, [person("073-410 22 18", "maja@mail.example")])).toMatchObject({ ok: true, added: 1 });
+});
+
+it("leaves a newer screen alone when an unsaved change cannot be taken back", async () => {
+  for (const interrupt of ["another tab saved", "account reopened"] as const) {
+    let refuse!: () => void;
+    let reads = 0;
+    const { store, commit, target } = await openAccount(() => new Promise((resolve) => { refuse = () => resolve(Response.json({ error: "rejected" }, { status: 422 })); }), () => (reads++ === 0 ? Response.json({ state: salon() }) : new Response(null, { status: 500 })));
+    const pending = commit.commitAction(target, { type: "customers/import", customers: [person("073-410 22 18", "maja@mail.example")] });
+    await vi.waitFor(() => expect(refuse).toBeTypeOf("function"));
+    const newer = { ...salon(), customers: [...salon().customers, { ...salon().customers[0], id: "k-newer", phone: "070-111 22 33", email: "" }] };
+    if (interrupt === "another tab saved") store.replaceAccountSalon(newer);
+    else store.openAccountSalon(newer, () => {});
+    refuse();
+    expect(await pending).toMatchObject({ ok: false });
+    expect(store.currentState()?.customers.some((c) => c.id === "k-newer")).toBe(true);
+  }
+});
