@@ -17,6 +17,16 @@ export interface WhatsNewEntry {
 /** Newest release first. A release PR adds its owner-facing items here, in en and sv (docs/RELEASING.md). */
 export const WHATS_NEW: readonly WhatsNewEntry[] = [
   {
+    version: "0.8.0",
+    date: "2026-11-22",
+    items: [
+      { text: "whatsNew.v080.customerData", href: "/studio/customers" },
+      { text: "whatsNew.v080.review", href: "/studio/customers/review" },
+      { text: "whatsNew.v080.privacy", href: "/studio/more/privacy" },
+      { text: "whatsNew.v080.accounts" },
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-11-22",
     items: [
