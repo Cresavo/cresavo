@@ -4,6 +4,7 @@ import type { Channel, DateKey } from "../data/types";
 import { getActiveLocale, translate, translateCount } from "../i18n";
 import { formatDate } from "../i18n/format";
 import { assembleCopy } from "./channels";
+import { applyVoice, NEUTRAL_VOICE, type OwnerVoice } from "./voice";
 
 const NAMED_SERVICES = 2;
 
@@ -26,8 +27,8 @@ export function offerText({ name, serviceNames, discountPercent, to }: OfferInpu
   return translate(language, key, { name, percent: discountPercent, services: listServices(serviceNames, language), date: formatDate(to, language) });
 }
 
-/** The channel text without any AI: the task's rule-based draft plus link and hashtags. */
-export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale()): string {
-  const draft = writePostTask.fallback({ offer, channel, locale: language });
-  return assembleCopy(channel, draft.text, draft.hashtags, link, language);
+/** The channel text without any AI: the task's rule-based draft in the owner's voice, plus link and hashtags. */
+export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale(), voice: OwnerVoice = NEUTRAL_VOICE): string {
+  const { text, hashtags, signOff } = applyVoice(writePostTask.fallback({ offer, channel, locale: language }), voice);
+  return assembleCopy(channel, text, hashtags, link, language, signOff);
 }

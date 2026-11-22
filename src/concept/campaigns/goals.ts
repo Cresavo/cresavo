@@ -12,8 +12,8 @@ export type Goal = (typeof GOALS)[number];
 
 /** Three suggested poster styles per goal, best first. None shows a price the goal does not offer. */
 export const GOAL_STYLES: Record<Goal, [PosterStyle, PosterStyle, PosterStyle]> = {
-  fill: ["slots", "price", "portrait"],
-  promote: ["price", "beforeafter", "portrait"],
+  fill: ["slots", "fullphoto", "typography"],
+  promote: ["price", "fullphoto", "portrait"],
   wellness: ["portrait", "pricelist", "price"],
   giftcard: ["portrait", "season", "pricelist"],
   review: ["review", "portrait", "season"],

@@ -317,7 +317,7 @@ export interface Holiday {
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
 /** The first five are drawn in the browser; the rest are rendered by the server poster engine. */
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait";
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait" | "fullphoto" | "typography";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {
@@ -337,6 +337,8 @@ export interface CampaignPoster {
   cta?: string;
   quote?: string;
   author?: string;
+  /** Free-times style: the day the advertised times are on, so a published poster can be checked later. */
+  slotDate?: DateKey;
   /** Review style: the quoted review's own rating, not the salon's average. */
   stars?: 1 | 2 | 3 | 4 | 5;
   /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */
@@ -348,6 +350,13 @@ export interface CampaignPoster {
   backdrop?: Backdrop;
   /** Engine styles: also show the QR code in posts and stories. It is always on the printed window poster. */
   socialQr?: boolean;
+  /** Engine styles: the owner's light, contrast and warmth adjustment of the photos, in percent. The photo itself is untouched. */
+  photoTone?: PosterTone;
+}
+export interface PosterTone {
+  light: number;
+  contrast: number;
+  warmth: number;
 }
 export type PosterTextSize = "small" | "normal" | "large";
 /** Which part of the photo stays in view when the template crops it. */

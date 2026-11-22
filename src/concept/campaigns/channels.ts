@@ -29,11 +29,11 @@ function truncate(text: string, max: number): string {
 
 /**
  * Final text for a channel: the written body (shortened if needed), the
- * trackable link and, where they belong, hashtags. The link is never cut off.
+ * owner's sign-off, trackable link and, where they belong, hashtags. Neither the sign-off nor the link is cut off.
  */
-export function assembleCopy(channel: Channel, body: string, hashtags: string[], link: string, language = getActiveLocale()): string {
+export function assembleCopy(channel: Channel, body: string, hashtags: string[], link: string, language = getActiveLocale(), signOff?: string): string {
   const tags = HASHTAG_CHANNELS.includes(channel) ? hashtags.slice(0, MAX_HASHTAGS).join(" ") : "";
-  const footer = [linkLine(channel, link, language), tags].filter(Boolean).join("\n");
+  const footer = [signOff, linkLine(channel, link, language), tags].filter(Boolean).join("\n");
   const room = CHANNEL_LIMIT[channel] - footer.length - 1;
   return room > 0 ? `${truncate(body.trim(), room)}\n${footer}` : truncate(footer, CHANNEL_LIMIT[channel]);
 }

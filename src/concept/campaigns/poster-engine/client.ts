@@ -1,8 +1,9 @@
-import type { CampaignPoster, PosterFormat, Salon } from "../../data/types";
+import type { CampaignPoster, PosterFormat, PosterTone, Salon } from "../../data/types";
 import { bookingHome } from "../../booking/links";
 import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
+import { applyLightContrast, applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "./tone";
 
 // The browser side of the poster engine: gathers what a template needs, turns
 // photos into JPEG or, for cut-outs, PNG (the renderer cannot read WebP), and asks the server for
@@ -10,6 +11,7 @@ import { FONT_PAIRS, type PageTheme } from "../../page/theme";
 
 const TEMPLATE_COLORS = { accent: "#2f5d50", ink: "#1f2a26", background: "#f7f1e8" };
 const PHOTO_SIDE = 1400;
+const MAX_PHOTOS = 12;
 
 export interface EngineContext {
   salon: Pick<Salon, "name" | "phone" | "slug">;
@@ -37,21 +39,49 @@ export function hasTransparency(pixels: Uint8ClampedArray, step = 97): boolean {
   return false;
 }
 
-function draw(bitmap: ImageBitmap, side: number) {
+let filterSupport: boolean | undefined;
+/** Whether this browser applies canvas filters: some Safari versions accept `filter` and silently ignore it. */
+function canvasFilters(): boolean {
+  if (filterSupport === undefined) {
+    const probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    if (!probe) return (filterSupport = false);
+    probe.fillStyle = "#808080";
+    probe.filter = "brightness(0%)";
+    probe.fillRect(0, 0, 1, 1);
+    filterSupport = probe.getImageData(0, 0, 1, 1).data[0] < 10;
+  }
+  return filterSupport;
+}
+
+/** The photo at most `side` px, with the owner's light and contrast (canvas filter, or pixels as a fallback) and warmth (pixels) applied. */
+function draw(bitmap: ImageBitmap, side: number, tone?: PosterTone) {
   const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d");
+  if (!context) return canvas;
+  const native = canvasFilters();
+  if (native) context.filter = toneFilter(tone);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  if (tone && !isNeutralTone(tone)) {
+    const { light, contrast, warmth } = clampTone(tone);
+    const image = context.getImageData(0, 0, canvas.width, canvas.height);
+    if (!native) applyLightContrast(image.data, light, contrast);
+    applyWarmth(image.data, warmth);
+    context.putImageData(image, 0, 0);
+  }
   return canvas;
 }
 
 /**
  * A photo (demo file, upload or object URL) for the renderer, which cannot read WebP: a JPEG of at most
- * 1400 px, or a PNG when the photo is a cut-out, scaled down until it fits the server's limit.
+ * 1400 px, or a PNG when the photo is a cut-out, scaled down until it fits the server's limit. The owner's
+ * tone is applied; the photo itself is untouched.
  */
-export function posterPhoto(url: string): Promise<PosterPhoto> {
-  let cached = photos.get(url);
+export function posterPhoto(url: string, tone?: PosterTone): Promise<PosterPhoto> {
+  const key = `${toneKey(tone)}|${url}`;
+  let cached = photos.get(key);
   if (!cached) {
     cached = (async () => {
       const bitmap = await createImageBitmap(await (await fetch(url)).blob());
@@ -60,17 +90,19 @@ export function posterPhoto(url: string): Promise<PosterPhoto> {
         const pixels = probe.getContext("2d")?.getImageData(0, 0, probe.width, probe.height).data;
         if (pixels && hasTransparency(pixels)) {
           for (let side = CUTOUT_SIDE; side >= 400; side = Math.round(side * 0.8)) {
-            const src = draw(bitmap, side).toDataURL("image/png");
+            const src = draw(bitmap, side, tone).toDataURL("image/png");
             if (src.length <= MAX_DATA_URL) return { src, cutout: true };
           }
         }
-        return { src: draw(bitmap, PHOTO_SIDE).toDataURL("image/jpeg", 0.86), cutout: false };
+        return { src: draw(bitmap, PHOTO_SIDE, tone).toDataURL("image/jpeg", 0.86), cutout: false };
       } finally {
         bitmap.close();
       }
     })();
-    cached.catch(() => photos.delete(url));
-    photos.set(url, cached);
+    cached.catch(() => photos.delete(key));
+    // Moving a slider makes a new photo per value: keep only the latest ones.
+    if (photos.size >= MAX_PHOTOS) photos.delete(photos.keys().next().value!);
+    photos.set(key, cached);
   }
   return cached;
 }
@@ -113,7 +145,7 @@ const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.eleg
 /** The request body for one poster. */
 export async function engineRequest(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext) {
   const language = context.language ?? getActiveLocale();
-  const photo = await posterPhoto(poster.image);
+  const photo = await posterPhoto(poster.image, poster.photoTone);
   const qr = qrFor(format, !!poster.socialQr, context.link, context.salon.slug, typeof window === "undefined" ? undefined : window.location.origin);
   const { rating } = context;
   return {
@@ -134,7 +166,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
       photo: photo.src,
       cutout: poster.style === "portrait" && photo.cutout,
-      ...(poster.style === "beforeafter" && poster.before && { before: (await posterPhoto(poster.before)).src }),
+      ...(poster.style === "beforeafter" && poster.before && { before: (await posterPhoto(poster.before, poster.photoTone)).src }),
       ...(poster.style === "portrait" && { lead: cut(poster.lead ?? "", 30), backdrop: poster.backdrop ?? "bloom" }),
       pair: [cut(translate(language, "campaigns.engine.before"), 12), cut(translate(language, "campaigns.engine.after"), 12)],
       focus: poster.focus ?? "center",
@@ -168,4 +200,20 @@ export function fetchPosterSvg(body: Awaited<ReturnType<typeof engineRequest>>):
     svgs.set(key, cached);
   }
   return cached;
+}
+
+let mounted = 0;
+
+/**
+ * The poster SVG with every id given a prefix unique to this mount, and the references to them rewritten.
+ * Satori numbers its clip paths and gradients from 1 in every render, so two posters on one page (a story
+ * and its feed preview, or the style thumbnails) would otherwise borrow each other's crops.
+ */
+export function uniqueIds(markup: string, prefix = `poster${++mounted}-`): string {
+  const ids = new Set([...markup.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]));
+  if (!ids.size) return markup;
+  return markup
+    .replace(/(\sid=")([^"]+)"/g, (_, start: string, id: string) => `${start}${prefix}${id}"`)
+    .replace(/url\(#([^)]+)\)/g, (match, id: string) => (ids.has(id) ? `url(#${prefix}${id})` : match))
+    .replace(/(href=")#([^"]+)"/g, (match, start: string, id: string) => (ids.has(id) ? `${start}#${prefix}${id}"` : match));
 }
