@@ -65,7 +65,7 @@ export function CampaignDetail({ id }: { id: string }) {
   };
   const day = postDay(campaign);
   const poster = campaign.poster;
-  const stale = poster ? bookedPosterTimes(state, poster, campaign.serviceIds[0]).length > 0 : false;
+  const stale = poster ? bookedPosterTimes(state, poster, campaign).length > 0 : false;
 
   return (
     <>

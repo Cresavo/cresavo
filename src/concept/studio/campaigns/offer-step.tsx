@@ -3,7 +3,8 @@ import type { Draft } from "../../campaigns/draft";
 import type { DemoState, DateKey } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDate } from "../../i18n/format";
-import { Chip, Field, Select, TextInput } from "../../ui/controls";
+import { applyGoal, availableGoals, withoutWords, type Goal } from "../../campaigns/goals";
+import { ChoiceCards, Chip, Field, Select, TextInput } from "../../ui/controls";
 
 const DISCOUNTS = [0, 10, 15, 20, 25];
 const HOLIDAYS_OFFERED = 6;
@@ -25,12 +26,24 @@ export function OfferStep({ state, today, draft, onChange }: OfferStepProps) {
 
   return (
     <div className="space-y-5">
+      <div className="space-y-2">
+        <span className="block text-sm font-medium" aria-hidden>{t("campaigns.goal.question")}</span>
+        <ChoiceCards<Goal>
+          label={t("campaigns.goal.question")}
+          value={(draft.goal ?? "") as Goal}
+          onChange={(goal) => onChange(applyGoal(state, draft, goal, today))}
+          options={availableGoals(state).map((value) => ({ value, label: t(`campaigns.goal.${value}`) }))}
+        />
+      </div>
       <Field width="short" label={t("campaigns.offer.occasion")}>
         <Select
           value={draft.holidayId ?? ""}
           onChange={(event) => {
             const holiday = state.holidays.find((h) => h.id === event.target.value);
-            onChange(holiday ? prefillForHoliday(state, holiday, today) : { holidayId: undefined });
+            // A holiday replaces the goal and the words it put on the poster; the owner's photos and look stay.
+            onChange(holiday
+              ? { ...prefillForHoliday(state, holiday, today), goal: undefined, posterEdits: draft.goal ? withoutWords(draft.posterEdits) : draft.posterEdits }
+              : { holidayId: undefined });
           }}
         >
           <option value="">{t("campaigns.offer.noOccasion")}</option>

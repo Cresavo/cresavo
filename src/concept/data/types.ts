@@ -1,6 +1,7 @@
 import type { BookingProtection, CancellationPolicy, CheckoutHold } from "../booking/protection";
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
+import type { Backdrop } from "../campaigns/poster-engine/backdrops";
 import type { ReminderSettings } from "../booking/reminders";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
@@ -316,7 +317,7 @@ export interface Holiday {
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
 /** The first five are drawn in the browser; the rest are rendered by the server poster engine. */
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter";
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {
@@ -336,10 +337,17 @@ export interface CampaignPoster {
   cta?: string;
   quote?: string;
   author?: string;
+  /** Review style: the quoted review's own rating, not the salon's average. */
+  stars?: 1 | 2 | 3 | 4 | 5;
   /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */
   badges?: string[];
   /** Before/after style: the "before" photo; `image` is the "after" photo. */
   before?: string;
+  /** Portrait style: the smaller line above the headline, and the drawn background. */
+  lead?: string;
+  backdrop?: Backdrop;
+  /** Engine styles: also show the QR code in posts and stories. It is always on the printed window poster. */
+  socialQr?: boolean;
   /** Engine styles: the owner's light, contrast and warmth adjustment of the photos, in percent. The photo itself is untouched. */
   photoTone?: PosterTone;
 }

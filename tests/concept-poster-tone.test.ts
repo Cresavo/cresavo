@@ -53,21 +53,20 @@ describe("poster photo tone", () => {
 describe("booked times on a Free-times poster", () => {
   const today = toKey(new Date());
   const state = createDemoState(today);
-  const serviceId = state.services[0]?.id;
   const draft = { ...newDraft(defaultPrefill(state, today)), style: "slots" as const };
   const poster = resolvePoster(state, draft);
 
   it("finds nothing stale on a poster made just now", () => {
-    expect(bookedPosterTimes(state, poster, serviceId)).toEqual([]);
+    expect(bookedPosterTimes(state, poster, draft)).toEqual([]);
   });
 
   it("finds a saved time that is not free", () => {
     const saved = { ...poster, items: [...(poster.items ?? []), { name: "03:07", price: "" }] };
-    expect(bookedPosterTimes(state, saved, serviceId)).toEqual(["03:07"]);
+    expect(bookedPosterTimes(state, saved, draft)).toEqual(["03:07"]);
   });
 
   it("ignores other styles and posters without a treatment", () => {
-    expect(bookedPosterTimes(state, { style: "price", items: [{ name: "03:07", price: "" }] }, serviceId)).toEqual([]);
-    expect(bookedPosterTimes(state, { style: "slots", items: [{ name: "03:07", price: "" }] }, undefined)).toEqual([]);
+    expect(bookedPosterTimes(state, { style: "price", items: [{ name: "03:07", price: "" }] }, draft)).toEqual([]);
+    expect(bookedPosterTimes(state, { style: "slots", items: [{ name: "03:07", price: "" }] }, { ...draft, serviceIds: [] })).toEqual([]);
   });
 });
