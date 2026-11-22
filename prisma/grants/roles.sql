@@ -116,7 +116,7 @@ REVOKE ALL ON
   "AgentApiKey", "AgentBooking", "AgentClient", "AgentMandate", "AgentApiEvent", "AgentProposal",
   "AgentAuditEvent", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairToken",
   "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session", "owner_recovery_code",
-  "owner_mfa_challenge"
+  "owner_mfa_challenge", "media_asset"
   FROM cresavo_app;
 REVOKE ALL ON "_prisma_migrations" FROM cresavo_app;
 
@@ -150,6 +150,10 @@ GRANT SELECT, INSERT, UPDATE ON "owner_account" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON "owner_session" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE ("used_at"), DELETE ON "owner_recovery_code" TO cresavo_app;
 GRANT SELECT, INSERT, DELETE ON "owner_mfa_challenge" TO cresavo_app;
+
+-- Photo library (src/lib/media/library.ts): pictures are stored, described, deleted and restored (deleted_at),
+-- never rewritten. Only the media sweep removes a row, as the sweep role.
+GRANT SELECT, INSERT, UPDATE ("deleted_at", "alt_text") ON "media_asset" TO cresavo_app;
 
 -- Shared rate-limit and owner-guard rows (postgres-rate-limit.ts, owner-guard-store.ts).
 GRANT SELECT, INSERT, UPDATE, DELETE ON "RateLimitBucket" TO cresavo_app;
@@ -191,6 +195,9 @@ GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_a
       UPDATE ("payload"), DELETE ON "tenant_effect" TO cresavo_sweeper;
 -- sweepOwnerGuardBuckets and sweepRateLimits.
 GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
+-- sweepDeletedMedia (src/lib/media/sweep.ts): which deleted pictures are old enough and where their bytes are; the
+-- rows are deleted. Never the bytes, the description or the hash.
+GRANT SELECT ("id", "storage", "storage_key", "deleted_at"), DELETE ON "media_asset" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
 -- checks the effective privilege; the function is owned by cresavo_eraser, so this file cannot touch it).
 
@@ -211,6 +218,8 @@ GRANT SELECT ("tenant_id", "seq", "n", "id", "kind", "status", "attempts", "next
 GRANT SELECT ("id", "tenant_id", "active", "credential_version", "created_at", "totp_enabled_at") ON "owner_account" TO cresavo_support;
 GRANT SELECT ("account_id", "credential_version", "created_at", "expires_at", "revoked_at", "mfa_verified_at") ON "owner_session" TO cresavo_support;
 GRANT SELECT ("expiresAt", "count") ON "RateLimitBucket" TO cresavo_support;
+-- Photo library sizes and counts for quota questions; never the bytes, the description (it may name a person) or the hash.
+GRANT SELECT ("id", "tenant_id", "kind", "content_type", "byte_size", "width", "height", "storage", "created_at", "deleted_at") ON "media_asset" TO cresavo_support;
 -- Migration status only: not `logs` (free text of a failure) or `checksum`.
 GRANT SELECT ("id", "migration_name", "started_at", "finished_at", "rolled_back_at", "applied_steps_count") ON "_prisma_migrations" TO cresavo_support;
 

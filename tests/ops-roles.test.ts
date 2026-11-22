@@ -91,7 +91,7 @@ describe("prisma/grants/roles.sql", () => {
     for (const [table, column] of [["tenant_state", "doc"], ["tenant_idempotency", "result"], ["tenant_idempotency", "fingerprint_hmac"], ["tenant_effect", "fingerprint"]]) {
       expect(can("cresavo_sweeper", table, "SELECT", column), `${table}.${column}`).toBe(false);
     }
-    expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])].sort()).toEqual(["RateLimitBucket", ...STORE].sort());
+    expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])].sort()).toEqual(["RateLimitBucket", "media_asset", ...STORE].sort());
     expect(code).not.toMatch(/GRANT EXECUTE/i);
   });
 
@@ -125,6 +125,30 @@ describe("prisma/grants/roles.sql", () => {
     // Nested AgentClient creation and OAuth's AgentApiKey upsert.
     expect(can("cresavo_app", "AgentClient", "INSERT")).toBe(true);
     for (const privilege of ["INSERT", "UPDATE", "SELECT"]) expect(can("cresavo_app", "AgentApiKey", privilege)).toBe(true);
+  });
+
+  it("lets the app keep and delete pictures but not rewrite them, and the sweep purge them without seeing them", () => {
+    const library = read("src/lib/media/library.ts");
+    const sweep = read("src/lib/media/sweep.ts").replace(/^\s*\/\/.*$/gm, "");
+    for (const privilege of ["SELECT", "INSERT"]) expect(can("cresavo_app", "media_asset", privilege), privilege).toBe(true);
+    expect([...(grants.get("cresavo_app")?.get("media_asset")?.get("UPDATE") ?? [])].sort()).toEqual(["alt_text", "deleted_at"]);
+    expect(can("cresavo_app", "media_asset", "DELETE")).toBe(false);
+    // The library only ever changes these two fields, and never deletes a row.
+    for (const [, fields] of library.matchAll(/updateMany\(\{[^}]*\}, data: \{([^}]*)\}/g)) {
+      for (const [, field] of fields.matchAll(/(\w+):/g)) expect(["deletedAt", "altText"], field).toContain(field);
+    }
+    expect(library).not.toMatch(/mediaAsset\.delete/);
+    expect(library).not.toMatch(/FOR UPDATE/);
+    // The sweep reads only these columns, deletes rows, and needs no row lock.
+    for (const column of ["id", "storage", "storage_key", "deleted_at"]) {
+      expect(sweep, column).toContain(`"${column}"`);
+      expect(can("cresavo_sweeper", "media_asset", "SELECT", column), column).toBe(true);
+    }
+    for (const column of ["bytes", "alt_text", "sha256", "tenant_id"]) expect(can("cresavo_sweeper", "media_asset", "SELECT", column), column).toBe(false);
+    expect(sweep).toContain('DELETE FROM "media_asset"');
+    expect(can("cresavo_sweeper", "media_asset", "DELETE")).toBe(true);
+    expect(sweep).not.toMatch(/FOR UPDATE/);
+    for (const column of ["bytes", "alt_text", "sha256"]) expect(can("cresavo_support", "media_asset", "SELECT", column), column).toBe(false);
   });
 
   it("gives the support role read access only, without payloads, secrets or migration logs", () => {

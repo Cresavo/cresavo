@@ -657,3 +657,29 @@ model OwnerMfaChallenge {
   @@index([expiresAt])
   @@map("owner_mfa_challenge")
 }
+
+/// The business's own photos and its logo (docs/operations/MEDIA_STORAGE.md). Written by src/lib/media/library.ts;
+/// the bytes live in `bytes` (the Postgres store) or in an S3-compatible bucket under `storage_key`. Metadata is
+/// stripped before a row is written. A deleted row keeps its bytes until the media sweep purges it.
+model MediaAsset {
+  id          String    @id
+  tenantId    String    @map("tenant_id")
+  /// photo | logo; at most one active logo per tenant (a partial unique index in the migration).
+  kind        String
+  /// image/jpeg | image/png | image/webp, from the file's own bytes.
+  contentType String    @map("content_type")
+  byteSize    Int       @map("byte_size")
+  width       Int
+  height      Int
+  /// Hex SHA-256 of the stored bytes: deduplication within a tenant, the ETag and part of the logo's public address.
+  sha256      String
+  /// postgres | s3
+  storage     String
+  storageKey  String    @map("storage_key")
+  bytes       Bytes?
+  altText     String?   @map("alt_text")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  @@index([tenantId, kind, createdAt])
+  @@map("media_asset")
+}

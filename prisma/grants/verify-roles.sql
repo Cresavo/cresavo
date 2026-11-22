@@ -45,8 +45,18 @@ SELECT 'app cannot ' || t.p || ' ' || t.tbl
 FROM logins l, (VALUES ('Booking', 'SELECT'), ('Booking', 'INSERT'), ('Booking', 'UPDATE'), ('tenant_state', 'SELECT'), ('tenant_state', 'UPDATE'),
   ('tenant_action', 'SELECT'), ('tenant_action', 'INSERT'), ('tenant_effect', 'UPDATE'), ('RateLimitBucket', 'DELETE'),
   ('AgentApiKey', 'INSERT'), ('owner_session', 'DELETE'), ('owner_recovery_code', 'SELECT'), ('owner_recovery_code', 'INSERT'),
-  ('owner_recovery_code', 'DELETE'), ('owner_mfa_challenge', 'SELECT'), ('owner_mfa_challenge', 'INSERT'), ('owner_mfa_challenge', 'DELETE')) AS t(tbl, p)
+  ('owner_recovery_code', 'DELETE'), ('owner_mfa_challenge', 'SELECT'), ('owner_mfa_challenge', 'INSERT'), ('owner_mfa_challenge', 'DELETE'),
+  ('media_asset', 'SELECT'), ('media_asset', 'INSERT')) AS t(tbl, p)
 WHERE l.kind = 'app' AND NOT has_table_privilege(l.login, quote_ident(t.tbl), t.p)
+UNION ALL
+-- Photo library: the app deletes and restores (deleted_at) and describes (alt_text) a picture; it never rewrites one or removes a row.
+SELECT 'app cannot UPDATE media_asset.' || c.col FROM logins l, (VALUES ('deleted_at'), ('alt_text')) AS c(col)
+WHERE l.kind = 'app' AND NOT has_column_privilege(l.login, 'media_asset', c.col, 'UPDATE')
+UNION ALL
+SELECT 'app can ' || CASE WHEN a.attname IS NULL THEN 'DELETE media_asset' ELSE 'UPDATE media_asset.' || a.attname END
+FROM logins l LEFT JOIN pg_attribute a ON a.attrelid = to_regclass('media_asset') AND a.attnum > 0 AND NOT a.attisdropped
+  AND a.attname NOT IN ('deleted_at', 'alt_text') AND has_column_privilege(l.login, a.attrelid, a.attnum, 'UPDATE')
+WHERE l.kind = 'app' AND to_regclass('media_asset') IS NOT NULL AND (a.attname IS NOT NULL OR has_table_privilege(l.login, 'media_asset', 'DELETE'))
 UNION ALL
 -- Recovery codes: the app marks one used and changes nothing else; a challenge is never changed.
 SELECT 'app cannot mark a recovery code used' FROM logins l
@@ -61,21 +71,22 @@ UNION ALL
 SELECT 'app cannot execute erase_subject' FROM logins l
 WHERE l.kind = 'app' AND to_regprocedure('erase_subject(text, text)') IS NOT NULL AND NOT has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
 UNION ALL
--- Sweeper: no document, replay result or fingerprint; only the five tables it works on; no erase_subject.
+-- Sweeper: no document, replay result or fingerprint; only the six tables it works on (media_asset without its bytes); no erase_subject.
 SELECT 'sweeper can read ' || c.tbl || '.' || c.col
 FROM logins l, (VALUES ('tenant_state', 'doc'), ('tenant_state', 'version'), ('tenant_idempotency', 'result'), ('tenant_idempotency', 'fingerprint_hmac'),
   ('tenant_effect', 'fingerprint'), ('tenant_effect', 'id'), ('tenant_action', 'actor'), ('owner_account', 'password_hash'), ('owner_account', 'email'),
-  ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'), ('owner_recovery_code', 'code_hash')) AS c(tbl, col)
+  ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'), ('owner_recovery_code', 'code_hash'),
+  ('media_asset', 'bytes'), ('media_asset', 'alt_text'), ('media_asset', 'sha256'), ('media_asset', 'tenant_id')) AS c(tbl, col)
 WHERE l.kind = 'sweeper' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'SELECT')
 UNION ALL
 SELECT 'sweeper can touch ' || t.tbl
 FROM logins l, tables t
-WHERE l.kind = 'sweeper' AND t.tbl NOT IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'RateLimitBucket')
+WHERE l.kind = 'sweeper' AND t.tbl NOT IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'RateLimitBucket', 'media_asset')
   AND has_any_column_privilege(l.login, quote_ident(t.tbl), 'SELECT, INSERT, UPDATE, REFERENCES')
 UNION ALL
 SELECT 'sweeper cannot ' || t.p || ' ' || t.tbl
 FROM logins l, (VALUES ('tenant_state', 'DELETE'), ('tenant_action', 'DELETE'), ('tenant_effect', 'DELETE'), ('tenant_idempotency', 'DELETE'),
-  ('RateLimitBucket', 'DELETE')) AS t(tbl, p)
+  ('RateLimitBucket', 'DELETE'), ('media_asset', 'DELETE')) AS t(tbl, p)
 WHERE l.kind = 'sweeper' AND NOT has_table_privilege(l.login, quote_ident(t.tbl), t.p)
 UNION ALL
 SELECT 'sweeper or support can execute erase_subject' FROM logins l
@@ -91,7 +102,8 @@ SELECT 'support can read ' || c.tbl || '.' || c.col
 FROM logins l, (VALUES ('tenant_state', 'doc'), ('tenant_action', 'action'), ('tenant_action', 'idempotency_key'), ('tenant_effect', 'payload'),
   ('tenant_effect', 'fingerprint'), ('tenant_idempotency', 'result'), ('tenant_idempotency', 'key'), ('owner_account', 'password_hash'),
   ('owner_account', 'email'), ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'),
-  ('owner_recovery_code', 'code_hash'), ('_prisma_migrations', 'logs'), ('_prisma_migrations', 'checksum')) AS c(tbl, col)
+  ('owner_recovery_code', 'code_hash'), ('_prisma_migrations', 'logs'), ('_prisma_migrations', 'checksum'),
+  ('media_asset', 'bytes'), ('media_asset', 'alt_text'), ('media_asset', 'sha256')) AS c(tbl, col)
 WHERE l.kind = 'support' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'SELECT')
 UNION ALL
 SELECT 'support can read ' || t.tbl FROM logins l, (VALUES ('Customer'), ('Booking'), ('Service'), ('Staff'), ('AdminUser'), ('PairGrantToken'),
