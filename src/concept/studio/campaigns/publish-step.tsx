@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { reviewSummary } from "../../booking/reviews";
 import { CalendarClock, Send } from "lucide-react";
-import { CHANNELS } from "../../campaigns/channels";
+import { CHANNELS, isOverLimit } from "../../campaigns/channels";
 import { advertisedTimesPassed, draftLink, offerSignature, refreshCopy, resolvePoster, type Draft } from "../../campaigns/draft";
 import { ownerVoice } from "../../campaigns/voice";
 import type { Channel, DateKey, DemoState } from "../../data/types";
@@ -29,6 +29,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const [day, setDay] = useState(scheduleDefault);
   const [updated, setUpdated] = useState(false);
   const [passed, setPassed] = useState(false);
+  const [tooLong, setTooLong] = useState<Channel[]>([]);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster: resolvePoster(state, draft) };
   const preview = draft.channels.includes(selected) ? selected : draft.channels[0];
   const toggle = (channel: Channel) =>
@@ -38,6 +39,9 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
     const late = advertisedTimesPassed(state, draft, publishOn);
     setPassed(late);
     if (late) return;
+    const over = draft.channels.filter((channel) => isOverLimit(channel, draft.copy[channel] ?? ""));
+    setTooLong(over);
+    if (over.length) return;
     if (offerSignature(state, draft) === draft.copyFor) return onPublish(publishOn);
     const { copy, copyFor, stale } = refreshCopy(state, draft, ownerVoice(state));
     onChange({ copy, copyFor, copyStale: stale });
@@ -76,6 +80,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
         <p className="text-sm text-text-secondary [overflow-wrap:anywhere]">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
         <div className="space-y-3">
           {passed && <p role="alert" className="rounded-lg bg-surface-2 p-3 text-sm text-danger">{t("campaigns.publish.timesPassed")}</p>}
+          {tooLong.length > 0 && <p role="alert" className="rounded-lg bg-surface-2 p-3 text-sm text-danger">{t("campaigns.publish.tooLong", { channels: tooLong.map((channel) => t(`channel.${channel}`)).join(", ") })}</p>}
           {(toCheck.length > 0 || updated) && (
             <p role="status" className="rounded-lg bg-surface-2 p-3 text-sm">
               {toCheck.length ? t("campaigns.publish.checkTexts", { channels: toCheck.map((channel) => t(`channel.${channel}`)).join(", ") }) : t("campaigns.publish.textsUpdated")}

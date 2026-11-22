@@ -169,6 +169,11 @@ export function editCopy(draft: Draft, channel: Channel, text: string): Pick<Dra
 export const canApplyAiText = (draft: Draft, channel: Channel, signature: string, written: string | undefined) =>
   draft.copyFor === signature && !(draft.copyEdited ?? []).includes(channel) && draft.copy[channel] === written;
 
+/** The texts of the channels the campaign goes to; drafts for channels the owner switched off stay in the editor. */
+export function selectedCopy(draft: Pick<Draft, "channels" | "copy">): Draft["copy"] {
+  return Object.fromEntries(draft.channels.flatMap((channel) => (draft.copy[channel] === undefined ? [] : [[channel, draft.copy[channel]]])));
+}
+
 /** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
 export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {
   const { image, before } = draft.posterEdits;

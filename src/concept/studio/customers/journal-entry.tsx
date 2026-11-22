@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { History, Pencil } from "lucide-react";
 import type { JournalContent, JournalEntry as Entry } from "../../data/types";
+import { contentOf } from "../../customers/journal";
 import { t, tc } from "../../i18n";
 import { formatDate } from "../../i18n/format";
 import { Button } from "../../ui/button";
@@ -27,7 +28,7 @@ export function JournalEntryCard({ entry }: { entry: Entry }) {
       }
       setEditing(false);
     };
-    return <JournalForm initial={entry} onSubmit={save} onCancel={() => setEditing(false)} />;
+    return <JournalForm initial={contentOf(entry)} onSubmit={save} onCancel={() => setEditing(false)} />;
   }
 
   return (

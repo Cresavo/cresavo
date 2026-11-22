@@ -1590,6 +1590,7 @@ const messages = {
   "campaigns.photo.massage": "Massagehörna",
   "campaigns.publish.preview": "Förhandsgranska per kanal",
   "campaigns.publish.where": "Publicera på",
+  "campaigns.publish.tooLong": "Texten är för lång för: {channels}. Korta ned den i textsteget.",
   "campaigns.publish.timesPassed": "De här lediga tiderna har passerat när inlägget publiceras. Välj ett tidigare datum eller gör en ny affisch.",
   "campaigns.publish.link": "Kampanjlänk: {link}",
   "campaigns.publish.checkTexts": "Kolla texten för: {channels}",
