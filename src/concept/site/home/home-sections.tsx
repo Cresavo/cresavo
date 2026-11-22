@@ -2,8 +2,6 @@ import { CONTACT_EMAIL, PROJECT_REPOSITORY } from "../../brand";
 import { Wordmark } from "../../ui/wordmark";
 import { useSiteCopy } from "../copy";
 import { sitePath } from "../language";
-import { DotField } from "./dot-field";
-import { githubShape } from "./dot-shapes";
 import { GitHubIcon, Icon } from "./icons";
 import { ChatPanel } from "./panels";
 import { fill, list } from "./text";
@@ -11,55 +9,41 @@ import { useMedia } from "./use-media";
 import h from "./home.module.css";
 
 const DISCUSSIONS = `${PROJECT_REPOSITORY}/discussions`;
-const num = (i: number) => String(i + 1).padStart(2, "0");
 
 export function Manifesto() {
   const { site } = useSiteCopy();
   return (
     <section className={h.manifesto} aria-labelledby="own-heading">
       <div className={h.wrap}>
-        <p className={h.eyebrow}>{site["home.own.eyebrow"]}</p>
         <h2 id="own-heading" className={h.srOnly}>{site["home.own.heading"]}</h2>
-        <ol>
-          {list(site["home.own.items"]).map((line, i) => (
-            <li className={h.mf} key={line}>
-              <span className={h.mfNum} aria-hidden="true">{num(i)}</span>
-              <p className={h.mfLine}><span>{line}</span><b className={h.stop}>.</b></p>
-            </li>
-          ))}
-        </ol>
+        <p className={h.note}>{site["home.own.eyebrow"]}</p>
+        <ul>
+          {list(site["home.own.items"]).map((line) => <li className={h.mfLine} key={line}>{line}.</li>)}
+        </ul>
       </div>
     </section>
   );
 }
 
-export function OpenSource({ theme }: { theme: string }) {
+export function OpenSource() {
   const { site } = useSiteCopy();
   return (
     <section className={h.open} id="open" aria-labelledby="open-heading">
       <div className={`${h.wrap} ${h.openGrid}`}>
-        <div>
-          <p className={`${h.eyebrow} ${h.reveal}`} data-reveal="">{site["home.nav.open"]}</p>
-          <div className={`${h.openCopy} ${h.reveal}`} data-reveal="">
-            <h2 id="open-heading">{site["home.open.heading"]}</h2>
-            <ul className={h.benefits}>
-              <li><b>{site["home.open.export"]}</b> <span>{site["home.open.export.text"]}</span></li>
-              <li><b>{site["home.open.inspect"]} <span className={h.nw}>(AGPL-3.0)</span>.</b></li>
-              <li><b>{site["home.open.run"]}</b></li>
-            </ul>
-          </div>
+        <div className={h.openCopy}>
+          <h2 id="open-heading">{site["home.open.heading"]}</h2>
+          <ul className={h.benefits}>
+            <li><b>{site["home.open.export"]}</b> <span>{site["home.open.export.text"]}</span></li>
+            <li><b>{site["home.open.inspect"]} <span className={h.nw}>(AGPL-3.0)</span>.</b></li>
+            <li><b>{site["home.open.run"]}</b></li>
+          </ul>
         </div>
-        <aside className={`${h.osCard} ${h.reveal}`} data-reveal="">
-          <div className={h.osCardTop}>
-            <DotField className={h.octoStage} shape={githubShape} label={site["home.open.mark"]} theme={theme}>
-              <GitHubIcon className={h.fallback} />
-            </DotField>
-            <p className={h.osCap}>{site["home.open.caption"]}</p>
-          </div>
+        <aside className={h.osCard}>
+          <p className={h.osCap}>{site["home.open.caption"]}</p>
           <p className={h.osCmd}><span>$</span> gh repo clone {PROJECT_REPOSITORY.replace("https://github.com/", "")}</p>
           <div className={`${h.ctaRow} ${h.osRow}`}>
-            <a className={`${h.btn} ${h.btnLine}`} href={PROJECT_REPOSITORY}><GitHubIcon className={`${h.ic} ${h.icFill}`} /> {site["home.open.code"]}</a>
-            <a className={`${h.btn} ${h.btnLine}`} href={DISCUSSIONS}>{site["home.open.discussions"]}</a>
+            <a className={h.textLink} href={PROJECT_REPOSITORY}><GitHubIcon className={`${h.ic} ${h.icFill}`} /> {site["home.open.code"]}</a>
+            <a className={h.textLink} href={DISCUSSIONS}>{site["home.open.discussions"]}</a>
           </div>
         </aside>
       </div>
@@ -72,8 +56,8 @@ export function NextStep() {
   return (
     <section className={h.next} aria-labelledby="next-heading">
       <div className={`${h.wrap} ${h.nextGrid}`}>
-        <div className={`${h.nextCopy} ${h.reveal}`} data-reveal="">
-          <p className={h.badge}>{site["home.next.badge"]}</p>
+        <div className={h.nextCopy}>
+          <p className={h.note}>{site["home.next.badge"]}</p>
           <h2 id="next-heading">{site["home.next.heading"]}</h2>
           <p className={h.lead}>{site["home.next.lead"]}</p>
         </div>
@@ -87,8 +71,8 @@ export function Founder() {
   const { site, locale } = useSiteCopy();
   return (
     <section className={h.founder} aria-labelledby="story-heading">
-      <div className={`${h.wrap} ${h.narrow} ${h.reveal}`} data-reveal="">
-        <h2 id="story-heading" className={h.eyebrow}>{site["founder.heading"]}</h2>
+      <div className={h.wrap}>
+        <h2 id="story-heading" className={h.minorHead}>{site["founder.heading"]}</h2>
         <figure>
           <blockquote><p>{fill(site["founder.quoted"], { quote: site["founder.quote"] })}</p></blockquote>
           <figcaption>
@@ -115,15 +99,14 @@ export function Status() {
   return (
     <section className={h.status} aria-labelledby="status-heading">
       <div className={h.wrap}>
-        <header className={`${h.secHead} ${h.reveal}`} data-reveal="">
-          <p className={h.eyebrow}>{site["status.eyebrow"]}</p>
+        <header className={h.secHead}>
           <h2 id="status-heading">{site["status.heading"]}</h2>
         </header>
         <div className={h.cols}>
           {STATUS.map(({ key, mark }) => {
             const items = list(site[`${key}.items`]);
             return (
-              <details className={`${h.col} ${h.reveal}`} data-reveal="" key={key} open={wide}>
+              <details className={h.col} key={key} open={wide}>
                 <summary tabIndex={wide ? -1 : undefined}>
                   <h3>
                     <i className={`${h.mk} ${mark}`} aria-hidden="true" />
@@ -146,18 +129,17 @@ export function Pricing() {
   return (
     <section className={h.pricing} id="pricing" aria-labelledby="pricing-heading">
       <div className={h.wrap}>
-        <header className={`${h.secHead} ${h.reveal}`} data-reveal="">
-          <p className={h.eyebrow}>{site["nav.pricing"]}</p>
+        <header className={h.secHead}>
           <h2 id="pricing-heading">{site["pricing.heading"]}</h2>
         </header>
         <div className={h.plans}>
-          <article className={`${h.plan} ${h.featured} ${h.reveal}`} data-reveal="" aria-labelledby="plan-hosted">
+          <article className={`${h.plan} ${h.featured}`} aria-labelledby="plan-hosted">
             <p className={h.planTag}>{site["pricing.tag"]}</p>
             <h3 id="plan-hosted">{site["pricing.hosted.name"]}</h3>
             <p className={h.price}>{site["pricing.hosted"]}</p>
             <ul>{list(site["pricing.hosted.items"]).map((item) => <li key={item}>{item}</li>)}</ul>
           </article>
-          <article className={`${h.plan} ${h.self} ${h.reveal}`} data-reveal="" aria-labelledby="plan-self">
+          <article className={`${h.plan} ${h.self}`} aria-labelledby="plan-self">
             <h3 id="plan-self">{site["pricing.self.name"]}</h3>
             <p className={h.price}>{site["pricing.self"]} <span>(AGPL-3.0)</span></p>
             <ul>{list(site["pricing.self.items"]).map((item) => <li key={item}>{item}</li>)}</ul>
@@ -176,8 +158,7 @@ export function Questions() {
   return (
     <section className={h.faq} id="questions" aria-labelledby="faq-heading">
       <div className={`${h.wrap} ${h.faqGrid}`}>
-        <header className={`${h.secHead} ${h.reveal}`} data-reveal="">
-          <p className={h.eyebrow}>{site["nav.faq"]}</p>
+        <header className={h.secHead}>
           <h2 id="faq-heading">{site["faq.heading"]}</h2>
           <p className={h.muted}>{site["faq.more"]} {mail}</p>
         </header>
@@ -199,13 +180,12 @@ export function Closing({ demo }: { demo: string }) {
   const { site } = useSiteCopy();
   return (
     <section className={h.close} id="closing" aria-labelledby="closing-heading">
-      <div className={`${h.wrap} ${h.narrow} ${h.reveal}`} data-reveal="">
-        <div className={h.closeAccent} aria-hidden="true"><i /><i /><i /></div>
+      <div className={h.wrap}>
         <h2 id="closing-heading">{site["closing.heading"]}</h2>
         <p className={h.lead}>{site["closing.text"]}</p>
         <div className={`${h.ctaRow} ${h.closeCta}`}>
           <a className={`${h.btn} ${h.btnPlum}`} href={demo}>{site["home.demo"]} <Icon name="arrow" className={h.ic} /></a>
-          <a className={`${h.btn} ${h.btnLine}`} href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(site["closing.subject"])}`}>
+          <a className={h.textLink} href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(site["closing.subject"])}`}>
             <Icon name="mail" className={h.ic} /> {site["closing.mail"]}
           </a>
         </div>
