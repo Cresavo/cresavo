@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS } from "@/concept/campaigns/channels";
 import { postRequest, rulesCopy } from "@/concept/campaigns/copy";
-import { defaultPrefill, draftOffer, newDraft, newestReview, offerSignature, refreshCopy, type Draft } from "@/concept/campaigns/draft";
+import { defaultPrefill, draftOffer, newDraft, newestReview, offerSignature, refreshCopy, editCopy, canApplyAiText, type Draft } from "@/concept/campaigns/draft";
 import { applyVoice, NEUTRAL_VOICE, ownerVoice, styleHints } from "@/concept/campaigns/voice";
 import { isHashtag, voiceSchema } from "@/concept/ai/tasks/write-post";
 import { createDemoState } from "@/concept/data/generate";
@@ -93,7 +93,7 @@ const campaign = (id: string, copy: Partial<Record<Channel, string>>, status: Ca
   id, name: `Campaign ${id}`, serviceIds: [], discountPercent: 0, from: today, to: today, status, channels, copy,
 });
 const customers = [{ firstName: "Mira", lastName: "Quist" }] as DemoState["customers"];
-const stateWith = (...campaigns: Campaign[]) => ({ campaigns, customers });
+const stateWith = (...campaigns: Campaign[]) => ({ campaigns, customers, reviews: [] as DemoState["reviews"] });
 
 describe("ownerVoice", () => {
   it("is neutral without published campaigns", () => {
@@ -315,5 +315,77 @@ describe("what the AI is sent", () => {
 
   it("never sends a review to the AI", () => {
     expect(postRequest("review", "“Loved it.” – Mira Q.", "instagram", "en", voice)).toBeNull();
+  });
+});
+
+describe("closing lines that are not the owner's", () => {
+  const pair = (line: string, name = "Spring offer") => [1, 2].map((n) => ({ ...campaign(`c${n}`, { instagram: `Offer ${n}.\n${line}\n${link}` }), name }));
+
+  it("rejects each word of a multi-word customer name", () => {
+    const state = { ...stateWith(...pair("See you soon, Mary")), customers: [{ firstName: "Mary Jane", lastName: "van der Berg" }] as DemoState["customers"] };
+    expect(ownerVoice(state).signOff).toBeUndefined();
+    expect(ownerVoice({ ...state, customers: [] }).signOff).toBe("See you soon, Mary");
+  });
+
+  it("rejects a closing line that is an unquoted review", () => {
+    const text = "Best massage I have ever had. Truly relaxing.";
+    const reviews = [{ text }] as DemoState["reviews"];
+    for (const line of ["Best massage I have ever had.", text.toUpperCase()]) {
+      expect(ownerVoice({ ...stateWith(...pair(line)), reviews }).signOff).toBeUndefined();
+    }
+    expect(ownerVoice({ ...stateWith(...pair("Best massage I have ever had.")), reviews: [] }).signOff).toBe("Best massage I have ever had.");
+  });
+
+  it("matches a campaign name only with 4 characters or more and at word boundaries", () => {
+    expect(ownerVoice(stateWith(...pair("Good luck!", "Go"))).signOff).toBe("Good luck!");
+    expect(ownerVoice(stateWith(...pair("Book Glow today", "Glow"))).signOff).toBeUndefined();
+    expect(ownerVoice(stateWith(...pair("Glowing regards", "Glow"))).signOff).toBe("Glowing regards");
+  });
+});
+
+describe("keycap emoji", () => {
+  it("is detected and removed", () => {
+    expect(ownerVoice(stateWith(campaign("a", { instagram: `Top 1️⃣ pick\n${link}` }))).emoji).toBe(true);
+    expect(applyVoice({ text: "Top 1️⃣ pick", hashtags: [] }, { hashtags: [], emoji: false }).text).toBe("Top pick");
+  });
+});
+
+describe("sign-off removal keeps words whole", () => {
+  it("only removes a sign-off that starts a line or follows whitespace", () => {
+    expect(assembleCopy("facebook", "Book with StudioEko", [], link, "en", "Eko")).toBe(`Book with StudioEko\nEko\n${link}`);
+    expect(assembleCopy("facebook", "Book now Eko", [], link, "en", "Eko")).toBe(`Book now\nEko\n${link}`);
+  });
+});
+
+describe("edits and late AI texts", () => {
+  const state = inLanguage("en");
+  const base = () => {
+    const first = draftFor(state, "promote");
+    return { ...first, ...refreshCopy(state, first, NEUTRAL_VOICE) } as Draft;
+  };
+
+  it("an edit marks the channel edited and no longer stale", () => {
+    const draft = { ...base(), copyEdited: ["instagram" as const], copyStale: ["instagram" as const, "facebook" as const] };
+    const patch = editCopy(draft, "instagram", "Mine");
+    expect(patch).toMatchObject({ copy: { instagram: "Mine" }, copyEdited: ["instagram"], copyStale: ["facebook"] });
+  });
+
+  it("an edited channel stays stale when the offer changes, until it is edited again", () => {
+    const first = base();
+    const edited: Draft = { ...first, ...editCopy(first, "instagram", "At 20 percent") };
+    const changed: Draft = { ...edited, discountPercent: 30 };
+    const next = refreshCopy(state, changed, NEUTRAL_VOICE);
+    expect(next.stale).toEqual(["instagram"]);
+    expect(next.copyFor).not.toBe(edited.copyFor);
+    expect(editCopy({ ...changed, copyStale: next.stale }, "instagram", "Now 30").copyStale).toEqual([]);
+  });
+
+  it("a late AI text never replaces an edited channel or an outdated one", () => {
+    const draft = base();
+    const written = draft.copy.facebook;
+    expect(canApplyAiText(draft, "facebook", draft.copyFor, written)).toBe(true);
+    expect(canApplyAiText({ ...draft, copyEdited: ["facebook"] }, "facebook", draft.copyFor, written)).toBe(false);
+    expect(canApplyAiText(draft, "facebook", "other", written)).toBe(false);
+    expect(canApplyAiText({ ...draft, copy: { ...draft.copy, facebook: "x" } }, "facebook", draft.copyFor, written)).toBe(false);
   });
 });

@@ -27,7 +27,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const [selected, setSelected] = useState<Channel>(draft.channels[0] ?? "instagram");
   const [scheduling, setScheduling] = useState(false);
   const [day, setDay] = useState(scheduleDefault);
-  const [notice, setNotice] = useState("");
+  const [updated, setUpdated] = useState(false);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster: resolvePoster(state, draft) };
   const preview = draft.channels.includes(selected) ? selected : draft.channels[0];
   const toggle = (channel: Channel) =>
@@ -36,9 +36,10 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const publish = (publishOn: DateKey) => {
     if (offerSignature(state, draft) === draft.copyFor) return onPublish(publishOn);
     const { copy, copyFor, stale } = refreshCopy(state, draft, ownerVoice(state));
-    onChange({ copy, copyFor });
-    setNotice(stale.length ? t("campaigns.publish.checkTexts", { channels: stale.map((channel) => t(`channel.${channel}`)).join(", ") }) : t("campaigns.publish.textsUpdated"));
+    onChange({ copy, copyFor, copyStale: stale });
+    setUpdated(!stale.length);
   };
+  const toCheck = draft.copyStale ?? [];
   const poster = (format: "post" | "story") => <PosterView source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />;
 
   return (
@@ -70,7 +71,11 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
         </div>
         <p className="text-sm text-text-secondary [overflow-wrap:anywhere]">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
         <div className="space-y-3">
-          {notice && <p role="status" className="rounded-lg bg-surface-2 p-3 text-sm">{notice}</p>}
+          {(toCheck.length > 0 || updated) && (
+            <p role="status" className="rounded-lg bg-surface-2 p-3 text-sm">
+              {toCheck.length ? t("campaigns.publish.checkTexts", { channels: toCheck.map((channel) => t(`channel.${channel}`)).join(", ") }) : t("campaigns.publish.textsUpdated")}
+            </p>
+          )}
           <div>
             <Button size="lg" width="responsive" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => publish(today)}>
               {t("campaigns.publish.everywhere")}
