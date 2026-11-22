@@ -60,7 +60,14 @@ export function StudioShell({ children }: { children: ReactNode }) {
   // A signed-in owner works in their salon on the server; everyone else keeps the browser salons.
   useEffect(() => { void openSignedInSalon(); }, []);
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
-  useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
+  useEffect(() => {
+    const pin = () => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme)));
+    pin();
+    // "System" follows the device, also when it switches between light and dark while the studio is open.
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    scheme.addEventListener("change", pin);
+    return () => scheme.removeEventListener("change", pin);
+  }, []);
   useStartPreset(!!state);
   // Opening a page counts as using the trial salon; it is removed after a day without use.
   useEffect(() => { if (own) markTrialUsed(); }, [own, pathname]);
