@@ -11,18 +11,18 @@ const responsiveWidth = "w-full sm:w-fit";
 
 // The ghost spelling remains available for existing callers.
 const base =
-  "ui-press inline-flex min-h-target min-w-target max-w-full items-center gap-2 rounded-md font-medium select-none [overflow-wrap:anywhere]";
+  "ui-press inline-flex min-h-target min-w-target max-w-full items-center gap-2 font-medium select-none [overflow-wrap:anywhere]";
 const alignment: Record<Align, string> = {
   center: "justify-center text-center",
   start: "justify-start text-left",
   between: "justify-between text-left",
 };
 const variants: Record<Variant, string> = {
-  primary: "bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
-  secondary: "bg-surface text-text ring-1 ring-inset ring-input-border hover:bg-surface-2 active:bg-surface-2",
-  tertiary: "text-text hover:bg-surface-2 active:bg-surface-2",
-  ghost: "text-text hover:bg-surface-2 active:bg-surface-2",
-  danger: "bg-surface text-danger ring-1 ring-inset ring-danger hover:bg-surface-2 active:bg-surface-2",
+  primary: "rounded-full px-5 bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
+  secondary: "ui-button-tint rounded-md text-text",
+  tertiary: "rounded-md text-text hover:bg-surface-2 active:bg-surface-2",
+  ghost: "rounded-md text-text hover:bg-surface-2 active:bg-surface-2",
+  danger: "rounded-md bg-surface text-danger ring-1 ring-inset ring-danger hover:bg-surface-2 active:bg-surface-2",
 };
 const sizes: Record<Size, string> = {
   sm: "px-3 py-1 text-body",

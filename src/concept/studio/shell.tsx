@@ -83,7 +83,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar state={state} pathname={pathname} role={role} />
-      <header className="studio-safe-top flex min-h-14 items-center justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
+      <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
         <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-target min-w-target items-center px-1 max-[374px]:px-0">
           <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
@@ -128,7 +128,7 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       aria-current={active ? "page" : undefined}
       className={cx(
         "flex min-h-target items-center gap-3 rounded-md px-3 text-body transition-colors",
-        active ? "bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
+        active ? "studio-nav-active bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
       )}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
@@ -177,7 +177,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   const tall = useTallScreen();
   const open = choice?.pathname === pathname ? choice.open : groupOf(pathname, tall);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 pb-3 pt-5 lg:flex">
+    <aside className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col bg-surface px-4 pb-3 pt-5 text-text lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="flex min-h-target items-center px-3">
         <Wordmark label="" className="w-32" />
       </Link>
@@ -249,13 +249,13 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               aria-current={active ? "page" : undefined}
               className={cx("relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-md transition-colors max-[299px]:w-9", active && "bg-action-bg")}>
+              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors max-[299px]:w-9", active && "bg-action text-on-action")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
               {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}
               <span className="max-[299px]:sr-only">{t(item.label)}</span>
               {badge > 0 && (
-                <span className="absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full bg-danger px-1 text-center text-minimum font-semibold leading-normal text-bg">
+                <span className="studio-highlight absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full px-1 text-center text-minimum font-semibold leading-normal">
                   {badge}
                 </span>
               )}

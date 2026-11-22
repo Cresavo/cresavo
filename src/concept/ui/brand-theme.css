@@ -60,7 +60,7 @@
   --space-8: 32px;
   --space-12: 48px;
   --touch-target: 44px;
-  --type-h1: 1.75rem;
+  --type-h1: clamp(1.875rem, 1.5rem + 1.25vw, 2.25rem);
   --type-h2: 1.25rem;
   --type-h3: 1rem;
   --type-body: 0.9375rem;
@@ -119,6 +119,10 @@
 }
 .ui-press:active:not(:disabled) { transform: scale(.97); }
 .ui-press:active:not(:disabled)::after { opacity: .12; }
+
+/* A secondary button is a neutral tint of the text colour on whatever surface it sits on, so it reads on the canvas, a card and the sidebar alike. */
+.ui-button-tint { background: color-mix(in srgb, var(--ui-text) 10%, transparent); }
+.ui-button-tint:hover, .ui-button-tint:active { background: color-mix(in srgb, var(--ui-text) 16%, transparent); }
 
 .ui-media-dialog {
   width: fit-content;

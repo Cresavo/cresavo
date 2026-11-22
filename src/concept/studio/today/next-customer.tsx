@@ -44,12 +44,15 @@ export function NextCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen: (
   const advice = state.modules.journal ? state.journals.filter((j) => j.customerId === customer.id).at(-1)?.advice : undefined;
 
   return (
-    <Section title={isToday ? t("next.title") : t("next.titleLater")} action={<span className="text-body font-medium tabular-nums text-text-secondary">{when}</span>}>
-      <Card className="space-y-4 p-5">
+    <Section title={isToday ? t("next.title") : t("next.titleLater")} >
+      <Card surface="raised" className="space-y-4 p-6">
         <div className="flex items-center gap-4">
           <Avatar name={fullName(customer)} size="lg" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-lg font-semibold tracking-tight">{fullName(customer)}</p>
+            <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="min-w-0 truncate text-h2 font-semibold tracking-tight">{fullName(customer)}</span>
+              <span className="shrink-0 text-body font-semibold tabular-nums">{when}</span>
+            </p>
             <p className="truncate text-sm text-text-secondary">{service?.name} · {formatDuration(booking.duration)}</p>
             <p className="mt-1 flex items-center gap-2 text-sm text-text-secondary">
               <StaffDot staffId={staff.id} />

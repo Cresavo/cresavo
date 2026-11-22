@@ -1,8 +1,17 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
-export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx("rounded-lg bg-surface ring-1 ring-hairline", className)} {...rest} />;
+const surfaces = {
+  /** An outlined surface: the default for lists and forms. */
+  outlined: "rounded-lg bg-surface ring-1 ring-hairline",
+  /** The one surface a screen is about: lifted off the canvas, no outline. */
+  raised: "studio-raised rounded-lg bg-surface",
+  /** Content that sits on the canvas between two rules, without a box. */
+  flat: "border-y border-hairline",
+};
+
+export function Card({ className, surface = "outlined", ...rest }: HTMLAttributes<HTMLDivElement> & { surface?: keyof typeof surfaces }) {
+  return <div className={cx(surfaces[surface], className)} {...rest} />;
 }
 
 interface SectionProps {
@@ -17,7 +26,7 @@ export function Section({ title, action, children, className }: SectionProps) {
   return (
     <section className={cx("space-y-3", className)}>
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <h2 className="min-w-0 break-words text-h2 font-semibold tracking-tight">{title}</h2>
+        <h2 className="min-w-0 break-words text-h3 font-semibold">{title}</h2>
         {action}
       </div>
       {children}

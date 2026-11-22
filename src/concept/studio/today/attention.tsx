@@ -26,7 +26,7 @@ export function Attention({ onOpen }: { onOpen: (sheet: OpenSheet) => void }) {
   const news = briefing ? brief.items.filter((item) => brief.kind !== "morning" || !onToday(item.id)) : [];
   return (
     <Section title={briefing ? t(brief.kind === "weekly" ? "brief.weekly" : "brief.morning") : t("today.suggestions")}>
-      <Card className="divide-y divide-hairline overflow-hidden" data-help={briefing ? "morning-brief" : undefined}>
+      <Card surface="flat" className="divide-y divide-hairline" data-help={briefing ? "morning-brief" : undefined}>
         {ai && <p className="px-4 py-3 font-medium">{brief.title}</p>}
         {news.length > 0 && <BriefList brief={{ ...brief, items: news }} inset />}
         <Suggestions onOpen={onOpen} silent={news.length > 0} />

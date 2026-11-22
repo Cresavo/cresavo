@@ -29,7 +29,7 @@ export function SalonEntry({ today = false, standalone = false }: { today?: bool
     <Frame className={today ? "flex flex-wrap items-center gap-x-4 gap-y-2" : "space-y-3 p-4"}>
       {standalone
         ? <PageHeader tools={false} title={t("setup.title")} subtitle={t(savedSalon ? "setup.saved" : "setup.intro")} />
-        : <p className={today ? "text-text-secondary" : "font-medium"}>{t(savedSalon ? "setup.saved" : "setup.intro")}</p>}
+        : <p className={today ? "text-text-secondary max-sm:sr-only" : "font-medium"}>{t(savedSalon ? "setup.saved" : "setup.intro")}</p>}
       <div className="flex flex-wrap gap-2">
         <div data-setup-entry className="rounded-md">{savedSalon
           ? <Button variant={today ? "secondary" : "primary"} onClick={async () => { if (await switchSalon("own")) router.push("/studio"); else showToast(t("setup.switchFailed")); }}>{t("setup.resume")}</Button>
