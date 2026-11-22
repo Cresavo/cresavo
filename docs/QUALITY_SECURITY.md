@@ -90,6 +90,11 @@ Security
       staff. Owner MFA needs a migration: see CHANGELOG "Unreleased".
 - [ ] Tenant isolation enforced in the database (row-level security or
       equivalent) and covered by tests that try to read another tenant.
+      The tests exist (`tests/integration/tenant-isolation.test.ts`: owner
+      routes, public booking links, the store and its sweeps, each against a
+      second salon). Still open: enforcement in the database itself (RLS or
+      equivalent). Today isolation rests on the application's `tenant_id`
+      conditions, which these tests guard.
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
 - [x] Rate limiting on public endpoints (booking, login, AI). Audited
       2026-11-22: every public or demo route under `/api` (not `/admin`,
