@@ -76,7 +76,7 @@ export function Sheet({ open, onClose, title, description, children, footer, var
     >
       {present && (
         <div inert={closing} className={cx("ui-sheet-body flex flex-col", side && "h-full")}>
-          <header className={cx("flex px-4", side ? "ui-sheet-side-header items-center gap-1 border-b border-hairline bg-surface pb-2" : "items-start gap-3 pb-2 pt-4")}>
+          <div data-sheet-header className={cx("flex px-4", side ? "ui-sheet-side-header items-center gap-1 border-b border-hairline bg-surface pb-2" : "items-start gap-3 pb-2 pt-4")}>
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-h2 font-semibold tracking-tight">{title}</h2>
               {description && <p id={titleId + "-description"} className="mt-1 text-body text-text-secondary">{description}</p>}
@@ -85,7 +85,7 @@ export function Sheet({ open, onClose, title, description, children, footer, var
             <IconButton label={t("common.close")} onClick={dismiss} className={side ? "-mr-1" : "-mr-2 -mt-2"}>
               <X size={20} />
             </IconButton>
-          </header>
+          </div>
           <div className={cx("min-h-0 flex-1", side ? "flex flex-col" : "overflow-y-auto px-4 pb-4")}>{children}</div>
           {footer && (
             <div className="ui-action-bar flex flex-wrap justify-end gap-2 border-t border-hairline px-4 pt-4">

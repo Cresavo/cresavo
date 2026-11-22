@@ -280,7 +280,7 @@ test("switches, segmented options, assistant composer buttons and the booking he
   for (const h of await heights("[role=radiogroup] [role=radio]")) expect(h).toBeGreaterThanOrEqual(44);
   await page.keyboard.press("Control+K");
   await page.getByRole("textbox", { name: "Message" }).fill("hello");
-  for (const h of await heights("dialog form button, dialog header button")) expect(h).toBeGreaterThanOrEqual(44);
+  for (const h of await heights("dialog form button, dialog [data-sheet-header] button")) expect(h).toBeGreaterThanOrEqual(44);
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
   for (const h of await heights("header a")) expect(h).toBeGreaterThanOrEqual(44);
