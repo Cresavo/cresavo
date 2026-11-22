@@ -16,9 +16,9 @@ vi.mock("@/concept/i18n/boundary", () => ({ ConceptLanguage: ({ children }: { ch
 const base = createDemoState("2026-11-16");
 const stored = { ...base, industry: "other" as const, salon: { ...base.salon, slug: "salong-fiktiv" }, localization: { ...base.localization, bilingual: true } };
 const state = publicSalonView(stored, new Date("2026-11-16T10:00:00+01:00"));
-const Server = ServerSalonProvider as unknown as ComponentType<{ state: typeof state; children?: ReactNode }>;
+const Server = ServerSalonProvider as unknown as ComponentType<{ state: typeof state; issuedAt: string; children?: ReactNode }>;
 const Shell = BookShell as unknown as ComponentType<{ visitorLanguage: null; children?: ReactNode }>;
-const render = () => renderToString(createElement(Server, { state }, createElement(Shell, { visitorLanguage: null }, createElement("p", null, "Fictional content"))));
+const render = () => renderToString(createElement(Server, { state, issuedAt: "fictional-token" }, createElement(Shell, { visitorLanguage: null }, createElement("p", null, "Fictional content"))));
 
 afterEach(() => { nav.path = "/boka/Salong-Fiktiv"; });
 

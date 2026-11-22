@@ -4,6 +4,7 @@ import { resolveHost } from "@/concept/page/resolve";
 import { checkSlug } from "@/concept/page/slug";
 import { siteRequestHost } from "@/concept/site/request-host";
 import { migrateSaved } from "@/concept/store/studio-store";
+import { issuedAtToken } from "./public-issued-at";
 import { isPublicReadonly } from "./public-readonly";
 
 // Public booking on the studio store (ADR 1, stage 2). Off unless
@@ -44,19 +45,26 @@ export async function findSalonTenant(slug: string): Promise<string | null> {
 }
 
 /**
- * What a customer may see of the salon with this booking address, or null.
- * One query resolves the current address, an active owner account, the kind,
- * the expiry and the document, so a rename or a switched-off account is never
- * served from a second read.
+ * The tenant and full document of the salon with this booking address, or
+ * null. One query resolves the current address, an active owner account, the
+ * kind, the expiry and the document, so a rename or a switched-off account is
+ * never served from a second read. The document is for the server's own rules
+ * and never leaves it: send `publicSalonView` of it.
  */
-export async function loadPublicSalon(slug: string, now = new Date()): Promise<DemoState | null> {
+export async function loadPublicTenant(slug: string, now = new Date()): Promise<{ tenantId: string; state: DemoState } | null> {
   const checked = checkSlug(slug);
   if (!checked.ok) return null;
   const { db } = await import("./db");
-  const [row] = await db.$queryRaw<Array<{ doc: unknown }>>`
-    SELECT t.doc FROM tenant_state t JOIN owner_account a ON a.tenant_id = t.tenant_id
+  const [row] = await db.$queryRaw<Array<{ tenant_id: string; doc: unknown }>>`
+    SELECT t.tenant_id, t.doc FROM tenant_state t JOIN owner_account a ON a.tenant_id = t.tenant_id
     WHERE t.kind = 'salon' AND a.active AND (t.expires_at IS NULL OR t.expires_at > ${now})
       AND (t.doc #>> '{salon,slug}') = ${checked.slug}`;
   const state = row && migrateSaved(row.doc);
-  return state ? publicSalonView(state, now) : null;
+  return state ? { tenantId: row.tenant_id, state } : null;
+}
+
+/** What a customer may see of the salon with this booking address, with the form-time token of its booking form, or null. */
+export async function loadPublicSalon(slug: string, now = new Date()): Promise<{ state: DemoState; issuedAt: string } | null> {
+  const found = await loadPublicTenant(slug, now);
+  return found && { state: publicSalonView(found.state, now), issuedAt: issuedAtToken(found.tenantId, found.state.salon.slug, now.getTime()) };
 }

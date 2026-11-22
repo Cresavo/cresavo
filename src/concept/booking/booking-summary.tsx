@@ -8,8 +8,9 @@ import { formatMinor } from "./policy-summary";
 import type { BookingTerms } from "./protection";
 import type { OpenSlot } from "./suggest";
 
-export function BookingSummary({ slot, terms, now, phone, packagesEnabled }: {
-  slot: OpenSlot; terms: BookingTerms; now: Now; phone: string; packagesEnabled: boolean;
+/** `demo`: the booking is simulated (no money moves); false for a salon's real booking page. */
+export function BookingSummary({ slot, terms, now, phone, packagesEnabled, demo = true }: {
+  slot: OpenSlot; terms: BookingTerms; now: Now; phone: string; packagesEnabled: boolean; demo?: boolean;
 }) {
   const { priceMinor, currency, depositMinor, freeHours, latePercent, noShowPercent } = terms;
   const instant = now.instant ?? visitTime({ date: now.today, start: now.minutes }).toMillis();
@@ -25,7 +26,7 @@ export function BookingSummary({ slot, terms, now, phone, packagesEnabled }: {
         </div>
       </dl>
       {depositMinor > 0 && <p>{t("booking.summary.depositRefund")}</p>}
-      <Badge icon={FlaskConical}>{t(depositMinor ? "protection.simulated" : "booking.summary.simulated")}</Badge>
+      {demo && <Badge icon={FlaskConical}>{t(depositMinor ? "protection.simulated" : "booking.summary.simulated")}</Badge>}
       <div className="space-y-1 border-t border-hairline pt-2">
         <p>{freeUntilText(slot, freeHours, instant)}</p>
         {late && <p>{phone ? t("booking.summary.deadlinePassedPhone", { phone }) : t("booking.summary.deadlinePassed")}</p>}

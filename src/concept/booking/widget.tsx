@@ -11,12 +11,14 @@ import { PageHeader } from "../ui/page-header";
 import { useSalonNow } from "../use-now";
 import { bookingPage } from "./links";
 import { PaymentSummary } from "./policy-summary";
+import { useServerSalon } from "../server-salon";
 import { BookingWizard } from "./wizard";
 import { findService } from "../selectors";
 
 /** The entire booking stays inside the iframe; management opens a separate tab. */
 export function BookingWidget() {
   const state = usePublicDemo();
+  const fromServer = useServerSalon() !== null;
   const now = useSalonNow();
   const [bookedId, setBookedId] = useState<string>();
   const [repeat, setRepeat] = useState<Booking>();
@@ -30,7 +32,7 @@ export function BookingWidget() {
       <PaymentSummary state={state} booking={booking} />
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => { setRepeat(booking); setBookedId(undefined); }}>{t("booking.me.rebook")}</Button>
-        <a className={buttonClass("secondary")} href={bookingPage(state.salon.slug, booking.id)} target="_blank" rel="noopener noreferrer">{t("widget.manage")}</a>
+        {!fromServer && <a className={buttonClass("secondary")} href={bookingPage(state.salon.slug, booking.id)} target="_blank" rel="noopener noreferrer">{t("widget.manage")}</a>}
       </div>
     </Card> : <BookingWizard state={state} now={now} initialServiceId={repeat?.serviceId} initialStaffId={repeat?.staffId} onBooked={setBookedId} />}
   </div>;
