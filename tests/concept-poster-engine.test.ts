@@ -387,7 +387,7 @@ describe("mirrored arrangement", () => {
     expect(Number(style.left) + Number(style.width) / 2).toBeLessThan(1080 - 64 - column);
   });
 
-  it("puts the full photo's text at the top under a top-down scrim and the salon's chip at the bottom", () => {
+  it("puts the full photo's text on a panel at the top, the photo below it and the salon's chip at the bottom", () => {
     for (const [format, top, bottom] of [["post", 64, 64], ["story", 290, 430]] as const) {
       const tree = posterTree("fullphoto", mirrored, format);
       expect(textStyle(tree, "Salong Eko")).toMatchObject({ bottom });
@@ -395,7 +395,9 @@ describe("mirrored arrangement", () => {
       const block = find(tree, (node) => node.props.style?.flexDirection === "column" && node.props.style.alignItems === "flex-start");
       expect(block).toMatchObject({ top });
       expect(block).not.toHaveProperty("bottom");
-      expect(flat(tree)).toMatch(/linear-gradient\(to bottom, rgba\(0,0,0,0\.9\) 0%, rgba\(0,0,0,0\.8\)/);
+      // The photo starts below the text panel, so no text ever lies over a face in the photo.
+      expect(Number(find(tree, (node) => node.type === "img").top)).toBeGreaterThan(top);
+      expect(flat(tree)).not.toContain("linear-gradient");
     }
     expect(textStyle(posterTree("fullphoto", standard, "post"), "Salong Eko")).toMatchObject({ top: 64 });
   });

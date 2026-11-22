@@ -170,7 +170,8 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
   const wave = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height - waveTop}" viewBox="0 0 ${width} ${height - waveTop}" preserveAspectRatio="none"><path ${mirrored ? `transform="translate(${width} 0) scale(-1 1)" ` : ""}d="M0 60 C ${width * 0.24} -10, ${width * 0.48} 140, ${width} 40 V${height - waveTop} H0Z" fill="${accent}"/></svg>`;
   return box({ width, height, position: "relative", background, fontFamily: "Inter" },
     svgImage(wave, { position: "absolute", left: 0, top: waveTop, width, height: height - waveTop }),
-    image(photoOf(data), { position: "absolute", ...(mirrored ? { left: -40 } : { right: -40 }), top: Math.round(height * 0.09), width: photoWidth, height: Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
+    // Mirrored, the photo ends above the signature strip, whose phone and rating start on the left.
+    image(photoOf(data), { position: "absolute", ...(mirrored ? { left: -40 } : { right: -40 }), top: Math.round(height * 0.09), width: photoWidth, height: mirrored ? Math.round(height * 0.91) - 250 : Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
     text({ position: "absolute", left: textLeft, top: 90, width: textWidth, ...headingFont(data), fontSize: headlineSize, lineHeight: 0.95, color: onColour(background) === WHITE ? WHITE : ink }, data.headline),
     text({ position: "absolute", ...(mirrored ? { right: 76 } : { left: 56 }), top: priceTop, fontFamily: "Inter Display", fontWeight: 900, fontSize: priceSize, letterSpacing: -6, color: onAccent, textShadow: `12px 12px 0 ${onAccent === WHITE ? ink : WHITE}` }, data.price),
     ...(data.sticker ? [box({ position: "absolute", left: mirrored ? photoWidth - 60 : width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
@@ -455,12 +456,16 @@ function fullPhotoTemplate(data: PosterData, width: number, height: number): Pos
   const blockHeight = 32 + contactRow + (data.cta ? 36 + 88 : 0) + (line ? 24 + lineSize * 1.25 : 0) + Math.round(size * 0.98 * lines);
   const blockTop = height - bottom - blockHeight;
   const percent = (y: number) => Math.max(0, Math.round((y / height) * 100));
-  const scrim = mirrored
-    ? `linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.8) ${percent(top + blockHeight)}%, rgba(0,0,0,0) ${percent(top + blockHeight + height * 0.12)}%)`
-    : `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop)}%, rgba(0,0,0,0.9) 100%)`;
+  const scrim = `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop)}%, rgba(0,0,0,0.9) 100%)`;
+  // Mirrored, the text sits on its own dark panel and the photo starts below it: text at the top of a photo
+  // would cross a face in most portraits, so it never lies over the photo there.
+  const panel = top + blockHeight + 48;
   return box({ width, height, position: "relative", fontFamily: "Inter", color: WHITE },
-    image(photoOf(data), { position: "absolute", left: 0, top: 0, width, height, objectFit: "cover", objectPosition: CROP[data.focus] }),
-    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: scrim }),
+    ...(mirrored
+      ? [box({ position: "absolute", left: 0, top: 0, width, height: panel, background: mixColour(data.colors.accent, "#000000", 0.72) }),
+        image(photoOf(data), { position: "absolute", left: 0, top: panel, width, height: height - panel, objectFit: "cover", objectPosition: CROP[data.focus] })]
+      : [image(photoOf(data), { position: "absolute", left: 0, top: 0, width, height, objectFit: "cover", objectPosition: CROP[data.focus] }),
+        box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: scrim })]),
     text({ position: "absolute", left: 64, ...chipEdge, maxWidth: room, background: "rgba(255,255,255,0.82)", color: "#111111", fontFamily: "Caladea", fontSize: 38, lineHeight: 1, padding: "12px 26px", borderRadius: 999, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, data.signature.salon),
     box({ position: "absolute", left: 64, ...blockEdge, width: room, flexDirection: "column", alignItems: "flex-start", textShadow: shadow },
       text({ display: "block", width: room, fontFamily: "Inter Display", fontWeight: 900, letterSpacing: -4, fontSize: size, lineHeight: 0.98, lineClamp: lines }, data.headline),
