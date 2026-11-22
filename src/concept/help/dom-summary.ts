@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/locale";
+import { sliceWhole } from "@/lib/whole-slice";
 import { translate } from "../i18n";
 
 const LIMIT = 40;
@@ -8,7 +9,7 @@ const IGNORED = "dialog, [data-help=help-button]";
 
 function label(el: Element): string {
   const text = el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? el.textContent ?? "";
-  return text.replace(/\s+/g, " ").trim().slice(0, 60);
+  return sliceWhole(text.replace(/\s+/g, " ").trim(), 60);
 }
 
 /**

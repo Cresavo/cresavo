@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { summarizeScreen } from "../../help/dom-summary";
 import { getActiveLocale, t, tc } from "../../i18n";
-import { buildTicket, TICKET_ACTIVITY } from "../../support/tickets";
+import { buildTicket, MAX_TICKET_QUESTION, TICKET_ACTIVITY } from "../../support/tickets";
 import { dispatch } from "../../store";
 import { Button } from "../../ui/button";
 import { Field, TextArea } from "../../ui/controls";
@@ -43,7 +43,7 @@ export function TicketForm({ question, requestId, onBack, onDone }: TicketFormPr
   return (
     <div className="space-y-4 pt-2">
       <Field label={t("ticket.question")}>
-        <TextArea value={text} onChange={(event) => setText(event.target.value)} maxLength={1000} />
+        <TextArea value={text} onChange={(event) => setText(event.target.value)} maxLength={MAX_TICKET_QUESTION} />
       </Field>
       <div className="space-y-2">
         <p className="text-sm font-medium">{t("ticket.attached")}</p>

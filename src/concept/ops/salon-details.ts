@@ -11,7 +11,7 @@ export type SalonDetails = Pick<Salon, SalonDetailField>;
 
 export type SalonDetailProblem = "required" | "short" | "long" | "phone" | "email";
 
-const MAX_LENGTH: Record<SalonDetailField, number> = { name: 60, phone: 30, email: 254, address: 100, area: 60 };
+export const SALON_DETAIL_MAX_LENGTH: Record<SalonDetailField, number> = { name: 60, phone: 30, email: 254, address: 100, area: 60 };
 const MIN_NAME = 2;
 
 export type SalonDetailsCheck =
@@ -26,7 +26,7 @@ export function checkSalonDetails(input: Partial<Record<SalonDetailField, unknow
   })) as SalonDetails;
   const problems: Partial<Record<SalonDetailField, SalonDetailProblem>> = {};
   for (const field of SALON_DETAIL_FIELDS) {
-    if (details[field].length > MAX_LENGTH[field]) problems[field] = "long";
+    if (details[field].length > SALON_DETAIL_MAX_LENGTH[field]) problems[field] = "long";
   }
   if (!details.name) problems.name = "required";
   else if (details.name.length < MIN_NAME) problems.name = "short";

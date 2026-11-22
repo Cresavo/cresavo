@@ -13,6 +13,9 @@ const same = (a: JournalContent, b: JournalContent) =>
   a.photos?.before === b.photos?.before &&
   a.photos?.after === b.photos?.after;
 
+/** The editable part of an entry: what the form shows and an edit sends. */
+export const contentOf = ({ treatment, observations, advice, nextVisit, photos }: JournalContent): JournalContent => ({ treatment, observations, advice, nextVisit, photos });
+
 /** Applies an edit and keeps what was there as an earlier version. An edit that changes nothing returns the same entry. */
 export function editJournalEntry(entry: JournalEntry, content: JournalContent, today: DateKey): JournalEntry {
   const next: JournalContent = { ...content, nextVisit: content.nextVisit?.trim() || undefined };

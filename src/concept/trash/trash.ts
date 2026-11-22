@@ -90,11 +90,11 @@ export function deleteCustomer(state: DemoState, id: string): DemoState {
 export type RestoreBlockReason = "missing" | "time-taken" | "gift-card";
 
 /** Puts a booking back as booked, in a free room. */
-const rebook = (state: DemoState, booking: Booking): Booking => ({
+const rebook = (state: DemoState, booking: Booking, keepRoom = true): Booking => ({
   ...booking,
   status: "booked",
   cancelReason: undefined,
-  resourceId: pickResource(state, booking, booking.date, booking.start, booking.id),
+  resourceId: pickResource(state, booking, booking.date, booking.start, booking.id, keepRoom ? booking.resourceId : undefined),
 });
 
 /** Why a cancelled booking cannot come back: its time was taken, or its gift card balance was spent meanwhile. */
@@ -116,6 +116,7 @@ export function canRestore(state: DemoState, entry: TrashEntry): boolean {
 export function restoreEntry(state: DemoState, id: string, payments = demoPayments): DemoState {
   const entry = state.trash.find((e) => e.id === id);
   if (!entry || !canRestore(state, entry)) return state;
+  if (entry.kind === "customer" && (state.customers.some((c) => c.id === entry.customer.id) || entry.bookings.some((b) => state.bookings.some((x) => x.id === b.id)))) return state;
   const trash = state.trash.filter((e) => e.id !== id);
   if (entry.kind === "booking") {
     const bookings = state.bookings.map((b) => (b.id === entry.bookingId ? rebook(state, b) : b));
@@ -131,26 +132,36 @@ export function restoreEntry(state: DemoState, id: string, payments = demoPaymen
     packages: [...state.packages, ...(entry.packages ?? [])],
     trash,
   };
-  // A time taken while the customer was in the trash must not be double-booked,
-  // and a gift card balance spent meanwhile must not be spent twice.
-  for (const booking of entry.bookings) {
-    if (booking.status !== "booked") {
-      restored.bookings = [...restored.bookings, booking];
-      continue;
-    }
+  // Recorded rooms are kept when possible; if that leaves an upcoming visit out, the whole bundle is placed again without them.
+  const kept = placeVisits(restored, entry.bookings, payments, true);
+  const placed = kept?.lost ? placeVisits(restored, entry.bookings, payments, false) ?? kept : kept;
+  return placed?.state ?? state;
+}
+
+/**
+ * Puts a customer's visits back. A time taken while the customer was in the trash must not be double-booked,
+ * and a gift card balance spent meanwhile must not be spent twice. Visits that already happened (and cancelled
+ * ones) come back as they were, rooms included, before upcoming visits are checked. `lost` says whether an
+ * upcoming visit had to be cancelled; there is no result when a refund fails.
+ */
+function placeVisits(base: DemoState, visits: Booking[], payments: typeof demoPayments, keepRooms: boolean): { state: DemoState; lost: boolean } | undefined {
+  const restored: DemoState = { ...base, bookings: [...base.bookings, ...visits.filter((b) => b.status !== "booked")] };
+  let lost = false;
+  for (const booking of visits.filter((b) => b.status === "booked")) {
     const available = isFree(restored, booking.staffId, booking.date, booking.start, booking, booking.id);
     if (available) {
-      const bookings = [...restored.bookings, rebook(restored, booking)];
+      const bookings = [...restored.bookings, rebook(restored, booking, keepRooms)];
       if (cardsCovered({ ...restored, bookings })) {
         restored.bookings = bookings;
         continue;
       }
     }
     const refunded = refundCancellation(booking, payments);
-    if (!refunded) return state;
+    if (!refunded) return undefined;
     if (refunded.protection?.refund) restored.giftCards = returnRedemptions(restored.giftCards, new Set([booking.id]));
     restored.bookings = [...restored.bookings, { ...refunded, status: "cancelled",
       cancelReason: t(available ? "trash.giftCardUsed" : "trash.timeTaken") }];
+    lost = true;
   }
-  return restored;
+  return { state: restored, lost };
 }

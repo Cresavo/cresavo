@@ -43,7 +43,7 @@ export function ReceiveSheet({ orderId, onClose }: { orderId?: string; onClose: 
     }, READING_MS);
   };
 
-  const ids = Object.keys(amounts);
+  const ids = Object.keys(amounts).filter((id) => state.stock.some((item) => item.id === id));
   const received = ids.filter((id) => amounts[id] > 0).length;
   const confirm = () => {
     dispatchWithUndoToast({ type: "stock/receive", orderId: order?.id, deliveries: ids.map((id) => ({ stockId: id, quantity: amounts[id] })), date: today }, tc("stock.receivedToast", received));
