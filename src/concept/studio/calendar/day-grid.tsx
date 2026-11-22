@@ -119,6 +119,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                     height={booking.duration * scale - 2}
                     scale={scale}
                     onOpen={() => onOpen({ kind: "booking", id: booking.id })}
+                    onGapOpen={(start) => onOpen({ kind: "new", preset: { staffId: person.id, date, start } })}
                   />
                 ))}
                 {date === today && minutes > from && minutes < to && (

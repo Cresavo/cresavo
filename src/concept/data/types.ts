@@ -99,6 +99,9 @@ export interface Service {
   processing?: Processing;
 }
 
+/** The timing a visit keeps from its treatment when it is booked, so later edits to the treatment never move it. */
+export type VisitTiming = Pick<Service, "bufferBefore" | "bufferAfter" | "processing">;
+
 /** A gap that starts `after` minutes into a treatment and lasts `duration` minutes. */
 export interface Processing {
   after: number;
@@ -159,7 +162,7 @@ export interface Customer {
 export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
 export type BookingSource = "online" | "phone" | "walk-in" | "campaign" | "assistant";
 
-export interface Booking {
+export interface Booking extends VisitTiming {
   protection?: BookingProtection;
   id: string;
   customerId: string;

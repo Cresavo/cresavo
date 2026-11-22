@@ -23,17 +23,19 @@ interface BookingBlockProps {
   /** The booking lies outside the plan (someone is off, the salon is closed) and needs moving. */
   misfit?: boolean;
   onOpen: () => void;
+  /** Starts a new booking in the processing gap, where the staff member is free. */
+  onGapOpen?: (start: number) => void;
 }
 
 /** A booking positioned in a time column. Draggable on devices with a mouse. */
-export function BookingBlock({ booking, top, height, scale, compact, misfit, onOpen }: BookingBlockProps) {
+export function BookingBlock({ booking, top, height, scale, compact, misfit, onOpen, onGapOpen }: BookingBlockProps) {
   const { state } = useStudio();
   const customer = findCustomer(state, booking.customerId);
   const service = findService(state, booking.serviceId);
-  const gap = processingGap(service, booking.start, booking.duration);
+  const gap = processingGap(booking, booking.start, booking.duration);
   const buffers = [
-    { key: "before", minutes: service?.bufferBefore ?? 0, style: { bottom: "100%", height: (service?.bufferBefore ?? 0) * scale } },
-    { key: "after", minutes: service?.bufferAfter ?? 0, style: { top: "100%", height: (service?.bufferAfter ?? 0) * scale } },
+    { key: "before", minutes: booking.bufferBefore ?? 0, style: { bottom: "100%", height: (booking.bufferBefore ?? 0) * scale } },
+    { key: "after", minutes: booking.bufferAfter ?? 0, style: { top: "100%", height: (booking.bufferAfter ?? 0) * scale } },
   ].filter((buffer) => buffer.minutes > 0);
   const anna = booking.staffId === "anna";
   const onDragStart = (event: DragEvent) => {
@@ -69,10 +71,20 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
       </Button>
       {gap && (
         <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bg-[repeating-linear-gradient(135deg,transparent_0_6px,var(--ui-border)_6px_7px)]"
+          aria-hidden={!onGapOpen || undefined}
+          className={cx("absolute inset-x-0 bg-[repeating-linear-gradient(135deg,transparent_0_6px,var(--ui-border)_6px_7px)]", !onGapOpen && "pointer-events-none")}
           style={{ top: (gap.start - booking.start) * scale, height: (gap.end - gap.start) * scale }}
-        />
+        >
+          {onGapOpen && (
+            <Button
+              variant="tertiary"
+              size="sm"
+              className="h-full w-full cursor-copy !p-0"
+              aria-label={t("calendar.bookInGap", { from: formatTime(gap.start), to: formatTime(gap.end) })}
+              onClick={() => onGapOpen(gap.start)}
+            />
+          )}
+        </div>
       )}
       {buffers.map(({ key, style }) => (
         <div key={key} aria-hidden className="pointer-events-none absolute inset-x-0 border-x border-dashed border-hairline bg-surface-2/60" style={style} />

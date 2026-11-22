@@ -1,6 +1,6 @@
 import type { CheckoutHold } from "../booking/protection";
 import { weekday } from "./dates";
-import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId } from "./types";
+import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId, VisitTiming } from "./types";
 
 // The one place that knows when something can be booked: opening hours,
 // closed days, lunch, each person's weekly template and exceptions, existing
@@ -22,12 +22,19 @@ export interface SlotContext {
 }
 
 /** What a booking needs: a treatment (for its room or chair) and how long it takes. */
-export interface Need {
+export interface Need extends VisitTiming {
   serviceId: string;
   duration: number;
 }
 
-export const needOf = (service: Pick<Service, "id" | "duration">): Need => ({ serviceId: service.id, duration: service.duration });
+/** The timing worth keeping on a booking or hold: zero and unset values are left out. */
+export const timingOf = ({ bufferBefore, bufferAfter, processing }: VisitTiming): VisitTiming => ({
+  ...(bufferBefore ? { bufferBefore } : {}),
+  ...(bufferAfter ? { bufferAfter } : {}),
+  ...(processing ? { processing: { after: processing.after, duration: processing.duration } } : {}),
+});
+
+export const needOf = (service: Pick<Service, "id" | "duration"> & VisitTiming): Need => ({ serviceId: service.id, duration: service.duration, ...timingOf(service) });
 
 /** Opening hours of a day; null when the weekday is closed or the day is a closure. */
 export function openingFor(salon: Salon, date: DateKey) {
@@ -102,17 +109,15 @@ function activeHolds(ctx: SlotContext, date: DateKey) {
 
 const intersects = (a: Interval, b: Interval) => a.start < b.end && b.start < a.end;
 
-type Timing = Pick<Service, "bufferBefore" | "bufferAfter" | "processing">;
-
 /** The wait inside a visit where the customer stays and the staff member is free; null when there is none. */
-export function processingGap(timing: Timing | undefined, start: number, duration: number): Interval | null {
+export function processingGap(timing: VisitTiming | undefined, start: number, duration: number): Interval | null {
   if (!timing?.processing) return null;
   const gap = { start: start + timing.processing.after, end: Math.min(start + timing.processing.after + timing.processing.duration, start + duration) };
   return gap.end > gap.start ? gap : null;
 }
 
 /** When the staff member is busy for a visit: preparation, the active parts of the treatment and clean-up, but not the processing gap. */
-export function staffIntervals(timing: Timing | undefined, start: number, duration: number): Interval[] {
+export function staffIntervals(timing: VisitTiming | undefined, start: number, duration: number): Interval[] {
   const end = start + duration;
   const from = start - (timing?.bufferBefore ?? 0);
   const to = end + (timing?.bufferAfter ?? 0);
@@ -128,7 +133,7 @@ function serviceOf(ctx: SlotContext, serviceId: string): Service | undefined {
 export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
   const visits = ctx.bookings.filter(b => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId);
   const holds = activeHolds(ctx, date).filter(h => h.staffId === staffId && h.id !== ignoreId);
-  const list = [...visits, ...holds].flatMap(b => staffIntervals(serviceOf(ctx, b.serviceId), b.start, b.duration));
+  const list = [...visits, ...holds].flatMap(b => staffIntervals(b, b.start, b.duration));
   const lunch = lunchFor(ctx.salon, date);
   if (lunch) list.push(lunch);
   for (const block of ctx.blocks ?? []) if (block.staffId === staffId && block.date === date) list.push(block);
@@ -156,11 +161,14 @@ function resourceFree(ctx: SlotContext, need: Need, date: DateKey, start: number
 }
 
 export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, need: Need, ignoreId?: string): boolean {
+  if (!Number.isInteger(start) || !Number.isInteger(need.duration) || need.duration <= 0) return false;
   const window = workWindow(ctx, staffId, date);
   if (!window) return false;
   const end = start + need.duration;
   if (start < window.start || end > window.end) return false;
-  const mine = staffIntervals(serviceOf(ctx, need.serviceId), start, need.duration);
+  const mine = staffIntervals(need, start, need.duration);
+  // Preparation and clean-up stay within the day, so no check has to look at the neighbouring days.
+  if (mine.some((part) => part.start < 0 || part.end > 24 * 60)) return false;
   if (busyIntervals(ctx, staffId, date, ignoreId).some((busy) => mine.some((part) => intersects(part, busy)))) return false;
   return resourceFree(ctx, need, date, start, ignoreId);
 }
@@ -208,4 +216,19 @@ export function freeGaps(
 export function canBlock(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, end: number) {
   return Number.isInteger(start) && Number.isInteger(end) && start < end &&
     freeGaps(ctx, staffId, date, { min: 1 }).some(gap => start >= gap.start && end <= gap.end);
+}
+
+/** Minutes of a person's day that are taken by visits, counting overlapping work once and only within the working hours. */
+export function busyMinutes(bookings: Booking[], window: Interval): number {
+  const parts = bookings.flatMap((b) => staffIntervals(b, b.start, b.duration))
+    .map((part) => ({ start: Math.max(part.start, window.start), end: Math.min(part.end, window.end) }))
+    .filter((part) => part.end > part.start)
+    .sort((a, b) => a.start - b.start);
+  let total = 0;
+  let cursor = window.start;
+  for (const part of parts) {
+    total += Math.max(0, part.end - Math.max(part.start, cursor));
+    cursor = Math.max(cursor, part.end);
+  }
+  return total;
 }
