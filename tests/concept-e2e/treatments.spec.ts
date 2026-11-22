@@ -98,6 +98,70 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   expect(after.retiredServices).toEqual([]);
 });
 
+test("details typed in the studio open behind More info on the booking page and lead on to booking", async ({ page }) => {
+  const sheet = page.getByRole("dialog");
+  const text = "We start with a short chat.\n\nThen forty minutes of slow massage.";
+
+  // A treatment without the longer text has no More info; the demo's own two have one each.
+  await page.goto("/boka/salong-eko");
+  await expect(page.getByRole("button", { name: "More info about Deep tissue massage" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^More info about / })).toHaveCount(2);
+
+  await page.goto("/studio/more/services");
+  await page.getByRole("button", { name: "Edit Deep tissue massage" }).click();
+  await sheet.getByText("More options").click();
+  await sheet.getByLabel("More about this treatment").fill(text);
+  await sheet.getByLabel("Photo with the text").selectOption({ label: "Massage" });
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Deep tissue massage saved")).toBeVisible();
+  expect((await state(page)).services.find(s => s.id === "deep-tissue")).toMatchObject({ details: text, image: "massage" });
+
+  // The row keeps Book and More info as two controls of at least 44 px, neither inside the other.
+  await page.goto("/boka/salong-eko");
+  const more = page.getByRole("button", { name: "More info about Deep tissue massage" });
+  const book = page.getByRole("button", { name: "Book Deep tissue massage", exact: true });
+  for (const control of [more, book]) {
+    const box = (await control.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+  }
+  expect(await more.evaluate(node => !!node.parentElement?.closest("button, a"))).toBe(false);
+
+  await more.click();
+  await expect(sheet.getByRole("heading", { name: "Deep tissue massage" })).toBeVisible();
+  await expect(sheet).toContainText(/1 h · SEK\s+895/);
+  const body = sheet.getByText("We start with a short chat.");
+  await expect(body).toContainText("Then forty minutes of slow massage.");
+  expect(await body.evaluate(node => getComputedStyle(node).whiteSpace)).toBe("pre-line");
+  await expect(sheet.getByRole("img")).toHaveCount(0);
+  await expect(sheet.locator("img")).toBeVisible();
+
+  // Closing returns to the page; Book in the sheet continues the normal flow with the treatment chosen.
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await more.click();
+  await sheet.getByRole("button", { name: "Book Deep tissue massage" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /Deep tissue massage/ })).toBeVisible();
+
+  // Without a price list on the page, the flow's own list has the same action under the row's button, not inside it.
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+    stored.page.sections = stored.page.sections.filter((section: { kind: string }) => section.kind !== "treatments");
+    localStorage.setItem("salong-eko-demo", JSON.stringify(stored));
+  });
+  await page.goto("/boka/salong-eko");
+  await page.getByRole("button", { name: "Choose a treatment from the list" }).click();
+  const inFlow = page.getByRole("button", { name: "More info about Deep tissue massage" });
+  await expect(page.getByRole("button", { name: /^More info about / })).toHaveCount(3);
+  expect(await inFlow.evaluate(node => !!node.parentElement?.closest("button, a"))).toBe(false);
+  expect((await inFlow.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await inFlow.click();
+  await expect(sheet).toContainText("We start with a short chat.");
+  await sheet.getByRole("button", { name: "Book Deep tissue massage" }).click();
+  await expect(page.getByRole("heading", { name: /Deep tissue massage/ })).toBeVisible();
+});
+
 test("deleting a booked treatment says what happens and keeps the bookings", async ({ page }) => {
   const sheet = page.getByRole("dialog");
   await page.goto("/studio/more/services");

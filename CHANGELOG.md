@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **More info about a treatment on the booking page.** A treatment can carry an optional longer text ("More about this treatment" under More options in the treatment sheet, plain text up to 1,500 characters with its paragraphs kept) and one of the page's own photos beside it. On the booking page such a treatment shows a quiet "More info" action next to Book; it opens a sheet with the name, length, price, photo and text, and one Book button that continues the booking with that treatment chosen. Treatments without the text look as before. The demo salon's Spa foot care and Classic massage 60 min come with example text, in English and Swedish. A salon's own uploaded photo is not included: it needs file storage the demo does not have.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

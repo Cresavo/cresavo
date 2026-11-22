@@ -20,6 +20,12 @@ const serviceKeys: Partial<Record<string, ServiceLabel>> = {
   "foot-calf-massage": "fixture.eko.service.footCalf",
 };
 
+/** The two demo treatments that come with a longer text behind "More info". */
+const detailsKeys: Partial<Record<string, MessageKey>> = {
+  "spa-foot-care": "fixture.eko.service.spa.details",
+  "classic-60": "fixture.eko.service.classic60.details",
+};
+
 function fixtureField(value: string, key: MessageKey, language: Locale): string {
   return value === translate("en", key) || value === translate("sv", key) ? translate(language, key) : value;
 }
@@ -29,7 +35,10 @@ export function serviceCopy(service: Service, language: Locale): Service {
   if (!key) return service;
   const name = fixtureField(service.name, `${key}.name`, language);
   const description = fixtureField(service.description, `${key}.description`, language);
-  return name === service.name && description === service.description ? service : { ...service, name, description };
+  const detailsKey = detailsKeys[service.id];
+  const details = service.details && detailsKey ? fixtureField(service.details, detailsKey, language) : service.details;
+  if (name === service.name && description === service.description && details === service.details) return service;
+  return { ...service, name, description, ...(details ? { details } : {}) };
 }
 
 function staffCopy(person: Staff, language: Locale): Staff {

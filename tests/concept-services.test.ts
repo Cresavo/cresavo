@@ -12,7 +12,9 @@ import { lookup } from "@/concept/assistant/lookups";
 import { parseCampaignRequest } from "@/concept/campaigns/prefill";
 import { proposalFor } from "@/concept/command/proposal";
 import { bookableServices, findService, publicView } from "@/concept/selectors";
-import { categoryIssues, serviceIssues, serviceUsage, type ServiceDraft } from "@/concept/services/edit";
+import { categoryIssues, MAX_DETAILS, serviceIssues, serviceUsage, tidyDetails, type ServiceDraft } from "@/concept/services/edit";
+import { salonCopy } from "@/concept/i18n/salon-eko-copy";
+import { publicSalonView } from "@/concept/booking/public-projection";
 
 const today = "2026-11-16";
 const base = createDemoState(today);
@@ -87,6 +89,24 @@ describe("price list validation", () => {
     expect(serviceIssues(base, { ...draft, description: "x".repeat(241) })).toEqual(["description"]);
   });
 
+  it("takes an optional longer text of at most 1,500 characters and a photo from the page's own set", () => {
+    expect(serviceIssues(base, { ...draft, details: "" })).toEqual([]);
+    expect(serviceIssues(base, { ...draft, details: "First.\n\nSecond.", image: "massage" })).toEqual([]);
+    expect(serviceIssues(base, { ...draft, details: "x".repeat(MAX_DETAILS) })).toEqual([]);
+    expect(serviceIssues(base, { ...draft, details: "x".repeat(MAX_DETAILS + 1) })).toEqual(["details"]);
+    // Spaces and blank lines that are tidied away do not count towards the limit.
+    expect(serviceIssues(base, { ...draft, details: `${"x".repeat(MAX_DETAILS)}  \n\n\n` })).toEqual([]);
+    expect(serviceIssues(base, { ...draft, details: 5 as unknown as string })).toEqual(["details"]);
+    expect(serviceIssues(base, { ...draft, image: "" })).toEqual([]);
+    for (const image of ["https://example.test/a.jpg", "data:image/png;base64,AAAA", "nope"]) expect(serviceIssues(base, { ...draft, image })).toEqual(["image"]);
+  });
+
+  it("keeps the longer text as plain text with its paragraphs", () => {
+    expect(tidyDetails("  One.  \r\nTwo.\r\n\r\n\r\n\r\nThree. \n ")).toBe("One.\nTwo.\n\nThree.");
+    expect(tidyDetails("<b>Bold</b> and **stars**")).toBe("<b>Bold</b> and **stars**");
+    expect(tidyDetails(undefined)).toBe("");
+  });
+
   it("checks category names the same way", () => {
     expect(categoryIssues(base, " ")).toEqual(["name"]);
     expect(categoryIssues(base, "massage")).toEqual(["nameTaken"]);
@@ -130,6 +150,36 @@ describe("treatment actions", () => {
     expect(entry.before).toContain("Classic massage 60 min");
     expect(entry.after).toContain("Classic massage · 50 min");
     expect(reduce(next, { type: "log/undo", id: entry.id }).services).toEqual(base.services);
+  });
+
+  it("adds, changes and clears the longer text and its photo", () => {
+    const added = reduce(base, { type: "service/add", service: { ...draft, details: "  Warm stones.\r\n\r\n\r\nSlow strokes. ", image: "massage" } });
+    const service = added.services.at(-1)!;
+    expect(service).toMatchObject({ details: "Warm stones.\n\nSlow strokes.", image: "massage" });
+    // Customers get the text and the photo; a treatment without them carries neither key.
+    const shown = publicSalonView(added, new Date(meta.at)).services;
+    expect(shown.find((s) => s.id === service.id)).toMatchObject({ details: "Warm stones.\n\nSlow strokes.", image: "massage" });
+    expect(shown.find((s) => s.id === "classic-30")!.details).toBeUndefined();
+    expect("details" in reduce(base, { type: "service/add", service: { ...draft, details: " \n " } }).services.at(-1)!).toBe(false);
+
+    const cleared = reduce(added, { type: "service/update", id: service.id, service: draft });
+    expect(cleared.services.at(-1)!.details).toBeUndefined();
+    expect(cleared.services.at(-1)!.image).toBeUndefined();
+    expect(reduce(added, { type: "service/update", id: service.id, service: { ...draft, details: "x".repeat(MAX_DETAILS + 1) } })).toBe(added);
+    expect(reduce(added, { type: "service/update", id: service.id, service: { ...draft, image: "nope" } })).toBe(added);
+    // A copy keeps the text.
+    const copy = reduce(added, { type: "service/duplicate", id: service.id, name: "Hot stone massage (copy)" });
+    expect(copy.services.at(-1)!.details).toBe(service.details);
+  });
+
+  it("gives two demo treatments a longer text that follows the language until the owner rewrites it", () => {
+    const withDetails = base.services.filter((s) => s.details).map((s) => s.id);
+    expect(withDetails).toEqual(["spa-foot-care", "classic-60"]);
+    const swedish = findService(salonCopy(base, "sv"), "classic-60")!;
+    expect(swedish.details).toContain("klassisk massage");
+    expect(swedish.details).not.toBe(findService(base, "classic-60")!.details);
+    const own = reduce(base, { type: "service/update", id: "classic-60", service: { ...findService(base, "classic-60")!, details: "Our own words." } });
+    expect(findService(salonCopy(own, "sv"), "classic-60")!.details).toBe("Our own words.");
   });
 
   it("hides a treatment from customers without deleting it, and shows it again", () => {

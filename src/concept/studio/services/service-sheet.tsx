@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Copy, Trash2 } from "lucide-react";
 import type { DemoState, Service, StaffId } from "../../data/types";
 import { t } from "../../i18n";
-import { DURATION_STEP, MAX_BUFFER, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME, MAX_PRICE, MIN_DURATION, serviceIssues, type ServiceDraft, type ServiceIssue } from "../../services/edit";
+import { PHOTO_IDS } from "../../page/theme";
+import { DURATION_STEP, MAX_BUFFER, MAX_DESCRIPTION, MAX_DETAILS, MAX_DURATION, MAX_NAME, MAX_PRICE, MIN_DURATION, serviceIssues, tidyDetails, type ServiceDraft, type ServiceIssue } from "../../services/edit";
 import { currentState, dispatchWithLog } from "../../store";
 import { Button } from "../../ui/button";
 import { Chip, Field, Select, Switch, TextArea, TextInput } from "../../ui/controls";
@@ -33,6 +34,8 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
   const [duration, setDuration] = useState(String(service?.duration ?? 60));
   const [price, setPrice] = useState(service ? String(service.price) : "");
   const [description, setDescription] = useState(service?.description ?? "");
+  const [details, setDetails] = useState(service?.details ?? "");
+  const [image, setImage] = useState(service?.image ?? "");
   const [staffIds, setStaffIds] = useState<StaffId[]>(service?.staffIds ?? state.staff.map((p) => p.id).slice(0, 1));
   const [bufferBefore, setBufferBefore] = useState(String(service?.bufferBefore ?? ""));
   const [bufferAfter, setBufferAfter] = useState(String(service?.bufferAfter ?? ""));
@@ -41,7 +44,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
   const [visible, setVisible] = useState(!service?.hidden);
   const [tried, setTried] = useState(false);
 
-  const draft: ServiceDraft = { name, category: categoryId, duration: Number(duration), price: price.trim() === "" ? Number.NaN : Number(price), description, staffIds, bufferBefore: Number(bufferBefore), bufferAfter: Number(bufferAfter), processing: processingDuration.trim() === "" ? undefined : { after: Number(processingAfter), duration: Number(processingDuration) } };
+  const draft: ServiceDraft = { name, category: categoryId, duration: Number(duration), price: price.trim() === "" ? Number.NaN : Number(price), description, details, image, staffIds, bufferBefore: Number(bufferBefore), bufferAfter: Number(bufferAfter), processing: processingDuration.trim() === "" ? undefined : { after: Number(processingAfter), duration: Number(processingDuration) } };
   const issues = serviceIssues(state, draft, service?.id);
   const problem = (...kinds: ServiceIssue[]) => (tried ? kinds.find((kind) => issues.includes(kind)) : undefined);
   const hint = (...kinds: ServiceIssue[]) => {
@@ -59,6 +62,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
         ...draft,
         name: draft.name.trim() === service.name ? stored?.name ?? draft.name : draft.name,
         description: draft.description.trim() === service.description ? stored?.description ?? draft.description : draft.description,
+        details: tidyDetails(details) === (service.details ?? "") ? stored?.details ?? details : details,
       };
       const changed = dispatchWithLog({ type: "service/update", id: service.id, service: change });
       const toggled = dispatchWithLog({ type: "service/visibility", id: service.id, hidden: !visible });
@@ -77,7 +81,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
   };
 
   const toggleStaff = (id: StaffId) => setStaffIds((current) => (current.includes(id) ? current.filter((other) => other !== id) : [...current, id]));
-  const moreIssue = problem("description", "staff", "buffer", "processing");
+  const moreIssue = problem("description", "details", "image", "staff", "buffer", "processing");
 
   return (
     <Sheet
@@ -122,6 +126,17 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
             <Field label={t("services.description")} hint={hint("description") ?? t("services.descriptionHint")}>
               <TextArea value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => setDescription(e.target.value)} />
             </Field>
+            <Field label={t("services.details")} hint={hint("details") ?? t("services.detailsHint")}>
+              <TextArea rows={6} value={details} maxLength={MAX_DETAILS} onChange={(e) => setDetails(e.target.value)} aria-invalid={!!problem("details")} />
+            </Field>
+            {(tidyDetails(details) || image) && (
+              <Field width="short" label={t("services.photo")} hint={hint("image")}>
+                <Select value={image} onChange={(e) => setImage(e.target.value)}>
+                  <option value="">{t("services.photoNone")}</option>
+                  {PHOTO_IDS.map((id) => <option key={id} value={id}>{t(`page.photo.${id}`)}</option>)}
+                </Select>
+              </Field>
+            )}
             <fieldset className="space-y-3">
               <legend className="text-sm font-medium">{t("services.timing")}</legend>
               <div className="grid gap-3 min-[360px]:flex">
