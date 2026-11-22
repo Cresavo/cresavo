@@ -3,7 +3,7 @@ import { PUBLIC_WINDOW_DAYS, publicSalonView } from "@/concept/booking/public-pr
 import type { CheckoutHold } from "@/concept/booking/protection";
 import { openSlots, suggestSlots } from "@/concept/booking/suggest";
 import { addDays, weekday } from "@/concept/data/dates";
-import { openingFor } from "@/concept/data/slots";
+import { busyIntervals, openingFor } from "@/concept/data/slots";
 import { pageCss } from "@/concept/page/config";
 import { sanitizeCss } from "@/concept/page/css";
 import { createDemoState } from "@/concept/data/generate";
@@ -131,7 +131,8 @@ describe("reviews in the public view", () => {
     const { reviews, customers } = publicSalonView(withSections([{ kind: "reviews", variant: "cards" }]), NOW);
     expect(customers).toEqual([]);
     expect(reviews).toHaveLength(1);
-    expect(reviews[0]).toMatchObject({ id: "review-0", text: "Fictional approved text", reply: "Thank you", approved: true, customerId: "", staffId: "staff-0", rating: 5 });
+    expect(reviews[0]).toMatchObject({ id: "review-0", text: "Fictional approved text", approved: true, customerId: "", staffId: "staff-0", rating: 5 });
+    expect(reviews[0]).not.toHaveProperty("reply");
     expect(reviews[0]).not.toHaveProperty("bookingId");
     expect(reviews[0].author).toBe(`${customer.firstName} ${customer.lastName[0]}.`);
     const out = JSON.stringify(publicSalonView(state, NOW));
@@ -144,9 +145,9 @@ describe("reviews in the public view", () => {
     expect(view.reviews).toHaveLength(1);
     expect(view.reviews[0]).toMatchObject({ rating: 5, text: "", approved: true });
     expect(view.reviews[0].author).toBeUndefined();
-    expect(view.reviews[0].reply).toBeUndefined();
     const out = JSON.stringify(view);
     for (const value of ["Fictional approved text", "Thank you", customer.firstName]) expect(out).not.toContain(value);
+    expect(out).not.toContain("reply");
   });
 
   it("send text for only as many reviews as the section shows", () => {
@@ -162,6 +163,43 @@ describe("reviews in the public view", () => {
     const view = publicSalonView({ ...state, modules: { ...state.modules, reviews: false } }, NOW);
     expect(view.reviews).toEqual([]);
     expect(view.modules.reviews).toBe(false);
+  });
+});
+
+describe("reviews that are not well formed", () => {
+  it("are skipped, and the page is still served from the others", () => {
+    const bad = [
+      { id: "bad-text", text: { note: "Fictional" }, date: "2026-11-09", rating: 5 },
+      { id: "bad-date", text: "Fictional text", date: 20261109, rating: 5 },
+      { id: "bad-rating", text: "Fictional text", date: "2026-11-09", rating: "5" },
+      { id: "bad-range", text: "Fictional text", date: "2026-11-09", rating: 9 },
+    ].map((review) => ({ ...review, customerId: customer.id, staffId: base.staff[0].id, source: "Booking page", approved: true }));
+    const stored = { ...withSections([{ kind: "reviews", variant: "cards" }]), reviews: [...bad, ...state.reviews] } as unknown as DemoState;
+    const view = publicSalonView(stored, NOW);
+    expect(view.reviews).toHaveLength(1);
+    expect(view.reviews[0].text).toBe("Fictional approved text");
+  });
+});
+
+describe("preparation, clean-up and processing time", () => {
+  it("is carried by treatments and visits, so busy time and free times follow the store's rules", () => {
+    const processing = { after: 20, duration: 30 };
+    const stored: DemoState = {
+      ...state,
+      services: state.services.map((service, index) => index === 1 ? { ...service, bufferBefore: 10, bufferAfter: 5, processing } : service),
+      bookings: [visit("b-timed", "2026-11-17", "booked", { start: 600, duration: 90, bufferBefore: 10, bufferAfter: 15, processing })],
+    };
+    const view = publicSalonView(stored, NOW);
+    expect(view.services.find((s) => s.id === state.services[1].id)).toMatchObject({ bufferBefore: 10, bufferAfter: 5, processing });
+    expect(view.bookings[0]).toMatchObject({ start: 600, duration: 90, bufferBefore: 10, bufferAfter: 15, processing });
+    const busy = (ctx: DemoState) => busyIntervals(ctx, first.staffId, "2026-11-17");
+    expect(busy(view).filter((i) => i.start !== state.salon.lunch?.start)).toEqual(busy(stored).filter((i) => i.start !== state.salon.lunch?.start));
+  });
+
+  it("does not drop the clean-up of a visit that ended its treatment but is still being cleared away", () => {
+    const stored: DemoState = { ...state, bookings: [visit("b-clean", TODAY, "booked", { start: 540, duration: 60, bufferAfter: 30 })] };
+    expect(publicSalonView(stored, NOW).bookings).toHaveLength(1);
+    expect(publicSalonView({ ...stored, bookings: [{ ...stored.bookings[0], bufferAfter: 0 }] }, NOW).bookings).toHaveLength(0);
   });
 });
 

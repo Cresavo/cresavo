@@ -1,6 +1,6 @@
 import { addDays } from "../data/dates";
-import { isActive } from "../data/slots";
-import type { Booking, DateKey, DemoState, Interval, ResourceKind, Review, Salon, Service, Staff, StaffBlock, StaffException, StaffId } from "../data/types";
+import { isActive, staffIntervals, timingOf } from "../data/slots";
+import type { Booking, DateKey, DemoState, Interval, ResourceKind, Review, Salon, Service, Staff, StaffBlock, StaffException, StaffId, VisitTiming } from "../data/types";
 import { normalizePage, type PageConfig } from "../page/config";
 import { sanitizeCss } from "../page/css";
 import { salonClock } from "../tools/clock";
@@ -26,6 +26,12 @@ const optionalText = (value: unknown): string | undefined => typeof value === "s
 const num = (value: unknown): number => typeof value === "number" && Number.isFinite(value) ? value : 0;
 const list = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
+/** The preparation, clean-up and processing time of a treatment or visit, which decide when its staff member is busy. */
+const timing = (stored: VisitTiming): VisitTiming => timingOf({
+  bufferBefore: num(stored.bufferBefore), bufferAfter: num(stored.bufferAfter),
+  processing: stored.processing ? { after: num(stored.processing.after), duration: num(stored.processing.duration) } : undefined,
+});
+
 const interval = (value: Interval | null | undefined): Interval | null => value ? { start: num(value.start), end: num(value.end) } : null;
 
 const week = (stored: Record<number, Interval | null> | undefined): Record<number, Interval | null> =>
@@ -43,7 +49,7 @@ const salon = (stored: Salon, bookableUntil: DateKey): Salon => ({
 const offering = (stored: Service): Service => ({
   id: text(stored.id), name: text(stored.name), category: text(stored.category), staffIds: list(stored.staffIds) as StaffId[],
   duration: num(stored.duration), price: num(stored.price), description: text(stored.description), recallWeeks: 0,
-  image: optionalText(stored.image), resourceIds: list(stored.resourceIds),
+  image: optionalText(stored.image), resourceIds: list(stored.resourceIds), ...timing(stored),
 });
 
 /** A team member as the page shows them: first name and photo, and the title and bio only on cards. */
@@ -65,34 +71,36 @@ const block = (stored: StaffBlock): StaffBlock => ({
 /** Someone else's visit, as the page needs it to hide the time: no customer, price or source. */
 const busy = (stored: Booking, index: number): Booking => ({
   id: `busy-${index}`, customerId: "", staffId: text(stored.staffId) as StaffId, serviceId: "", date: text(stored.date), start: num(stored.start),
-  duration: num(stored.duration), price: 0, status: "booked", source: "online", resourceId: optionalText(stored.resourceId),
+  duration: num(stored.duration), price: 0, status: "booked", source: "online", resourceId: optionalText(stored.resourceId), ...timing(stored),
 });
 
 /** A hold that frees its time when it expires, with nothing of the guest. */
 const heldTime = (stored: CheckoutHold, index: number): CheckoutHold => ({
   id: `held-${index}`, serviceId: "", staffId: text(stored.staffId) as StaffId, date: text(stored.date), start: num(stored.start), duration: num(stored.duration),
-  resourceId: optionalText(stored.resourceId), expiresAt: num(stored.expiresAt),
+  resourceId: optionalText(stored.resourceId), expiresAt: num(stored.expiresAt), ...timing(stored),
   terms: { version: 0, freeHours: 0, latePercent: 0, noShowPercent: 0, currency: "", priceMinor: 0, depositMinor: 0 },
   guest: { name: "", phone: "", at: { date: text(stored.date), time: 0 } },
   notice: { title: "", body: "" },
 });
 
 /**
- * Approved reviews, for the hero's rating and count. Text, author and reply
- * are sent only for the ones the page's reviews section shows; without that
+ * Approved reviews, for the hero's rating and count. Text and author are sent
+ * only for the ones the page's reviews section shows (never the owner's reply); without that
  * section the payload is ratings alone. No customer, staff or booking ids.
  */
 function reviewsOf(state: DemoState, page: PageConfig): Review[] {
   if (!state.modules.reviews) return [];
-  const approved = state.reviews.filter((item) => item.approved === true && Number.isInteger(item.rating) && item.rating >= 1 && item.rating <= 5);
+  // Each review is checked before anything sorts or filters on it; one that is not well formed is skipped.
+  const approved = state.reviews.filter((item) => item.approved === true && typeof item.text === "string" && typeof item.date === "string" &&
+    Number.isInteger(item.rating) && item.rating >= 1 && item.rating <= 5);
   const section = page.sections.find((candidate) => candidate.kind === "reviews");
   const shown = new Set(section ? recentReviews(approved, section.variant === "quote" ? 1 : 3) : []);
   return approved.map((item, index) => {
     const open = shown.has(item);
     const customer = open ? state.customers.find((c) => c.id === item.customerId) : undefined;
     return {
-      id: `review-${index}`, customerId: "", staffId: "staff-0", date: text(item.date), rating: item.rating, text: open ? text(item.text) : "",
-      source: item.source === "Google" ? "Google" : "Booking page", approved: true, reply: open ? optionalText(item.reply) : undefined,
+      id: `review-${index}`, customerId: "", staffId: "staff-0", date: text(item.date), rating: item.rating, text: open ? item.text : "",
+      source: item.source === "Google" ? "Google" : "Booking page", approved: true,
       author: customer ? publicName(text(customer.firstName), text(customer.lastName)) : undefined,
     };
   });
@@ -102,8 +110,9 @@ export function publicSalonView(state: DemoState, now: Date): DemoState {
   const { today, minutes } = salonClock(now);
   const last = addDays(today, PUBLIC_WINDOW_DAYS);
   const inWindow = ({ date }: { date: DateKey }) => date >= today && date <= last;
-  // A visit or hold that has already ended today no longer occupies anything.
-  const ended = ({ date, start, duration }: { date: DateKey; start: number; duration: number }) => date === today && start + duration <= minutes;
+  // A visit or hold that has already ended today, clean-up included, no longer occupies anything.
+  const ended = (visit: { date: DateKey; start: number; duration: number } & VisitTiming) =>
+    visit.date === today && Math.max(...staffIntervals(visit, visit.start, visit.duration).map((part) => part.end), visit.start + visit.duration) <= minutes;
   const page = normalizePage(state.page);
   const cards = page.sections.some((section) => section.kind === "staff" && section.variant !== "names");
   const services = state.services.filter((service) => !service.hidden).map(offering);
