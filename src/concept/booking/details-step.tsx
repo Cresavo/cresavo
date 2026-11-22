@@ -6,6 +6,7 @@ import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
+import { useServerSalon } from "../server-salon";
 import { targetOf } from "../store";
 import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
@@ -43,6 +44,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
   const [run, pending] = useCommit();
+  const fromServer = useServerSalon() !== null;
 
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
 
@@ -104,6 +106,9 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         </p>
         {timeControl}
       </div>
+      {fromServer ? (
+        <p role="status" className="rounded-lg bg-surface-2 p-4">{t("booking.opensSoon", { phone: state.salon.phone })}</p>
+      ) : (
       <form className="booking-checkout" onSubmit={event => { event.preventDefault(); void confirm(); }}>
         <div className="space-y-3">
           <GuestFields value={guest} onChange={setGuest} />
@@ -117,6 +122,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
           {!isGuestValid(guest) && <p className="text-meta text-text-secondary">{t("booking.confirmDisabled")}</p>}
         </div>
       </form>
+      )}
     </div>
   );
 }

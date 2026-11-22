@@ -20,6 +20,7 @@ import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
 import { newEpoch } from "./store/salon-tx";
 import { sameContent } from "./store/studio-store";
+import { useServerSalon } from "./server-salon";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -642,9 +643,10 @@ export function useDemo(): DemoState | null {
 
 /** The state for the booking pages: what customers may see and book (hidden treatments are not on offer). */
 export function usePublicDemo(): DemoState | null {
+  const server = useServerSalon();
   const state = useDemo();
   const language = getActiveLocale();
-  return useMemo(() => state && withLifetimeOf(salonCopy(publicView(state), language), state), [state, language]);
+  return useMemo(() => server ?? (state && withLifetimeOf(salonCopy(publicView(state), language), state)), [server, state, language]);
 }
 
 const ACCOUNT_EPOCH = "account:";

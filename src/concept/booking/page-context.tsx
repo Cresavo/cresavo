@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { DEFAULT_PAGE, normalizePage, type PageConfig } from "../page/config";
-import { useDemo } from "../store";
+import { useServerSalon } from "../server-salon";
+import { usePublicDemo } from "../store";
 
 // The page config the booking pages draw from: the business's saved one, or,
 // inside the editor's preview frame, the draft the editor sends. A draft is
@@ -21,16 +22,18 @@ function isPreviewFrame() {
 }
 
 export function PageProvider({ children }: { children: ReactNode }) {
-  const state = useDemo();
+  const state = usePublicDemo();
+  // The server's salon carries only what its saved layout shows (reviews, for one), so a draft layout cannot be previewed on it.
+  const fromServer = useServerSalon() !== null;
   const [draft, setDraft] = useState<PageConfig>();
   useEffect(() => {
-    if (!isPreviewFrame()) return;
+    if (fromServer || !isPreviewFrame()) return;
     const onMessage = (event: MessageEvent) => {
       if (event.origin === window.location.origin && event.source === window.parent && event.data?.type === DRAFT_MESSAGE) setDraft(normalizePage(event.data.page));
     };
     window.addEventListener("message", onMessage);
     window.parent.postMessage({ type: READY_MESSAGE }, window.location.origin);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
-  return <PageContext.Provider value={draft ?? state?.page ?? DEFAULT_PAGE}>{children}</PageContext.Provider>;
+  }, [fromServer]);
+  return <PageContext.Provider value={(!fromServer && draft) || state?.page || DEFAULT_PAGE}>{children}</PageContext.Provider>;
 }

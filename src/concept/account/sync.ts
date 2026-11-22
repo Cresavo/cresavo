@@ -58,7 +58,7 @@ function send(action: DemoAction) {
         return;
       }
       await reload();
-      showToast(t("account.sync.refused"));
+      showToast(t(body?.error === "slug_taken" ? "address.slug.taken" : "account.sync.refused"));
     } catch {
       await reload();
       showToast(t("account.sync.offline"));

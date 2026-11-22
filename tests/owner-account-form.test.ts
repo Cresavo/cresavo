@@ -6,6 +6,7 @@ describe("account form errors", () => {
     expect(accountError(409, "email_taken")).toBe("account.error.email_taken");
     expect(accountError(401, "invalid_credentials")).toBe("account.error.invalid_credentials");
     expect(accountError(400, "invalid")).toBe("account.error.invalid");
+    expect(accountError(503, "slug_unavailable")).toBe("account.error.slug_unavailable");
   });
 
   it("shows the rate limit and never echoes unknown codes", () => {

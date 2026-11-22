@@ -23,6 +23,7 @@ vi.mock("react", async (importOriginal) => {
         hooks.slots[slot] = typeof next === "function" ? (next as (value: S) => S)(hooks.slots[slot] as S) : next;
       }];
     },
+    useContext: () => null,
     useEffect: () => undefined,
     useRef: <T,>(value: T) => ({ current: value }),
     useMemo: <T,>(make: () => T) => make(),

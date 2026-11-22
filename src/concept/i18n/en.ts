@@ -252,6 +252,7 @@ const messages = {
   "account.language": "Language for your salon",
   "account.error.invalid": "Check the fields: the password needs at least 15 characters and the salon a name.",
   "account.error.email_taken": "That email already has an account. Sign in instead.",
+  "account.error.slug_unavailable": "We could not give your salon a booking address just now. Try again.",
   "account.error.invalid_credentials": "Wrong email or password.",
   "account.error.tooMany": "Too many attempts. Wait a few minutes and try again.",
   "account.error.generic": "Something went wrong. Try again.",
@@ -1958,6 +1959,8 @@ const messages = {
   "booking.confirm": "Confirm booking",
   "booking.confirmNote": "Free to change or cancel until 24 hours before. You pay at the salon.",
   "booking.confirmDisabled": "Enter your name and a valid mobile number to confirm.",
+  "booking.opensSoon": "Online booking opens soon. To book this time, please call the salon on {phone}.",
+  "booking.unavailable": "This booking page is temporarily unavailable. Please try again soon.",
   "booking.slotTaken": "Sorry, that time was just taken. Please choose another.",
 
   "booking.waitlist.title": "Notify me if something opens up",

@@ -168,19 +168,29 @@ function exceedsDocumentLimit(bytes: number, previous: unknown): boolean {
 const isThenable = (value: unknown): boolean =>
   !!value && (typeof value === "object" || typeof value === "function") && typeof (value as { then?: unknown }).then === "function";
 
-/** True for Postgres' lock_not_available (55P03), however the driver wraps it. */
-function isLockTimeout(error: unknown): boolean {
+/** The `detail` of a `rejected` result when another salon already has the slug. */
+export const SLUG_TAKEN = "slug_taken";
+
+/** Looks through an error and its causes for a record that `test` accepts, however the driver wraps it. */
+function findInError(error: unknown, test: (record: Record<string, unknown>) => boolean): boolean {
   const seen = new Set<unknown>();
   const walk = (value: unknown, depth: number): boolean => {
     if (!value || typeof value !== "object" || seen.has(value) || depth > 6) return false;
     seen.add(value);
     const record = value as Record<string, unknown>;
-    if (record.code === "55P03" || record.originalCode === "55P03") return true;
-    if (typeof record.message === "string" && /lock timeout/i.test(record.message)) return true;
-    return walk(record.cause, depth + 1) || walk(record.meta, depth + 1) || walk(record.kind, depth + 1);
+    return test(record) || walk(record.cause, depth + 1) || walk(record.meta, depth + 1) || walk(record.kind, depth + 1);
   };
   return walk(error, 0);
 }
+
+const messageMatches = (record: Record<string, unknown>, pattern: RegExp) => typeof record.message === "string" && pattern.test(record.message);
+
+/** True for Postgres' lock_not_available (55P03), however the driver wraps it. */
+const isLockTimeout = (error: unknown) =>
+  findInError(error, (record) => record.code === "55P03" || record.originalCode === "55P03" || messageMatches(record, /lock timeout/i));
+
+/** True when a write broke the unique index that gives each salon its own booking address (migration salon_slug_unique). */
+const isSlugTaken = (error: unknown) => findInError(error, (record) => messageMatches(record, /tenant_state_salon_slug_key/));
 
 /** Every `customerId` / `customerIds` value anywhere in a value. */
 function namedCustomers(value: unknown, into: Set<string>, depth = 0) {
@@ -397,8 +407,12 @@ export class PostgresStudioStore implements StudioStore {
       const outcome = await this.applyLocked(tx, tenantId, locked, own, meta, options);
       if (created && "done" in outcome) await tx.$executeRaw`DELETE FROM tenant_state WHERE tenant_id = ${tenantId}`;
       return outcome;
+    }).catch((error) => {
+      if (isSlugTaken(error)) return { slugTaken: true } as const;
+      throw error;
     });
     if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if ("slugTaken" in result) return { ok: false, reason: "rejected", detail: SLUG_TAKEN };
     if ("done" in result) {
       if (!result.done.ok && result.done.detail === DOCUMENT_SIZE_REFUSAL) this.metrics.refusedSize();
       return result.done;

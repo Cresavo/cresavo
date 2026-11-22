@@ -11,7 +11,7 @@ import { Notice } from "../ui/notice";
 
 type Mode = "signup" | "login";
 
-const KNOWN_ERRORS = ["invalid", "email_taken", "invalid_credentials"] as const;
+const KNOWN_ERRORS = ["invalid", "email_taken", "slug_unavailable", "invalid_credentials"] as const;
 
 /** The message for a failed request: the API's error code, or a rate limit, or a generic failure. */
 export function accountError(status: number, code: unknown): MessageKey {

@@ -16,6 +16,7 @@ import { SALON_TIMEZONE } from "@/concept/tools/clock";
 import { IDEMPOTENCY_TTL_MS, PostgresStudioStore, type EffectDelivery, type EffectSink, type TenantKind } from "@/concept/store/postgres-studio-store";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { runStudioStoreContract } from "../store-contract/contract";
+import { withOwnSlug } from "./own-slug";
 
 // PostgresStudioStore against a disposable local database (vitest.integration
 // refuses anything but a loopback *_test or *_demo database). Run migrations
@@ -45,7 +46,7 @@ afterAll(async () => {
 async function seed(tenantId: string, saved: unknown, kind: TenantKind = "salon", expiresAt: number | null = null) {
   await db.$executeRaw`
     INSERT INTO tenant_state (tenant_id, kind, version, doc, expires_at)
-    VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(saved) ?? "null"}::jsonb,
+    VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(withOwnSlug(saved, tenantId)) ?? "null"}::jsonb,
             ${expiresAt === null ? null : new Date(expiresAt).toISOString()}::timestamptz)`;
 }
 

@@ -12,6 +12,7 @@ import { MAX_DOCUMENT_BYTES } from "@/concept/store/store-metrics";
 import { sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes } from "@/concept/store/store-sweepers";
 import type { StoreChange } from "@/concept/store/studio-store";
 import { createDatabaseClient } from "../../scripts/database.mjs";
+import { withOwnSlug } from "./own-slug";
 
 const setupDb = createDatabaseClient();
 const schema = `studio_lifecycle_${randomUUID().replaceAll("-", "")}`;
@@ -49,7 +50,7 @@ async function seed(kind: TenantKind = "salon", state: DemoState = createDemoSta
   const kinds = { salon: Prisma.sql`'salon'`, demo: Prisma.sql`'demo'`, sandbox: Prisma.sql`'sandbox'` };
   await db.$executeRaw`
     INSERT INTO tenant_state (tenant_id, kind, doc)
-    VALUES (${id}, ${kinds[kind]}, ${JSON.stringify(state)}::jsonb)`;
+    VALUES (${id}, ${kinds[kind]}, ${JSON.stringify(withOwnSlug(state, id))}::jsonb)`;
   return id;
 }
 

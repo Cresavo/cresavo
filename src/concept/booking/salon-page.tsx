@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { PageSection } from "../page/sections";
+import { useServerSalon } from "../server-salon";
 import { usePublicDemo } from "../store";
 import { cx } from "../ui/cx";
 import { useSalonNow, type Now } from "../use-now";
@@ -24,6 +25,7 @@ import { BookingWizard } from "./wizard";
  */
 export function SalonPage() {
   const state = usePublicDemo();
+  const fromServer = useServerSalon() !== null;
   const now = useSalonNow();
   const params = useSearchParams();
   const fromLink = params?.get("service") ?? undefined;
@@ -62,7 +64,7 @@ export function SalonPage() {
       case "instagram":
         return <InstagramSection handle={instagram} variant={variant} />;
       case "giftcards":
-        return <GiftCardBalance state={state} compact={variant === "compact"} />;
+        return fromServer ? null : <GiftCardBalance state={state} compact={variant === "compact"} />;
     }
   };
 

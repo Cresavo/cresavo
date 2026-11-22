@@ -13,6 +13,7 @@ import { bookableServices } from "@/concept/selectors";
 import { drainPendingEffects, type EffectDelivery, type EffectSink, type EffectSinks, type TenantKind } from "@/concept/store/effect-outbox";
 import { EFFECT_LEASE_MS, LOCK_TIMEOUT_MS, PostgresStudioStore } from "@/concept/store/postgres-studio-store";
 import { createDatabaseClient } from "../../scripts/database.mjs";
+import { withOwnSlug } from "./own-slug";
 
 // Step 2 items 4, 5 and 7 of docs/design/STUDIO_STORE.md against a disposable
 // local database (vitest.integration refuses anything but a loopback *_test or
@@ -52,7 +53,7 @@ afterAll(async () => {
 
 async function seed(tenantId: string, saved: unknown, kind: TenantKind = "salon") {
   await db.$executeRaw`
-    INSERT INTO tenant_state (tenant_id, kind, version, doc) VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(saved)}::jsonb)`;
+    INSERT INTO tenant_state (tenant_id, kind, version, doc) VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(kind === "salon" ? withOwnSlug(saved, tenantId) : saved)}::jsonb)`;
 }
 
 /** Records every delivery. */
@@ -471,7 +472,7 @@ describe("erasure (item 7)", () => {
     expect(after.state.customers.some((c) => c.id === customer.id)).toBe(false);
     expect(after.state.trash.some((e) => e.kind === "customer" && e.customer.id === customer.id)).toBe(false);
     expect(after.state.customers.some((c) => c.id === other.id)).toBe(true);
-    expect(after.state.salon.slug).toBe(createDemoState(today).salon.slug);
+    expect(after.state.salon.slug).toBe(id);
     // The log keeps its shape: rows naming the customer are marked redacted, the other customer's text is intact.
     const rows = await db.$queryRaw<Array<{ seq: bigint; type: string; redacted: boolean; action: DemoAction; key: string | null }>>`
       SELECT seq, action->>'type' AS type, redacted_at IS NOT NULL AS redacted, action, idempotency_key AS key FROM tenant_action WHERE tenant_id = ${id} ORDER BY seq`;
@@ -628,8 +629,9 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
     const b = tenantIds("erase-sql");
     const storeA = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, now: async () => fixed });
     const storeB = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: recordingSinks().sinks, now: async () => fixed });
-    const { customer } = await erasableTenant(a, storeA);
-    await erasableTenant(b, storeB);
+    // Demo tenants: salon rows may not share an address, and a deposit's id is derived from it.
+    const { customer } = await erasableTenant(a, storeA, "demo");
+    await erasableTenant(b, storeB, "demo");
     const ts = await storeA.eraseSubject(a, customer.id);
     if (!ts.ok) throw new Error("erase refused");
     const snapshot = async (tx: Pick<PrismaClient, "$queryRaw">, tenantId: string) => ({

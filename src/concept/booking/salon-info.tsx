@@ -102,7 +102,7 @@ export function Reviews({ state, variant = "cards" }: { state: DemoState; varian
               <blockquote className="text-body leading-relaxed">{review.text}</blockquote>
               <figcaption className="flex flex-wrap items-center gap-x-2 text-meta text-text-secondary">
                 <Stars rating={review.rating} />
-                {customer ? publicName(customer.firstName, customer.lastName) : ""} · {formatDate(review.date)} · {t(review.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")}
+                {review.author ?? (customer ? publicName(customer.firstName, customer.lastName) : "")} · {formatDate(review.date)} · {t(review.source === "Google" ? "reviews.source.google" : "reviews.source.bookingPage")}
               </figcaption>
             </figure>
           );
@@ -121,7 +121,7 @@ function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
       <Card id="reviews" className="scroll-mt-4 space-y-3 p-6 text-center">
         <p className="text-h2 font-medium leading-snug sm:text-h1">“{review.text}”</p>
         <p className="text-meta text-text-secondary">
-          {customer ? publicName(customer.firstName, customer.lastName) : ""} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
+          {review.author ?? (customer ? publicName(customer.firstName, customer.lastName) : "")} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
         </p>
       </Card>
     </Section>

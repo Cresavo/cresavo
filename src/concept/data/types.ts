@@ -58,6 +58,8 @@ export interface Salon {
   /** The lunch break on long days; null = no break. */
   lunch: Interval | null;
   closures: Closure[];
+  /** Set only by the server's public projection: the last day the booking page offers. Later days count as closed. */
+  bookableUntil?: DateKey;
 }
 
 export interface Staff {
@@ -278,6 +280,8 @@ export interface Review {
   text: string;
   source: "Google" | "Booking page";
   reply?: string;
+  /** Public display name ("Maria L."), set only by the server's public projection, which sends no customers. */
+  author?: string;
 }
 
 export type InboxKind = "request" | "reschedule" | "cancel" | "review" | "message" | "system";
