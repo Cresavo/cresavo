@@ -39,6 +39,24 @@ Start with the [demo and product tour](../README.md) or see the
 - The browser demo supports versioned cancellation rules, simulated deposit checkout and owner decisions on late cancellations and no-shows. Bookings and Finance show payments and refunds. [Feature design](design/NO_SHOW_DEPOSITS.md).
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
+- Campaign posters (roadmap stage 1, November 2026) are drawn on the server
+  from designed templates.
+  - **Templates:** Price, Price list, Season, Review, Free times, Before/after,
+    Portrait (with cut-out photos and drawn backgrounds), Full photo and
+    Type only. Four of them also have a mirrored layout.
+  - **Starting point:** a campaign starts from a goal (fill free times,
+    promote a treatment, wellness benefits, gift cards or a review), which
+    suggests three compositions.
+  - **Editing:** photo tone, a feed preview, wellness badges, a QR code to the
+    booking page and captions that follow the goal and the owner's own
+    sign-off.
+  - **Layout guard:** a test renders every template, format and text size and
+    checks the margins, Instagram's story bars and the face area of
+    portraits.
+  - **Not yet:** a stored photo library and logo upload, which need file
+    storage.
+- Owner accounts and a salon stored on the server (`StudioStore` on Postgres)
+  exist behind `OWNER_ACCOUNTS_ENABLED`; the public demo keeps them off.
 - Security step 1 is complete (November 2026). CodeQL analyses the code and
   workflows, Dependency Review stops pull requests that add high or critical
   vulnerabilities, and GitHub secret scanning with push protection runs
