@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import next from "next";
+import { ownerActionRefusal } from "./owner-body-limit.mjs";
 import {
   proxyPolicy,
   resolveClientAddress,
@@ -50,6 +51,12 @@ try {
         ip,
         process.env.BOOKING_ADDRESS_SECRET,
       );
+      const refusal = ownerActionRefusal(req.method, req.url, req.headers);
+      if (refusal) {
+        res.writeHead(refusal, { "content-type": "application/json", "cache-control": "no-store", connection: "close" });
+        res.end(JSON.stringify({ error: refusal === 413 ? "too_large" : "length_required" }));
+        return;
+      }
       void handle(req, res).catch(() => {
         if (!res.headersSent) res.writeHead(500);
         res.end();

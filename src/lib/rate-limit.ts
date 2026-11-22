@@ -51,6 +51,19 @@ export function checkRateLimit(
   return bucket.count;
 }
 
+/**
+ * One unit of a salon's public-write allowance (60 per hour). With the Postgres store it is taken inside
+ * the store's own transaction (`transaction`, from `ApplyOptions.beforeCommit`), so a commit that fails
+ * afterwards never uses it. Without one, or on the per-process memory store, it counts at once.
+ */
+export async function reserveTenantQuota(tenantId: string, transaction?: unknown) {
+  if (transaction && postgresStore()) {
+    const store = await import("./postgres-rate-limit");
+    return store.reserveRateLimitIn(transaction as Parameters<typeof store.reserveRateLimitIn>[0], "public-tenant", tenantId);
+  }
+  await checkRateLimit("public-tenant", tenantId);
+}
+
 export const LOGIN_FAILURE_DELAY_MS = 100;
 
 // Reserve synchronously before checking credentials, including concurrent requests.

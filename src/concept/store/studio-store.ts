@@ -48,10 +48,18 @@ export interface ApplyOptions {
    * Called under the tenant's lock once the change is accepted and about to be
    * written, never for a replay or a refused change; throwing aborts the apply.
    * A caller reserves its allowance here, so only new commits count against it
-   * and no two can both take the last one. Stores that do not commit under a
-   * lock ignore it.
+   * and no two can both take the last one. The Postgres store passes its open
+   * database transaction, so an allowance taken in it is given back when the
+   * commit fails. Stores that do not commit under a lock ignore it.
    */
-  beforeCommit?: () => Promise<void>;
+  beforeCommit?: (transaction?: unknown) => Promise<void>;
+  /**
+   * Refuse with `not-found` unless the tenant's owner account is active, judged
+   * under the tenant's lock before anything else, a replay included. For public
+   * writes: an account switched off between the caller's lookup and the lock
+   * takes no more bookings. Stores without owner accounts ignore it.
+   */
+  requireActiveAccount?: boolean;
 }
 
 /**

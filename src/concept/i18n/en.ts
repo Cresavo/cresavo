@@ -624,6 +624,7 @@ const messages = {
   "command.approve": "Approve",
   "command.becomes": "becomes",
   "command.failed": "That did not work. The time may just have been taken.",
+  "command.saving": "That booking is still being saved. Try again in a moment.",
   "command.notUnderstood": "I could not turn that into a change. Try rephrasing it.",
   "command.morning": "Morning",
   "command.afternoon": "Afternoon",

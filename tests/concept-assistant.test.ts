@@ -243,6 +243,22 @@ describe("routines", () => {
     expect(dueRun(state.routines[0], { today: "2026-11-30", minutes: 10 * 60 })).toBeNull();
   });
 
+  it("stamps a run only for the latest due slot by the store's clock, so a fast client clock cannot silence later runs", () => {
+    const routine = newRoutine("monday-reminders", { today: "2026-11-09", minutes: 7 * 60 });
+    const state = reduce(base, { type: "routine/add", routine });
+    // 2026-11-16 09:00 in Stockholm (08:00 UTC): the Monday slot at 08:00 is due.
+    const now = Date.parse("2026-11-16T08:00:00Z");
+    const ran = (at: string, from = state) => reduce(from, { type: "routine/ran", id: routine.id, at }, now);
+    const stamped = ran("2026-11-16 08:00");
+    expect(stamped.routines[0].lastRun).toBe("2026-11-16 08:00");
+    expect(ran("2030-01-01 08:00")).toBe(state);
+    expect(ran("2026-11-23 08:00")).toBe(state);
+    expect(ran("2026-11-09 08:00")).toBe(state);
+    expect(ran("2026-11-16 08:00", stamped)).toBe(stamped);
+    // The next Monday is still due after the honest stamp.
+    expect(dueRun(stamped.routines[0], { today: "2026-11-23", minutes: 8 * 60 })).toBe("2026-11-23 08:00");
+  });
+
   it("only proposes when it runs", () => {
     const reminders = runRoutine(base, newRoutine("monday-reminders", clock), clock);
     expect(reminders).toMatchObject({ kind: "change", action: { type: "customers/message" } });

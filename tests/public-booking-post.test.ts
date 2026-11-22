@@ -175,7 +175,7 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
     // The notice is the reducer's to write, from the salon's own data, so it is not part of what is fingerprinted.
     expect(action).not.toHaveProperty("notice");
     expect(meta).toEqual({ actor: "customer", source: "customer-page" });
-    expect(options).toEqual({ idempotencyKey: "booking-page:a-key", beforeCommit: expect.any(Function) });
+    expect(options).toEqual({ idempotencyKey: "booking-page:a-key", requireActiveAccount: true, beforeCommit: expect.any(Function) });
   });
 
   it("never returns the store's state or the internal booking id", async () => {

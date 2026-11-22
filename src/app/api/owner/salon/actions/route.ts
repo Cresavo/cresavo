@@ -15,7 +15,7 @@ const bodySchema = z.object({
 }).strict();
 
 /** The body is streamed under the largest action cap plus the envelope (version and idempotency key); the cap for the action's own type is enforced once it is parsed. */
-const MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024;
+const MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024; // `src/proxy.ts` refuses a larger declared length too, before Next.js buffers the body.
 
 const STATUS = { conflict: 409, rejected: 422, "idempotency-mismatch": 409, "not-found": 404 } as const;
 
