@@ -110,6 +110,7 @@ describe("Resend email", () => {
   it("treats a 200 without a readable receipt as uncertain, not rejected: the message may have been queued", async () => {
     const { fetch } = scriptedFetch({ status: 200, body: {} });
     expect(await email(fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
+    for (const id of ["", "  "]) expect(await email(scriptedFetch({ status: 200, body: { id } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
   });
 
   it("posts JSON with bearer auth and the idempotency key", async () => {
@@ -162,6 +163,8 @@ describe("Postmark email", () => {
   const message = { to: ["a@example.com", "b@example.com"], from: "hello@salon.example", subject: "Hi", text: "Body", tags: { kind: "receipt" } };
 
   it("treats a 200 without a readable receipt as uncertain, and an error code as a refusal", async () => {
+    expect(await email(scriptedFetch({ status: 200, body: { ErrorCode: null } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
+    expect(await email(scriptedFetch({ status: 200, body: { MessageID: "  ", ErrorCode: 0 } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
     expect(await email(scriptedFetch({ status: 200, body: { ErrorCode: 0 } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "provider_unavailable" } });
     expect(await email(scriptedFetch({ status: 200, body: { MessageID: "x", ErrorCode: 406 } }).fetch).send(message)).toMatchObject({ ok: false, error: { code: "unknown" } });
   });

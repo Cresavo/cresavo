@@ -53,7 +53,7 @@ const DISPATCH_LOCK_TIMEOUT = "3000ms";
 const SETTLED = { mail: null, link: null, from: null, replyTo: null } as const;
 
 type BookingMessage = NonNullable<ReturnType<typeof parseMessageReference>>;
-type Registry = { resolve: (port: "email", business: string) => Promise<{ adapter: EmailPort; live: boolean; reason: ResolutionReason }> };
+type Registry = { resolve: (port: "email", business: string) => Promise<{ adapter: EmailPort; live: boolean; reason: ResolutionReason; account?: string }> };
 
 type Patch = { [K in keyof DeliveryState]?: DeliveryState[K] | null };
 type Frozen = DeliveryState & Required<Pick<DeliveryState, "firstAttemptAt" | "mail" | "from">>;
@@ -137,14 +137,15 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    * that finished and before any that has not. The marker is set only while the effect is pending, not erased and
    * this claim is the latest: a stalled deliverer whose lease ran out finds its claim gone.
    */
-  const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage, provider: string) => prisma.$transaction(async (tx) => {
+  const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage, provider: string, account: string | undefined) => prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${DISPATCH_LOCK_TIMEOUT}, true)`;
     const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId} FOR SHARE`;
     const current = row && recipientOf(row.doc, message);
     if (!current) return "skip" as const;
     const marked = await tx.$executeRaw`
       UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb)
-        || jsonb_build_object('dispatched', true, 'provider', coalesce(payload->'delivery'->>'provider', ${provider}::text)))
+        || jsonb_build_object('dispatched', true, 'provider', coalesce(payload->'delivery'->>'provider', ${provider}::text))
+        || CASE WHEN payload->'delivery' ? 'provider' OR ${account}::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('account', ${account}::text) END)
       WHERE id = ${id} AND status = 'pending' AND erased_at IS NULL AND attempts = ${attempt}`;
     return marked ? { to: current.to } : standing(tx, id);
   });
@@ -202,7 +203,8 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     // The key only helps at the provider the first request went to: a row dispatched elsewhere, or before that was recorded, is not repeated.
     const provider = resolution.adapter.info.provider;
     const origin = kept?.dispatched ? kept.provider : provider;
-    const keyed = !live || (origin === "resend" && provider === "resend" && now() - firstAttemptAt < RESEND_KEY_WINDOW_MS);
+    const sameAccount = !kept?.dispatched || kept.account === resolution.account;
+    const keyed = !live || (origin === "resend" && provider === "resend" && sameAccount && now() - firstAttemptAt < RESEND_KEY_WINDOW_MS);
     if (live && kept?.dispatched && !keyed) {
       await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
       return "failed";
@@ -212,14 +214,14 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const fill = (text: string) => text.split(LINK_MARK).join(href ?? "");
     let to = `customer:${customer.id}`;
     if (live) {
-      const gate = await dispatch(delivery, message, provider);
+      const gate = await dispatch(delivery, message, provider, resolution.account);
       if (gate === "skip") return "skipped";
       if (gate === "gone") return "failed";
       if (gate === "lost") throw new Error("EMAIL_CLAIM_LOST");
       to = gate.to;
     }
     // The marker stays when an earlier attempt may have sent: only a request that left nothing behind is released.
-    const release = async () => { if (!kept?.dispatched) await noteClaim(delivery, { dispatched: null, provider: null }); };
+    const release = async () => { if (!kept?.dispatched) await noteClaim(delivery, { dispatched: null, provider: null, account: null }); };
     if (signal.aborted) {
       await release();
       throw new Error("EMAIL_TIMEOUT");
@@ -231,7 +233,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       subject: mail.subject, text: fill(mail.text), html: fill(mail.html), language: state.localization.language, idempotencyKey: id, tracking: false,
     });
     if (result.ok) {
-      await confirm(id, { sent: true, dispatched: null, provider: null, ...SETTLED });
+      await confirm(id, { sent: true, dispatched: null, provider: null, account: null, ...SETTLED });
       return;
     }
     const { code, providerCode } = result.error;

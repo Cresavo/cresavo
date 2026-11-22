@@ -325,7 +325,7 @@ describe("a delivery racing an erasure or another claim", () => {
       await holder.store.eraseSubject(tenantId, customer.id);
       return realSink(delivery, signal);
     };
-    await drainWith(erasing);
+    expect(await drainWith(erasing)).toEqual({ delivered: 0, retried: 0, failed: 0, skipped: 1 });
     expect(mails).toHaveLength(before);
     expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 2 }]);
   });

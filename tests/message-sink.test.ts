@@ -32,7 +32,7 @@ let provider = "resend";
 /** Runs at the moment the provider is called, to see what was committed by then. */
 let atSend: (() => void) | undefined;
 const adapter = { info: { get provider() { return provider; } }, send: async (message: EmailMessage) => { atSend?.(); sent.push(message); return outcome; } } as unknown as EmailPort;
-let resolution: { live: boolean; reason: ResolutionReason };
+let resolution: { live: boolean; reason: ResolutionReason; account?: string };
 const registry = { resolve: async () => ({ adapter, ...resolution }) };
 
 let doc: DemoState | undefined;
@@ -70,9 +70,9 @@ const database = {
   $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = sql(strings);
     if (text.includes("jsonb_build_object('dispatched'")) {
-      const [provider, , attempt] = values as [string, string, number];
+      const [provider, account, , , attempt] = values as [string, string | undefined, string | undefined, string, number];
       if (!open(attempt)) return 0;
-      merge({ dispatched: true, provider: stored.provider ?? provider });
+      merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }) });
       return 1;
     }
     if (text.includes("status = 'delivered'")) {
@@ -477,6 +477,26 @@ describe("claims, upgrades and providers", () => {
       expect(stored.reason).toBe("uncertain");
     }
     expect(sent).toHaveLength(0);
+  });
+
+  it("repeats a Resend request only at the account it first went to", async () => {
+    resolution = { live: true, reason: "live", account: "aaaaaaaaaaaa" };
+    outcome = fail(connectionError("email", "resend", "timeout"));
+    await expect(run()).rejects.toThrow("EMAIL_UNCERTAIN");
+    expect(stored.account).toBe("aaaaaaaaaaaa");
+    expect(JSON.stringify(stored)).not.toMatch(/secret/i);
+    outcome = ok({ id: "m-2", to: [] }, "sent");
+    resolution = { live: true, reason: "live", account: "bbbbbbbbbbbb" };
+    clock = T0 + HOUR;
+    expect(await run()).toBe("failed");
+    expect(stored.reason).toBe("uncertain");
+    expect(sent).toHaveLength(1);
+    // The same account is repeated.
+    stored = { firstAttemptAt: T0, dispatched: true, provider: "resend", account: "aaaaaaaaaaaa", from: "f", mail: { subject: "s", text: "t", html: "h" } };
+    row.status = "pending";
+    resolution = { live: true, reason: "live", account: "aaaaaaaaaaaa" };
+    await run();
+    expect(sent).toHaveLength(2);
   });
 
   it("records an acceptance as delivered even when the row was cancelled meanwhile", async () => {

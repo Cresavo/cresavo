@@ -134,6 +134,16 @@ describe("registry", () => {
     return { calls, registry: createRegistry({ configFor: () => configFromEnv({ ...env, ...extra }), secrets: memorySecretStore(secrets), fetch, outbox: createOutbox() }) };
   };
 
+  it("fingerprints the account of a live adapter without revealing a key, and not at all for a simulated one", async () => {
+    const { registry: r } = registry({});
+    const a = (await r.resolve("sms", "b")).account;
+    const b = (await new Promise<typeof r>((resolve) => resolve(registry({}, { ...SECRETS, TWILIO_AUTH_TOKEN: "SECRETother01234567ab" }).registry))).resolve;
+    expect(a).toMatch(/^[0-9a-f]{12}$/);
+    expect((await b("sms", "b")).account).not.toBe(a);
+    expect(JSON.stringify(a)).not.toContain("SECRET");
+    expect((await r.resolve("calendar", "b")).account).toBeUndefined();
+  });
+
   it("uses the live adapter only when selected, switched on and fully configured", async () => {
     const { registry: r } = registry({});
     expect(await r.resolve("sms", "b")).toMatchObject({ live: true, reason: "live", adapter: { info: { provider: "twilio" } } });

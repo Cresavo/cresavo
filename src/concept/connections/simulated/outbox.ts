@@ -8,6 +8,8 @@ export interface DeliveryState {
   live?: boolean;
   /** The provider the first request went to, recorded with `dispatched`: only that provider's idempotency key can make a repeat safe. */
   provider?: string;
+  /** A fingerprint of the sending account (never the key), recorded with `provider`: a repeat is safe only at the same account. */
+  account?: string;
   /** The provider accepted it. A retry that finds this only acknowledges. */
   sent?: boolean;
   /** Committed before the provider is called, and cleared only when nothing was sent: a request that may have left. */

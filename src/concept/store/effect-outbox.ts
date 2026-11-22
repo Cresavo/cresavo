@@ -146,7 +146,7 @@ function sinkFor(ctx: DeliveryContext, row: ClaimedRow): EffectSink | undefined 
   return undefined;
 }
 
-export type DeliveryOutcome = "delivered" | "retry" | "failed";
+export type DeliveryOutcome = "delivered" | "retry" | "failed" | "skipped";
 
 const TIMEOUT = "STUDIO_STORE_SINK_TIMEOUT";
 
@@ -206,10 +206,11 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   if (result === "deferred") return recordFailure(ctx, row, "deferred");
   if (result === "skipped") {
     const skippedAt = await ctx.clock();
-    await ctx.db.$executeRaw`
+    const changed = await ctx.db.$executeRaw`
       UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${skippedAt}::float8 / 1000)
       WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`;
-    return "delivered";
+    // Nothing was sent, and a row that was cancelled meanwhile (an erasure) stays so.
+    return changed ? "delivered" : "skipped";
   }
   // The send happened, so it is recorded as delivered whatever happened to the
   // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
@@ -224,6 +225,8 @@ export interface DrainReport {
   delivered: number;
   retried: number;
   failed: number;
+  /** Effects with nothing left to send (an erased booking) that were already cancelled. Absent when there were none. */
+  skipped?: number;
 }
 
 /** Claims, sends and acknowledges due effects one at a time until none is due or `limit` rows were claimed. */
@@ -247,6 +250,7 @@ export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<D
     const outcome = await deliver(ctx, row, left === undefined ? ctx.sinkTimeoutMs : Math.min(left, ctx.sinkTimeoutMs ?? left));
     if (outcome === "delivered") report.delivered++;
     else if (outcome === "retry") report.retried++;
+    else if (outcome === "skipped") report.skipped = (report.skipped ?? 0) + 1;
     else report.failed++;
   }
   return report;

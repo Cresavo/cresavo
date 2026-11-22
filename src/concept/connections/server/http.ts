@@ -109,4 +109,4 @@ export function field(data: unknown, ...path: (string | number)[]): unknown {
   return value;
 }
 
-export const text = (value: unknown): string | undefined => (typeof value === "string" && value ? value : undefined);
+export const text = (value: unknown): string | undefined => (typeof value === "string" && value.trim() ? value : undefined);
