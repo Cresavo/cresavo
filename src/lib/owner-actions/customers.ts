@@ -49,7 +49,8 @@ export const customerSchemas = {
   "customer/note": z.strictObject({ type: z.literal("customer/note"), id, note: text() }),
   "customer/update": z.strictObject({ type: z.literal("customer/update"), id, patch: customerPatch }),
   "customer/keep": z.strictObject({ type: z.literal("customer/keep"), id, on: date }),
-  "journal/view": z.strictObject({ type: z.literal("journal/view"), customerId: id.optional(), actor: z.enum(["owner", "staff"]), staffId: staffId.optional() }),
+  // Who is reading comes from the session, not from the request: an owner session reports its own reads of one journal. Reads by staff and loads of every journal are recorded by the server.
+  "journal/view": z.strictObject({ type: z.literal("journal/view"), customerId: id, actor: z.literal("owner") }),
   "customers/import": z.strictObject({ type: z.literal("customers/import"), customers: list(customer, MAX_IMPORT_ROWS) }),
   "journal/add": z.strictObject({
     type: z.literal("journal/add"),

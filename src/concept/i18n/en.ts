@@ -2303,6 +2303,7 @@ const messages = {
   "customer.export.json": "Download data file (JSON)",
   "customer.export.csv": "Download spreadsheet",
   "customer.export.hint": "Includes the card, visits, journal, messages, consents and reviews. Nothing about other customers.",
+  "customer.export.review": "Check it before you send it: {count} text also names another person.|Check it before you send it: {count} texts also name another person.",
   "customer.export.done": "The download started",
   "customer.erase": "Erase permanently",
   "customer.erase.title": "Erase {name} permanently?",

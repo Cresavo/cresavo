@@ -133,6 +133,17 @@ describe("activity log retention", () => {
     expect(ageActivityLog(aged, noon)).toBe(aged);
   });
 
+  it("ages the history before a change runs, so an old undo patch cannot be the first change after the cutoff", () => {
+    const before: LogMeta = { actor: "owner", source: "button", at: Date.UTC(2025, 0, 1) };
+    const state: DemoState = { ...emptySalon(), customers: [person("1", "2024-01-01")] };
+    const noted = applyAction(state, { type: "customer/note", id: "1", note: "Fictional note" }, before);
+    const id = noted.log[0].id;
+    expect(noted.log[0].patch).toBeDefined();
+    // Still inside the period: undo works. Past the cutoff: the patch is gone and the undo is refused.
+    expect(applyAction(noted, { type: "log/undo", id }, { ...meta, at: Date.UTC(2026, 0, 1) }).customers[0].note).toBeUndefined();
+    expect(applyAction(noted, { type: "log/undo", id }, meta)).toBe(noted);
+  });
+
   it("runs whenever the salon changes, so an old entry does not outlive the next change", () => {
     const state: DemoState = { ...emptySalon(), customers: [person("1", "2025-01-01")], log: [entry("l-old", Date.UTC(2024, 0, 1))] };
     const next = applyAction(state, { type: "customer/note", id: "1", note: "Fictional note" }, meta);

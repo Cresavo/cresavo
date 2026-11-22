@@ -31,7 +31,7 @@ GRANT SELECT, UPDATE ("action", "idempotency_key", "redacted_at") ON "tenant_act
 -- statement
 GRANT SELECT, UPDATE ("payload", "status", "erased_at") ON "tenant_effect" TO :"eraser_role";
 -- statement
-GRANT SELECT, DELETE ON "tenant_idempotency" TO :"eraser_role";
+GRANT SELECT, DELETE, UPDATE ("result") ON "tenant_idempotency" TO :"eraser_role";
 
 -- statement
 CREATE OR REPLACE FUNCTION studio_phone_digits(p text) RETURNS text
@@ -140,6 +140,7 @@ DECLARE
   v_pending_payments integer := 0;
   v_in_flight integer := 0;
   v_keys integer;
+  v_tombstones integer;
 BEGIN
   -- The caller holds the row lock (SELECT ... FOR UPDATE in the same transaction).
   SELECT s.doc INTO v_doc FROM tenant_state s WHERE s.tenant_id = p_tenant;
@@ -155,7 +156,10 @@ BEGIN
     v_digits := public.studio_phone_digits(v_phone);
     IF length(v_digits) < 7 THEN v_digits := ''; END IF;
     SELECT coalesce(array_agg(x ORDER BY length(x) DESC, x), '{}') INTO v_contacts FROM (
-      SELECT DISTINCT x FROM unnest(ARRAY[v_phone, v_digits, btrim(coalesce(v_customer ->> 'email', ''))]) x
+      SELECT DISTINCT x FROM unnest(ARRAY[v_phone, v_digits, btrim(coalesce(v_customer ->> 'email', ''))]
+        -- Names, numbers and addresses the card had before a correction (Customer.earlier), and the digits of those numbers.
+        || ARRAY(SELECT btrim(e) FROM jsonb_array_elements_text(coalesce(v_customer -> 'earlier', '[]'::jsonb)) e)
+        || ARRAY(SELECT d FROM (SELECT public.studio_phone_digits(e) AS d FROM jsonb_array_elements_text(coalesce(v_customer -> 'earlier', '[]'::jsonb)) e) q WHERE length(d) >= 7)) x
       WHERE length(x) >= 5) c;
     SELECT coalesce(array_agg(x ORDER BY length(x) DESC, x), '{}') INTO v_identifiers FROM (
       SELECT DISTINCT x FROM unnest(v_contacts || ARRAY[v_name]) x WHERE length(x) >= 5) i;
@@ -241,10 +245,16 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Stored results are state copies: forget those that hold the customer, keep the rest.
+  -- Stored results are state copies: replace those that hold the customer with a tombstone. The key and its fingerprint stay for their
+  -- whole TTL, so a retry of a change that was already committed is refused instead of being applied a second time.
+  -- A key that itself holds an identifier (a caller can embed an address) cannot stay, so that row is deleted.
   DELETE FROM tenant_idempotency
-  WHERE tenant_id = p_tenant AND (result::text LIKE ANY(v_id_patterns) OR result::text ILIKE ANY(v_patterns));
+  WHERE tenant_id = p_tenant AND key ILIKE ANY(v_key_patterns);
   GET DIAGNOSTICS v_keys = ROW_COUNT;
+  UPDATE tenant_idempotency SET result = '{"erased": true}'::jsonb
+  WHERE tenant_id = p_tenant AND NOT (result ? 'erased') AND (result::text LIKE ANY(v_id_patterns) OR result::text ILIKE ANY(v_patterns));
+  GET DIAGNOSTICS v_tombstones = ROW_COUNT;
+  v_keys := v_keys + v_tombstones;
   RETURN jsonb_build_object('actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys,
                             'pendingPayments', v_pending_payments, 'inFlightMessages', v_in_flight);
 END $fn$;

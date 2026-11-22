@@ -125,11 +125,11 @@ export interface ErasureReport {
  * server redacts the customer's data in the audit log, the message outbox and the stored replay results as well
  * (`customer/erase` is not accepted as a plain change). Null when nothing could be confirmed: erasing again is safe.
  */
-export function eraseAccountCustomer(customerId: string): Promise<ErasureReport | null> {
+export function eraseAccountCustomer(customerId: string, name: string): Promise<ErasureReport | null> {
   const run = queue.then(async (): Promise<ErasureReport | null> => {
     try {
       const response = await request(`${SALON}/erase`, {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId }),
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId, name }),
       });
       if (response.status === 401) {
         closeAccountSalon();

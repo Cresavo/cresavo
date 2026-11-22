@@ -120,10 +120,13 @@ describe("customer rights over the owner salon API", () => {
     await send(a.cookie, { action: { type: "customer/note", id: a.customer.id, note: "Fictional note about Lena Raderbar" }, idempotencyKey: "note-1" });
     expect(JSON.stringify(await actionRows(a.tenantId))).toContain("lena.raderbar@example.test");
 
-    expect((await erase("", { customerId: a.customer.id })).status).toBe(401);
-    expect((await erase(a.cookie, { customerId: a.customer.id, tenantId: "other" })).status).toBe(400);
+    expect((await erase("", { customerId: a.customer.id, name: "Lena Raderbar" })).status).toBe(401);
+    expect((await erase(a.cookie, { customerId: a.customer.id, name: "Lena Raderbar", tenantId: "other" })).status).toBe(400);
     expect((await erase(a.cookie, {})).status).toBe(400);
-    const response = await erase(a.cookie, { customerId: a.customer.id });
+    // The name on screen must be the name of that customer in this salon: a tab left open in another salon cannot erase here.
+    expect((await erase(a.cookie, { customerId: a.customer.id, name: "Someone Else" })).status).toBe(409);
+    expect((await (await read(a.cookie)).json()).state.customers.some((c: { id: string }) => c.id === a.customer.id)).toBe(true);
+    const response = await erase(a.cookie, { customerId: a.customer.id, name: "Lena Raderbar" });
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toMatchObject({ pendingPayments: 0, inFlightMessages: 0 });
@@ -133,8 +136,8 @@ describe("customer rights over the owner salon API", () => {
     const text = JSON.stringify(await actionRows(a.tenantId)) + JSON.stringify((await (await read(a.cookie)).json()).state);
     for (const secret of ["lena.raderbar@example.test", "0700007777", "Raderbar", "Fictional observation"]) expect(text, secret).not.toContain(secret);
     // The same erasure again is safe, and the other salon's Lena is untouched, even when her id is sent here.
-    expect((await erase(a.cookie, { customerId: a.customer.id })).status).toBe(200);
-    expect((await erase(a.cookie, { customerId: b.customer.id })).status).toBe(200);
+    expect((await erase(a.cookie, { customerId: a.customer.id, name: "Lena Raderbar" })).status).toBe(200);
+    expect((await erase(a.cookie, { customerId: b.customer.id, name: "Lena Raderbar" })).status).toBe(200);
     expect((await (await read(b.cookie)).json()).state.customers.some((c: { id: string }) => c.id === b.customer.id)).toBe(true);
     expect(JSON.stringify(await actionRows(b.tenantId))).toContain("lena.raderbar@example.test");
   });
@@ -155,6 +158,15 @@ describe("customer rights over the owner salon API", () => {
     expect(log.map((row) => row.customerId)).toEqual([a.customer.id, undefined]);
     const views = (await actionRows(a.tenantId)).map((row) => row.action).filter((action) => action.type === "journal/view");
     expect(views).toEqual([{ type: "journal/view", actor: "owner" }, { type: "journal/view", customerId: a.customer.id, actor: "owner" }]);
+    // The bulk load and staff reads are the server's: a session cannot report them.
+    expect((await send(a.cookie, { action: { type: "journal/view", actor: "owner" }, idempotencyKey: "view-2" })).status).toBe(400);
+    expect((await send(a.cookie, { action: { type: "journal/view", customerId: a.customer.id, actor: "staff", staffId: a.preferredStaff }, idempotencyKey: "view-3" })).status).toBe(400);
+    // Journals that only sit in the trash are still delivered, so that load is logged too.
+    const trashed = await salonWithCustomer("Salong Papperskorg");
+    await send(trashed.cookie, { action: { type: "customer/delete", id: trashed.customer.id }, idempotencyKey: "delete-1" });
+    const afterDelete = await (await read(trashed.cookie)).json();
+    expect(afterDelete.state.journals).toEqual([]);
+    expect(afterDelete.state.journalAccess.some((row: Record<string, unknown>) => !("customerId" in row))).toBe(true);
     // A salon without journals is not written to by a load.
     const empty = await owner("Salong Utan Journal");
     const before = await (await read(empty.cookie)).json();

@@ -300,7 +300,7 @@ customerId)` runs one transaction under the row lock:
      - If a deliverer holds it right now (`leased_until` in the future), it is stopped with `erased_at` and reported in `inFlightMessages`. A successful send is still recorded as `delivered` (with the redacted payload). A failed one becomes `cancelled` and is never retried, and the poller cancels it once its lease is over if the deliverer died.
    - **Other recipients' messages**, even from the same multi-recipient action, keep their status. They only lose an identifier that appears in their text.
    - **Delivered payments** only lose identifiers, so the amount and reference stay for the books. A pending payment is kept so a refund still goes out (see open questions).
-3. **`tenant_idempotency`.** Rows whose stored result (a state copy) holds the customer's id or an identifier are deleted. Other keys keep protecting their retries, so a typo or a repeated erasure never makes a keyed change apply twice.
+3. **`tenant_idempotency`.** Rows whose stored result (a state copy) holds the customer's id or an identifier keep their key and fingerprint but their result becomes `{"erased": true}`. A retry under such a key is refused (`rejected`, detail `erased`) and never applied a second time. Other keys keep protecting their retries, so a typo or a repeated erasure never makes a keyed change apply twice.
 4. **The document.** `customer/erase` runs like an apply: a new version and a `tenant_action` row `{ type: "customer/erase", id }`. It can commit above the document size limit. If the document no longer holds the customer, only the tables are redacted and the version stays.
 
 The result reports the counts, the pending payments kept and the in-flight
@@ -389,7 +389,7 @@ The periods live in `src/concept/privacy/retention.ts`. They are defaults: the s
 | Idempotency keys | 24 hours | `sweepExpiredIdempotency` (unchanged). |
 | Journal access log | 24 months | Pruned when a new read is logged. |
 
-`npm run store:sweep` runs all of them and prints their counts. The cron connection needs `UPDATE ("action", "idempotency_key", "redacted_at")` on `tenant_action`, `UPDATE ("payload")` on `tenant_effect` and `DELETE` on `"RateLimitBucket"` in addition to the grants above. The application role keeps append-only access to `tenant_action`. Nothing schedules the script yet: the operator runs it (daily is enough).
+`npm run store:sweep` runs all of them and prints their counts. The cron connection needs `UPDATE ("action", "idempotency_key", "redacted_at")` and `DELETE` on `tenant_action`, `UPDATE ("payload")` on `tenant_effect` and `DELETE` on `"RateLimitBucket"` in addition to the grants above. Age-based redaction of an audit row is marked inside its action (`retentionRedacted`), not by `redacted_at`, which an erasure also sets for one customer only. Every old row loses its informational `idempotency_key`, and `journal/view` audit rows are deleted after 24 months (`sweepJournalAccessRows`). The outbox sweep judges body, subject, address and the stored mail copy separately and keeps the delivery outcome (`sent`, `reason`). The application role keeps append-only access to `tenant_action`. Nothing schedules the script yet: the operator runs it (daily is enough).
 
 ### Journal read log
 
@@ -528,7 +528,7 @@ Adopted 19 November 2026 through the owner's delegation. They replace the first 
   - The effect `fingerprint` is a SHA-256 of the full request.
   - `purgeExpired` erases expired trash entries in the document. A future salon trash sweeper still needs to invoke `eraseSubject` for those customers to redact their retained table rows.
   - The browser and memory stores refuse erasure as a plain `apply`. The studio's "Erase permanently" runs `customer/erase` through the browser's own dispatch for the demo and own-browser salons, and through `POST /api/owner/salon/erase` (`eraseSubject`) for account salons.
-  - `erasure: "function"` has not been run under a role without `UPDATE` on `tenant_action`, because the test database cannot create roles.
+  - The owner store erases through `erase_subject` when `NODE_ENV=production` (override with `STUDIO_STORE_ERASURE=statements|function`). `erasure: "function"` has not been run under a role without `UPDATE` on `tenant_action`, because the test database cannot create roles.
 - **Poller fairness.** A run claims in `(tenant_id, seq, n)` order up to `limit`, so with a large backlog one tenant's rows can delay another's until the next run. Live provider sinks are not wired, so `npm run effects:drain` delivers only demo and sandbox effects for now.
 - **Browser dirty checks.** UI comparisons such as the booking-rules draft
   still use `JSON.stringify`. They only see browser state today. Revisit them

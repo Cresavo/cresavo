@@ -7,7 +7,7 @@ import { MorePage } from "@/concept/studio/more/more-page";
 import { DEVELOPERS_PAGE } from "@/concept/studio/nav";
 import { ConnectCard } from "@/concept/studio/pairing/connect-card";
 import { usePairing } from "@/concept/studio/pairing/session";
-import { dispatch, useDemo } from "@/concept/store";
+import { currentTarget, dispatch, useDemo } from "@/concept/store";
 import { useStudio } from "@/concept/studio/use-studio";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
 import { Button, ButtonLink } from "@/concept/ui/button";
@@ -38,7 +38,8 @@ export default function DataPage() {
     { label: t("data.export.all"), run: () => {
       download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json");
       // The file holds every journal: that is a read of all of them.
-      if (saved.journals.length) dispatch({ type: "journal/view", actor: "owner" });
+      // A signed-in salon's journals were logged by the server when it loaded.
+      if (saved.journals.length && currentTarget()?.workspace !== "account") dispatch({ type: "journal/view", actor: "owner" });
     } },
     { label: t("data.export.customers"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(saved), "text/csv") },
     { label: t("data.export.bookings"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(saved), "text/csv") },

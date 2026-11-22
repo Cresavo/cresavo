@@ -2245,6 +2245,7 @@ const messages = {
   "customer.export.json": "Ladda ner datafil (JSON)",
   "customer.export.csv": "Ladda ner kalkylblad",
   "customer.export.hint": "Innehåller kundkort, besök, journal, meddelanden, samtycken och omdömen. Inget om andra kunder.",
+  "customer.export.review": "Kontrollera filen innan du skickar den: {count} text nämner också en annan person.|Kontrollera filen innan du skickar den: {count} texter nämner också en annan person.",
   "customer.export.done": "Nedladdningen startade",
   "customer.erase": "Radera permanent",
   "customer.erase.title": "Radera {name} permanent?",

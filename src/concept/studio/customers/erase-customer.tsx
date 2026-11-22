@@ -15,8 +15,8 @@ import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
 
 /** Erases the customer in the salon this tab shows. An account salon is erased by the server, which also redacts its audit data. */
-async function erase(customerId: string): Promise<ErasureReport | null> {
-  if (currentTarget()?.workspace === "account") return eraseAccountCustomer(customerId);
+async function erase(customerId: string, name: string): Promise<ErasureReport | null> {
+  if (currentTarget()?.workspace === "account") return eraseAccountCustomer(customerId, name);
   return dispatch({ type: "customer/erase", id: customerId }) ? { pendingPayments: 0, inFlightMessages: 0 } : null;
 }
 
@@ -34,7 +34,7 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
 
   const run = async () => {
     setBusy(true);
-    const report = await erase(customer.id);
+    const report = await erase(customer.id, name);
     setBusy(false);
     if (!report) {
       showToast(t("customer.erase.failed"));

@@ -16,10 +16,12 @@ export function GET(request: NextRequest) {
     const store = ownerStore();
     const loaded = await store.load(owner.tenantId);
     if (!loaded) return ownerError("not_found", 404);
-    if (!loaded.state.journals.length) return ownerOk({ state: loaded.state, version: loaded.version });
-    // "rejected" means a load was just logged; "conflict" that the salon is busy and the next load will log it.
+    const holdsJournals = loaded.state.journals.length > 0 || loaded.state.trash.some((entry) => entry.kind === "customer" && entry.journals.length > 0);
+    if (!holdsJournals) return ownerOk({ state: loaded.state, version: loaded.version });
     const logged = await store.apply(owner.tenantId, { type: "journal/view", actor: "owner" }, { actor: "owner", source: "button" });
     if (logged.ok) return ownerOk({ state: logged.state, version: logged.version });
-    return ownerOk({ state: loaded.state, version: loaded.version });
+    // Only a load logged a moment ago is refused without a detail. Any other refusal (a busy salon, a full document) means this load is not on the log, so it is not served.
+    if (logged.reason === "rejected" && !logged.detail) return ownerOk({ state: loaded.state, version: loaded.version });
+    return ownerError("unavailable", 503);
   }, { write: false });
 }

@@ -1,8 +1,8 @@
 import type { CheckoutHold } from "../booking/protection";
-import type { Booking, Customer, DemoState, InboxItem, JournalAccess, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
+import type { Booking, Customer, DemoState, GiftCard, InboxItem, JournalAccess, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
 import type { LogEntry } from "../log/types";
 import { defuseFormula, toCsv } from "../studio/more/export";
-import { customerIdentifiers, findErasable, mentionsCustomer, phoneDigits } from "./erase";
+import { customerIdentifiers, customerPhoneDigits, findErasable, holdIsTheirs, mentionsCustomer, phoneDigits } from "./erase";
 
 // Export of one customer's data (GDPR art. 15 and 20) as JSON and CSV.
 //
@@ -37,7 +37,8 @@ export interface CustomerExport {
   /** True when the customer was deleted to the trash and can still be restored. */
   inTrash: boolean;
   profile: Customer;
-  bookings: Booking[];
+  /** A visit's typed address is left out (`contactEmailOmitted`) when it is not one of the customer's own: it may belong to someone who booked for them. */
+  bookings: Array<Booking & { contactEmailOmitted?: true }>;
   journal: JournalEntry[];
   /** Messages to and from the customer in the studio's inbox, including the confirmations and reminders sent to them. */
   messages: InboxItem[];
@@ -47,8 +48,15 @@ export interface CustomerExport {
   packages: ServicePackage[];
   /** Who read their journal and when. */
   journalAccess: JournalAccess[];
-  /** Online bookings still in checkout, made with their phone number. */
+  /** Online bookings still in checkout that are theirs: their phone number and either their address or their name. A hold that only shares the phone is left out. */
   checkoutHolds: CheckoutHold[];
+  /** Gift cards whose recipient or message names them. */
+  giftCardMentions: Array<Pick<GiftCard, "id" | "soldOn" | "recipient" | "message">>;
+  /**
+   * Records whose text also names another customer (a note, a journal entry, a message). The owner reads these before the file goes to the customer:
+   * the export copies free text as it was written.
+   */
+  needsReview: Array<{ section: "profile" | "journal" | "messages" | "checkout_holds"; id: string }>;
   activity: ExportedActivity[];
   /** Records of any other list that belong to them. Empty unless a new kind of record has no section of its own. */
   other: Record<string, unknown[]>;
@@ -93,8 +101,10 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
   if (!profile) return null;
   const identifiers = customerIdentifiers(profile);
   const digits = phoneDigits(profile.phone);
+  const ownAddresses = new Set([profile.email, ...(profile.earlier ?? [])].map((a) => a.trim().toLowerCase()).filter(Boolean));
   const lists = listsOf(state, id);
-  const others = state.customers.filter((c) => c.id !== id);
+  const trashed = state.trash.flatMap((entry) => (entry.kind === "customer" ? [entry.customer] : []));
+  const others = [...state.customers, ...trashed].filter((c) => c.id !== id);
   const otherNames = others.map((c) => ({ id: c.id, identifiers: customerIdentifiers(c), digits: phoneDigits(c.phone) }));
 
   const sections: Record<(typeof SECTIONS)[keyof typeof SECTIONS], unknown[]> = { bookings: [], journal: [], messages: [], reviews: [], productSales: [], packages: [], journalAccess: [] };
@@ -104,7 +114,15 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     if (section) sections[section].push(...items);
     else other[key] = items;
   }
-  const bookings = sections.bookings as Booking[];
+  const namesOther = (value: unknown) => otherNames.some((o) => mentionsCustomer(value, "", o.identifiers, ""));
+  const bookings = (sections.bookings as Booking[]).map((b): CustomerExport["bookings"][number] => {
+    if (!b.contactEmail || ownAddresses.has(b.contactEmail.trim().toLowerCase())) return b;
+    const omitted: CustomerExport["bookings"][number] = { ...b, contactEmailOmitted: true };
+    delete omitted.contactEmail;
+    return omitted;
+  });
+  const journal = sections.journal as JournalEntry[];
+  const messages = sections.messages as InboxItem[];
   return {
     format: EXPORT_FORMAT,
     exportedAt,
@@ -112,8 +130,8 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     inTrash: !state.customers.some((c) => c.id === id),
     profile,
     bookings,
-    journal: sections.journal as JournalEntry[],
-    messages: sections.messages as InboxItem[],
+    journal,
+    messages,
     consents: {
       waitlistOptIn: profile.waitlist,
       bookingTerms: bookings.flatMap((b) => (b.protection ? [{ bookingId: b.id, ...b.protection.terms }] : [])),
@@ -122,7 +140,16 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     productSales: sections.productSales as ProductSale[],
     packages: sections.packages as ServicePackage[],
     journalAccess: sections.journalAccess as JournalAccess[],
-    checkoutHolds: digits ? state.checkoutHolds.filter((hold) => phoneDigits(hold.guest.phone) === digits) : [],
+    checkoutHolds: state.checkoutHolds.filter((hold) => holdIsTheirs(hold, profile)),
+    giftCardMentions: state.giftCards
+      .filter((card) => mentionsCustomer({ recipient: card.recipient, message: card.message }, "", identifiers, ""))
+      .map(({ id: cardId, soldOn, recipient, message }) => ({ id: cardId, soldOn, recipient, message })),
+    needsReview: [
+      ...state.checkoutHolds.filter((hold) => !holdIsTheirs(hold, profile) && customerPhoneDigits(profile).has(phoneDigits(hold.guest.phone))).map((h) => ({ section: "checkout_holds" as const, id: h.id })),
+      ...(namesOther(profile.note) ? [{ section: "profile" as const, id: profile.id }] : []),
+      ...journal.filter(namesOther).map((j) => ({ section: "journal" as const, id: j.id })),
+      ...messages.filter(namesOther).map((m) => ({ section: "messages" as const, id: m.id })),
+    ],
     activity: state.log
       .filter((entry) => mentionsCustomer(entry, id, identifiers, digits) && !otherNames.some((o) => mentionsCustomer(entry, o.id, o.identifiers, o.digits)))
       .map(({ id: entryId, type, at, actor, source, summary }) => ({ id: entryId, type, at, actor, source, summary })),
@@ -161,14 +188,14 @@ export function customerExportCsv(data: CustomerExport): string {
   const add = (section: string, recordId: string, record: unknown) => {
     const found: Array<[string, string | number]> = [];
     leaves(record, "", found);
-    for (const [field, value] of found) rows.push([section, recordId, field, typeof value === "string" ? defuseFormula(value) : value]);
+    for (const [field, value] of found) rows.push([section, defuseFormula(recordId), defuseFormula(field), typeof value === "string" ? defuseFormula(value) : value]);
   };
   add("export", data.format, { exportedAt: data.exportedAt, salon: data.salon, inTrash: data.inTrash });
   add("profile", data.profile.id, data.profile);
   for (const [section, records] of [
     ["bookings", data.bookings], ["journal", data.journal], ["messages", data.messages], ["reviews", data.reviews],
     ["product_sales", data.productSales], ["packages", data.packages], ["journal_access", data.journalAccess],
-    ["checkout_holds", data.checkoutHolds], ["activity", data.activity],
+    ["checkout_holds", data.checkoutHolds], ["gift_card_mentions", data.giftCardMentions], ["activity", data.activity],
   ] as const) {
     (records as Array<{ id: string }>).forEach((record, index) => add(section, record.id ?? String(index), record));
   }

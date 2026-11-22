@@ -5,6 +5,7 @@ import { customerExport, customerExportCsv, customerExportFilename, customerExpo
 import { CUSTOMER_FIELD_EDITS, correctedCustomer, updateBooking, updateCustomer, type CustomerPatch } from "@/concept/customers/rights";
 import { createDemoState } from "@/concept/data/generate";
 import type { Customer, DemoState } from "@/concept/data/types";
+import { balanceOf } from "@/concept/giftcards/cards";
 import { applyAction } from "@/concept/log/capture";
 import type { LogMeta } from "@/concept/log/types";
 
@@ -34,7 +35,7 @@ function richState(): { state: DemoState; mine: Customer; theirs: Customer } {
   }
   const visit = (id: string) => state.bookings.find((b) => b.customerId === id)!;
   const terms = { version: 1, freeHours: 24, latePercent: 0, noShowPercent: 0, currency: "SEK", priceMinor: 49500, depositMinor: 0 };
-  state = { ...state, bookings: state.bookings.map((b) => (b.customerId === mine.id ? { ...b, contactEmail: "lena.visit@example.test", note: "Fictional visit note", protection: { terms } } : b)) };
+  state = { ...state, bookings: state.bookings.map((b) => (b.customerId === mine.id ? { ...b, contactEmail: lena.email, note: "Fictional visit note", protection: { terms } } : b)) };
   for (const who of [mine, theirs]) {
     state = applyAction(state, { type: "journal/add", entry: { customerId: who.id, bookingId: visit(who.id).id, date: today, staffId: base.staff[0].id, treatment: `Treatment for ${who.firstName}`, observations: "Fictional observation", advice: "Rest" } }, meta);
     state = applyAction(state, { type: "inbox/add", item: { kind: "system", customerId: who.id, date: today, time: 600, title: `Confirmation for ${who.firstName}`, body: "Your visit is booked.", read: false, handled: true, delivery: { channel: "sms", kind: "confirmation", slot: "x" } } }, meta);
@@ -68,7 +69,8 @@ describe("customer export", () => {
     expect(data.exportedAt).toBe("2026-11-16T10:00:00.000Z");
     expect(data.profile).toEqual(mine);
     expect(data.bookings).toHaveLength(1);
-    expect(data.bookings[0]).toMatchObject({ customerId: mine.id, contactEmail: "lena.visit@example.test", note: "Fictional visit note" });
+    expect(data.bookings[0]).toMatchObject({ customerId: mine.id, contactEmail: lena.email, note: "Fictional visit note" });
+    expect(data.needsReview).toEqual([]);
     expect(data.journal).toHaveLength(1);
     expect(data.journal[0].versions).toHaveLength(1);
     expect(data.messages.map((m) => m.title)).toEqual(expect.arrayContaining(["Confirmation for Lena", "Question"]));
@@ -136,7 +138,7 @@ describe("customer export", () => {
     expect(data.other).toEqual({});
     // Another customer's export is likewise free of this one.
     const other = JSON.stringify(customerExport(state, theirs.id, "2026-11-16T10:00:00.000Z"));
-    for (const secret of [mine.lastName, mine.phone, mine.email, "lena.visit@example.test", "Treatment for Lena", "Lovely visit"]) expect(other, secret).not.toContain(secret);
+    for (const secret of [mine.lastName, mine.phone, mine.email, lena.email, "Treatment for Lena", "Lovely visit"]) expect(other, secret).not.toContain(secret);
   });
 
   it("writes a flat CSV that carries the same records and defuses formulas", () => {
@@ -177,6 +179,7 @@ describe("customer correction", () => {
     const next = applyAction(state, { type: "customer/update", id: mine.id, patch }, meta);
     expect(next.customers.find((c) => c.id === mine.id)).toEqual({
       ...mine, firstName: "Lena-Maria", lastName: "Rättadsson", phone: "070 000 33 33", email: "lena.ny@example.test", birthday: "1991-06-05", tags: ["VIP", "Ny"], waitlist: false, isRegular: true, preferredStaff: base.staff[1].id, category: "both",
+      earlier: ["Lena Exportsson", "0700001111", lena.email],
     });
     expect(next.customers.filter((c) => c.id !== mine.id)).toEqual(state.customers.filter((c) => c.id !== mine.id));
     expect(next.log[0]).toMatchObject({ type: "customer/update", summary: expect.stringContaining("Lena-Maria") });
@@ -236,7 +239,7 @@ describe("visit correction", () => {
     const cleared = updateBooking(next, visit.id, { contactEmail: null, note: null });
     expect(cleared.bookings.find((b) => b.id === visit.id)).not.toHaveProperty("contactEmail");
     expect(cleared.bookings.find((b) => b.id === visit.id)).not.toHaveProperty("note");
-    expect(applyAction(next, { type: "log/undo", id: next.log[0].id }, meta).bookings.find((b) => b.id === visit.id)?.contactEmail).toBe("lena.visit@example.test");
+    expect(applyAction(next, { type: "log/undo", id: next.log[0].id }, meta).bookings.find((b) => b.id === visit.id)?.contactEmail).toBe(lena.email);
   });
 
   it("changes a cancellation reason only on a cancelled visit and refuses invalid values", () => {
@@ -248,6 +251,104 @@ describe("visit correction", () => {
     expect(updateBooking(state, visit.id, { contactEmail: "not-an-address" })).toBe(state);
     expect(updateBooking(state, visit.id, { note: "x".repeat(501) })).toBe(state);
     expect(updateBooking(state, "b-unknown", { note: "x" })).toBe(state);
-    expect(updateBooking(state, visit.id, { contactEmail: "lena.visit@example.test" })).toBe(state);
+    expect(updateBooking(state, visit.id, { contactEmail: lena.email })).toBe(state);
   });
 });
+
+describe("export and erasure of shared and older data", () => {
+  const stamp = "2026-11-16T10:00:00.000Z";
+
+  it("leaves out a checkout hold that only shares the phone number from the export, flags it, and still erases it with the customer", () => {
+    const { state, mine } = richState();
+    const family = { ...state.checkoutHolds[0], id: "hold-family", guest: { ...state.checkoutHolds[0].guest, name: "Fictional Familjemedlem", email: "familj@example.test" } };
+    const withFamily = { ...state, checkoutHolds: [...state.checkoutHolds, family] };
+    const data = customerExport(withFamily, mine.id, stamp)!;
+    expect(data.checkoutHolds.map((h) => h.id)).toEqual(["hold-+46 70 000 11 11"]);
+    expect(JSON.stringify(data)).not.toContain("Familjemedlem");
+    expect(data.needsReview).toEqual([{ section: "checkout_holds", id: "hold-family" }]);
+    // The erasure goes by phone: a hold in checkout is transient, so removing one that shares the number is the safe side.
+    expect(eraseCustomer(withFamily, mine.id).checkoutHolds.map((h) => h.id)).toEqual(["hold-0700002222"]);
+  });
+
+  it("omits an address typed on a visit that is not the customer's own, and says so", () => {
+    const { state, mine } = richState();
+    const typed = { ...state, bookings: state.bookings.map((b) => (b.customerId === mine.id ? { ...b, contactEmail: "kollega@example.test" } : b)) };
+    const data = customerExport(typed, mine.id, stamp)!;
+    expect(data.bookings[0]).toMatchObject({ contactEmailOmitted: true });
+    expect(data.bookings[0]).not.toHaveProperty("contactEmail");
+    expect(JSON.stringify(data)).not.toContain("kollega@example.test");
+  });
+
+  it("flags text that also names another customer and includes gift cards that name this one", () => {
+    const { state, mine, theirs } = richState();
+    const mixed: DemoState = {
+      ...state,
+      customers: state.customers.map((c) => (c.id === mine.id ? { ...c, note: `Comes with ${theirs.firstName} ${theirs.lastName}` } : c)),
+      giftCards: [{ id: "g-1", code: "EKO-TEST-0001", amount: 500, recipient: "Lena Exportsson", message: "Enjoy", soldOn: today, redemptions: [] }],
+    };
+    const data = customerExport(mixed, mine.id, stamp)!;
+    expect(data.needsReview).toEqual([{ section: "profile", id: mine.id }]);
+    expect(data.giftCardMentions).toEqual([{ id: "g-1", soldOn: today, recipient: "Lena Exportsson", message: "Enjoy" }]);
+  });
+
+  it("protects every text cell of the CSV against formulas", () => {
+    const { state, mine } = richState();
+    const data = customerExport(state, mine.id, stamp)!;
+    data.journal[0] = { ...data.journal[0], id: "=HYPERLINK(1)" };
+    const rows = parseCsv(customerExportCsv(data));
+    expect(rows.some((row) => row[1] === "'=HYPERLINK(1)")).toBe(true);
+    expect(rows.every((row) => !/^[=+\-@]/.test(row[1]) && !/^[=+\-@]/.test(row[2]))).toBe(true);
+  });
+
+  it("still finds an earlier name, phone and address in old records after a correction", () => {
+    const { state, mine } = richState();
+    const old = { ...state, checkoutHolds: [...state.checkoutHolds], tickets: [{ id: "tk-1", question: `Please call ${lena.email}`, activity: [], screen: [], path: "/", requestId: "r", createdAt: 1 }] as unknown as DemoState["tickets"] };
+    const corrected = applyAction(old, { type: "customer/update", id: mine.id, patch: { email: "lena.nyadress@example.test", phone: "070 000 66 66" } }, meta);
+    const erased = applyAction(corrected, { type: "customer/erase", id: mine.id }, meta);
+    const text = JSON.stringify(erased);
+    expect(text).not.toContain(lena.email);
+    expect(text).not.toContain("+46 70 000 11 11");
+    expect(erased.checkoutHolds.map((h) => h.id)).toEqual(["hold-0700002222"]);
+  });
+
+  it("keeps a cancelled visit's returned gift-card credit when the visit is erased", () => {
+    const { state, mine } = richState();
+    const visit = state.bookings.find((b) => b.customerId === mine.id)!;
+    const paid: DemoState = { ...state, giftCards: [{ id: "g-2", code: "EKO-TEST-0002", amount: 500, recipient: "", message: "", soldOn: today, redemptions: [{ bookingId: visit.id, amount: 400, date: today }] }] };
+    const cancelled = applyAction(paid, { type: "booking/cancel", id: visit.id }, meta);
+    expect(balanceOf(cancelled, cancelled.giftCards[0])).toBe(500);
+    const erased = applyAction(cancelled, { type: "customer/erase", id: mine.id }, meta);
+    expect(erased.bookings.some((b) => b.id === visit.id)).toBe(false);
+    expect(balanceOf(erased, erased.giftCards[0])).toBe(500);
+  });
+
+  it("replaces the reference of a visit when its address changes, so an old link stops working", () => {
+    const { state, mine } = richState();
+    const visit = state.bookings.find((b) => b.customerId === mine.id)!;
+    const online: DemoState = { ...state, bookings: state.bookings.map((b) => (b.id === visit.id ? { ...b, publicRef: "ref-original" } : b)) };
+    const same = applyAction(online, { type: "booking/update", id: visit.id, patch: { note: "Only a note" } }, meta);
+    expect(same.bookings.find((b) => b.id === visit.id)?.publicRef).toBe("ref-original");
+    const moved = applyAction(online, { type: "booking/update", id: visit.id, patch: { contactEmail: "ratt@example.test" } }, meta);
+    const after = moved.bookings.find((b) => b.id === visit.id)!;
+    expect(after.publicRef).not.toBe("ref-original");
+    expect(after.publicRef).toMatch(/^ref-original-/);
+    expect(applyAction(moved, { type: "booking/update", id: visit.id, patch: { contactEmail: null } }, meta).bookings.find((b) => b.id === visit.id)?.publicRef).not.toBe(after.publicRef);
+  });
+
+  it("changes nothing but the three text fields of a visit", () => {
+    const { state, mine } = richState();
+    const visit = state.bookings.find((b) => b.customerId === mine.id)!;
+    const next = updateBooking(state, visit.id, { contactEmail: "a@example.test", note: "n" });
+    const after = { ...next.bookings.find((b) => b.id === visit.id)! };
+    expect(after).toMatchObject({ contactEmail: "a@example.test", note: "n" });
+    expect({ ...after, contactEmail: visit.contactEmail, note: visit.note }).toEqual(visit);
+    expect(updateBooking(state, visit.id, { status: "completed", price: 0 } as never)).toBe(state);
+  });
+
+  it("refuses a review date in the future", () => {
+    const { state, mine } = richState();
+    expect(applyAction(state, { type: "customer/keep", id: mine.id, on: "2030-01-01" }, meta)).toBe(state);
+    expect(applyAction(state, { type: "customer/keep", id: mine.id, on: "2026-11-16" }, meta).customers.find((c) => c.id === mine.id)?.keptOn).toBe("2026-11-16");
+  });
+});
+

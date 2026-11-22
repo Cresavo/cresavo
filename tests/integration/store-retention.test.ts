@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { salonClock } from "@/concept/tools/clock";
 import { PostgresStudioStore } from "@/concept/store/postgres-studio-store";
-import { sweepActivityPersonalData, sweepOutboxBodies, sweepRateLimits } from "@/concept/store/store-sweepers";
+import { sweepActivityPersonalData, sweepJournalAccessRows, sweepOutboxBodies, sweepRateLimits } from "@/concept/store/store-sweepers";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { withOwnSlug } from "./own-slug";
 
@@ -97,7 +97,8 @@ describe("sweepOutboxBodies", () => {
 
     expect(await sweepOutboxBodies({ prisma: db, now, batch: 2 })).toBe(4);
     const bySeq = Object.fromEntries((await rows("tenant_effect")).map((r) => [r.seq, r.payload!]));
-    expect(bySeq[1]).toEqual({ port: "email", action: "send", to: "[redacted]", subject: "[redacted]", body: "[redacted]", cost: null });
+    // The stored copy of the mail goes; the outcome stays for reconciliation.
+    expect(bySeq[1]).toEqual({ port: "email", action: "send", to: "[redacted]", subject: "[redacted]", body: "[redacted]", cost: null, delivery: { sent: true } });
     expect(bySeq[2]).toEqual(mail);
     expect(bySeq[3]).toEqual(mail);
     expect(bySeq[4]).toMatchObject({ body: "Deposit Lena", reference: "dep-1" });
@@ -111,6 +112,18 @@ describe("sweepOutboxBodies", () => {
     expect(await sweepOutboxBodies({ prisma: db, now })).toBe(0);
     // Three months later the rest follow.
     expect(await sweepOutboxBodies({ prisma: db, now: async () => NOW + 90 * DAY })).toBe(2);
+  });
+
+  it("finishes a row whose body was blanked but whose subject, address or mail copy was not, and keeps an uncertain send's reason", async () => {
+    const t = "tenant-partial";
+    for (const seq of [1, 2]) await action(t, seq, -100 * DAY, { type: "booking/create" });
+    await effect(t, 1, "message", "delivered", { port: "email", action: "send", to: "lena@example.test", subject: "Your visit", body: "[redacted]", cost: null });
+    await effect(t, 2, "message", "failed", { port: "email", action: "send", to: "customer:k-1", body: "[redacted]", cost: null, delivery: { reason: "uncertain", dispatched: true, mail: { subject: "s", text: "Hello Lena", html: "<p>Hello Lena</p>" } } });
+    expect(await sweepOutboxBodies({ prisma: db, now })).toBe(2);
+    const bySeq = Object.fromEntries((await rows("tenant_effect")).map((r) => [r.seq, r.payload!]));
+    expect(bySeq[1]).toMatchObject({ to: "[redacted]", subject: "[redacted]", body: "[redacted]" });
+    expect(bySeq[2]).toEqual({ port: "email", action: "send", to: "customer:k-1", body: "[redacted]", cost: null, delivery: { reason: "uncertain", dispatched: true } });
+    expect(await sweepOutboxBodies({ prisma: db, now })).toBe(0);
   });
 
   it("uses the commit time of the action, so a retry that moved the due time does not keep a body alive", async () => {
@@ -132,20 +145,34 @@ describe("sweepActivityPersonalData", () => {
     await action(t, 4, -30 * DAY, { type: "customer/note", id: "k-1", note: "Recent note" });
     await action(t, 5, old, { type: "card/dismiss", id: "welcome" }, "key-5");
     await action(t, 6, old, { type: "customer/note", id: "k-2", note: "Already erased" }, null, true);
-    expect(await sweepActivityPersonalData({ prisma: db, now, batch: 2 })).toBe(3);
+    // Four rows are redacted (1, 2, 3 and 6, which had a partial erasure) and two old keys cleared (rows 1 and 5, a type without personal fields).
+    expect(await sweepActivityPersonalData({ prisma: db, now, batch: 2 })).toBe(6);
     const bySeq = Object.fromEntries((await rows("tenant_action")).map((r) => [r.seq, r]));
-    expect(bySeq[1].action).toEqual({ type: "customer/note", id: "k-1", note: "[redacted]" });
+    expect(bySeq[1].action).toEqual({ type: "customer/note", id: "k-1", note: "[redacted]", retentionRedacted: true });
     expect(bySeq[1].key).toBeNull();
     expect(bySeq[1].redacted).toBe(true);
     expect(bySeq[2].action).toMatchObject({ type: "online/book", guest: { name: "[redacted]", phone: "[redacted]", email: "[redacted]" }, serviceId: "s-1", date: "2026-01-02", notice: { title: "[redacted]", body: "[redacted]", kind: "request" } });
-    expect(bySeq[3].action).toEqual({ type: "customer/update", id: "k-1", patch: { phone: "[redacted]", firstName: "[redacted]" } });
+    expect(bySeq[3].action).toEqual({ type: "customer/update", id: "k-1", patch: { phone: "[redacted]", firstName: "[redacted]" }, retentionRedacted: true });
     expect(bySeq[4].action).toMatchObject({ note: "Recent note" });
     expect(bySeq[4].redacted).toBe(false);
-    expect(bySeq[5]).toMatchObject({ key: "key-5", redacted: false });
-    expect(bySeq[6].action).toMatchObject({ note: "Already erased" });
+    // A key can embed an address whatever the action was; this row has no personal fields, so only the key goes.
+    expect(bySeq[5]).toMatchObject({ key: null, redacted: false });
+    expect(bySeq[5].action).toEqual({ type: "card/dismiss", id: "welcome" });
+    // A partial erasure set `redacted_at` earlier; the age-based redaction still runs on the row.
+    expect(bySeq[6].action).toEqual({ type: "customer/note", id: "k-2", note: "[redacted]", retentionRedacted: true });
     expect(await sweepActivityPersonalData({ prisma: db, now })).toBe(0);
     // A year later the recent note follows.
     expect(await sweepActivityPersonalData({ prisma: db, now: async () => NOW + 13 * 30 * DAY })).toBe(1);
+  });
+
+  it("deletes the audit copies of journal reads after 24 months", async () => {
+    const t = "tenant-views";
+    await action(t, 1, -25 * 30 * DAY, { type: "journal/view", customerId: "k-1", actor: "owner" });
+    await action(t, 2, -23 * 30 * DAY, { type: "journal/view", customerId: "k-1", actor: "owner" });
+    await action(t, 3, -25 * 30 * DAY, { type: "customer/note", id: "k-1", note: "kept for the other sweep" });
+    expect(await sweepJournalAccessRows({ prisma: db, now, batch: 1 })).toBe(1);
+    expect((await rows("tenant_action")).map((r) => r.seq)).toEqual([2, 3]);
+    expect(await sweepJournalAccessRows({ prisma: db, now })).toBe(0);
   });
 });
 
@@ -163,6 +190,7 @@ describe("journal reads on the Postgres store", () => {
       expect(await store.apply(tenantId, { type: "journal/view", customerId: customer.id, actor: "owner" })).toMatchObject({ ok: false, reason: "rejected" });
       // The load of the whole salon is a read of every journal, logged without a customer.
       expect(await store.apply(tenantId, { type: "journal/view", actor: "owner" })).toMatchObject({ ok: true, version: 2 });
+      // A second load within ten minutes is refused as a repeat, with no detail (the load route serves it); a full document would carry one.
       const loaded = (await store.load(tenantId))!.state;
       expect(loaded.journalAccess).toEqual([
         { id: expect.any(String), at: NOW, actor: "owner" },

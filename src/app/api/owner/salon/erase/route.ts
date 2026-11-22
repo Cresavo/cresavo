@@ -4,8 +4,11 @@ import { ownerError, ownerOk, ownerRoute, readBoundedJson } from "@/lib/owner-ht
 import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
 import { id } from "@/lib/owner-actions/primitives";
 import { ownerStore } from "@/lib/owner-store";
+import { findErasable } from "@/concept/customers/erase";
+import { fullName } from "@/concept/selectors";
 
-const bodySchema = z.object({ customerId: id }).strict();
+/** `name` is the full name the owner confirmed on screen. The erasure is refused when this salon's customer of that id has another name, so a tab left open in another salon cannot erase there. */
+const bodySchema = z.object({ customerId: id, name: z.string().max(200) }).strict();
 
 const MAX_BODY_BYTES = 1024;
 
@@ -26,6 +29,9 @@ export function POST(request: NextRequest) {
     const body = bodySchema.safeParse(json);
     if (!body.success) return ownerError("invalid", 400);
     const store = ownerStore();
+    const current = await store.load(owner.tenantId);
+    const target = current && findErasable(current.state, body.data.customerId);
+    if (target && fullName(target).trim().toLowerCase() !== body.data.name.trim().toLowerCase()) return ownerError("mismatch", 409);
     const result = await store.eraseSubject(owner.tenantId, body.data.customerId, { actor: "owner", source: "button" });
     if (!result.ok) return ownerError(result.reason, result.reason === "conflict" ? 409 : 404);
     const snapshot = await store.load(owner.tenantId);

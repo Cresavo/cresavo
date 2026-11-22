@@ -26,7 +26,7 @@ export interface CustomerPatch {
 }
 
 /** Every personal field of a customer, and how it is corrected. A test keeps this list in step with `Customer`. */
-export const CUSTOMER_FIELD_EDITS: Record<Exclude<keyof Customer, "id" | "since" | "example" | "keptOn">, "update" | "note"> = {
+export const CUSTOMER_FIELD_EDITS: Record<Exclude<keyof Customer, "id" | "since" | "example" | "keptOn" | "earlier">, "update" | "note"> = {
   firstName: "update", lastName: "update", phone: "update", email: "update", birthday: "update", category: "update", preferredStaff: "update",
   isRegular: "update", tags: "update", waitlist: "update", note: "note",
 };
@@ -102,20 +102,36 @@ export function correctedCustomer(state: DemoState, id: string, patch: CustomerP
   return { customer: next };
 }
 
+export const MAX_EARLIER = 20;
+
+/** Remembers the name, phone number and address a correction replaces, so an erasure can still find them in older records. */
+function withEarlier(before: Customer, after: Customer): Customer {
+  const fullName = (c: Customer) => `${c.firstName} ${c.lastName}`.trim();
+  const replaced = [
+    fullName(before) !== fullName(after) ? fullName(before) : "",
+    before.phone !== after.phone ? before.phone : "",
+    before.email !== after.email ? before.email : "",
+  ].filter(Boolean);
+  if (!replaced.length) return after;
+  const earlier = [...new Set([...(after.earlier ?? []), ...replaced])].slice(-MAX_EARLIER);
+  return { ...after, earlier };
+}
+
 /** Applies a correction. A refused one, or one that alters nothing, returns the same state. */
 export function updateCustomer(state: DemoState, id: string, patch: CustomerPatch): DemoState {
   const corrected = correctedCustomer(state, id, patch);
   const current = state.customers.find((c) => c.id === id);
   if ("problem" in corrected || !current) return state;
-  const { customer } = corrected;
+  const customer = withEarlier(current, corrected.customer);
   const keys = new Set([...Object.keys(current), ...Object.keys(customer)]) as Set<keyof Customer>;
   const changed = [...keys].some((key) => JSON.stringify(customer[key]) !== JSON.stringify(current[key]));
   return changed ? { ...state, customers: state.customers.map((c) => (c.id === id ? customer : c)) } : state;
 }
 
 /** Records that the owner reviewed this customer and keeps them. They come up for review again after `RETENTION.reviewAgainMonths`. */
-export function keepCustomer(state: DemoState, id: string, on: DateKey): DemoState {
-  if (typeof on !== "string" || !validDate(on)) return state;
+export function keepCustomer(state: DemoState, id: string, on: DateKey, now: number): DemoState {
+  // The decision is stamped with the day it is made: a date in the future (beyond a day of time-zone slack) would hide the customer from review.
+  if (typeof on !== "string" || !validDate(on) || on > toKey(new Date(now + 86_400_000))) return state;
   const customer = state.customers.find((c) => c.id === id);
   if (!customer || customer.keptOn === on) return state;
   return { ...state, customers: state.customers.map((c) => (c.id === id ? { ...c, keptOn: on } : c)) };
@@ -143,6 +159,8 @@ export function updateBooking(state: DemoState, id: string, patch: BookingPatch)
     if (value === null || (value && !isEmail(value))) return state;
     if (value) next.contactEmail = value;
     else delete next.contactEmail;
+    // A link already sent to the old address must stop working: the reference it was minted for is replaced.
+    if (value !== (current.contactEmail ?? "") && current.publicRef) next.publicRef = `${current.publicRef}-${state.seq}`;
   }
   for (const field of ["note", "cancelReason"] as const) {
     if (patch[field] === undefined) continue;
@@ -152,5 +170,5 @@ export function updateBooking(state: DemoState, id: string, patch: BookingPatch)
     else delete next[field];
   }
   const changed = (["contactEmail", "note", "cancelReason"] as const).some((key) => next[key] !== current[key]);
-  return changed ? { ...state, bookings: state.bookings.map((b) => (b.id === id ? next : b)) } : state;
+  return changed ? { ...state, seq: state.seq + 1, bookings: state.bookings.map((b) => (b.id === id ? next : b)) } : state;
 }

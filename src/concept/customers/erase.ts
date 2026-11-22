@@ -1,8 +1,10 @@
 import { normalizePhone } from "../booking/lookup";
+import { returnRedemptions } from "../giftcards/cards";
 import { normalizeEmail } from "./csv";
 import type { Booking, Customer, DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { LogEntry } from "../log/types";
+import type { CheckoutHold } from "../booking/protection";
 
 // Erasure of one customer (GDPR art. 17), the final form of `customer/delete`.
 // `customer/delete` moves a customer and their records to the trash for 30
@@ -15,7 +17,7 @@ import type { LogEntry } from "../log/types";
 /** The stable marker for redacted values in the store's audit data (`tenant_action`, `tenant_effect`); never shown in the studio. */
 export const REDACTED = "[redacted]";
 
-type Identity = Pick<Customer, "id" | "firstName" | "lastName" | "phone" | "email">;
+type Identity = Pick<Customer, "id" | "firstName" | "lastName" | "phone" | "email"> & Partial<Pick<Customer, "earlier">>;
 
 /** Identifiers shorter than this are not scrubbed from free text, so a scrub never eats ordinary words. */
 const MIN_IDENTIFIER = 5;
@@ -28,9 +30,29 @@ export function customerIdentifiers(customer: Identity): string[] {
   const name = `${customer.firstName} ${customer.lastName}`.trim().replace(/\s+/g, " ");
   const phone = customer.phone.trim();
   const digits = normalizePhone(phone);
-  const values = [name, phone, digits.length >= 7 ? digits : "", customer.email.trim()];
+  const earlier = (customer.earlier ?? []).flatMap((value) => [value.trim(), phoneDigits(value)]);
+  const values = [name, phone, digits.length >= 7 ? digits : "", customer.email.trim(), ...earlier];
   // Longest first, so a full phone is replaced before its digits.
   return [...new Set(values.filter((value) => value.length >= MIN_IDENTIFIER))].sort((a, b) => b.length - a.length);
+}
+
+/** The normalized digits of every phone number the card has had. */
+export function customerPhoneDigits(customer: Identity): Set<string> {
+  return new Set([customer.phone, ...(customer.earlier ?? [])].map(phoneDigits).filter(Boolean));
+}
+
+/**
+ * True when an online checkout in progress is this customer's: its phone is one
+ * of theirs and either its address is theirs or its name is. A hold that only
+ * shares a phone number (a family line) is someone else's and stays out of both
+ * the export and the erasure.
+ */
+export function holdIsTheirs(hold: Pick<CheckoutHold, "guest">, customer: Identity): boolean {
+  if (!customerPhoneDigits(customer).has(phoneDigits(hold.guest.phone))) return false;
+  const emails = new Set([customer.email, ...(customer.earlier ?? [])].map(normalizeEmail).filter(Boolean));
+  const names = new Set([`${customer.firstName} ${customer.lastName}`, ...(customer.earlier ?? [])].map((n) => n.trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean));
+  const guestEmail = normalizeEmail(hold.guest.email);
+  return (!!guestEmail && emails.has(guestEmail)) || names.has(hold.guest.name.trim().replace(/\s+/g, " ").toLowerCase());
 }
 
 /** The customer, live or in the trash. */
@@ -195,8 +217,13 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
   // The customer's own visits are gone. Their account address leaves every other visit; an address typed on their visits may belong to someone else, so it stays there.
   const addresses = new Set([normalizeEmail(customer.email)].filter(Boolean));
   erased.bookings = withoutAddresses(erased.bookings, addresses);
+  // A cancelled visit's gift-card credit is only returned while the visit exists with that status; its redemption stays for the card's books, so the return is written into it before the visit goes.
+  const cancelled = new Set(state.bookings.filter((b) => theirs(b) && b.status === "cancelled").map((b) => b.id));
+  if (cancelled.size) erased.giftCards = returnRedemptions(erased.giftCards, cancelled);
   erased.customers = state.customers.filter((c) => c.id !== id);
-  erased.checkoutHolds = erased.checkoutHolds.filter((hold) => !digits || normalizePhone(hold.guest.phone) !== digits);
+  // By phone alone, as the booking lookup identifies customers: a hold in checkout is transient, so erasing one that only shares the number is the safe side. The export is stricter (`holdIsTheirs`) and sends those holds to the owner's review.
+  const phones = customerPhoneDigits(customer);
+  erased.checkoutHolds = erased.checkoutHolds.filter((hold) => !phones.has(phoneDigits(hold.guest.phone)));
   erased.trash = state.trash
     .filter((entry) => entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId))
     .map((entry) => entry.kind === "customer" ? { ...entry, bookings: withoutAddresses(entry.bookings, addresses) } : entry);

@@ -1,5 +1,5 @@
 import {
-  sweepActivityPersonalData, sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepOutboxBodies, sweepRateLimits,
+  sweepActivityPersonalData, sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepJournalAccessRows, sweepOutboxBodies, sweepRateLimits,
 } from "../src/concept/store/store-sweepers";
 import { createDatabaseClient } from "./database.mjs";
 
@@ -13,7 +13,8 @@ try {
     const outboxBodies = await sweepOutboxBodies({ prisma });
     const rateLimitRows = await sweepRateLimits({ prisma });
     const activityRows = await sweepActivityPersonalData({ prisma });
-    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, sandbox, outboxBodies, rateLimitRows, activityRows }));
+    const journalAccessRows = await sweepJournalAccessRows({ prisma });
+    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, sandbox, outboxBodies, rateLimitRows, activityRows, journalAccessRows }));
   } finally {
     await prisma.$disconnect();
   }

@@ -528,6 +528,8 @@ export class PostgresStudioStore implements StudioStore {
         const a = Buffer.from(known.fingerprint_hmac, "hex");
         const b = Buffer.from(fingerprint, "hex");
         if (a.length !== b.length || !timingSafeEqual(a, b)) return { done: { ok: false, reason: "idempotency-mismatch", version: locked.version } };
+        // A result erased with its customer: the change was committed, so it is never applied again, and its receipt is gone.
+        if ((known.result as { erased?: true }).erased) return { done: { ok: false, reason: "rejected", detail: "erased", version: locked.version } };
         return { done: { ok: true, ...known.result, replayed: true } };
       }
     }
@@ -654,7 +656,7 @@ export class PostgresStudioStore implements StudioStore {
    *   and reported in `inFlightMessages`, and its deliverer still records
    *   the true outcome. Other messages and delivered payments only lose the
    *   identifiers. Pending payments are kept so a refund still goes out.
-   * - `tenant_idempotency` rows whose stored result mentions them are deleted.
+   * - `tenant_idempotency` rows whose stored result mentions them keep their key and fingerprint but lose the result (a tombstone), so a retry is refused, not applied twice.
    *   Other keys keep protecting their retries.
    * - The document runs `customer/erase` like any apply (a new version and a
    *   log entry without the name), when it still holds the customer, live or
@@ -766,9 +768,12 @@ export class PostgresStudioStore implements StudioStore {
       await tx.$executeRaw`UPDATE tenant_effect SET payload = ${JSON.stringify(scrubbed)}::jsonb WHERE id = ${row.id}`;
       redactedEffects++;
     }
-    // Stored results are state copies: forget those that hold the customer, keep the rest.
-    const idempotencyKeys = await tx.$executeRaw`
-      DELETE FROM tenant_idempotency WHERE tenant_id = ${tenantId}
+    // Stored results are state copies: replace those that hold the customer with a tombstone, keep the rest. The key and fingerprint stay for their TTL.
+    // A key that itself holds an identifier cannot stay, so that row is deleted.
+    const deletedKeys = await tx.$executeRaw`
+      DELETE FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND key ILIKE ANY(${keyPatterns}::text[])`;
+    const idempotencyKeys = deletedKeys + await tx.$executeRaw`
+      UPDATE tenant_idempotency SET result = '{"erased": true}'::jsonb WHERE tenant_id = ${tenantId} AND NOT (result ? 'erased')
         AND (result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))`;
     return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
   }

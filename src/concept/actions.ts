@@ -720,7 +720,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "booking/update":
       return updateBooking(state, action.id, action.patch);
     case "customer/keep":
-      return keepCustomer(state, action.id, action.on);
+      return keepCustomer(state, action.id, action.on, now);
     case "journal/view":
       return recordJournalView(state, action, now);
     case "privacy/journal-retention":

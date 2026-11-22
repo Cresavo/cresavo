@@ -161,6 +161,8 @@ export interface Customer {
   example?: true;
   /** The day the owner reviewed this customer's retention and decided to keep them (see `privacy/retention.ts`). */
   keptOn?: DateKey;
+  /** Names, phone numbers and addresses this card had before a correction, kept so an erasure still finds them in old records. Erased with the card. */
+  earlier?: string[];
 }
 
 export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";

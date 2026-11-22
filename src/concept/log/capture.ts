@@ -33,11 +33,15 @@ export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta)
 
 export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: Pick<ReturnType<typeof demoPaymentLedger.stage>, "payments" | "hasPayments">): DemoState {
   if ((action.type === "salon/policy" || action.type === "booking/fee") && meta.actor !== "owner") return state;
-  const next = reduce(state, action, meta.at, batch.payments);
-  if (next === state || !isLogged(action)) return next;
-  const patch = diffStates(state, next);
+  // Entries older than the retention period lose their undo data before the change runs, so an undo of one cannot be the first change after the cutoff.
+  const aged = ageActivityLog(state.log, meta.at);
+  const current = aged === state.log ? state : { ...state, log: aged };
+  const next = reduce(current, action, meta.at, batch.payments);
+  if (next === current) return state;
+  if (!isLogged(action)) return next;
+  const patch = diffStates(current, next);
   if (!patch) return next;
-  const { summary, before, after } = describeAction(action, state, next);
+  const { summary, before, after } = describeAction(action, current, next);
   const entry: LogEntry = {
     ...meta,
     id: `l-${next.seq}`,
@@ -47,5 +51,5 @@ export function prepareAction(state: DemoState, action: DemoAction, meta: LogMet
     after,
     patch: NOT_UNDOABLE.has(action.type) || batch.hasPayments() ? undefined : patch,
   };
-  return { ...next, seq: next.seq + 1, log: ageActivityLog([entry, ...next.log].slice(0, LOG_LIMIT), meta.at) };
+  return { ...next, seq: next.seq + 1, log: [entry, ...next.log].slice(0, LOG_LIMIT) };
 }
