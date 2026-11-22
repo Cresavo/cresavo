@@ -7,7 +7,8 @@ import type { EmailMessage } from "../../src/concept/connections/ports/email";
 import { ok } from "../../src/concept/connections/core";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount, verifyOwnerCredentials } from "../../src/lib/owner-accounts";
-import { lockDurationMs } from "../../src/lib/owner-lockout";
+import { GUARD_PREFIXES, LOCK_THRESHOLD, lockDurationMs, loginGuard, mailboxQuota, postgresLoginGuard, postgresMailboxQuota } from "../../src/lib/owner-guard-store";
+import { sweepOwnerGuardBuckets } from "../../src/concept/store/store-sweepers";
 import { requestPasswordReset, resetPassword, RESET_TTL_MS, type ResetRegistry } from "../../src/lib/owner-password-reset";
 import {
   closeAllOwnerSessions, openOwnerSession, OWNER_COOKIE, OWNER_IDLE_MS, OWNER_SESSION_MS, ownerFromCookie, renewedOwnerCookie,
@@ -34,6 +35,9 @@ const password = "a long fictional passphrase";
 const newPassword = "another fictional passphrase";
 const START = new Date("2026-11-22T10:00:00.000Z");
 const minutes = (n: number) => n * 60_000;
+// The Postgres store reads the database clock, which the tests cannot move; the memory store follows the faked one.
+const sharedStore = process.env.RATE_LIMIT_STORE === "postgres";
+const withClock = sharedStore ? it.skip : it;
 
 async function account(name: string) {
   const result = await createOwnerAccount({ email: email(name), password, salonName: `Salong ${name}`, language: "en" });
@@ -76,7 +80,7 @@ afterAll(async () => {
 });
 
 describe("account lockout", () => {
-  it("locks after five wrong passwords and answers a locked account like a wrong password", async () => {
+  withClock("locks after five wrong passwords and answers a locked account like a wrong password", async () => {
     vi.setSystemTime(START);
     await account("lock");
     for (let n = 0; n < 4; n++) expect(await verifyOwnerCredentials({ email: email("lock"), password: "wrong password here" })).toBeNull();
@@ -98,7 +102,7 @@ describe("account lockout", () => {
     expect(await verifyOwnerCredentials({ email: email("clear"), password })).not.toBeNull();
   });
 
-  it("counts simultaneous failures as one lock-out and never lets a late guess through", async () => {
+  withClock("counts simultaneous failures as one lock-out and never lets a late guess through", async () => {
     vi.setSystemTime(START);
     await account("burst");
     // Four at a time is what the password hasher admits; three rounds cross the threshold of five more than once.
@@ -116,7 +120,7 @@ describe("account lockout", () => {
     expect(mixed.filter((m) => m !== null)).toHaveLength(1);
   });
 
-  it("doubles the lock each time within a day", async () => {
+  withClock("doubles the lock each time within a day", async () => {
     expect([1, 2, 3, 4, 5, 6, 7].map((n) => lockDurationMs(n) / minutes(1))).toEqual([15, 30, 60, 120, 240, 480, 480]);
     vi.setSystemTime(START);
     await account("backoff");
@@ -155,6 +159,68 @@ describe("account lockout", () => {
     expect(unknown).toEqual({ status: 401, body: { error: "invalid_credentials" } });
     expect(wrong).toEqual(unknown);
     expect(locked).toEqual(unknown);
+  });
+});
+
+describe("owner guard in Postgres", () => {
+  const guard = postgresLoginGuard();
+  const quota = postgresMailboxQuota();
+  const strikeRows = () => db.rateLimitBucket.findMany({ where: { key: { startsWith: "strike:" } }, select: { count: true } });
+
+  it("locks on the fifth failure, refuses success while locked and lifts on request", async () => {
+    const who = email("pg-lock");
+    for (let n = 1; n < LOCK_THRESHOLD; n++) await guard.failed(who);
+    expect(await guard.locked(who)).toBe(false);
+    await guard.failed(who);
+    expect(await guard.locked(who)).toBe(true);
+    expect(await guard.succeeded(who)).toBe(false);
+    await guard.lift(who);
+    expect(await guard.locked(who)).toBe(false);
+    expect(await guard.succeeded(who)).toBe(true);
+  });
+
+  it("records one strike for a burst of simultaneous failures, and a success clears the count atomically", async () => {
+    const who = email("pg-burst");
+    const before = (await strikeRows()).length;
+    await Promise.all(Array.from({ length: 20 }, () => guard.failed(who)));
+    expect(await guard.locked(who)).toBe(true);
+    const after = await strikeRows();
+    expect(after.length).toBe(before + 1);
+    expect(after.every((row) => row.count === 1)).toBe(true);
+    await guard.lift(who);
+    const other = email("pg-clear");
+    for (let n = 0; n < 4; n++) await guard.failed(other);
+    expect(await guard.succeeded(other)).toBe(true);
+    for (let n = 0; n < 4; n++) await guard.failed(other);
+    expect(await guard.locked(other)).toBe(false);
+  });
+
+  it("spends the mailbox quota only when told and keeps its rows apart from ordinary buckets", async () => {
+    const who = email("pg-quota");
+    for (let n = 0; n < 10; n++) expect(await quota.available(who)).toBe(true);
+    for (let n = 0; n < 3; n++) await quota.spend(who);
+    expect(await quota.available(who)).toBe(false);
+    const rows = await db.rateLimitBucket.findMany({ select: { key: true } });
+    expect(rows.some((row) => row.key.startsWith("mbx:"))).toBe(true);
+    expect(GUARD_PREFIXES).toEqual(["acct:", "strike:", "lock:", "mbx:"]);
+    expect(loginGuard()).toBeDefined();
+    expect(mailboxQuota()).toBeDefined();
+  });
+
+  it("sweeps expired guard rows and leaves active ones and other buckets alone", async () => {
+    const past = new Date("2020-01-01T00:00:00Z");
+    const future = new Date("2100-01-01T00:00:00Z");
+    const keys = { gone: `lock:sweep-expired-${run}`, kept: `lock:sweep-active-${run}`, other: `sweep-other-${run}` };
+    await db.rateLimitBucket.createMany({ data: [
+      { key: keys.gone, generation: "", count: 1, expiresAt: past },
+      { key: keys.kept, generation: "", count: 1, expiresAt: future },
+      { key: keys.other, generation: "", count: 1, expiresAt: past },
+    ] });
+    const removed = await sweepOwnerGuardBuckets({ prisma: db });
+    expect(removed).toBeGreaterThanOrEqual(1);
+    const left = (await db.rateLimitBucket.findMany({ where: { key: { in: Object.values(keys) } }, select: { key: true } })).map((r) => r.key).sort();
+    expect(left).toEqual([keys.kept, keys.other].sort());
+    await db.rateLimitBucket.deleteMany({ where: { key: { in: Object.values(keys) } } });
   });
 });
 
@@ -281,19 +347,42 @@ describe("password reset", () => {
     expect(sent).toHaveLength(3);
   });
 
-  it("does not send the link through a provider that cannot turn link tracking off", async () => {
+  it("does not send the link through a provider that cannot turn link tracking off, and spends no quota on it", async () => {
     const { registry, sent } = recordingRegistry(true);
-    const resolve = registry.resolve;
-    const resend: ResetRegistry = { resolve: async (port, business) => { const r = await resolve(port, business); r.adapter.info.provider = "resend"; return r; } };
+    const resend: ResetRegistry = {
+      resolve: async (port, business) => {
+        const r = await registry.resolve(port, business);
+        return { ...r, adapter: { ...r.adapter, info: { ...r.adapter.info, provider: "resend" } } };
+      },
+    };
     await account("tracking");
-    await requestPasswordReset({ email: email("tracking") }, resend, START.getTime());
+    const at = START.getTime();
+    for (let n = 0; n < 5; n++) await requestPasswordReset({ email: email("tracking") }, resend, at + n);
     expect(sent).toHaveLength(0);
+    // With the opt-in it goes, and spends one of the three.
     vi.stubEnv("OWNER_RESET_TRACKING_OFF", "1");
-    await requestPasswordReset({ email: email("tracking") }, resend, START.getTime());
+    await requestPasswordReset({ email: email("tracking") }, resend, at + 10);
     vi.unstubAllEnvs();
     vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
     vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "book.example");
     expect(sent).toHaveLength(1);
+    // The five blocked requests spent nothing: two more of the three remain on a provider that may send.
+    for (let n = 0; n < 5; n++) await requestPasswordReset({ email: email("tracking") }, registry, at + 20 + n);
+    expect(sent).toHaveLength(3);
+  });
+
+  it("spends no quota on a failed send", async () => {
+    const { registry, sent } = recordingRegistry(true);
+    const failing: ResetRegistry = {
+      resolve: async (port, business) => {
+        const r = await registry.resolve(port, business);
+        return { ...r, adapter: { ...r.adapter, send: async () => ({ ok: false as const, error: { code: "provider_unavailable" } as never }) } };
+      },
+    };
+    await account("failing");
+    for (let n = 0; n < 5; n++) await requestPasswordReset({ email: email("failing") }, failing, START.getTime() + n);
+    for (let n = 0; n < 5; n++) await requestPasswordReset({ email: email("failing") }, registry, START.getTime() + 10 + n);
+    expect(sent).toHaveLength(3);
   });
 
   describe("routes", () => {

@@ -1,6 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { DomainError } from "./errors";
-import { checkRateLimit } from "./rate-limit";
+import { loginGuard, mailboxQuota } from "./owner-guard-store";
 import { z } from "zod";
 import { BRAND } from "@/concept/brand";
 import { translate } from "@/concept/i18n";
@@ -9,7 +8,6 @@ import type { EmailPort } from "@/concept/connections/ports/email";
 import { productDomain } from "@/concept/page/address";
 import { db } from "./db";
 import { ownerEmailSchema } from "./owner-accounts";
-import { clearAccountLock } from "./owner-lockout";
 import { hashPassword, newPasswordSchema } from "./password";
 import { closeAllOwnerSessions } from "./owner-session";
 import { assertWritable } from "./public-readonly";
@@ -77,9 +75,9 @@ function resetEmail(language: Locale, link: string | undefined) {
  * Sends the reset e-mail when an active account has this address; does nothing otherwise, and never says which.
  * Simulated unless the e-mail connection is live: a simulated message names the account by reference and carries
  * no link, so nothing that opens a reset is ever recorded. Failures are logged without detail and swallowed, so
- * the caller's answer is the same either way. The mailbox quota (3 per 15 minutes) is charged here, once the
- * address is known to be valid and to have an account, so requests that send nothing never use it up; over the
- * quota the request is dropped silently, with the same answer.
+ * the caller's answer is the same either way. The mailbox quota (3 per 15 minutes, in a store of its own with
+ * its own small cap) is spent only when a mail was actually sent: discarded requests, blocked sends and failed
+ * sends spend nothing. Over the quota the request is dropped silently, with the same answer.
  */
 export async function requestPasswordReset(input: unknown, registry: ResetRegistry = (defaultRegistry ??= createRegistry()), now = Date.now()) {
   assertWritable();
@@ -90,12 +88,8 @@ export async function requestPasswordReset(input: unknown, registry: ResetRegist
     select: { id: true, email: true, tenantId: true, active: true, credentialVersion: true, passwordHash: true },
   });
   if (!account?.active) return;
-  try {
-    await checkRateLimit("password-reset-email", account.email);
-  } catch (error) {
-    if (error instanceof DomainError && error.status === 429) return;
-    throw error;
-  }
+  const quota = mailboxQuota();
+  if (!(await quota.available(account.email))) return;
   try {
     const tenant = await db.tenantState.findUnique({ where: { tenantId: account.tenantId }, select: { doc: true } });
     const language = (tenant?.doc as { localization?: { language?: unknown } } | null)?.localization?.language === "sv" ? "sv" : "en";
@@ -111,7 +105,8 @@ export async function requestPasswordReset(input: unknown, registry: ResetRegist
       from: `"${BRAND.name}" <accounts@${productDomain()}>`,
       ...mail, language, idempotencyKey: `owner-reset:${account.id}:${now}`, tracking: false,
     });
-    if (!result.ok) console.warn(`[owner-password-reset] the e-mail was not sent: ${result.error.code}`);
+    if (result.ok) await quota.spend(account.email);
+    else console.warn(`[owner-password-reset] the e-mail was not sent: ${result.error.code}`);
   } catch {
     console.warn("[owner-password-reset] the e-mail was not sent");
   }
@@ -143,6 +138,6 @@ export async function resetPassword(input: unknown, now = Date.now()): Promise<R
   });
   if (updated.count !== 1) return { ok: false, reason: "invalid_token" };
   await closeAllOwnerSessions(id, now);
-  await clearAccountLock(account.email);
+  await loginGuard().lift(account.email);
   return { ok: true };
 }

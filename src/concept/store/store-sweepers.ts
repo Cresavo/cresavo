@@ -39,6 +39,22 @@ export async function sweepExpiredIdempotency({ prisma, now, batch }: SweepOptio
     WHERE i.tenant_id = e.tenant_id AND i.key = e.key`);
 }
 
+/**
+ * Deletes expired owner sign-in lock state and reset-mail quota rows (the `acct:`, `strike:`, `lock:` and `mbx:`
+ * keys of owner-guard-store.ts, kept in the shared rate-limit table). Active rows are never touched.
+ */
+export async function sweepOwnerGuardBuckets({ prisma, now, batch }: SweepOptions): Promise<number> {
+  const limit = batchSize(batch);
+  const cutoff = await (now ? now() : databaseClock(prisma));
+  return sweepRows(limit, () => prisma.$executeRaw`
+    DELETE FROM "RateLimitBucket" WHERE "key" IN (
+      SELECT "key" FROM "RateLimitBucket"
+      WHERE "expiresAt" <= to_timestamp(${cutoff}::float8 / 1000)
+        AND ("key" LIKE 'acct:%' OR "key" LIKE 'strike:%' OR "key" LIKE 'lock:%' OR "key" LIKE 'mbx:%')
+      ORDER BY "expiresAt", "key" LIMIT ${limit}
+    )`);
+}
+
 export async function sweepDemoActions({ prisma, now, batch }: SweepOptions): Promise<number> {
   const limit = batchSize(batch);
   const cutoff = await (now ? now() : databaseClock(prisma)) - DEMO_LOG_RETENTION_MS;

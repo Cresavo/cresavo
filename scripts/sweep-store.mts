@@ -1,4 +1,4 @@
-import { sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes } from "../src/concept/store/store-sweepers";
+import { sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepOwnerGuardBuckets } from "../src/concept/store/store-sweepers";
 import { createDatabaseClient } from "./database.mjs";
 
 try {
@@ -7,7 +7,8 @@ try {
     const sandbox = await sweepExpiredSandboxes({ prisma });
     const expiredIdempotencyKeys = await sweepExpiredIdempotency({ prisma });
     const demoActions = await sweepDemoActions({ prisma });
-    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, sandbox }));
+    const ownerGuardBuckets = await sweepOwnerGuardBuckets({ prisma });
+    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox }));
   } finally {
     await prisma.$disconnect();
   }
