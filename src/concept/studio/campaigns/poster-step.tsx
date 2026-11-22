@@ -7,8 +7,8 @@ import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
 import { NEUTRAL_TONE } from "../../campaigns/poster-engine/tone";
 import { GOAL_STYLES } from "../../campaigns/goals";
 import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
-import { headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, usesPhoto, WELLNESS_BADGES } from "../../campaigns/poster-layout";
-import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
+import { ARRANGEABLE_STYLES, headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, usesPhoto, WELLNESS_BADGES } from "../../campaigns/poster-layout";
+import type { DemoState, PosterArrangement, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
 import { t } from "../../i18n";
 import { Button, buttonClass } from "../../ui/button";
 import { cx } from "../../ui/cx";
@@ -22,6 +22,7 @@ import { ToneControls } from "./tone-controls";
 const FORMATS = Object.keys(POSTER_FORMATS) as PosterFormat[];
 const TEXT_SIZES: PosterTextSize[] = ["small", "normal", "large"];
 const FOCUSES: PosterFocus[] = ["top", "center", "bottom"];
+const ARRANGEMENTS: PosterArrangement[] = ["standard", "mirrored"];
 
 interface PosterStepProps {
   state: DemoState;
@@ -164,6 +165,17 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           onChange={(textSize) => edit({ textSize })}
           options={TEXT_SIZES.map((value) => ({ value, label: t(`campaigns.textSize.${value}`) }))}
         />
+        {ARRANGEABLE_STYLES.includes(draft.style) && (
+          <>
+            <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.arrangement")}</span>
+            <Segmented<PosterArrangement>
+              label={t("campaigns.poster.arrangement")}
+              value={poster.arrangement ?? "standard"}
+              onChange={(arrangement) => edit({ arrangement })}
+              options={ARRANGEMENTS.map((value) => ({ value, label: t(draft.style === "fullphoto" ? `campaigns.arrangement.fullphoto.${value}` : `campaigns.arrangement.${value}`) }))}
+            />
+          </>
+        )}
         {withPhoto && (
           <>
             <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.focus")}</span>

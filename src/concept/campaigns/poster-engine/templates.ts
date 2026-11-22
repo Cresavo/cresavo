@@ -53,6 +53,8 @@ export const posterDataSchema = z.object({
   cutout: z.boolean().default(false),
   focus: z.enum(["top", "center", "bottom"]).default("center"),
   textSize: z.enum(["small", "normal", "large"]).default("normal"),
+  /** Price, Portrait, Full photo and Before/after: the mirrored arrangement; the other templates ignore it. */
+  arrangement: z.enum(["standard", "mirrored"]).default("standard"),
   colors: z.object({ accent: colour, ink: colour, background: colour }).strict(),
   serifHeadings: z.boolean().default(false),
   signature: z.object({
@@ -148,8 +150,15 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
   const { accent, ink, background } = data.colors;
   const scale = SCALE[data.textSize];
   const onAccent = onColour(accent);
+  const mirrored = data.arrangement === "mirrored";
   const waveTop = Math.round(height * 0.28);
   const photoWidth = Math.round(width * 0.52);
+  // The text column: left of the photo, or right of it when mirrored (the photo then sits on the left edge).
+  const textWidth = width - photoWidth - 40;
+  const textLeft = mirrored ? photoWidth - 24 : 64;
+  // Mirrored, the text column ends at the poster edge: the longest word shrinks to fit it instead of running off.
+  const longest = Math.max(1, ...data.headline.split(/\s+/).map((word) => word.length));
+  const headlineSize = mirrored ? Math.min(Math.round(112 * scale), Math.floor(textWidth / (longest * 0.6))) : Math.round(112 * scale);
   // Heavy digits are about 0.6 em wide; the price may reach a little over the photo, never across it.
   const priceTop = waveTop + (data.sticker ? 250 : 130);
   const priceSize = Math.min(Math.round(220 * scale), Math.floor((width - photoWidth + 60) / (Math.max(3, data.price.length) * 0.6)));
@@ -158,16 +167,16 @@ function priceTemplate(data: PosterData, width: number, height: number): PosterN
   // The badges sit just above the signature; the detail gets the lines that fit above them.
   const badgesTop = height - 290;
   const detailLines = data.badges.length ? Math.max(1, Math.min(4, Math.floor((badgesTop - 16 - detailTop) / (detailSize * 1.25)))) : 4;
-  const wave = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height - waveTop}" viewBox="0 0 ${width} ${height - waveTop}" preserveAspectRatio="none"><path d="M0 60 C ${width * 0.24} -10, ${width * 0.48} 140, ${width} 40 V${height - waveTop} H0Z" fill="${accent}"/></svg>`;
+  const wave = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height - waveTop}" viewBox="0 0 ${width} ${height - waveTop}" preserveAspectRatio="none"><path ${mirrored ? `transform="translate(${width} 0) scale(-1 1)" ` : ""}d="M0 60 C ${width * 0.24} -10, ${width * 0.48} 140, ${width} 40 V${height - waveTop} H0Z" fill="${accent}"/></svg>`;
   return box({ width, height, position: "relative", background, fontFamily: "Inter" },
     svgImage(wave, { position: "absolute", left: 0, top: waveTop, width, height: height - waveTop }),
-    image(photoOf(data), { position: "absolute", right: -40, top: Math.round(height * 0.09), width: photoWidth, height: Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
-    text({ position: "absolute", left: 64, top: 90, width: width - photoWidth - 40, ...headingFont(data), fontSize: Math.round(112 * scale), lineHeight: 0.95, color: onColour(background) === WHITE ? WHITE : ink }, data.headline),
-    text({ position: "absolute", left: 56, top: priceTop, fontFamily: "Inter Display", fontWeight: 900, fontSize: priceSize, letterSpacing: -6, color: onAccent, textShadow: `12px 12px 0 ${onAccent === WHITE ? ink : WHITE}` }, data.price),
-    ...(data.sticker ? [box({ position: "absolute", left: width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
+    image(photoOf(data), { position: "absolute", ...(mirrored ? { left: -40 } : { right: -40 }), top: Math.round(height * 0.09), width: photoWidth, height: Math.round(height * 0.91), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${photoWidth / 2}px ${photoWidth / 2}px 0 0` }),
+    text({ position: "absolute", left: textLeft, top: 90, width: textWidth, ...headingFont(data), fontSize: headlineSize, lineHeight: 0.95, color: onColour(background) === WHITE ? WHITE : ink }, data.headline),
+    text({ position: "absolute", ...(mirrored ? { right: 76 } : { left: 56 }), top: priceTop, fontFamily: "Inter Display", fontWeight: 900, fontSize: priceSize, letterSpacing: -6, color: onAccent, textShadow: `12px 12px 0 ${onAccent === WHITE ? ink : WHITE}` }, data.price),
+    ...(data.sticker ? [box({ position: "absolute", left: mirrored ? photoWidth - 60 : width - photoWidth - 150, top: waveTop + 20, width: 210, height: 210, borderRadius: 999, background: HIGHLIGHT, color: "#111111", transform: "rotate(-12deg)", flexDirection: "column", alignItems: "center", justifyContent: "center", fontWeight: 800 },
       text({ fontSize: 32 }, data.sticker[0]), text({ fontSize: 52 }, data.sticker[1]))] : []),
-    text({ position: "absolute", left: 64, top: detailTop, width: width - photoWidth - 40, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: detailLines }, data.detail),
-    ...(data.badges.length ? [badgeRow(data.badges, onAccent, badgeSize(data.badges, width - photoWidth - 40), { position: "absolute", left: 64, top: badgesTop, width: width - photoWidth - 40, height: 64, overflow: "hidden" })] : []),
+    text({ position: "absolute", left: textLeft, top: detailTop, width: textWidth, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, color: onAccent, lineClamp: detailLines }, data.detail),
+    ...(data.badges.length ? [badgeRow(data.badges, onAccent, badgeSize(data.badges, textWidth), { position: "absolute", left: textLeft, top: badgesTop, width: textWidth, height: 64, overflow: "hidden" })] : []),
     signature(data, width, onAccent));
 }
 
@@ -267,6 +276,7 @@ function beforeAfterTemplate(data: PosterData, width: number, height: number): P
   const { accent, ink, background } = data.colors;
   const scale = SCALE[data.textSize];
   const tall = isStory(width, height);
+  const mirrored = data.arrangement === "mirrored";
   // In a story the dark footer also covers the bottom bar, and the signature sits above it.
   const footer = tall ? 250 + STORY_SAFE.bottom - 56 : 250;
   const gap = 24;
@@ -285,23 +295,25 @@ function beforeAfterTemplate(data: PosterData, width: number, height: number): P
     ? { width: width - 128, height: Math.round((photosBottom - photoTop - gap) / 2) }
     : { width: Math.round((width - 128 - gap) / 2), height: photosBottom - photoTop };
   const at = (index: number) => (tall ? { left: 64, top: photoTop + index * (slot.height + gap) } : { left: 64 + index * (slot.width + gap), top: photoTop });
-  const tag = (label: string, index: number) => {
+  // Mirrored, the "after" photo comes first; each label stays with its own photo.
+  const shots = [{ src: data.before ?? photoOf(data), label: data.pair[0], after: false }, { src: photoOf(data), label: data.pair[1], after: true }];
+  if (mirrored) shots.reverse();
+  const tag = ({ label, after }: (typeof shots)[number], index: number) => {
     const { left, top } = at(index);
-    const fill = index ? accent : WHITE;
-    return text({ position: "absolute", left: left + 24, top: top + slot.height - 92, background: fill, color: index ? onColour(accent) : "#111111", fontWeight: 800, fontSize: 32, letterSpacing: 4, padding: "10px 24px", borderRadius: 999 }, label.toUpperCase());
+    return text({ position: "absolute", left: left + 24, top: top + slot.height - 92, background: after ? accent : WHITE, color: after ? onColour(accent) : "#111111", fontWeight: 800, fontSize: 32, letterSpacing: 4, padding: "10px 24px", borderRadius: 999 }, label.toUpperCase());
   };
-  const photoAt = (src: string, index: number) =>
+  const photoAt = ({ src }: (typeof shots)[number], index: number) =>
     image(src, { position: "absolute", ...at(index), width: slot.width, height: slot.height, objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: 32 });
+  // The arrow always points from the before photo to the after photo.
+  const arrowTurn = tall ? (mirrored ? -90 : 90) : mirrored ? 180 : 0;
   const middle = tall
     ? { left: Math.round(width / 2 - 48), top: photoTop + slot.height + gap / 2 - 48 }
     : { left: Math.round(width / 2 - 48), top: photoTop + Math.round(slot.height / 2) - 48 };
   return box({ width, height, position: "relative", background, fontFamily: "Inter", color: onBackground },
     text({ position: "absolute", left: 64, top: headlineTop, width: width - 128, ...headingFont(data), display: "block", fontSize: headlineSize, lineHeight: 1, lineClamp: 2 }, data.headline),
-    photoAt(data.before ?? photoOf(data), 0),
-    photoAt(photoOf(data), 1),
-    tag(data.pair[0], 0),
-    tag(data.pair[1], 1),
-    box({ position: "absolute", ...middle, width: 96, height: 96, borderRadius: 999, background: HIGHLIGHT, color: "#111111", alignItems: "center", justifyContent: "center", fontSize: 52, fontWeight: 800, transform: tall ? "rotate(90deg)" : "none" }, text({}, "→")),
+    ...shots.map(photoAt),
+    ...shots.map(tag),
+    box({ position: "absolute", ...middle, width: 96, height: 96, borderRadius: 999, background: HIGHLIGHT, color: "#111111", alignItems: "center", justifyContent: "center", fontSize: 52, fontWeight: 800, transform: arrowTurn ? `rotate(${arrowTurn}deg)` : "none" }, text({}, "→")),
     text({ position: "absolute", left: 64, top: photosBottom + 30, width: width - 128, fontSize: detailSize, fontWeight: 600, lineHeight: 1.25, lineClamp: 2 }, data.detail),
     ...(tall && data.cta ? [box({ position: "absolute", left: 64, top: photosBottom + 30 + detailHeight + 30 }, button(data.cta, ink, onColour(ink)))] : []),
     box({ position: "absolute", left: 0, bottom: 0, width, height: footer, background: ink }),
@@ -321,11 +333,11 @@ export function pngSize(dataUrl: string): { width: number; height: number } | nu
 const HEAD_SHARE = 0.45;
 
 /**
- * Where a cut-out person stands: on the bottom edge, right of centre. When the head can stay above the
+ * Where a cut-out person stands: on the bottom edge, right of centre (left of centre when `mirrored`). When the head can stay above the
  * text block (the person grows to at most 95 % of the height), `clear` is true and the headline may run
  * the full width; otherwise the person stays at 80 % and the text keeps to the left column.
  */
-export function cutoutPlacement(size: { width: number; height: number }, width: number, height: number, textTop: number) {
+export function cutoutPlacement(size: { width: number; height: number }, width: number, height: number, textTop: number, mirrored = false) {
   const aspect = size.width / Math.max(1, size.height);
   const needed = (height - textTop + 24) / (1 - HEAD_SHARE);
   const clear = needed <= Math.min(height * 0.95, (width * 0.66) / aspect);
@@ -334,7 +346,8 @@ export function cutoutPlacement(size: { width: number; height: number }, width: 
   const wide = Math.round(tall * aspect);
   // Centred at 74 % of the width, never further left than 40 %, so the face sits right of the text column.
   const left = Math.max(Math.round(width * 0.4), Math.round(width * 0.74 - wide / 2));
-  return { clear, left, top: height - tall, width: wide, height: tall };
+  // Mirrored, the person stands bottom left and the text column is on the right.
+  return { clear, left: mirrored ? width - left - wide : left, top: height - tall, width: wide, height: tall };
 }
 
 const CREAM = "#fdf3e6";
@@ -346,6 +359,9 @@ const GOLD = "#ffd27a";
  */
 function portraitTemplate(data: PosterData, width: number, height: number): PosterNode {
   const scale = SCALE[data.textSize];
+  const mirrored = data.arrangement === "mirrored";
+  /** An offset from the side where the text starts: the left edge, or the right edge when mirrored. */
+  const side = (offset: number): Style => (mirrored ? { right: offset } : { left: offset });
   const column = Math.round(width * 0.58);
   // Stories keep text out of the app's own bars: 270 px at the top and 390 px at the bottom of 1920.
   const tall = isStory(width, height);
@@ -359,7 +375,7 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
   const textBottom = height - (safe + 190);
   const textTop = textBottom - (data.lead ? leadSize : 0) - 6 - Math.round(headlineSize * 0.98)
     - (data.badges.length ? 18 + 54 : 0) - (data.detail ? 28 + bodySize * 1.25 * 2 : 0) - (data.cta ? 14 + bodySize * 1.25 : 0);
-  const placement = data.cutout ? cutoutPlacement(pngSize(photoOf(data)) ?? { width: 3, height: 4 }, width, height, textTop) : null;
+  const placement = data.cutout ? cutoutPlacement(pngSize(photoOf(data)) ?? { width: 3, height: 4 }, width, height, textTop, mirrored) : null;
   // A headline that would cross the face keeps to the left column, set smaller to fit its longest word.
   const keepLeft = placement ? !placement.clear : false;
   const longest = Math.max(6, ...data.headline.split(/\s+/).map((word) => word.length));
@@ -367,25 +383,25 @@ function portraitTemplate(data: PosterData, width: number, height: number): Post
   const person = placement
     ? image(photoOf(data), { position: "absolute", left: placement.left, top: placement.top, width: placement.width, height: placement.height, objectFit: "cover", objectPosition: "50% 0%" })
     // The arch ends above the text block, so the headline never runs across a face.
-    : image(photoOf(data), { position: "absolute", left: column + 12, top: top + 30, width: width - column - 12, height: Math.round(height * (tall ? 0.36 : 0.34)), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: `${(width - column) / 2}px 0 0 ${(width - column) / 2}px`, border: `8px solid ${GOLD}`, borderRight: "none" });
+    : image(photoOf(data), { position: "absolute", ...(mirrored ? { left: 0 } : { left: column + 12 }), top: top + 30, width: width - column - 12, height: Math.round(height * (tall ? 0.36 : 0.34)), objectFit: "cover", objectPosition: CROP[data.focus], borderRadius: mirrored ? `0 ${(width - column) / 2}px ${(width - column) / 2}px 0` : `${(width - column) / 2}px 0 0 ${(width - column) / 2}px`, border: `8px solid ${GOLD}`, ...(mirrored ? { borderLeft: "none" } : { borderRight: "none" }) });
   return box({ width, height, position: "relative", fontFamily: "Inter", color: CREAM },
     svgImage(backdropSvg(data.backdrop, width, height, data.colors.accent), { position: "absolute", left: 0, top: 0, width, height }),
     person,
-    // Dark scrims behind the text, strongest on the left where the lines are, so light text stays readable
-    // over the photo and the art while the person on the right keeps their colour.
-    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 75%)" }),
+    // Dark scrims behind the text, strongest on the side of the lines (left, or right when mirrored), so light text stays readable
+    // over the photo and the art while the person on the other side keeps their colour.
+    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to ${mirrored ? "left" : "right"}, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 75%)` }),
     box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) ${Math.round(((safe + 190) / height) * 100)}%, rgba(0,0,0,0) 60%)` }),
-    text({ position: "absolute", left: 64, top, maxWidth: column - 64, fontFamily: "Caladea", fontSize: 64, lineHeight: 1, textShadow: shadow }, data.signature.salon),
+    text({ position: "absolute", ...side(64), top, maxWidth: column - 64, fontFamily: "Caladea", fontSize: 64, lineHeight: 1, textShadow: shadow }, data.signature.salon),
     // The text block grows upwards from the footer, so short and long texts both end in the same place.
-    box({ position: "absolute", left: 64, bottom: safe + 190, width: width - 128, flexDirection: "column", textShadow: shadow },
+    box({ position: "absolute", left: 64, bottom: safe + 190, width: width - 128, flexDirection: "column", textShadow: shadow, ...(mirrored && { alignItems: "flex-end", textAlign: "right" }) },
       ...(data.lead ? [text({ fontFamily: "Inter Display", fontWeight: 900, fontSize: leadSize, letterSpacing: -2, lineHeight: 1, maxWidth: column }, data.lead)] : []),
       text({ display: "block", fontFamily: "Inter Display", fontWeight: 900, fontSize: headline, letterSpacing: -4, lineHeight: 0.98, marginTop: 6, lineClamp: 2, ...(keepLeft && { maxWidth: column }) }, data.headline),
-      ...(data.badges.length ? [badgeRow(data.badges, CREAM, badgeSize(data.badges, column) + 4, { marginTop: 18, maxWidth: column })] : []),
+      ...(data.badges.length ? [badgeRow(data.badges, CREAM, badgeSize(data.badges, column) + 4, { marginTop: 18, maxWidth: column, ...(mirrored && { justifyContent: "flex-end" }) })] : []),
       ...(data.detail ? [text({ display: "block", fontSize: bodySize, fontWeight: 600, lineHeight: 1.25, marginTop: 28, maxWidth: column, lineClamp: 2 }, data.detail)] : []),
       ...(data.cta ? [text({ fontSize: bodySize, fontWeight: 600, color: GOLD, marginTop: 14, maxWidth: column }, data.cta)] : [])),
-    box({ position: "absolute", left: 64, bottom: safe + 104, width: width - 128 - (data.signature.qr ? 170 : 0), height: 2, background: CREAM, opacity: 0.4 }),
-    text({ display: "block", position: "absolute", left: 64, bottom: safe + 40, maxWidth: width - 128 - 180, fontSize: 36, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: shadow }, [data.signature.link, data.signature.phone].filter(Boolean).join("  ·  ")),
-    ...(data.signature.qr ? [box({ position: "absolute", right: 64, bottom: safe }, qrCode(data.signature.qr, 150))] : []));
+    box({ position: "absolute", ...side(64), bottom: safe + 104, width: width - 128 - (data.signature.qr ? 170 : 0), height: 2, background: CREAM, opacity: 0.4 }),
+    text({ display: "block", position: "absolute", ...side(64), bottom: safe + 40, maxWidth: width - 128 - 180, fontSize: 36, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textShadow: shadow }, [data.signature.link, data.signature.phone].filter(Boolean).join("  ·  ")),
+    ...(data.signature.qr ? [box({ position: "absolute", ...(mirrored ? { left: 64 } : { right: 64 }), bottom: safe }, qrCode(data.signature.qr, 150))] : []));
 }
 
 /**
@@ -426,18 +442,27 @@ function fullPhotoTemplate(data: PosterData, width: number, height: number): Pos
   const room = width - 128;
   const { size, lines } = fitHeadline(data.headline, room, Math.round(150 * scale), Math.round(72 * scale), 2);
   const shadow = "0 3px 18px rgba(0,0,0,0.45)";
+  const mirrored = data.arrangement === "mirrored";
   const bottom = tall ? STORY_SAFE.bottom + 40 : 64;
+  const top = tall ? STORY_SAFE.top + 20 : 64;
+  // Mirrored, the text block starts at the top (below a story's top bar) and the salon's chip sits at the bottom.
+  const blockEdge: Style = mirrored ? { top } : { bottom };
+  const chipEdge: Style = mirrored ? { bottom } : { top };
   const lineSize = Math.round(44 * scale);
   const line = data.price || data.detail;
-  // The text block's height, estimated from its parts, tells where the scrim has to start: strong from the headline's first line (the contact row is as tall as the QR code when there is one).
+  // The text block's height, estimated from its parts, tells where the scrim has to start (or, mirrored, end): strong over the whole block (the contact row is as tall as the QR code when there is one).
   const contactRow = data.signature.qr ? QR_SMALL : 40;
-  const blockTop = height - bottom - 32 - contactRow - (data.cta ? 36 + 88 : 0) - (line ? 24 + lineSize * 1.25 : 0) - Math.round(size * 0.98 * lines);
+  const blockHeight = 32 + contactRow + (data.cta ? 36 + 88 : 0) + (line ? 24 + lineSize * 1.25 : 0) + Math.round(size * 0.98 * lines);
+  const blockTop = height - bottom - blockHeight;
   const percent = (y: number) => Math.max(0, Math.round((y / height) * 100));
+  const scrim = mirrored
+    ? `linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.8) ${percent(top + blockHeight)}%, rgba(0,0,0,0) ${percent(top + blockHeight + height * 0.12)}%)`
+    : `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop)}%, rgba(0,0,0,0.9) 100%)`;
   return box({ width, height, position: "relative", fontFamily: "Inter", color: WHITE },
     image(photoOf(data), { position: "absolute", left: 0, top: 0, width, height, objectFit: "cover", objectPosition: CROP[data.focus] }),
-    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0) ${percent(blockTop - height * 0.12)}%, rgba(0,0,0,0.8) ${percent(blockTop)}%, rgba(0,0,0,0.9) 100%)` }),
-    text({ position: "absolute", left: 64, top: tall ? STORY_SAFE.top + 20 : 64, maxWidth: room, background: "rgba(255,255,255,0.82)", color: "#111111", fontFamily: "Caladea", fontSize: 38, lineHeight: 1, padding: "12px 26px", borderRadius: 999, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, data.signature.salon),
-    box({ position: "absolute", left: 64, bottom, width: room, flexDirection: "column", alignItems: "flex-start", textShadow: shadow },
+    box({ position: "absolute", left: 0, top: 0, width, height, backgroundImage: scrim }),
+    text({ position: "absolute", left: 64, ...chipEdge, maxWidth: room, background: "rgba(255,255,255,0.82)", color: "#111111", fontFamily: "Caladea", fontSize: 38, lineHeight: 1, padding: "12px 26px", borderRadius: 999, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, data.signature.salon),
+    box({ position: "absolute", left: 64, ...blockEdge, width: room, flexDirection: "column", alignItems: "flex-start", textShadow: shadow },
       text({ display: "block", width: room, fontFamily: "Inter Display", fontWeight: 900, letterSpacing: -4, fontSize: size, lineHeight: 0.98, lineClamp: lines }, data.headline),
       ...(line ? [text({ display: "block", width: room, fontSize: lineSize, fontWeight: 700, lineHeight: 1.25, marginTop: 24, lineClamp: 1 }, line)] : []),
       ...(data.cta ? [text({ background: WHITE, color: "#111111", fontWeight: 800, fontSize: 40, padding: "22px 48px", borderRadius: 999, marginTop: 36, textShadow: "none" }, data.cta)] : []),
