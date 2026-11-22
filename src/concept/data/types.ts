@@ -337,6 +337,8 @@ export interface CampaignPoster {
   cta?: string;
   quote?: string;
   author?: string;
+  /** Review style: the quoted review's own rating, not the salon's average. */
+  stars?: 1 | 2 | 3 | 4 | 5;
   /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */
   badges?: string[];
   /** Before/after style: the "before" photo; `image` is the "after" photo. */

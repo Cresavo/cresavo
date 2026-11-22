@@ -130,6 +130,7 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
       cta: cut(poster.cta ?? "", 40),
       quote: cut(poster.quote ?? "", 220),
       author: cut(poster.author ?? "", 40),
+      ...(poster.stars && { stars: poster.stars }),
       badges: (poster.badges ?? []).slice(0, 4).map((badge) => cut(badge, 20)),
       photo: photo.src,
       cutout: poster.style === "portrait" && photo.cutout,

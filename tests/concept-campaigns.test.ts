@@ -349,3 +349,65 @@ it("shows the QR code in posts and stories only when the owner asks, and remembe
   expect(withQr.socialQr).toBe(true);
   expect(newDraft(defaultPrefill(state, "2026-11-21"), withQr).posterEdits.socialQr).toBe(true);
 });
+
+it("starts a campaign from a goal with its offer and three different suggested posters", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { applyGoal, GOALS, GOAL_STYLES } = await import("@/concept/campaigns/goals");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), posterEdits: { textSize: "large" as const, headline: "Old" } };
+  for (const goal of GOALS) {
+    const patch = applyGoal(state, draft, goal, "2026-11-21");
+    expect(patch).toMatchObject({ goal, style: GOAL_STYLES[goal][0], from: "2026-11-21" });
+    expect(new Set(GOAL_STYLES[goal]).size).toBe(3);
+    // The owner's look stays; words from an earlier goal do not.
+    expect(patch.posterEdits?.textSize).toBe("large");
+    expect(patch.posterEdits?.headline).not.toBe("Old");
+    expect(patch.name).toBeTruthy();
+  }
+  const fill = applyGoal(state, draft, "fill", "2026-11-21");
+  expect(fill).toMatchObject({ discountPercent: 0, to: "2026-11-27" });
+  const gift = { ...draft, ...applyGoal(state, draft, "giftcard", "2026-11-21") };
+  expect(resolvePoster(state, gift)).toMatchObject({ style: "portrait", lead: "Give away", headline: "a gift card" });
+});
+
+it("keeps goal posters honest: no invented prices or reviews, the review's own stars, the business's language", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { applyGoal, availableGoals, GOAL_STYLES } = await import("@/concept/campaigns/goals");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  // A gift card never borrows a treatment's price.
+  expect(GOAL_STYLES.giftcard).not.toContain("price");
+  // Sharing a review needs one; the quote's stars are the review's own.
+  expect(availableGoals({ ...state, reviews: [] })).not.toContain("review");
+  const one = { ...state.reviews[0], approved: true, rating: 2 as const, date: "2026-11-20" };
+  const withLow = { ...state, reviews: [one] };
+  const review = { ...draft, ...applyGoal(withLow, draft, "review", "2026-11-21") };
+  expect(resolvePoster(withLow, review)).toMatchObject({ style: "review", stars: 2 });
+  // Choosing the current goal again keeps the owner's later edits.
+  const edited = { ...review, posterEdits: { ...review.posterEdits, headline: "Mine" } };
+  expect(applyGoal(withLow, edited, "review", "2026-11-21")).toEqual({});
+  // Poster words follow the business's language, not the studio's.
+  const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
+  expect(applyGoal(swedish, draft, "giftcard", "2026-11-21")).toMatchObject({ name: "Presentkort", posterEdits: { lead: "Ge bort" } });
+});
+
+it("looks for free times inside the offer period", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "slots" as const, from: "2026-12-08", to: "2026-12-12" };
+  const sticker = resolvePoster(state, draft).sticker;
+  expect(sticker).toBeTruthy();
+  // The day on the sticker is in the offer period (8–12 December), not this week.
+  expect(sticker![1]).toMatch(/\b(8|9|10|11|12)\b/);
+});
+
+it("shortens descriptions without one-letter stubs or going over 70 characters", async () => {
+  const { firstSentence } = await import("@/concept/campaigns/draft");
+  const word = "x".repeat(75);
+  expect(firstSentence(word)).toBe(`${"x".repeat(69)}…`);
+  expect(firstSentence(`${"y".repeat(70)} more`).length).toBeLessThanOrEqual(70);
+  expect(firstSentence("Kort text.")).toBe("Kort text.");
+});
