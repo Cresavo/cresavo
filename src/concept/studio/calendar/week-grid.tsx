@@ -2,12 +2,14 @@
 
 import { Button } from "../../ui/button";
 import { addDays } from "../../data/dates";
-import { openingFor, staffWorks } from "../../data/slots";
+import { lunchFor, openingFor, staffWorks } from "../../data/slots";
 import type { DateKey, Staff } from "../../data/types";
+import { t } from "../../i18n";
 import { formatDayMonth, weekdayName } from "../../i18n/format";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
 import type { OpenSheet } from "../booking/booking-sheets";
+import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock } from "./block";
 import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
@@ -27,6 +29,13 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   return (
     <div className="overflow-x-auto rounded-lg bg-surface ring-1 ring-hairline">
       <div className="studio-calendar-grid" style={{ "--calendar-columns": days.length * Math.max(1, staff.length) } as React.CSSProperties}>
+        {staff.length > 1 && (
+          <ul aria-label={t("calendar.staff")} className="flex flex-wrap gap-x-4 gap-y-1 border-b border-hairline px-3 py-2 text-meta text-text-secondary">
+            {staff.map((person) => (
+              <li key={person.id} className="inline-flex items-center gap-2"><StaffDot staffId={person.id} />{person.firstName}</li>
+            ))}
+          </ul>
+        )}
         <div className="flex border-b border-hairline">
           <div className="w-11 shrink-0" />
           {days.map((d) => (
@@ -44,12 +53,21 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
           <TimeAxis from={from} to={to} pxPerMin={scale} />
           {days.map((d, dayIndex) => {
             const hours = openingFor(state.salon, d);
+            const lunch = lunchFor(state.salon, d);
             return (
               <div key={d} className={cx("relative flex min-w-0 flex-1 border-l border-hairline", !hours && "bg-surface-2/70")} style={{ height: (to - from) * scale }}>
                 <HourLines from={from} to={to} pxPerMin={scale} />
                 {hours &&
                   staff.map((person, staffIndex) => (
                     <div key={person.id} className={cx("relative min-w-0 flex-1", !staffWorks(state, person.id, d) && "bg-surface-2/50")}>
+                      {lunch && staffWorks(state, person.id, d) && (
+                        <div
+                          aria-label={t("calendar.lunch")}
+                          role="img"
+                          className="studio-calendar-lunch pointer-events-none absolute inset-x-0"
+                          style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
+                        />
+                      )}
                       {columns[dayIndex][staffIndex].map((b) => (
                         <BookingBlock
                           key={b.id}
