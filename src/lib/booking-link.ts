@@ -14,7 +14,7 @@ export const SIMULATED_TOKEN = "simulated";
  */
 export function bookingLink(tenantId: string, state: DemoState, booking: Booking, redeemable: boolean): string | undefined {
   if (!booking.publicRef) return undefined;
-  const scope = { tenantId, bookingId: booking.id, ref: booking.publicRef, customerId: booking.customerId, purpose: "manage" };
+  const scope = { tenantId, bookingId: booking.id, ref: booking.publicRef, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" };
   const token = redeemable ? mintBookingToken(scope, bookingTokenExpiry(booking)) : SIMULATED_TOKEN;
   return `https://${productDomain()}${bookingPage(state.salon.slug, booking.publicRef)}#t=${token}`;
 }

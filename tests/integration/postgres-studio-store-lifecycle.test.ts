@@ -357,6 +357,7 @@ describe("Postgres studio metrics", () => {
       .toEqual([{ redacted: true }]);
     expect(await db.$queryRaw`SELECT status FROM tenant_effect WHERE tenant_id = ${tenantId}`)
       .toEqual([{ status: "cancelled" }]);
-    expect(await db.$queryRaw`SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}`).toEqual([{ key: "send", result: { erased: true } }]);
+    expect(await db.$queryRaw`SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}`).toMatchObject([{ key: "send" }]);
+    expect(JSON.stringify(await db.$queryRaw`SELECT result FROM tenant_idempotency WHERE tenant_id = ${tenantId}`)).not.toContain("Jo Li");
   });
 });

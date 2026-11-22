@@ -74,13 +74,12 @@ describe("customers due for review", () => {
     let state: DemoState = { ...emptySalon(), customers: [person("1", "2019-01-01")] };
     state = withVisit(state, "1", "2020-01-01");
     expect(customersDueForReview(state, today)).toHaveLength(1);
-    const kept = applyAction(state, { type: "customer/keep", id: "1", on: "2026-01-16" }, meta);
+    const kept = applyAction(state, { type: "customer/keep", id: "1", on: "2030-01-01" }, { ...meta, at: Date.UTC(2026, 0, 16, 12) });
     expect(kept.customers[0].keptOn).toBe("2026-01-16");
     expect(customersDueForReview(kept, "2026-11-16")).toEqual([]);
     expect(customersDueForReview(kept, "2027-01-15")).toEqual([]);
     expect(customersDueForReview(kept, "2027-01-16")).toHaveLength(1);
     expect(applyAction(kept, { type: "customer/keep", id: "nobody", on: "2026-11-16" }, meta)).toBe(kept);
-    expect(applyAction(kept, { type: "customer/keep", id: "1", on: "yesterday" }, meta)).toBe(kept);
   });
 
   it("works on the demo salon without throwing and lists only live customers", () => {

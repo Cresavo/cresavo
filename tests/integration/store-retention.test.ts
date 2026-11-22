@@ -227,3 +227,41 @@ describe("journal reads on the Postgres store", () => {
     }
   });
 });
+
+describe("erasure and stored replays", () => {
+  it("answers another customer's retry identically after an erasure, and never runs a retry of the erased customer's change again", async () => {
+    const state = createDemoState(salonClock().today);
+    const [a, b] = state.customers;
+    const tenantId = `tenant-${randomUUID()}`;
+    await db.$executeRaw`INSERT INTO tenant_state (tenant_id, kind, doc) VALUES (${tenantId}, 'salon', ${JSON.stringify(withOwnSlug(state, tenantId))}::jsonb)`;
+    const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks: { payment() {}, message() {} }, now });
+    try {
+      const keyOfA = `studio:note-${a.email}`;
+      const first = await store.apply(tenantId, { type: "customer/note", id: b.id, note: "Fictional note for B" }, {}, { idempotencyKey: "b-key" });
+      const own = await store.apply(tenantId, { type: "customer/note", id: a.id, note: "Fictional note for A" }, {}, { idempotencyKey: keyOfA });
+      if (!first.ok || !own.ok) throw new Error("fixture refused");
+
+      expect(await store.eraseSubject(tenantId, a.id)).toMatchObject({ ok: true });
+      const version = (await store.load(tenantId))!.version;
+
+      // B's retry: the same answer (version, entry), flagged as a replay, with nothing of A in it.
+      const again = await store.apply(tenantId, { type: "customer/note", id: b.id, note: "Fictional note for B" }, {}, { idempotencyKey: "b-key" });
+      expect(again).toMatchObject({ ok: true, replayed: true, version: first.version });
+      if (!again.ok) throw new Error("replay refused");
+      expect(again.entry.seq).toBe(first.entry.seq);
+      expect(again.state.customers.some((c) => c.id === a.id)).toBe(false);
+      expect(JSON.stringify(again)).not.toContain(a.email);
+
+      // A's key held their address: it is stored under its hash, and a retry under the same key is still recognised, never applied again.
+      const keys = (await db.$queryRawUnsafe<Array<{ key: string }>>("SELECT key FROM tenant_idempotency WHERE tenant_id = $1", tenantId)).map((r) => r.key);
+      expect(keys.some((key) => key.includes(a.email))).toBe(false);
+      expect(keys.some((key) => key.startsWith("erased-"))).toBe(true);
+      const retryA = await store.apply(tenantId, { type: "customer/note", id: a.id, note: "Fictional note for A" }, {}, { idempotencyKey: keyOfA });
+      expect(retryA).toMatchObject({ ok: true, replayed: true });
+      expect((await store.load(tenantId))!.version).toBe(version);
+    } finally {
+      store.close();
+    }
+  });
+});
+

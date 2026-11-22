@@ -35,7 +35,7 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
     const found = await loadPublicTenant(slug.toLowerCase());
     const booking = found?.state.bookings.find((b) => b.publicRef === ref);
     const token = tokenOf(json);
-    if (!found || !booking || !token || !verifyBookingLink(token, { tenantId: found.tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage" }, booking)) {
+    if (!found || !booking || !token || !verifyBookingLink(token, { tenantId: found.tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" }, booking)) {
       return publicError("not_found", 404);
     }
     const key = idempotencyKeySchema.safeParse(request.headers.get("idempotency-key"));

@@ -107,15 +107,16 @@ export function phoneDigits(phone: string): string {
  * a `phone` field with the same number in any format (as the booking lookup
  * normalizes it), or one of their identifiers in text.
  */
-export function mentionsCustomer(value: unknown, id: string, identifiers: readonly string[], digits = ""): boolean {
+export function mentionsCustomer(value: unknown, id: string, identifiers: readonly string[], digits: string | ReadonlySet<string> = ""): boolean {
   const pattern = matcher(identifiers);
+  const numbers = typeof digits === "string" ? new Set([digits].filter(Boolean)) : digits;
   const walk = (item: unknown, depth: number): boolean => {
     if (typeof item === "string") return !!pattern && item.search(pattern) >= 0;
     if (!item || typeof item !== "object" || depth > 32) return false;
     if (Array.isArray(item)) return item.some((entry) => walk(entry, depth + 1));
     const record = item as Record<string, unknown>;
     if (record.customerId === id || (record.id === id && "firstName" in record)) return true;
-    if (digits && typeof record.phone === "string" && normalizePhone(record.phone) === digits) return true;
+    if (numbers.size && typeof record.phone === "string" && numbers.has(normalizePhone(record.phone))) return true;
     return Object.values(record).some((entry) => walk(entry, depth + 1));
   };
   return walk(value, 0);
@@ -171,7 +172,7 @@ export const DOCUMENT_FREE_TEXT: Partial<Record<keyof DemoState, readonly string
  * its text becomes a generic sentence (a cancellation reason or an inbox title
  * is personal too) and its undo data is dropped.
  */
-function scrubLogEntry(entry: LogEntry, id: string, identifiers: readonly string[], digits: string): LogEntry {
+function scrubLogEntry(entry: LogEntry, id: string, identifiers: readonly string[], digits: ReadonlySet<string>): LogEntry {
   if (!mentionsCustomer(entry, id, identifiers, digits)) return entry;
   const rest: LogEntry = { ...entry, summary: t("log.erasedEntry") };
   delete rest.patch;
@@ -198,7 +199,7 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
   const customer = findErasable(state, id);
   if (!customer) return state;
   const identifiers = customerIdentifiers(customer);
-  const digits = phoneDigits(customer.phone);
+  const phones = customerPhoneDigits(customer);
   const theirs = (item: unknown) => !!item && typeof item === "object" && (item as { customerId?: unknown }).customerId === id;
 
   const bundle = state.trash.find((entry) => entry.kind === "customer" && entry.customer.id === id);
@@ -215,19 +216,19 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
   }
   const erased = next as unknown as DemoState;
   // The customer's own visits are gone. Their account address leaves every other visit; an address typed on their visits may belong to someone else, so it stays there.
-  const addresses = new Set([normalizeEmail(customer.email)].filter(Boolean));
+  // Their earlier addresses go too: an address from before a correction can still be the delivery address of another visit.
+  const addresses = new Set([customer.email, ...(customer.earlier ?? [])].map(normalizeEmail).filter((address) => address.includes("@")));
   erased.bookings = withoutAddresses(erased.bookings, addresses);
   // A cancelled visit's gift-card credit is only returned while the visit exists with that status; its redemption stays for the card's books, so the return is written into it before the visit goes.
-  const cancelled = new Set(state.bookings.filter((b) => theirs(b) && b.status === "cancelled").map((b) => b.id));
+  const cancelled = new Set([...state.bookings, ...(bundle?.kind === "customer" ? bundle.bookings : [])].filter((b) => theirs(b) && b.status === "cancelled").map((b) => b.id));
   if (cancelled.size) erased.giftCards = returnRedemptions(erased.giftCards, cancelled);
   erased.customers = state.customers.filter((c) => c.id !== id);
   // By phone alone, as the booking lookup identifies customers: a hold in checkout is transient, so erasing one that only shares the number is the safe side. The export is stricter (`holdIsTheirs`) and sends those holds to the owner's review.
-  const phones = customerPhoneDigits(customer);
   erased.checkoutHolds = erased.checkoutHolds.filter((hold) => !phones.has(phoneDigits(hold.guest.phone)));
   erased.trash = state.trash
     .filter((entry) => entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId))
     .map((entry) => entry.kind === "customer" ? { ...entry, bookings: withoutAddresses(entry.bookings, addresses) } : entry);
-  erased.log = state.log.map((entry) => scrubLogEntry(entry, id, identifiers, digits));
+  erased.log = state.log.map((entry) => scrubLogEntry(entry, id, identifiers, phones));
   const marker = erasedMarker();
   const scrub = (text: string) => scrubText(text, identifiers, marker);
   for (const [key, paths] of Object.entries(DOCUMENT_FREE_TEXT) as Array<[keyof DemoState, readonly string[]]>) {

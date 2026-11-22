@@ -2,6 +2,7 @@ import { normalizePhone } from "../booking/lookup";
 import { isEmail } from "../connections/core";
 import { fromKey, toKey } from "../data/dates";
 import type { Customer, DateKey, DemoState, StaffId } from "../data/types";
+import { salonClock } from "../tools/clock";
 import { FIELD_LIMIT, normalizeEmail } from "./csv";
 
 // Customer rights in the reducer: correction (GDPR art. 16) of every personal
@@ -129,9 +130,9 @@ export function updateCustomer(state: DemoState, id: string, patch: CustomerPatc
 }
 
 /** Records that the owner reviewed this customer and keeps them. They come up for review again after `RETENTION.reviewAgainMonths`. */
-export function keepCustomer(state: DemoState, id: string, on: DateKey, now: number): DemoState {
-  // The decision is stamped with the day it is made: a date in the future (beyond a day of time-zone slack) would hide the customer from review.
-  if (typeof on !== "string" || !validDate(on) || on > toKey(new Date(now + 86_400_000))) return state;
+export function keepCustomer(state: DemoState, id: string, now: number): DemoState {
+  // The decision is stamped with the salon's day from the store's clock; whatever date the caller sent is ignored.
+  const on = salonClock(new Date(now)).today;
   const customer = state.customers.find((c) => c.id === id);
   if (!customer || customer.keptOn === on) return state;
   return { ...state, customers: state.customers.map((c) => (c.id === id ? { ...c, keptOn: on } : c)) };
@@ -159,8 +160,7 @@ export function updateBooking(state: DemoState, id: string, patch: BookingPatch)
     if (value === null || (value && !isEmail(value))) return state;
     if (value) next.contactEmail = value;
     else delete next.contactEmail;
-    // A link already sent to the old address must stop working: the reference it was minted for is replaced.
-    if (value !== (current.contactEmail ?? "") && current.publicRef) next.publicRef = `${current.publicRef}-${state.seq}`;
+    // A link sent to the old address stops working by itself: the booking token's mac covers the address (src/lib/booking-token.ts).
   }
   for (const field of ["note", "cancelReason"] as const) {
     if (patch[field] === undefined) continue;

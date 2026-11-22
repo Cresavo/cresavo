@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { customerExport, customerExportCsv, customerExportFilename, customerExportJson } from "../../customers/export";
+import { customerExport, customerExportCsv, customerExportFilename, customerExportJson, reviewCount } from "../../customers/export";
 import type { Customer } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { useDemo } from "../../store";
@@ -25,7 +25,8 @@ export function CustomerRights({ customer }: { customer: Customer }) {
     const data = customerExport(saved, customer.id, new Date().toISOString());
     if (!data) return;
     download(customerExportFilename(data, extension), extension === "json" ? customerExportJson(data) : customerExportCsv(data), extension === "json" ? "application/json" : "text/csv");
-    showToast(data.needsReview.length ? `${t("customer.export.done")} ${tc("customer.export.review", data.needsReview.length)}` : t("customer.export.done"));
+    const waiting = reviewCount(data);
+    showToast(waiting ? `${t("customer.export.done")} ${tc("customer.export.review", waiting)}` : t("customer.export.done"));
   };
 
   return (

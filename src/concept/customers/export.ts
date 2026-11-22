@@ -28,6 +28,31 @@ export interface CustomerConsents {
 /** An activity entry without its undo data: what happened, when and who did it. */
 export type ExportedActivity = Pick<LogEntry, "id" | "type" | "at" | "actor" | "source" | "summary">;
 
+/**
+ * Records that may be about someone else: free text that also names another customer, visits booked on the public page with an
+ * address that is not the customer's own, and checkout holds that only share their phone number. They are the customer's data
+ * as far as the system can tell (a visit is on their card), so they are kept apart, not dropped: the owner removes what is
+ * not about this customer, then deletes `reviewBeforeSending` or sends it as it is.
+ */
+export interface ReviewBeforeSending {
+  warning: string;
+  /** The card's note, when it names another customer; the card above then has none. */
+  profileNote?: string;
+  journal: JournalEntry[];
+  messages: InboxItem[];
+  bookings: Booking[];
+  checkoutHolds: CheckoutHold[];
+}
+
+export const REVIEW_WARNING =
+  "Check these records before you send the file. They may mention or belong to another person (a note, a journal entry or a message that names another customer, a visit booked with someone else's address, a booking in progress that only shares the phone number). Remove what is not about this customer.";
+
+/** How many records wait for the owner's review. */
+export const reviewCount = (data: CustomerExport) => {
+  const review = data.reviewBeforeSending;
+  return (review.profileNote ? 1 : 0) + review.journal.length + review.messages.length + review.bookings.length + review.checkoutHolds.length;
+};
+
 export interface CustomerExport {
   format: typeof EXPORT_FORMAT;
   /** ISO 8601, when the export was made. */
@@ -37,8 +62,7 @@ export interface CustomerExport {
   /** True when the customer was deleted to the trash and can still be restored. */
   inTrash: boolean;
   profile: Customer;
-  /** A visit's typed address is left out (`contactEmailOmitted`) when it is not one of the customer's own: it may belong to someone who booked for them. */
-  bookings: Array<Booking & { contactEmailOmitted?: true }>;
+  bookings: Booking[];
   journal: JournalEntry[];
   /** Messages to and from the customer in the studio's inbox, including the confirmations and reminders sent to them. */
   messages: InboxItem[];
@@ -52,11 +76,8 @@ export interface CustomerExport {
   checkoutHolds: CheckoutHold[];
   /** Gift cards whose recipient or message names them. */
   giftCardMentions: Array<Pick<GiftCard, "id" | "soldOn" | "recipient" | "message">>;
-  /**
-   * Records whose text also names another customer (a note, a journal entry, a message). The owner reads these before the file goes to the customer:
-   * the export copies free text as it was written.
-   */
-  needsReview: Array<{ section: "profile" | "journal" | "messages" | "checkout_holds"; id: string }>;
+  /** What the owner reads before the file goes to the customer. Nothing here is in the sections above. */
+  reviewBeforeSending: ReviewBeforeSending;
   activity: ExportedActivity[];
   /** Records of any other list that belong to them. Empty unless a new kind of record has no section of its own. */
   other: Record<string, unknown[]>;
@@ -115,20 +136,21 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     else other[key] = items;
   }
   const namesOther = (value: unknown) => otherNames.some((o) => mentionsCustomer(value, "", o.identifiers, ""));
-  const bookings = (sections.bookings as Booking[]).map((b): CustomerExport["bookings"][number] => {
-    if (!b.contactEmail || ownAddresses.has(b.contactEmail.trim().toLowerCase())) return b;
-    const omitted: CustomerExport["bookings"][number] = { ...b, contactEmailOmitted: true };
-    delete omitted.contactEmail;
-    return omitted;
-  });
-  const journal = sections.journal as JournalEntry[];
-  const messages = sections.messages as InboxItem[];
+  const isForeign = (b: Booking) => !!b.publicRef && !!b.contactEmail && !ownAddresses.has(b.contactEmail.trim().toLowerCase());
+  const bookings = (sections.bookings as Booking[]).filter((b) => !isForeign(b));
+  const journalAll = sections.journal as JournalEntry[];
+  const messagesAll = sections.messages as InboxItem[];
+  const journal = journalAll.filter((j) => !namesOther(j));
+  const messages = messagesAll.filter((m) => !namesOther(m));
+  const noteFlagged = namesOther(profile.note);
+  const ownProfile: Customer = { ...profile };
+  if (noteFlagged) delete ownProfile.note;
   return {
     format: EXPORT_FORMAT,
     exportedAt,
     salon: { name: state.salon.name, slug: state.salon.slug },
     inTrash: !state.customers.some((c) => c.id === id),
-    profile,
+    profile: ownProfile,
     bookings,
     journal,
     messages,
@@ -144,14 +166,16 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     giftCardMentions: state.giftCards
       .filter((card) => mentionsCustomer({ recipient: card.recipient, message: card.message }, "", identifiers, ""))
       .map(({ id: cardId, soldOn, recipient, message }) => ({ id: cardId, soldOn, recipient, message })),
-    needsReview: [
-      ...state.checkoutHolds.filter((hold) => !holdIsTheirs(hold, profile) && customerPhoneDigits(profile).has(phoneDigits(hold.guest.phone))).map((h) => ({ section: "checkout_holds" as const, id: h.id })),
-      ...(namesOther(profile.note) ? [{ section: "profile" as const, id: profile.id }] : []),
-      ...journal.filter(namesOther).map((j) => ({ section: "journal" as const, id: j.id })),
-      ...messages.filter(namesOther).map((m) => ({ section: "messages" as const, id: m.id })),
-    ],
+    reviewBeforeSending: {
+      warning: REVIEW_WARNING,
+      ...(noteFlagged && profile.note ? { profileNote: profile.note } : {}),
+      journal: journalAll.filter(namesOther),
+      messages: messagesAll.filter(namesOther),
+      bookings: (sections.bookings as Booking[]).filter(isForeign),
+      checkoutHolds: state.checkoutHolds.filter((hold) => !holdIsTheirs(hold, profile) && customerPhoneDigits(profile).has(phoneDigits(hold.guest.phone))),
+    },
     activity: state.log
-      .filter((entry) => mentionsCustomer(entry, id, identifiers, digits) && !otherNames.some((o) => mentionsCustomer(entry, o.id, o.identifiers, o.digits)))
+      .filter((entry) => mentionsCustomer(entry, id, identifiers, customerPhoneDigits(profile)) && !otherNames.some((o) => mentionsCustomer(entry, o.id, o.identifiers, o.digits)))
       .map(({ id: entryId, type, at, actor, source, summary }) => ({ id: entryId, type, at, actor, source, summary })),
     other,
   };
@@ -188,7 +212,7 @@ export function customerExportCsv(data: CustomerExport): string {
   const add = (section: string, recordId: string, record: unknown) => {
     const found: Array<[string, string | number]> = [];
     leaves(record, "", found);
-    for (const [field, value] of found) rows.push([section, defuseFormula(recordId), defuseFormula(field), typeof value === "string" ? defuseFormula(value) : value]);
+    for (const [field, value] of found) rows.push([defuseFormula(section), defuseFormula(recordId), defuseFormula(field), typeof value === "string" ? defuseFormula(value) : value]);
   };
   add("export", data.format, { exportedAt: data.exportedAt, salon: data.salon, inTrash: data.inTrash });
   add("profile", data.profile.id, data.profile);
@@ -197,6 +221,11 @@ export function customerExportCsv(data: CustomerExport): string {
     ["product_sales", data.productSales], ["packages", data.packages], ["journal_access", data.journalAccess],
     ["checkout_holds", data.checkoutHolds], ["gift_card_mentions", data.giftCardMentions], ["activity", data.activity],
   ] as const) {
+    (records as Array<{ id: string }>).forEach((record, index) => add(section, record.id ?? String(index), record));
+  }
+  const review = data.reviewBeforeSending;
+  add("review_before_sending", "warning", { warning: review.warning, profileNote: review.profileNote });
+  for (const [section, records] of [["review_journal", review.journal], ["review_messages", review.messages], ["review_bookings", review.bookings], ["review_checkout_holds", review.checkoutHolds]] as const) {
     (records as Array<{ id: string }>).forEach((record, index) => add(section, record.id ?? String(index), record));
   }
   add("consents", data.profile.id, { waitlistOptIn: data.consents.waitlistOptIn });

@@ -493,9 +493,9 @@ describe("erasure (item 7)", () => {
     const payment = effects.find((row) => row.kind === "payment")!;
     expect(payment).toMatchObject({ status: "delivered" });
     expect(payment.payload.cost).toMatchObject({ amountMinor: 20_000 });
-    // The key is forgotten: the same booking request runs the rules again (the customer is gone).
+    // The key is kept under its hash, with its fingerprint: a retry never runs again, and another request under it is a mismatch.
     expect(await store.apply(id, { type: "booking/create", customerId: customer.id, serviceId: "x", staffId: "x" as StaffId, date: today, start: 600, source: "phone" }, {}, { idempotencyKey: `studio:book-${guest.email}` }))
-      .toMatchObject({ ok: false, reason: "rejected" });
+      .toMatchObject({ ok: false, reason: "idempotency-mismatch" });
   });
 
   it("keeps other retries protected when an erasure finds nothing of theirs", async () => {
@@ -684,7 +684,7 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
       expect(erased).toMatchObject({ ok: true, redacted: { idempotencyKeys: 1 } });
       expect(await personalDataHits(id, ERASURE_NEEDLES)).toEqual([]);
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   });

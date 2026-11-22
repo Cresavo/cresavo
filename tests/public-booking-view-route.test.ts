@@ -25,7 +25,7 @@ const booking: Booking = {
   protection: { terms: { version: 1, freeHours: 24, latePercent: 0, noShowPercent: 0, currency: "SEK", priceMinor: 50000, depositMinor: 0 } },
 };
 const doc = { ...base, salon: { ...base.salon, slug: SLUG, phone: "08-555 01 02" }, bookings: [booking] };
-const scope = { tenantId: TENANT, bookingId: "b-1", ref: REF, customerId: booking.customerId, purpose: "manage" };
+const scope = { tenantId: TENANT, bookingId: "b-1", ref: REF, customerId: booking.customerId, purpose: "manage", contactEmail: "lisa@example.test" };
 const goodToken = () => mintBookingToken(scope, bookingTokenExpiry(booking));
 
 let counter = 0;

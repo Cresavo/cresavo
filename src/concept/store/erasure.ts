@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import type { DemoAction } from "../actions";
 import type { OutboxEntry } from "../connections/simulated/outbox";
-import { REDACTED, scrubDeep } from "../customers/erase";
+import { phoneDigits, REDACTED, scrubDeep } from "../customers/erase";
 
 // Redaction of the studio store's audit data for one erased customer
 // (docs/design/STUDIO_STORE.md, step 2 decision 3, item 7). The document is
@@ -94,4 +95,34 @@ export function redactEffectPayload(record: OutboxEntry, identifiers: readonly s
 /** `%…%` ILIKE patterns that find an identifier inside a jsonb value's text. */
 export function jsonTextPatterns(identifiers: readonly string[]): string[] {
   return identifiers.map((value) => `%${JSON.stringify(value).slice(1, -1).replace(/[\\%_]/g, "\\$&")}%`);
+}
+
+/** The key a stored replay is kept under once its own key held an identifier: a hash, so a retry with the same key still finds it. */
+export const erasedKey = (key: string) => `erased-${createHash("sha256").update(key, "utf8").digest("hex")}`;
+
+/** True when an idempotency key holds one of the identifiers (a caller can embed an address in it). */
+export const keyHoldsIdentifier = (key: string, identifiers: readonly string[]) => identifiers.some((value) => key.toLowerCase().includes(value.toLowerCase()));
+
+/**
+ * A stored replay result (`{ state, version, entry, effects }`) after an erasure: the erased customer's records
+ * (their card, trash entry and checkout holds by phone) are removed from its salon snapshot and their identifiers replaced in every
+ * string. The result still replays, so a retry of a change that was already committed is answered, not applied again.
+ */
+export function redactReplay<T>(result: T, customerId: string, identifiers: readonly string[], phones: ReadonlySet<string> = new Set()): T {
+  const replay = result as unknown as { state?: Record<string, unknown> };
+  let next: unknown = result;
+  if (replay && typeof replay === "object" && replay.state && typeof replay.state === "object") {
+    const state: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(replay.state)) {
+      if (!Array.isArray(value)) state[key] = value;
+      // The undo data of a replayed snapshot's history holds whole records (the customer's included); a replay never needs it.
+      else if (key === "log") state[key] = value.map((item) => { const entry = { ...(item as Record<string, unknown>) }; delete entry.patch; delete entry.before; delete entry.after; return entry; });
+      else if (key === "customers") state[key] = value.filter((item) => (item as { id?: unknown })?.id !== customerId);
+      else if (key === "checkoutHolds") state[key] = value.filter((item) => !phones.has(phoneDigits((item as { guest?: { phone?: string } })?.guest?.phone ?? "")));
+      else if (key === "trash") state[key] = value.filter((item) => !((item as { kind?: unknown })?.kind === "customer" && (item as { customer?: { id?: unknown } }).customer?.id === customerId));
+      else state[key] = value.filter((item) => (item as { customerId?: unknown })?.customerId !== customerId);
+    }
+    next = { ...replay, state };
+  }
+  return scrubDeep(next, identifiers) as T;
 }

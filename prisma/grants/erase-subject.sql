@@ -31,7 +31,7 @@ GRANT SELECT, UPDATE ("action", "idempotency_key", "redacted_at") ON "tenant_act
 -- statement
 GRANT SELECT, UPDATE ("payload", "status", "erased_at") ON "tenant_effect" TO :"eraser_role";
 -- statement
-GRANT SELECT, DELETE, UPDATE ("result") ON "tenant_idempotency" TO :"eraser_role";
+GRANT SELECT, UPDATE ("key", "result") ON "tenant_idempotency" TO :"eraser_role";
 
 -- statement
 CREATE OR REPLACE FUNCTION studio_phone_digits(p text) RETURNS text
@@ -90,6 +90,24 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fn$
 $fn$;
 
 -- statement
+-- A stored replay result after an erasure: the customer's records, card and trash entry leave its salon snapshot and their identifiers are replaced.
+CREATE OR REPLACE FUNCTION studio_redact_replay(r jsonb, p_customer text, identifiers text[], digit_list text[]) RETURNS jsonb
+LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fn$
+  SELECT public.studio_scrub(
+    CASE WHEN jsonb_typeof(r -> 'state') = 'object' THEN jsonb_set(r, '{state}', (
+      SELECT coalesce(jsonb_object_agg(t.k, CASE
+        WHEN jsonb_typeof(t.v) <> 'array' THEN t.v
+        WHEN t.k = 'log' THEN (SELECT coalesce(jsonb_agg(e - 'patch' - 'before' - 'after' ORDER BY o), '[]'::jsonb) FROM jsonb_array_elements(t.v) WITH ORDINALITY AS x(e, o))
+        WHEN t.k = 'customers' THEN (SELECT coalesce(jsonb_agg(e ORDER BY o), '[]'::jsonb) FROM jsonb_array_elements(t.v) WITH ORDINALITY AS x(e, o) WHERE e ->> 'id' IS DISTINCT FROM p_customer)
+        WHEN t.k = 'checkoutHolds' THEN (SELECT coalesce(jsonb_agg(e ORDER BY o), '[]'::jsonb) FROM jsonb_array_elements(t.v) WITH ORDINALITY AS x(e, o) WHERE NOT (public.studio_phone_digits(e -> 'guest' ->> 'phone') = ANY(digit_list)))
+        WHEN t.k = 'trash' THEN (SELECT coalesce(jsonb_agg(e ORDER BY o), '[]'::jsonb) FROM jsonb_array_elements(t.v) WITH ORDINALITY AS x(e, o) WHERE NOT (e ->> 'kind' = 'customer' AND e -> 'customer' ->> 'id' = p_customer))
+        ELSE (SELECT coalesce(jsonb_agg(e ORDER BY o), '[]'::jsonb) FROM jsonb_array_elements(t.v) WITH ORDINALITY AS x(e, o) WHERE e ->> 'customerId' IS DISTINCT FROM p_customer)
+      END), '{}'::jsonb)
+      FROM jsonb_each(r -> 'state') AS t(k, v)))
+    ELSE r END, identifiers)
+$fn$;
+
+-- statement
 CREATE OR REPLACE FUNCTION erase_subject(p_tenant text, p_customer text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
 DECLARE
@@ -124,6 +142,7 @@ DECLARE
   v_name text;
   v_phone text;
   v_digits text := '';
+  v_digit_list text[] := '{}';
   v_identifiers text[] := '{}';
   v_contacts text[] := '{}';
   v_patterns text[];
@@ -140,7 +159,6 @@ DECLARE
   v_pending_payments integer := 0;
   v_in_flight integer := 0;
   v_keys integer;
-  v_tombstones integer;
 BEGIN
   -- The caller holds the row lock (SELECT ... FOR UPDATE in the same transaction).
   SELECT s.doc INTO v_doc FROM tenant_state s WHERE s.tenant_id = p_tenant;
@@ -155,6 +173,11 @@ BEGIN
     v_phone := btrim(coalesce(v_customer ->> 'phone', ''));
     v_digits := public.studio_phone_digits(v_phone);
     IF length(v_digits) < 7 THEN v_digits := ''; END IF;
+    -- Every number the card has had, in any format.
+    SELECT coalesce(array_agg(DISTINCT d), '{}') INTO v_digit_list FROM (
+      SELECT v_digits AS d
+      UNION SELECT public.studio_phone_digits(e) FROM jsonb_array_elements_text(coalesce(v_customer -> 'earlier', '[]'::jsonb)) e) q
+    WHERE length(d) >= 7;
     SELECT coalesce(array_agg(x ORDER BY length(x) DESC, x), '{}') INTO v_contacts FROM (
       SELECT DISTINCT x FROM unnest(ARRAY[v_phone, v_digits, btrim(coalesce(v_customer ->> 'email', ''))]
         -- Names, numbers and addresses the card had before a correction (Customer.earlier), and the digits of those numbers.
@@ -179,15 +202,15 @@ BEGIN
       (a.subject_ids @> ARRAY[p_customer]
         OR a.action::text ILIKE ANY(v_contact_patterns)
         OR jsonb_path_exists(a.action, 'lax $.** ? (@.customerId == $c || (@.id == $c && exists(@.firstName)))', jsonb_build_object('c', p_customer))
-        OR (v_digits <> '' AND EXISTS (
+        OR (cardinality(v_digit_list) > 0 AND EXISTS (
           SELECT 1 FROM jsonb_path_query(a.action, 'lax $.**.phone') p
-          WHERE jsonb_typeof(p) = 'string' AND public.studio_phone_digits(p #>> '{}') = v_digits))) AS theirs
+          WHERE jsonb_typeof(p) = 'string' AND public.studio_phone_digits(p #>> '{}') = ANY(v_digit_list)))) AS theirs
     FROM tenant_action a
     WHERE a.tenant_id = p_tenant
       AND (a.subject_ids @> ARRAY[p_customer] OR a.action::text ILIKE ANY(v_patterns) OR a.idempotency_key ILIKE ANY(v_key_patterns)
-        OR (v_digits <> '' AND EXISTS (
+        OR (cardinality(v_digit_list) > 0 AND EXISTS (
           SELECT 1 FROM jsonb_path_query(a.action, 'lax $.**.phone') p
-          WHERE jsonb_typeof(p) = 'string' AND public.studio_phone_digits(p #>> '{}') = v_digits)))
+          WHERE jsonb_typeof(p) = 'string' AND public.studio_phone_digits(p #>> '{}') = ANY(v_digit_list))))
     ORDER BY a.seq
   LOOP
     v_next := v_row.action;
@@ -245,23 +268,22 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Stored results are state copies: replace those that hold the customer with a tombstone. The key and its fingerprint stay for their
-  -- whole TTL, so a retry of a change that was already committed is refused instead of being applied a second time.
-  -- A key that itself holds an identifier (a caller can embed an address) cannot stay, so that row is deleted.
-  DELETE FROM tenant_idempotency
-  WHERE tenant_id = p_tenant AND key ILIKE ANY(v_key_patterns);
+  -- Stored results are state copies. A row is never deleted (a retry would run again): the customer is removed from its snapshot and their
+  -- identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
+  UPDATE tenant_idempotency SET
+    key = CASE WHEN key ILIKE ANY(v_key_patterns) THEN 'erased-' || encode(sha256(convert_to(key, 'UTF8')), 'hex') ELSE key END,
+    result = public.studio_redact_replay(result, p_customer, v_identifiers, v_digit_list)
+  WHERE tenant_id = p_tenant AND (key ILIKE ANY(v_key_patterns) OR result::text LIKE ANY(v_id_patterns) OR result::text ILIKE ANY(v_patterns))
+    -- A row that is already redacted (a repeated erasure) is left alone and not counted.
+    AND (key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(result, p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM result);
   GET DIAGNOSTICS v_keys = ROW_COUNT;
-  UPDATE tenant_idempotency SET result = '{"erased": true}'::jsonb
-  WHERE tenant_id = p_tenant AND NOT (result ? 'erased') AND (result::text LIKE ANY(v_id_patterns) OR result::text ILIKE ANY(v_patterns));
-  GET DIAGNOSTICS v_tombstones = ROW_COUNT;
-  v_keys := v_keys + v_tombstones;
   RETURN jsonb_build_object('actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys,
                             'pendingPayments', v_pending_payments, 'inFlightMessages', v_in_flight);
 END $fn$;
 
 -- statement
 REVOKE ALL ON FUNCTION studio_phone_digits(text), studio_redact_path(jsonb, text[]), studio_scrub_text(text, text[]),
-  studio_scrub(jsonb, text[]), erase_subject(text, text) FROM PUBLIC;
+  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), erase_subject(text, text) FROM PUBLIC;
 -- statement
 ALTER FUNCTION studio_phone_digits(text) OWNER TO :"eraser_role";
 -- statement
@@ -270,6 +292,8 @@ ALTER FUNCTION studio_redact_path(jsonb, text[]) OWNER TO :"eraser_role";
 ALTER FUNCTION studio_scrub_text(text, text[]) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION studio_scrub(jsonb, text[]) OWNER TO :"eraser_role";
+-- statement
+ALTER FUNCTION studio_redact_replay(jsonb, text, text[], text[]) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION erase_subject(text, text) OWNER TO :"eraser_role";
 -- statement

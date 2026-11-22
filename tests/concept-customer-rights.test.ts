@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "@/concept/customers/csv";
-import { eraseCustomer } from "@/concept/customers/erase";
-import { customerExport, customerExportCsv, customerExportFilename, customerExportJson, EXPORT_FORMAT } from "@/concept/customers/export";
+import { customerPhoneDigits, eraseCustomer, mentionsCustomer } from "@/concept/customers/erase";
+import { customerExport, customerExportCsv, customerExportFilename, customerExportJson, EXPORT_FORMAT, reviewCount } from "@/concept/customers/export";
 import { CUSTOMER_FIELD_EDITS, correctedCustomer, updateBooking, updateCustomer, type CustomerPatch } from "@/concept/customers/rights";
 import { createDemoState } from "@/concept/data/generate";
 import type { Customer, DemoState } from "@/concept/data/types";
@@ -70,7 +70,7 @@ describe("customer export", () => {
     expect(data.profile).toEqual(mine);
     expect(data.bookings).toHaveLength(1);
     expect(data.bookings[0]).toMatchObject({ customerId: mine.id, contactEmail: lena.email, note: "Fictional visit note" });
-    expect(data.needsReview).toEqual([]);
+    expect(reviewCount(data)).toBe(0);
     expect(data.journal).toHaveLength(1);
     expect(data.journal[0].versions).toHaveLength(1);
     expect(data.messages.map((m) => m.title)).toEqual(expect.arrayContaining(["Confirmation for Lena", "Question"]));
@@ -93,7 +93,8 @@ describe("customer export", () => {
       const data = customerExport(state, mine.id, "2026-11-16T10:00:00.000Z")!;
       expect(data.inTrash).toBe(inTrash);
       const erased = eraseCustomer(state, mine.id);
-      const exported = Object.values(data).flatMap((value) => (Array.isArray(value) ? value : Object.values(value as object)));
+      const { reviewBeforeSending: review, ...main } = data;
+      const exported = [...Object.values(main), review.journal, review.messages, review.bookings, review.checkoutHolds].flatMap((value) => (Array.isArray(value) ? value : Object.values(value as object)));
 
       // Every record the erasure drops from a list of the document, live or in the trash bundle.
       const bundle = state.trash.find((entry) => entry.kind === "customer" && entry.customer.id === mine.id);
@@ -264,19 +265,27 @@ describe("export and erasure of shared and older data", () => {
     const withFamily = { ...state, checkoutHolds: [...state.checkoutHolds, family] };
     const data = customerExport(withFamily, mine.id, stamp)!;
     expect(data.checkoutHolds.map((h) => h.id)).toEqual(["hold-+46 70 000 11 11"]);
-    expect(JSON.stringify(data)).not.toContain("Familjemedlem");
-    expect(data.needsReview).toEqual([{ section: "checkout_holds", id: "hold-family" }]);
+    const { reviewBeforeSending: held, ...main } = data;
+    expect(JSON.stringify(main)).not.toContain("Familjemedlem");
+    expect(held.warning).toBeTruthy();
+    expect(data.reviewBeforeSending.checkoutHolds.map((h) => h.id)).toEqual(["hold-family"]);
     // The erasure goes by phone: a hold in checkout is transient, so removing one that shares the number is the safe side.
     expect(eraseCustomer(withFamily, mine.id).checkoutHolds.map((h) => h.id)).toEqual(["hold-0700002222"]);
   });
 
-  it("omits an address typed on a visit that is not the customer's own, and says so", () => {
+  it("keeps a booking-page visit made with someone else's address out of the main sections, in the review part", () => {
     const { state, mine } = richState();
-    const typed = { ...state, bookings: state.bookings.map((b) => (b.customerId === mine.id ? { ...b, contactEmail: "kollega@example.test" } : b)) };
+    const typed = { ...state, bookings: state.bookings.map((b) => (b.customerId === mine.id ? { ...b, publicRef: "ref-1", contactEmail: "kollega@example.test" } : b)) };
     const data = customerExport(typed, mine.id, stamp)!;
-    expect(data.bookings[0]).toMatchObject({ contactEmailOmitted: true });
-    expect(data.bookings[0]).not.toHaveProperty("contactEmail");
-    expect(JSON.stringify(data)).not.toContain("kollega@example.test");
+    expect(data.bookings).toEqual([]);
+    expect(data.consents.bookingTerms).toEqual([]);
+    expect(data.reviewBeforeSending.bookings).toHaveLength(1);
+    expect(data.reviewBeforeSending.warning).toMatch(/Check these records/);
+    const { reviewBeforeSending: _review, ...main } = data;
+    expect(JSON.stringify(main)).not.toContain("kollega@example.test");
+    // A visit made with their own address stays in the main section.
+    const own = { ...state, bookings: state.bookings.map((b) => (b.customerId === mine.id ? { ...b, publicRef: "ref-1" } : b)) };
+    expect(customerExport(own, mine.id, stamp)!.bookings).toHaveLength(1);
   });
 
   it("flags text that also names another customer and includes gift cards that name this one", () => {
@@ -287,7 +296,9 @@ describe("export and erasure of shared and older data", () => {
       giftCards: [{ id: "g-1", code: "EKO-TEST-0001", amount: 500, recipient: "Lena Exportsson", message: "Enjoy", soldOn: today, redemptions: [] }],
     };
     const data = customerExport(mixed, mine.id, stamp)!;
-    expect(data.needsReview).toEqual([{ section: "profile", id: mine.id }]);
+    expect(data.reviewBeforeSending.profileNote).toBe(`Comes with ${theirs.firstName} ${theirs.lastName}`);
+    expect(data.profile).not.toHaveProperty("note");
+    expect(JSON.stringify({ ...data, reviewBeforeSending: undefined })).not.toContain(theirs.lastName);
     expect(data.giftCardMentions).toEqual([{ id: "g-1", soldOn: today, recipient: "Lena Exportsson", message: "Enjoy" }]);
   });
 
@@ -322,17 +333,32 @@ describe("export and erasure of shared and older data", () => {
     expect(balanceOf(erased, erased.giftCards[0])).toBe(500);
   });
 
-  it("replaces the reference of a visit when its address changes, so an old link stops working", () => {
+  it("leaves the public reference alone: the booking token's mac covers the address instead", () => {
     const { state, mine } = richState();
     const visit = state.bookings.find((b) => b.customerId === mine.id)!;
     const online: DemoState = { ...state, bookings: state.bookings.map((b) => (b.id === visit.id ? { ...b, publicRef: "ref-original" } : b)) };
-    const same = applyAction(online, { type: "booking/update", id: visit.id, patch: { note: "Only a note" } }, meta);
-    expect(same.bookings.find((b) => b.id === visit.id)?.publicRef).toBe("ref-original");
     const moved = applyAction(online, { type: "booking/update", id: visit.id, patch: { contactEmail: "ratt@example.test" } }, meta);
-    const after = moved.bookings.find((b) => b.id === visit.id)!;
-    expect(after.publicRef).not.toBe("ref-original");
-    expect(after.publicRef).toMatch(/^ref-original-/);
-    expect(applyAction(moved, { type: "booking/update", id: visit.id, patch: { contactEmail: null } }, meta).bookings.find((b) => b.id === visit.id)?.publicRef).not.toBe(after.publicRef);
+    expect(moved.bookings.find((b) => b.id === visit.id)).toMatchObject({ publicRef: "ref-original", contactEmail: "ratt@example.test" });
+  });
+
+  it("returns the gift-card credit of a cancelled visit when the customer is erased from the trash", () => {
+    const { state, mine } = richState();
+    const visit = state.bookings.find((b) => b.customerId === mine.id)!;
+    const paid: DemoState = { ...state, giftCards: [{ id: "g-3", code: "EKO-TEST-0003", amount: 500, recipient: "", message: "", soldOn: today, redemptions: [{ bookingId: visit.id, amount: 400, date: today }] }] };
+    const cancelled = applyAction(paid, { type: "booking/cancel", id: visit.id, reason: "Fictional" }, meta);
+    const trashed = applyAction(cancelled, { type: "customer/delete", id: mine.id }, meta);
+    const erased = applyAction(trashed, { type: "customer/erase", id: mine.id }, meta);
+    expect(balanceOf(erased, erased.giftCards[0])).toBe(500);
+  });
+
+  it("clears a former address from another visit's delivery address, and finds former phones in the log", () => {
+    const { state, mine, theirs } = richState();
+    const other = state.bookings.find((b) => b.customerId === theirs.id)!;
+    const shared: DemoState = { ...state, bookings: state.bookings.map((b) => (b.id === other.id ? { ...b, contactEmail: lena.email } : b)) };
+    const corrected = applyAction(shared, { type: "customer/update", id: mine.id, patch: { email: "lena.nyadress@example.test", phone: "070 000 77 77" } }, meta);
+    const erased = applyAction(corrected, { type: "customer/erase", id: mine.id }, meta);
+    expect(erased.bookings.find((b) => b.id === other.id)?.contactEmail).toBeUndefined();
+    expect(mentionsCustomer({ phone: "+46 70 000 11 11" }, mine.id, [], customerPhoneDigits(corrected.customers.find((c) => c.id === mine.id)!))).toBe(true);
   });
 
   it("changes nothing but the three text fields of a visit", () => {
@@ -345,10 +371,11 @@ describe("export and erasure of shared and older data", () => {
     expect(updateBooking(state, visit.id, { status: "completed", price: 0 } as never)).toBe(state);
   });
 
-  it("refuses a review date in the future", () => {
+  it("stamps a review decision with the store clock, whatever date was sent", () => {
     const { state, mine } = richState();
-    expect(applyAction(state, { type: "customer/keep", id: mine.id, on: "2030-01-01" }, meta)).toBe(state);
-    expect(applyAction(state, { type: "customer/keep", id: mine.id, on: "2026-11-16" }, meta).customers.find((c) => c.id === mine.id)?.keptOn).toBe("2026-11-16");
+    // The caller's date is ignored: the day comes from the store's clock.
+    expect(applyAction(state, { type: "customer/keep", id: mine.id, on: "2030-01-01" }, meta).customers.find((c) => c.id === mine.id)?.keptOn).toBe("2026-11-18");
+    expect(applyAction(state, { type: "customer/keep", id: mine.id, on: "2001-01-01" }, meta).customers.find((c) => c.id === mine.id)?.keptOn).toBe("2026-11-18");
   });
 });
 
