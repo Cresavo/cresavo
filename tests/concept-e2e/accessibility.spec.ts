@@ -61,6 +61,11 @@ for (const theme of themes) {
       // The next free time is preselected; "Choose another time" is the time step.
       await expect(page.getByLabel("Your name", { exact: true })).toBeVisible();
       await audit(page, "booking: time and contact form");
+      // The demo day is always open, so the preselected time can be today, inside the 24-hour change cutoff.
+      // Pick the first time two days ahead so the manage page still offers online cancellation.
+      const times = page.getByRole("combobox", { name: "Choose another time" });
+      const later = await times.locator("optgroup").nth(2).locator("option").first().getAttribute("value");
+      await times.selectOption(later!);
 
       await page.getByLabel("Your name", { exact: true }).fill("Access Demo");
       await page.getByLabel("Mobile number").fill("070-000 99 33");
