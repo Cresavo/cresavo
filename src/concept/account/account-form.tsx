@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import type { Locale } from "@/lib/locale";
 import { translate, type MessageKey } from "../i18n";
+import { closeAccountSalon } from "../store";
 import { Button } from "../ui/button";
 import { Field, Select, TextInput } from "../ui/controls";
 import { Notice } from "../ui/notice";
@@ -76,6 +77,11 @@ export function AccountForm({ mode, language }: { mode: Mode; language: Locale }
         </Field>
       )}
       {error && <Notice tone="danger" role="alert">{t(error)}</Notice>}
+      {!signup && (
+        <p className="text-meta">
+          <Link className="font-medium text-action underline" href="/account/reset">{t("account.login.forgot")}</Link>
+        </p>
+      )}
       <Button type="submit" width="responsive" loading={busy}>{t(signup ? "account.signup.submit" : "account.login.submit")}</Button>
       <p className="text-meta text-text-secondary">
         {t(signup ? "account.signup.haveAccount" : "account.login.noAccount")}{" "}
@@ -98,4 +104,31 @@ export function SignOutButton({ language }: { language: Locale }) {
     router.refresh();
   }
   return <Button variant="secondary" loading={busy} onClick={signOut}>{translate(language, "account.logout")}</Button>;
+}
+
+/** Ends every session of the account, on every device, and returns to the sign-in page. */
+export function SignOutEverywhereButton({ language }: { language: Locale }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  async function signOutEverywhere() {
+    setBusy(true);
+    setFailed(false);
+    const response = await fetch("/api/owner/logout-all", { method: "POST" }).catch(() => undefined);
+    // 401 means this session had already ended; the other devices may still be signed in, so ask the owner to sign in and retry.
+    if (!response?.ok) {
+      setFailed(true);
+      setBusy(false);
+      return;
+    }
+    closeAccountSalon();
+    router.push("/account/login");
+    router.refresh();
+  }
+  return (
+    <div className="space-y-2">
+      {failed && <Notice tone="danger" role="alert">{translate(language, "account.logoutAll.failed")}</Notice>}
+      <Button variant="secondary" loading={busy} onClick={signOutEverywhere}>{translate(language, "account.logoutAll")}</Button>
+    </div>
+  );
 }

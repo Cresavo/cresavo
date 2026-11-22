@@ -4,7 +4,7 @@ import { parseLocale } from "./lib/locale";
 import { setDemoVisitorCookie, setLocaleCookie } from "./lib/locale-cookie";
 import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly";
 import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
-import { contentSecurityPolicy, createNonce, cspExempt } from "./lib/csp";
+import { contentSecurityPolicy, createNonce, cspExempt, frameOptions } from "./lib/csp";
 import { MAX_IMPORT_ACTION_BYTES } from "./lib/owner-actions/types";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
@@ -31,12 +31,18 @@ function demoLanguageEntry(request: NextRequest) {
   return response;
 }
 
-type Csp = { nonce: string; policy: string };
+type Csp = { nonce: string; policy: string; frame: "DENY" | "SAMEORIGIN" | null };
 
 function pageCsp(pathname: string): Csp | undefined {
   if (cspExempt(pathname)) return;
   const nonce = createNonce();
-  return { nonce, policy: contentSecurityPolicy(nonce, pathname) };
+  return { nonce, policy: contentSecurityPolicy(nonce, pathname), frame: frameOptions(pathname) };
+}
+
+/** The framing and script policy of a page, on the response. */
+function setCspHeaders(response: Response, csp: Csp) {
+  response.headers.set("Content-Security-Policy", csp.policy);
+  if (csp.frame) response.headers.set("X-Frame-Options", csp.frame);
 }
 
 /** Rendering reads the nonce from the request headers; never trust client-supplied values. */
@@ -116,9 +122,10 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith("/_next/static/") || pathname === "/_next/image" || pathname === "/favicon.ico") {
     return NextResponse.next();
   }
-  const csp = pageCsp(pathname);
+  // A business's own address serves its booking page and widget at the root, so the policy follows the page it is rewritten to.
+  const csp = pageCsp(route.action === "rewrite" ? route.path : pathname);
   const response = publicReadonlyResponse(request) ?? hostResponse(request, host, route, csp);
-  if (csp) response.headers.set("Content-Security-Policy", csp.policy);
+  if (csp) setCspHeaders(response, csp);
   const discoveryFile = (pathname === "/robots.txt" || pathname === "/sitemap.xml") && productSiteOrigin(host);
   // The product homepages are the only pages of the read-only deployment intended for search.
   if (isPublicReadonly() && !isProductHome(host, pathname) && !discoveryFile) {
@@ -142,7 +149,7 @@ function sandboxProxy(request: NextRequest) {
       const requestHeaders = new Headers(request.headers);
       applyCsp(requestHeaders, csp);
       const response = NextResponse.next({ request: { headers: requestHeaders } });
-      if (csp) response.headers.set("Content-Security-Policy", csp.policy);
+      if (csp) setCspHeaders(response, csp);
       response.headers.set("X-Robots-Tag", "noindex, nofollow");
       return response;
     }

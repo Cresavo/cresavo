@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { idempotencyKeySchema } from "@/lib/validation";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, withRenewedSession } from "@/lib/owner-http";
 import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
@@ -33,6 +33,6 @@ export function POST(request: NextRequest) {
     const result = await ownerStore().apply(owner.tenantId, action, { actor: "owner", source: "button" },
       { expectedVersion: body.data.expectedVersion, idempotencyKey: body.data.idempotencyKey });
     if (!result.ok) return ownerError(result.detail === SLUG_TAKEN ? SLUG_TAKEN : result.reason, STATUS[result.reason]);
-    return ownerOk({ state: result.state, version: result.version, replayed: result.replayed });
+    return withRenewedSession(ownerOk({ state: result.state, version: result.version, replayed: result.replayed }), request);
   });
 }

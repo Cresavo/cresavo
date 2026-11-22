@@ -165,8 +165,8 @@ export function isTimeZone(value: string): boolean {
   }
 }
 
-/** A recipient reference the simulated adapters accept in place of an address, e.g. "customer:c-12" or "segment:waitlist". Live adapters refuse it. */
-export const isRecipientRef = (value: string): boolean => /^(customer|segment):[A-Za-z0-9_-]{1,64}$/.test(value);
+/** A recipient reference the simulated adapters accept in place of an address, e.g. "customer:c-12", "segment:waitlist" or "owner:<account id>" (a password reset). Live adapters refuse it. */
+export const isRecipientRef = (value: string): boolean => /^(customer|segment|owner):[A-Za-z0-9_-]{1,64}$/.test(value);
 
 /** Short, stable hash for deterministic simulated ids (FNV-1a, 32 bit). Not for security. */
 export function stableHash(text: string): string {
