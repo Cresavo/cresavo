@@ -75,6 +75,7 @@
   "overrides": {
     "@prisma/config": {
       "effect": "3.22.5"
-    }
+    },
+    "fflate": "0.7.5"
   }
 }
