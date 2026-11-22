@@ -87,7 +87,7 @@ Security
       equivalent) and covered by tests that try to read another tenant.
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
 - [ ] Rate limiting on public endpoints (booking, login, AI).
-- [ ] Owner studio changes (`/api/owner/salon/actions`) validated field by
+- [x] Owner studio changes (`/api/owner/salon/actions`) validated field by
       field per action type, not only by an allowlist of action types.
 - [ ] Encryption at rest for journal entries and other sensitive fields.
 - [x] Secret scanning and code scanning (e.g. GitHub secret scanning and

@@ -180,7 +180,9 @@ describe("rooms", () => {
     const added = next.resources.at(-1)!;
     expect(added.name).toBe("Stone room");
     next = act(next, { type: "resource/rename", id: added.id, name: "Hot-stone room" });
-    next = act(next, { type: "service/resources", id: annaService.id, resourceIds: [added.id, "missing"] });
+    const unchanged = act(next, { type: "service/resources", id: annaService.id, resourceIds: [added.id, "missing"] });
+    expect(unchanged.services.find((s) => s.id === annaService.id)?.resourceIds).not.toContain(added.id);
+    next = act(next, { type: "service/resources", id: annaService.id, resourceIds: [added.id] });
     expect(next.services.find((s) => s.id === annaService.id)?.resourceIds).toEqual([added.id]);
     next = act(next, { type: "resource/remove", id: added.id });
     expect(next.services.find((s) => s.id === annaService.id)?.resourceIds).toEqual([]);

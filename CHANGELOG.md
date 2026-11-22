@@ -56,6 +56,10 @@ All notable changes to this project are documented here. Format follows
 - The owner studio uses shared controls, page headers, status badges and list rows. Calendar groups its secondary tools in an options sheet and gives appointments larger touch targets.
 - The public booking pages and product site use shared controls. Booking keeps the salon's colours, makes treatment actions and review ratings easier to see, and keeps the checkout summary beside the form on wide screens.
 
+### Security
+
+- The owner studio endpoint (`/api/owner/salon/actions`) validates every field of each action against its own strict schema, not only the action type. Unknown fields, wrong types, oversized strings, out-of-range amounts, invalid dates, ids of another kind and prototype keys (`__proto__`, `constructor`, `prototype`) are refused with `invalid` before the studio reducer runs, and the reducer receives only the parsed action.
+
 ### Fixed
 
 - **Posters stay inside their margins, whatever the text.** Headlines, prices, captions, badges, salon names and booking links are now sized and wrapped with the real widths of the bundled fonts instead of estimates, and a layout guard test renders every template, arrangement, format and text size with the longest content and measures the drawn text: 64 px margins, a story's top and bottom bars, no text over the face part of a photo, no overlapping text. This fixes a long Portrait text block growing into the top bar or over a cut-out person or the arch, Price clipping `MAMMAMASSAGE` and starting its price over the photo, a long Full photo link or salon name running off the poster, and the Before/after labels covering faces (they now sit in a strip below each photo). Price and Before/after text follow real contrast, and the footer keeps 64 px from the bottom.
