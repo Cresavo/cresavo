@@ -23,18 +23,18 @@ Use the runtime variables in `brand-theme.css` or their Tailwind utilities. Them
 
 | Component | When to use | Do | Don't |
 | --- | --- | --- | --- |
-| Button / ButtonLink | Commit a change or navigate to the next step | Lead with a verb. Use primary, secondary, tertiary or danger. Use the link for navigation. Loading preserves the name and disables repeat submission. | Put two competing filled actions on one screen. |
+| Button / ButtonLink | Commit a change or navigate to the next step | Lead with a verb. Use primary, secondary, tertiary, link or danger. `link` is an underlined word for a quiet action in running text or a list. Use the link for navigation. Loading preserves the name and disables repeat submission. | Put two competing filled actions on one screen. |
 | IconButton | A familiar compact action such as Close | Supply a translated label and keep the 44 px target in every variant. | Rely on the icon or tooltip to name an unfamiliar action. |
 | SegmentedControl | Choose exactly one view or filter | Keep labels short. Use the selected tab stop and arrow keys. Let a long group scroll horizontally inside its own track. | Wrap segments onto another line. |
 | ChoiceCards | Choose one of a few answers in a setup question | Use a short noun per card in a two- or three-column grid. Arrow keys move the choice. | Use it for a view switch or for more than about eight options. |
 | Switch | A setting that takes effect immediately | Name the setting and expose its checked state. Explain an unavailable setting nearby. | Make a switch appear operable when nothing happens. |
 | Chip / Tag | Toggle a filter / identify a category | Use Chip for a pressed state and optional count. Use Tag for a static category. | Present a static label as a button. |
-| Badge / DemoBadge | Name a status or identify simulated activity | Pair an icon and a word. Put DemoBadge beside simulated sending or charging. The studio header carries one; use `short` where space is tight. | Convey risk by colour alone or imply live delivery. |
+| Badge / DemoBadge | Name a status or identify simulated activity | Pair an icon and a word. Put DemoBadge beside simulated sending or charging, at the moment it happens; use `short` where space is tight. The studio shell carries none. | Convey risk by colour alone or imply live delivery. |
 | Field / Input / Select / Textarea | Collect one value | Put the visible label above the control. Add a hint and an actionable inline error. Use native date and time inputs. | Use a placeholder as the only label or erase invalid input. |
 | PageHeader | Introduce a screen | Provide a back link on a detail page, one title, an optional short subtitle and one primary action. Studio pages use the adapter that includes Help. | Build a separate mobile header or hide the only action in a toolbar. |
 | ListRow | Open an item or its details | Put the identity in the title, context in 13 px meta and a supporting mark at either end. The entire row is one link or button. Use optional enter/exit motion for a changed row and remove it in `onExited`. | Nest another button or link in the row. |
 | StickyActionBar | Keep an action reachable while a form or preview scrolls | Put the content in `children` and the controls in `actions`. Set `--action-layout-height` to the available height inside existing chrome. The grid reserves the footer's actual height including wrapped text and the bottom safe area. | Estimate a fixed footer height or cover the last field. |
-| Card / Section | Group related content | Use a heading for a section and a single surface for related rows. | Put a card inside every row. |
+| Card / Section | Group related content | Use a heading for a section. Group with spacing and thin dividers first; a single surface only where one thing should stand out. See "No nested boxes" in [SITE_RULES](SITE_RULES.md). | Put a card inside a card or around every row. |
 | EmptyState | Explain a genuinely empty result | Use one icon, one sentence and one recovery action such as clearing a filter. | Show a blank card, multiple competing actions or a loading skeleton for empty data. |
 | Sheet / ConfirmDialog | Edit a focused task or confirm a consequential change | Keep a mounted sheet controlled by `open` through exit. Use a title, a specific verb and a way to cancel. Escape and the close button return focus to the opener. | Use an alert for routine information or unmount the sheet mid-transition. |
 | MediaDialog | Expand a recording with native media controls | Mount on demand, supply a titled, focusable media element and remove the dialog in `onClose`. Give Close a translated label. | Use a sheet for full-size video or build custom playback controls for the expanded recording. |
@@ -84,6 +84,7 @@ Budget at most **2 KB gzipped per component** and **5 KB per feature** of increm
 ## UI review checklist
 
 - [ ] One filled primary per screen.
+- [ ] No nested boxes: at most one level of surface, no card in a card.
 - [ ] Targets ≥ 44 px at 390 px.
 - [ ] Text ≥ 12 px, secondary contrast ≥ 4.5:1.
 - [ ] Spacing only from tokens, gutters 16/32.
@@ -92,7 +93,7 @@ Budget at most **2 KB gzipped per component** and **5 KB per feature** of increm
 - [ ] Shared components.
 - [ ] Never colour alone.
 - [ ] No jargon (MCP, API, CSV, slug, localhost, token, UTC, CSS, iframe, SIE) in primary views; Advanced only.
-- [ ] Demo label on anything simulated.
+- [ ] Demo label beside a simulated send or charge, not as a standing disclaimer.
 - [ ] Standard empty states.
 - [ ] Long, empty and dark cases checked on mobile and desktop.
 

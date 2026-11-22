@@ -29,6 +29,20 @@ Calm, mobile first, less is more: only show what the visitor needs right now.
   what Cresavo does for a salon, in the words of `en.ts` and `sv.ts`.
 - Disclaimers and fine print added to soften a claim. Don't add the claim.
 
+## No nested boxes
+
+This applies to the studio as well as the site.
+
+- Group with spacing, type weight and a few thin dividers, not with frames.
+- At most one level of surface: a page may lift one thing onto a surface (the
+  next customer on Today, a dialog), and nothing inside it gets another one.
+  No card in a card, and no card around every row.
+- One filled button per screen. Other actions are text links or icon buttons
+  without frames (the `link` and `tertiary` variants), still 44 px targets
+  with a visible focus ring.
+- A warning inside content is a short warm highlight on its words, not a
+  filled box.
+
 ## Type and spacing
 
 - At most two type families. Today: Inter for everything, a monospace only for
