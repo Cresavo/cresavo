@@ -6,9 +6,10 @@ import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { buildImportRows, decodeImportFile, guessMapping, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
-import { hasUnsavedChanges, useActiveWorkspace } from "@/concept/store";
-import { commitAction } from "@/concept/store/commit";
+import { runCustomerImport } from "@/concept/customers/run-import";
+import { useActiveWorkspace } from "@/concept/store";
 import { showCommittedToast } from "@/concept/studio/log/commit-toast";
+import { showUndoToast } from "@/concept/studio/log/undo-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -74,15 +75,12 @@ export default function ImportCustomersPage() {
   const runImport = async () => {
     if (!target) return;
     setImporting(true);
-    const result = await commitAction(target, { type: "customers/import", customers: ready }).catch(() => null);
+    const outcome = await runCustomerImport(target, ready, state.customers.length);
     setImporting(false);
-    if (!result?.ok) return showToast(t("import.failed"));
-    if (hasUnsavedChanges()) {
-      // Browser storage refused the write: take the import back so the salon shown is the one that is saved.
-      if (result.logId) await commitAction(target, { type: "log/undo", id: result.logId });
-      return showToast(t("import.notStored"));
-    }
-    showCommittedToast(target, result, tc("import.done", result.state.customers.length - state.customers.length));
+    if (!outcome.ok) return showToast(t(outcome.reason === "notStored" ? "import.notStored" : "import.failed"));
+    const message = tc("import.done", outcome.added);
+    if (outcome.result) showCommittedToast(target, outcome.result, message);
+    else showUndoToast(message, outcome.logId);
     router.push("/studio/customers?filter=newThisYear");
   };
 
@@ -151,7 +149,7 @@ export default function ImportCustomersPage() {
               )}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button width="responsive" disabled={!ready.length || importing} onClick={runImport}>{tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length || importing} aria-busy={importing} onClick={runImport}>{importing ? t("import.saving") : tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

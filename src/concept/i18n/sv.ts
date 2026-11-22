@@ -934,6 +934,7 @@ const messages = {
   "import.privacyLocal": "Filen läses i din webbläsare och kunderna sparas i den här webbläsaren.",
   "import.privacyAccount": "Filen läses i din webbläsare. När du importerar sparas kunderna, med sina anteckningar, i salongens konto på servern.",
   "import.failed": "Importen kunde inte sparas, så inga kunder lades till. Försök igen.",
+  "import.saving": "Sparar kunderna…",
   "import.notStored": "Webbläsaren har inte plats att spara kunderna, så importen avbröts. Importera en mindre fil.",
   "import.badQuote": "Ett citerat värde på rad {line} är inte rätt avslutat, så filen går inte att läsa säkert. Rätta den raden och försök igen.",
   "import.legalTitle": "Innan du importerar",

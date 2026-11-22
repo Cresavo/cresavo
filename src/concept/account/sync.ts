@@ -15,6 +15,18 @@ import { ownerHintPresent } from "./hint";
 const SALON = "/api/owner/salon";
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
+const watchers = new Map<string, (accepted: boolean) => void>();
+
+/**
+ * Resolves with whether the server accepted the next change of this type that is sent. Call it before
+ * dispatching the change, and `cancel` when the change was not made after all.
+ */
+export function expectAck(type: DemoAction["type"]) {
+  let settle!: (accepted: boolean) => void;
+  const result = new Promise<boolean>((resolve) => { settle = resolve; });
+  watchers.set(type, settle);
+  return { result, cancel: () => { if (watchers.get(type) === settle) watchers.delete(type); } };
+}
 
 const key = () => crypto.randomUUID().replaceAll("-", "");
 
@@ -44,6 +56,7 @@ function send(action: DemoAction) {
   const idempotencyKey = key();
   pending++;
   queue = queue.then(async () => {
+    let accepted = false;
     try {
       const response = await post(action, idempotencyKey);
       if (response.status === 401) {
@@ -55,6 +68,7 @@ function send(action: DemoAction) {
       if (response.ok && body?.state) {
         // Later changes are already shown; the last answer brings the salon in step.
         if (pending === 1) replaceAccountSalon(body.state);
+        accepted = true;
         return;
       }
       await reload();
@@ -64,6 +78,8 @@ function send(action: DemoAction) {
       showToast(t("account.sync.offline"));
     } finally {
       pending--;
+      watchers.get(action.type)?.(accepted);
+      watchers.delete(action.type);
     }
   });
 }

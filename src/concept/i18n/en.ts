@@ -957,6 +957,7 @@ const messages = {
   "import.privacyLocal": "The file is read in your browser and the customers are saved in this browser.",
   "import.privacyAccount": "The file is read in your browser. When you import, the customers, including their notes, are saved to your salon's account on the server.",
   "import.failed": "The import could not be saved, so no customers were added. Try again.",
+  "import.saving": "Saving the customers…",
   "import.notStored": "This browser has no room to save the customers, so the import was cancelled. Import a smaller file.",
   "import.badQuote": "A quoted value on line {line} is not closed properly, so the file cannot be read safely. Fix that line and try again.",
   "import.legalTitle": "Before you import",

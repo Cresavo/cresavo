@@ -28,7 +28,7 @@ export type Mapping = Partial<Record<ImportField, number>>;
 
 export const MAX_IMPORT_ROWS = 5000;
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
-const FIELD_LIMIT: Record<ImportField, number> = { firstName: 60, lastName: 60, fullName: 120, phone: 30, email: 254, birthday: 20, note: 500 };
+export const FIELD_LIMIT: Record<ImportField, number> = { firstName: 60, lastName: 60, fullName: 120, phone: 30, email: 254, birthday: 20, note: 500 };
 
 const DELIMITERS = [",", ";", "\t"];
 

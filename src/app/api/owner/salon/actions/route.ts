@@ -4,7 +4,8 @@ import { idempotencyKeySchema } from "@/lib/validation";
 import { ownerError, ownerOk, ownerRoute, readBoundedJson } from "@/lib/owner-http";
 import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
-import { MAX_ACTION_BYTES, ownerAction, ownerStore } from "@/lib/owner-store";
+import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
+import { ownerAction, ownerStore } from "@/lib/owner-store";
 
 const bodySchema = z.object({
   action: z.unknown(),
@@ -12,8 +13,8 @@ const bodySchema = z.object({
   idempotencyKey: idempotencyKeySchema,
 }).strict();
 
-/** The action plus its envelope (version and idempotency key). */
-const MAX_BODY_BYTES = MAX_ACTION_BYTES + 1024;
+/** The body is streamed under the largest action cap plus the envelope (version and idempotency key); the cap for the action's own type is enforced once it is parsed. */
+const MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024;
 
 const STATUS = { conflict: 409, rejected: 422, "idempotency-mismatch": 409, "not-found": 404 } as const;
 
