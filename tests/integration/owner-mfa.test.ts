@@ -507,3 +507,74 @@ describe("review fixes", () => {
     expect(await answer(erase)).toEqual({ status: 403, body: { error: "mfa_required" } });
   });
 });
+
+describe("follow-up review fixes", () => {
+  it("spends at most one recovery code when two tries share one challenge", async () => {
+    const a = await enrolled("race-recovery");
+    const { pending } = await passwordStep("race-recovery");
+    const results = await Promise.all([
+      secondStep(pending, { recoveryCode: a.recoveryCodes[0] }),
+      secondStep(pending, { recoveryCode: a.recoveryCodes[1] }),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 401]);
+    expect(await db.ownerRecoveryCode.count({ where: { accountId: a.identity.id, usedAt: { not: null } } })).toBe(1);
+    expect(await db.ownerSession.count({ where: { accountId: a.identity.id, revokedAt: null, mfaVerifiedAt: { not: null } } })).toBe(2);
+  });
+
+  it("keeps the challenge after a wrong code, so the owner can type again", async () => {
+    const a = await enrolled("retry");
+    const { pending } = await passwordStep("retry");
+    expect((await secondStep(pending, { code: "000000" === codeNow(a.key) ? "111111" : "000000" })).status).toBe(401);
+    expect((await secondStep(pending, { code: codeNow(a.key) })).status).toBe(200);
+  });
+
+  it("answers a spent cookie the same for an active and a deactivated account", async () => {
+    const a = await enrolled("spent-active");
+    const b = await enrolled("spent-inactive");
+    const cookies: Record<string, string | undefined> = {};
+    for (const [name, who] of [["spent-active", a], ["spent-inactive", b]] as const) {
+      const { pending } = await passwordStep(name);
+      expect((await secondStep(pending, { code: codeNow(who.key) })).status).toBe(200);
+      cookies[name] = pending;
+    }
+    await db.ownerAccount.update({ where: { id: b.identity.id }, data: { active: false, credentialVersion: { increment: 1 } } });
+    const active = await answer(await secondStep(cookies["spent-active"], { recoveryCode: a.recoveryCodes[0] }));
+    const inactive = await answer(await secondStep(cookies["spent-inactive"], { recoveryCode: b.recoveryCodes[0] }));
+    expect(active).toEqual({ status: 401, body: { error: "mfa_expired" } });
+    expect(inactive).toEqual(active);
+  });
+
+  it("raises the credential version on sign out everywhere, in the same step as ending sessions and challenges", async () => {
+    const a = await enrolled("logout-version");
+    const before = (await db.ownerAccount.findUniqueOrThrow({ where: { id: a.identity.id } })).credentialVersion;
+    const { pending } = await passwordStep("logout-version");
+    expect((await logoutAllRoute(post("/api/owner/logout-all", {}, { cookies: { [OWNER_COOKIE]: a.session } }))).status).toBe(200);
+    expect((await db.ownerAccount.findUniqueOrThrow({ where: { id: a.identity.id } })).credentialVersion).toBe(before + 1);
+    expect(await db.ownerMfaChallenge.count({ where: { accountId: a.identity.id } })).toBe(0);
+    expect(await db.ownerSession.count({ where: { accountId: a.identity.id, revokedAt: null } })).toBe(0);
+    // A password check that was already under way cannot open a session or a usable challenge at the old version.
+    expect(await openOwnerSession({ id: a.identity.id, credentialVersion: before }, Date.now(), { mfaVerified: true })).toBeNull();
+    expect((await secondStep(pending, { code: codeNow(a.key) })).status).toBe(401);
+  });
+
+  it("keeps at most five pending sign-ins per account and drops the oldest", async () => {
+    const a = await enrolled("cap");
+    const cookies: (string | undefined)[] = [];
+    for (let n = 0; n < 7; n++) { cookies.push((await passwordStep("cap")).pending); later(1000); }
+    expect(await db.ownerMfaChallenge.count({ where: { accountId: a.identity.id } })).toBe(5);
+    expect(await answer(await secondStep(cookies[0], { code: codeNow(a.key) }))).toEqual({ status: 401, body: { error: "mfa_expired" } });
+    expect((await secondStep(cookies[6], { code: codeNow(a.key) })).status).toBe(200);
+  });
+
+  it("prunes expired challenges of any account in a bounded batch", async () => {
+    const a = await enrolled("prune");
+    const past = new Date(1000); // older than any other test's rows, so the batch takes these first
+    await db.ownerMfaChallenge.createMany({
+      data: Array.from({ length: 150 }, (_, n) => ({ id: `expired-${run}-${n}`, accountId: a.identity.id, credentialVersion: 1, createdAt: past, expiresAt: past })),
+    });
+    await passwordStep("prune");
+    expect(await db.ownerMfaChallenge.count({ where: { id: { startsWith: `expired-${run}-` } } })).toBe(50);
+    await passwordStep("prune");
+    expect(await db.ownerMfaChallenge.count({ where: { id: { startsWith: `expired-${run}-` } } })).toBe(0);
+  });
+});

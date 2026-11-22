@@ -52,10 +52,11 @@ UNION ALL
 SELECT 'app cannot mark a recovery code used' FROM logins l
 WHERE l.kind = 'app' AND NOT has_column_privilege(l.login, 'owner_recovery_code', 'used_at', 'UPDATE')
 UNION ALL
-SELECT 'app can UPDATE ' || c.tbl || '.' || c.col
-FROM logins l, (VALUES ('owner_recovery_code', 'code_hash'), ('owner_recovery_code', 'account_id'), ('owner_mfa_challenge', 'id'),
-  ('owner_mfa_challenge', 'credential_version'), ('owner_mfa_challenge', 'expires_at')) AS c(tbl, col)
-WHERE l.kind = 'app' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'UPDATE')
+SELECT 'app can UPDATE ' || c.relname || '.' || a.attname
+FROM logins l, pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
+WHERE l.kind = 'app' AND n.nspname = current_schema() AND c.relname IN ('owner_recovery_code', 'owner_mfa_challenge')
+  AND a.attnum > 0 AND NOT a.attisdropped AND NOT (c.relname = 'owner_recovery_code' AND a.attname = 'used_at')
+  AND has_column_privilege(l.login, c.oid, a.attnum, 'UPDATE')
 UNION ALL
 SELECT 'app cannot execute erase_subject' FROM logins l
 WHERE l.kind = 'app' AND to_regprocedure('erase_subject(text, text)') IS NOT NULL AND NOT has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
