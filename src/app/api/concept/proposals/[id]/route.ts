@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { decideProposal } from "@/concept/server/demo-business";
+import { demoWriteLimited } from "@/concept/server/demo-write-limit";
 import { withRequestLog } from "@/concept/server/logger";
 import { fromSameOrigin } from "@/concept/server/same-origin";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -12,6 +13,8 @@ export const POST = withRequestLog("/api/concept/proposals/[id]", async (request
   const blocked = publicReadonlyResponse(request);
   if (blocked) return blocked;
   if (!fromSameOrigin(request)) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const limited = demoWriteLimited(request);
+  if (limited) return limited;
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Invalid decision" }, { status: 400 });
   const { id } = await context.params;

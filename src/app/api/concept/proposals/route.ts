@@ -1,4 +1,5 @@
 import { pendingProposals, resetDemoBusiness } from "@/concept/server/demo-business";
+import { demoWriteLimited } from "@/concept/server/demo-write-limit";
 import { withRequestLog } from "@/concept/server/logger";
 import { fromSameOrigin } from "@/concept/server/same-origin";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -13,6 +14,8 @@ export const DELETE = withRequestLog("/api/concept/proposals", (request: Request
   const blocked = publicReadonlyResponse(request);
   if (blocked) return blocked;
   if (!fromSameOrigin(request)) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const limited = demoWriteLimited(request);
+  if (limited) return limited;
   resetDemoBusiness();
   return new Response(null, { status: 204 });
 });

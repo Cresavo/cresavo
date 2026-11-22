@@ -91,7 +91,46 @@ Security
 - [ ] Tenant isolation enforced in the database (row-level security or
       equivalent) and covered by tests that try to read another tenant.
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
-- [ ] Rate limiting on public endpoints (booking, login, AI).
+- [x] Rate limiting on public endpoints (booking, login, AI). Audited
+      2026-11-22: every public or demo route under `/api` (not `/admin`,
+      `/api/v1`) that writes data, sends mail or can cost money is limited,
+      listed below. The key is the verified client address (`waitlistClientKey`
+      / `clientIp`: the platform's `x-real-ip` on Vercel, otherwise the signed
+      wrapper's address; callers behind no verified address share one bucket).
+      Limits marked "store" use `src/lib/rate-limit.ts` (shared Postgres table
+      when `RATE_LIMIT_STORE=postgres`, required on Vercel, else per process);
+      "process" limits count in one server process only.
+
+      | Route | Limit | Key | Abuse it stops |
+      |---|---|---|---|
+      | `owner/login`, `demo/session` | 5 per 15 min, plus account lock-out (store) | address, typed e-mail | password guessing |
+      | `owner/signup` | 5 per 15 min (store) | address | account and salon rows |
+      | `owner/password/reset-request` | 5 per 15 min, plus 3 mails per 15 min per mailbox (store) | address, mailbox | reset mail sends |
+      | `owner/password/reset` | 10 per 15 min (store) | address | token guessing |
+      | `public/salons/[slug]` GET, `.../bookings/[id]` POST (view) | 120 per 15 min (store) | address | DB reads |
+      | `public/salons/[slug]/bookings`, `.../[id]/cancel`, `.../[id]/move` | 10 per 15 min (store), and 60 writes per hour per salon (store) | address; salon | booking writes, mail |
+      | `bookings` (legacy engine) | 30 per 15 min (store), plus idempotency | address | booking writes |
+      | `concept/ai/[task]` | provider calls need the server bearer token and same origin, then 8 per min per address and 200 per day per instance (process); the rules fallback costs no money | address; instance | paid AI calls |
+      | `concept/ai` PUT/DELETE, `concept/proposals` DELETE, `concept/proposals/[id]` POST | 30 per min (process), added 2026-11-22 | address | disk and demo-state writes |
+      | `concept/poster` | 120 per min (process) | address | CPU |
+      | `concept/mcp` | 120 per min after the bearer check (process) | token hash | demo tool calls |
+      | `concept/a2a` | 300 per min (process) | one shared key | read-only calls |
+      | `waitlist` | 5 per 10 min (process); also limit it in the firewall when a real provider is set | address | waiting-list writes |
+      | `pairing/*` | 180 per min per address and 3000 per min overall (database) | address; global | pairing rows |
+      | `sandbox/pair`, `sandbox/phone*` | 3 pairings per day per address; 128 requests per phone session (database) | address; session | sandbox rows |
+
+      Left without an application limit, on purpose: cheap read-only GETs
+      (`availability`, `services`, `staff`, `concept/help`, `usp`,
+      `a2a/agent-card.json`, `protocols`, `connections`, `calendar`,
+      `proposals` GET, the signed calendar feed) and `locale` (sets a cookie).
+      `concept/connections/webhooks/*` answers 404 unless a live adapter
+      verifies the signature, with a 256 KB body cap; `sandbox/phone/redeem`
+      only reads until a 256-bit link token matches; `pairing/sweep` and
+      `sandbox/reset` need the cron secret; `owner/me`, `logout*`, `salon*`
+      need an owner session. Edge limits for the read-only routes are the
+      firewall rule in [DEPLOY_DEMO](DEPLOY_DEMO.md); the application does not
+      replace it. Not done: a shared store for the "process" limits (needs
+      Postgres on the public demo, which has none).
 - [x] Owner studio changes (`/api/owner/salon/actions`) validated field by
       field per action type, not only by an allowlist of action types.
 - [ ] Encryption at rest for journal entries and other sensitive fields.
