@@ -1,7 +1,7 @@
 "use client";
 
 import { moduleEnabled } from "../modules/registry";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t, type MessageKey } from "../i18n";
@@ -49,8 +49,6 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [failure, setFailure] = useState<{ key: MessageKey; minutes?: number }>();
-  // One key per attempt: sending the same form again replays it instead of booking twice.
-  const attempt = useRef<{ key: string; form: string } | undefined>(undefined);
 
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
 
@@ -61,18 +59,12 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const confirmOnServer = () => run(async () => {
     if (!book || !isGuestValid(guest) || !validEmail) return;
     const request = { serviceId, staffId: slot.staffId, date: slot.date, start: slot.start, name: guest.name.trim(), phone: guest.phone.trim(), email: email.trim(), website };
-    const form = JSON.stringify(request);
-    if (attempt.current?.form !== form) attempt.current = { key: crypto.randomUUID(), form };
     setFailure(undefined);
-    const result = await book(request, attempt.current.key);
-    if (result.ok) {
-      attempt.current = undefined;
-      return onBooked(result.booking);
-    }
+    const result = await book(request);
+    if (result.ok) return onBooked(result.booking);
     if (result.reason === "unavailable") return setFailure({ key: "booking.failed" });
     if (result.reason === "rate_limited") return setFailure({ key: "booking.tooManyAttempts", minutes: result.minutes });
     if (result.reason === "deposit_unsupported") return setFailure({ key: "booking.depositByPhone" });
-    attempt.current = undefined;
     onTaken({ requestId: newActionRequestId(), reason: result.reason === "terms_changed" ? "booking.summary.changed" : "booking.slotTaken" });
   });
 

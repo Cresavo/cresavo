@@ -8,12 +8,11 @@ const TRUNK_ZERO_CODES = ["44", "49", "45", "47", "358", "31", "32", "33", "39",
 /**
  * One identity for a number, whatever its format: digits only, without the "00" or "+" international
  * prefix, the Swedish country code or trunk zero, so "070-174 06 50" equals "+46 70 174 06 50", and
- * "0044 7700 900123", "+44 (0)7700 900123" and "+44 7700 900123" are one number.
+ * "0044 7700 900123", "+44 (0)7700 900123" and "+44 7700 900123" are one number. A zero is dropped only straight after a country code, never inside a national number.
  */
 export function normalizePhone(phone: string): string {
-  const raw = phone.replace(/\(0\)/g, "");
-  let digits = raw.replace(/\D/g, "");
-  const international = raw.trim().startsWith("+") || digits.startsWith("00");
+  let digits = phone.replace(/\D/g, "");
+  const international = phone.trim().startsWith("+") || digits.startsWith("00");
   digits = digits.replace(/^00/, "");
   const code = international ? TRUNK_ZERO_CODES.find((candidate) => digits.startsWith(candidate)) : undefined;
   if (code && digits[code.length] === "0") digits = code + digits.slice(code.length + 1);

@@ -84,11 +84,11 @@ describe("booking on a salon from the server", () => {
 
   it("sends one request with the key, the form-time token and the terms the customer saw, and returns the visit under its public reference", async () => {
     fetchMock.mockImplementation(() => reply(201, { ref: "ref-77", duration: service.duration }));
-    const result = await book(input, "key-1");
+    const result = await book(input);
     expect(result).toMatchObject({ ok: true, booking: { id: "ref-77", serviceId: service.id, date: "2026-11-17", start: 600, status: "booked", source: "online" } });
     const [url, init] = posts()[0];
     expect(url).toBe("/api/public/salons/salong-fiktiv/bookings");
-    expect(init.headers).toMatchObject({ "Idempotency-Key": "key-1" });
+    expect(init.headers["Idempotency-Key"]).toMatch(/^[0-9a-f-]{36}$/);
     expect(JSON.parse(init.body)).toEqual({ ...input, language: "en", issuedAt: "fictional-token", terms: acceptedTerms(publicState(), service) });
   });
 
@@ -96,30 +96,48 @@ describe("booking on a salon from the server", () => {
     vi.useFakeTimers();
     const busy = () => Promise.resolve(new Response("{}", { status: 503, headers: { "Retry-After": "3" } }));
     fetchMock.mockImplementationOnce(busy).mockImplementationOnce(() => reply(201, { ref: "ref-78", duration: service.duration }));
-    const pending = book(input, "key-2");
+    const pending = book(input);
     await vi.advanceTimersByTimeAsync(2999);
     expect(posts()).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1);
     expect(await pending).toMatchObject({ ok: true });
-    expect(posts().map(([, init]) => init.headers["Idempotency-Key"])).toEqual(["key-2", "key-2"]);
+    expect(posts().map(([, init]) => init.headers["Idempotency-Key"])).toEqual([expect.any(String), expect.any(String)]);
     fetchMock.mockReset().mockImplementation(busy);
-    const again = book(input, "key-3");
+    const again = book(input);
     await vi.advanceTimersByTimeAsync(3000);
     expect(await again).toEqual({ ok: false, reason: "unavailable" });
     expect(posts()).toHaveLength(2);
     vi.useRealTimers();
   });
 
+  it("sends one key with one exact body: a retry after a lost answer re-sends it, a changed form or language gets a new key", async () => {
+    fetchMock.mockRejectedValueOnce(new Error("offline")).mockImplementation((_url: string, init?: RequestInit) => init?.method === "POST" ? reply(201, { ref: "ref-79", duration: service.duration }) : reply(200, { state: publicState(), issuedAt: "fresh" }));
+    expect(await book(input)).toEqual({ ok: false, reason: "unavailable" });
+    expect(await book(input)).toMatchObject({ ok: true });
+    const [lost, retried] = posts().map(([, init]) => [init.headers["Idempotency-Key"], init.body]);
+    expect(retried).toEqual(lost);
+    // The token was refreshed by the reload in between, yet the body that was first sent is what travels again.
+    expect(JSON.parse(retried[1]).issuedAt).toBe("fictional-token");
+    fetchMock.mockReset().mockRejectedValue(new Error("offline"));
+    await book({ ...input, name: "Lisa Berg-Lind" });
+    await book({ ...input, name: "Lisa Berg-Lind" });
+    setLocale("sv");
+    await book({ ...input, name: "Lisa Berg-Lind" });
+    const keys = posts().map(([, init]) => init.headers["Idempotency-Key"]);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[1]);
+  });
+
   it("says when to try again after too many attempts, without reloading the free times", async () => {
     fetchMock.mockImplementation(() => Promise.resolve(new Response("{}", { status: 429, headers: { "Retry-After": "600" } })));
-    expect(await book(input, "key-7")).toEqual({ ok: false, reason: "rate_limited", minutes: 10 });
+    expect(await book(input)).toEqual({ ok: false, reason: "rate_limited", minutes: 10 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("reloads the free times when the time was taken, or the terms changed", async () => {
     for (const error of ["slot_unavailable", "terms_changed"]) {
       fetchMock.mockReset().mockImplementation((_url: string, init?: RequestInit) => init?.method === "POST" ? reply(409, { error }) : reply(200, { state: publicState(), issuedAt: "fresh" }));
-      expect(await book(input, "key-4")).toEqual({ ok: false, reason: error });
+      expect(await book(input)).toEqual({ ok: false, reason: error });
       const gets = fetchMock.mock.calls.filter(([, init]) => !init?.method);
       expect(gets.map(([url]) => url)).toEqual(["/api/public/salons/salong-fiktiv"]);
     }
@@ -127,9 +145,9 @@ describe("booking on a salon from the server", () => {
 
   it("reports a deposit without reloading, and a failed request as unavailable", async () => {
     fetchMock.mockImplementation(() => reply(409, { error: "deposit_unsupported" }));
-    expect(await book(input, "key-5")).toEqual({ ok: false, reason: "deposit_unsupported" });
+    expect(await book(input)).toEqual({ ok: false, reason: "deposit_unsupported" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     fetchMock.mockReset().mockRejectedValue(new Error("offline"));
-    expect(await book(input, "key-6")).toEqual({ ok: false, reason: "unavailable" });
+    expect(await book(input)).toEqual({ ok: false, reason: "unavailable" });
   });
 });
