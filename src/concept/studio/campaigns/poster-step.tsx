@@ -4,6 +4,7 @@ import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
+import { NEUTRAL_TONE } from "../../campaigns/poster-engine/tone";
 import { GOAL_STYLES } from "../../campaigns/goals";
 import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
 import { headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
@@ -12,9 +13,11 @@ import { t } from "../../i18n";
 import { Button, buttonClass } from "../../ui/button";
 import { cx } from "../../ui/cx";
 import { Notice } from "../../ui/notice";
-import { Checkbox, Field, Segmented, TextInput } from "../../ui/controls";
+import { Checkbox, Field, Segmented, Switch, TextInput } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
+import { FeedPreview } from "./feed-preview";
 import { PosterView } from "./poster-view";
+import { ToneControls } from "./tone-controls";
 
 const FORMATS = Object.keys(POSTER_FORMATS) as PosterFormat[];
 const TEXT_SIZES: PosterTextSize[] = ["small", "normal", "large"];
@@ -29,6 +32,7 @@ interface PosterStepProps {
 /** Step 3: pick a style and photo, adjust the text, export a PNG in the size a channel wants. */
 export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const [format, setFormat] = useState<PosterFormat>("post");
+  const [feed, setFeed] = useState(false);
   const svg = useRef<SVGSVGElement>(null);
   const poster = resolvePoster(state, draft);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
@@ -73,6 +77,12 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
           <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />
         </div>
+        <Switch checked={feed} onChange={() => setFeed((on) => !on)} label={t("campaigns.feed.preview")} showLabel />
+        {feed && (
+          <FeedPreview name={state.salon.name}>
+            <PosterView source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
+          </FeedPreview>
+        )}
         <Button width="responsive" icon={<Share2 size={18} />} onClick={share}>{t("campaigns.poster.share")}</Button>
         <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
           {t("campaigns.poster.download", { size: `${POSTER_FORMATS[format].width * POSTER_FORMATS[format].exportScale} × ${POSTER_FORMATS[format].height * POSTER_FORMATS[format].exportScale}` })}
@@ -141,6 +151,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           <PhotoPicker label={t("campaigns.poster.photo")} value={poster.image} onPick={(image) => edit({ image })} />
         )}
         {[poster.image, draft.style === "beforeafter" ? poster.before : undefined].some((image) => image && isOwnPhoto(image)) && <Notice tone="info">{t("campaigns.photo.ownNotice")}</Notice>}
+        {isEngineStyle(draft.style) && <ToneControls tone={poster.photoTone ?? NEUTRAL_TONE} onChange={(photoTone) => edit({ photoTone })} />}
         <span className="block text-sm font-medium" aria-hidden>{t("campaigns.poster.textSize")}</span>
         <Segmented<PosterTextSize>
           label={t("campaigns.poster.textSize")}
