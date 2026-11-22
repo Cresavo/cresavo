@@ -49,7 +49,7 @@ export async function readBoundedJson(request: NextRequest, maxBytes: number): P
     chunks.push(part.value);
   }
   try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return JSON.parse(new TextDecoder().decode(Buffer.concat(chunks)));
   } catch {
     return null;
   }

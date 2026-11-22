@@ -1631,6 +1631,7 @@ const messages = {
   "campaigns.photo.massage": "Massage corner",
   "campaigns.publish.preview": "Preview per channel",
   "campaigns.publish.where": "Publish on",
+  "campaigns.publish.tooLong": "The text is too long for: {channels}. Shorten it in the texts step.",
   "campaigns.publish.timesPassed": "These free times will have passed by the publishing date. Pick an earlier date or make a new poster.",
   "campaigns.publish.link": "Campaign link: {link}",
   "campaigns.publish.checkTexts": "Check the text for: {channels}",

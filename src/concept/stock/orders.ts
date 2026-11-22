@@ -18,7 +18,7 @@ const updateItems = (stock: StockItem[], change: (item: StockItem) => StockItem)
 
 /** Sends (simulated) each order: it is on order from now on and the email is saved in Inbox. */
 export function placeOrders(state: DemoState, orders: NewOrder[], at: { date: DateKey; time: number }): DemoState {
-  if (orders.some((o) => o.lines.some((l) => !state.stock.some((s) => s.id === l.stockId)))) return state;
+  if (orders.some((o) => o.lines.some((l) => !state.stock.some((s) => s.id === l.stockId)) || new Set(o.lines.map((l) => l.stockId)).size !== o.lines.length)) return state;
   const valid = orders.filter((o) => o.lines.some((l) => l.quantity > 0));
   if (!valid.length) return state;
   let seq = state.seq;
@@ -41,15 +41,27 @@ export function placeOrders(state: DemoState, orders: NewOrder[], at: { date: Da
   };
 }
 
+/** What arrived of each item, split over the order's lines for it: each takes up to what it ordered, the last one the rest. */
+function receivedPerLine(lines: OrderLine[], arrived: (stockId: string) => number): OrderLine[] {
+  const left = new Map<string, number>();
+  return lines.map((line, index) => {
+    const remaining = left.get(line.stockId) ?? arrived(line.stockId);
+    const isLast = !lines.slice(index + 1).some((other) => other.stockId === line.stockId);
+    const received = isLast ? remaining : Math.min(remaining, line.quantity);
+    left.set(line.stockId, remaining - received);
+    return { ...line, received };
+  });
+}
+
 /**
  * Goods in. What arrived is added to the stock. When it belongs to an order,
  * that order is closed and the ordered amounts stop counting as "on order".
  */
 export function receiveGoods(state: DemoState, input: { orderId?: string; deliveries: Delivery[]; date: DateKey }): DemoState {
-  const deliveries = input.deliveries.filter((d) => d.quantity > 0 && state.stock.some((s) => s.id === d.stockId));
+  const deliveries = input.deliveries.filter((d) => d.quantity > 0);
   const order = input.orderId ? state.orders.find((o) => o.id === input.orderId) : undefined;
   if (!deliveries.length || (input.orderId && order?.status !== "open")) return state;
-  if (order && !deliveries.every((d) => order.lines.some((l) => l.stockId === d.stockId))) return state;
+  if (!deliveries.every((d) => state.stock.some((s) => s.id === d.stockId) && (!order || order.lines.some((l) => l.stockId === d.stockId)))) return state;
   const arrived = (stockId: string) => deliveries.filter((d) => d.stockId === stockId).reduce((sum, d) => sum + d.quantity, 0);
   return {
     ...state,
@@ -59,7 +71,7 @@ export function receiveGoods(state: DemoState, input: { orderId?: string; delive
       return { ...item, inStock: roundAmount(item.inStock + arrived(item.id)), onOrder: Math.max(0, item.onOrder - ordered) };
     }),
     orders: state.orders.map((o) =>
-      o.id === order?.id ? { ...o, status: "received" as const, receivedOn: input.date, lines: o.lines.map((l) => ({ ...l, received: arrived(l.stockId) })) } : o,
+      o.id === order?.id ? { ...o, status: "received" as const, receivedOn: input.date, lines: receivedPerLine(o.lines, arrived) } : o,
     ),
   };
 }

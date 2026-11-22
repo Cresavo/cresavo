@@ -17,12 +17,17 @@ function hasForbiddenKey(value: unknown, depth = 0): boolean {
   return Object.keys(value).some((key) => FORBIDDEN_KEYS.has(key) || hasForbiddenKey((value as Record<string, unknown>)[key], depth + 1));
 }
 
+/** Whether a value of ordinary depth serialises to more than the action cap. Too-deep values are not "large": they are invalid. */
+export function actionTooLarge(value: unknown): boolean {
+  return !hasForbiddenKey(value) && Buffer.byteLength(JSON.stringify(value) ?? "") > MAX_ACTION_BYTES;
+}
+
 /** The action as its schema parses it, or null. The nesting depth is checked before the size, so a deep value never reaches `JSON.stringify`. Unknown fields, wrong types and out-of-range values are refused. */
 export function parseOwnerAction(value: unknown): DemoAction | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const type = (value as { type?: unknown }).type;
   if (!isOwnerActionType(type) || hasForbiddenKey(value)) return null;
-  if (Buffer.byteLength(JSON.stringify(value)) > MAX_ACTION_BYTES) return null;
+  if (actionTooLarge(value)) return null;
   const parsed = OWNER_ACTION_SCHEMAS[type].safeParse(value);
   return parsed.success ? parsed.data as DemoAction : null;
 }

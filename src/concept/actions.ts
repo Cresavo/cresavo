@@ -146,6 +146,19 @@ export interface OnlineNotice {
 
 const nextId = (state: DemoState, prefix: string) => `${prefix}-${state.seq}`;
 
+/** Ids a new customer or booking may not take: those in the salon and those in the restorable trash. */
+function takenIds(state: DemoState, kind: "customers" | "bookings"): Set<string> {
+  const held = state.trash.flatMap((entry) => (entry.kind !== "customer" ? [] : kind === "customers" ? [entry.customer.id] : entry.bookings.map((b) => b.id)));
+  return new Set([...state[kind].map((item) => item.id), ...held]);
+}
+
+/** `prefix-N` for the first N from the running number on that nothing holds. The one way a customer or booking gets its id. */
+function freeId(taken: ReadonlySet<string>, seq: number, prefix: string): string {
+  let n = seq;
+  while (taken.has(`${prefix}-${n}`)) n++;
+  return `${prefix}-${n}`;
+}
+
 function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item: T) => T): T[] {
   return list.map((item) => (item.id === id ? patch(item) : item));
 }
@@ -154,11 +167,12 @@ function createBooking(
   state: DemoState,
   input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
   protection?: BookingProtection,
-): DemoState {
+): { state: DemoState; booking: Booking } | null {
   const service = state.services.find((s) => s.id === input.serviceId);
-  if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return state;
-  const id = input.id ?? nextId(state, "b");
-  if (state.bookings.some(b => b.id === id)) return state;
+  if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return null;
+  const taken = takenIds(state, "bookings");
+  if (input.id && taken.has(input.id)) return null;
+  const id = input.id ?? freeId(taken, state.seq, "b");
   const booking: Booking = {
     ...input,
     id,
@@ -168,7 +182,7 @@ function createBooking(
     status: "booked",
     resourceId: pickResource(state, needOf(service), input.date, input.start),
   };
-  return { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] };
+  return { state: { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] }, booking };
 }
 
 function moveBooking(state: DemoState, id: string, date: DateKey, start: number, staffId?: StaffId): DemoState {
@@ -192,7 +206,7 @@ function ensureCustomer(state: DemoState, guest: GuestContact, since: DateKey, c
   }
   const [firstName, ...rest] = guest.name.trim().split(/\s+/);
   const customer: Customer = {
-    id: id ?? nextId(state, "k"),
+    id: id ?? freeId(takenIds(state, "customers"), state.seq, "k"),
     firstName,
     lastName: rest.join(" "),
     phone: guest.phone.trim(),
@@ -240,13 +254,15 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
 
 function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const booked = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection);
-  const notified = reduce(booked, {
+  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection);
+  if (!created) return state;
+  const bookingId = created.booking.id;
+  const notified = reduce(created.state, {
     type: "inbox/add",
     item: {
       kind: "request",
       customerId: customer.id,
-      bookingId: booked.bookings[booked.bookings.length - 1].id,
+      bookingId,
       date: action.guest.at.date,
       time: action.guest.at.time,
       ...action.notice,
@@ -254,7 +270,6 @@ function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, se
       handled: true,
     },
   });
-  const bookingId = booked.bookings.at(-1)!.id;
   const confirmed = sendBookingMessage(notified, { type: "booking-message/send", bookingId, kind: "confirmation", channel: "sms", at: action.guest.at });
   return sendBookingMessage(confirmed, { type: "booking-message/send", bookingId, kind: "confirmation", channel: "email", at: action.guest.at });
 }
@@ -334,7 +349,7 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
     if (!customerId && item.fromName) {
       const [firstName, ...rest] = item.fromName.split(" ");
       const customer: Customer = {
-        id: nextId(next, "k"),
+        id: freeId(takenIds(next, "customers"), next.seq, "k"),
         firstName,
         lastName: rest.join(" "),
         phone: item.body.match(/07\d-[\d ]+\d/)?.[0] ?? "",
@@ -351,8 +366,8 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
     }
     if (!customerId || !next.customers.some(customer => customer.id === customerId)) return state;
     const booked = createBooking(next, { ...slot, customerId, source: "online" });
-    if (booked === next) return state;
-    next = booked;
+    if (!booked) return state;
+    next = booked.state;
   }
   return {
     ...next,
@@ -364,12 +379,15 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
 /** Adds imported customers, skipping any whose phone number is already known (or repeats within the list). */
 function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): DemoState {
   const known = new Set(state.customers.map((c) => normalizePhone(c.phone)));
+  const taken = takenIds(state, "customers");
   const added: Customer[] = [];
   for (const customer of incoming) {
     const phone = normalizePhone(customer.phone);
     if (phone.length < 7 || known.has(phone)) continue;
     known.add(phone);
-    added.push({ ...customer, id: `k-${state.seq + added.length}` });
+    const id = freeId(taken, state.seq, "k");
+    taken.add(id);
+    added.push({ ...customer, id });
   }
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;
 }
@@ -467,7 +485,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       const { serviceId, staffId, date, start, source } = action;
       const input = { id: action.id, serviceId, staffId, date, start, source };
       if ("customerId" in action) {
-        return state.customers.some((c) => c.id === action.customerId) ? createBooking(state, { ...input, customerId: action.customerId }) : state;
+        return state.customers.some((c) => c.id === action.customerId) ? createBooking(state, { ...input, customerId: action.customerId })?.state ?? state : state;
       }
       const service = state.services.find((s) => s.id === serviceId);
       const fictional = "fictionalCustomer" in action ? action.fictionalCustomer : undefined;
@@ -476,7 +494,7 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
       if (!service || guest.name.trim().length < 2 || (!fictional && !isContactPhone(guest.phone))) return state;
       const next = ensureCustomer(state, guest, guest.since, service.category, staffId, false, fictional?.id);
       const booked = createBooking(next.state, { ...input, customerId: next.customer.id });
-      return booked === next.state ? state : booked;
+      return booked?.state ?? state;
     }
     case "online/book":
     case "online/hold":

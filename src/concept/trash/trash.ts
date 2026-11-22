@@ -116,6 +116,7 @@ export function canRestore(state: DemoState, entry: TrashEntry): boolean {
 export function restoreEntry(state: DemoState, id: string, payments = demoPayments): DemoState {
   const entry = state.trash.find((e) => e.id === id);
   if (!entry || !canRestore(state, entry)) return state;
+  if (entry.kind === "customer" && (state.customers.some((c) => c.id === entry.customer.id) || entry.bookings.some((b) => state.bookings.some((x) => x.id === b.id)))) return state;
   const trash = state.trash.filter((e) => e.id !== id);
   if (entry.kind === "booking") {
     const bookings = state.bookings.map((b) => (b.id === entry.bookingId ? rebook(state, b) : b));

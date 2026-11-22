@@ -3,6 +3,7 @@ import { z } from "zod";
 import { idempotencyKeySchema } from "@/lib/validation";
 import { ownerError, ownerOk, ownerRoute, readBoundedJson } from "@/lib/owner-http";
 import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
+import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_ACTION_BYTES, ownerAction, ownerStore } from "@/lib/owner-store";
 
 const bodySchema = z.object({
@@ -24,6 +25,7 @@ export function POST(request: NextRequest) {
     const json = await readBoundedJson(request, MAX_BODY_BYTES);
     if (json === "too_large") return ownerError("too_large", 413);
     const body = bodySchema.safeParse(json);
+    if (body.success && actionTooLarge(body.data.action)) return ownerError("too_large", 413);
     const action = body.success ? ownerAction(body.data.action) : null;
     if (!body.success || !action) return ownerError("invalid", 400);
     const result = await ownerStore().apply(owner.tenantId, action, { actor: "owner", source: "button" },

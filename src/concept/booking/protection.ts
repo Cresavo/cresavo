@@ -62,10 +62,11 @@ export function validPolicy(policy: CancellationPolicy) {
     Object.values(policy.deposits).every(n => within(n, Number.MAX_SAFE_INTEGER));
 }
 
-/** Service ids a policy change newly refers to that the price list does not have. Ids already in the policy are left alone. */
+/** Service ids a policy change adds or gives a new amount that the price list does not have. Old entries may stay as they are or be removed. */
 export function unknownPolicyServices(current: CancellationPolicy, next: CancellationPolicy, services: readonly Pick<Service, "id">[]): string[] {
   const known = new Set(services.map(service => service.id));
-  const added = [...Object.keys(next.deposits).filter(id => !(id in current.deposits)), ...next.exemptServices.filter(id => !current.exemptServices.includes(id))];
+  const changedDeposits = Object.keys(next.deposits).filter(id => !Object.hasOwn(current.deposits, id) || current.deposits[id] !== next.deposits[id]);
+  const added = [...changedDeposits, ...next.exemptServices.filter(id => !current.exemptServices.includes(id))];
   return added.filter(id => !known.has(id));
 }
 
