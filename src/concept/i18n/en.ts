@@ -1583,7 +1583,7 @@ const messages = {
   "campaigns.goal.giftcard.name": "Gift cards",
   "campaigns.goal.giftcard.lead": "Give away",
   "campaigns.goal.giftcard.headline": "a gift card",
-  "campaigns.goal.giftcard.detail": "Buy at the salon or online. Valid for a year.",
+  "campaigns.goal.giftcard.detail": "Ask us at the salon.",
   "campaigns.goal.review.name": "Our customers say",
   "campaigns.goal.suggestions": "Three suggestions for your goal",
   "campaigns.goal.moreStyles": "More styles",

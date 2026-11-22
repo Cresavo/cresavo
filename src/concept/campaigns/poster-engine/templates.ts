@@ -39,6 +39,8 @@ export const posterDataSchema = z.object({
   cta: line(40).default(""),
   quote: line(220).default(""),
   author: line(40).default(""),
+  /** The quoted review's own rating; the review poster never shows the salon's average beside a single quote. */
+  stars: z.number().int().min(1).max(5).optional(),
   photo,
   /** Before/after: the "before" photo, and the two words on the photos in the salon's language. */
   before: photo.optional(),
@@ -219,14 +221,14 @@ function reviewTemplate(data: PosterData, width: number, height: number): Poster
   const { accent, ink } = data.colors;
   const scale = SCALE[data.textSize];
   const onInk = onColour(ink);
-  const rating = data.signature.rating ?? 5;
+  const rating = data.stars;
   return box({ width, height, position: "relative", background: ink, fontFamily: "Inter" },
     image(data.photo, { position: "absolute", left: 64, top: 90, width: 280, height: 280, borderRadius: 999, border: `10px solid ${accent}`, objectFit: "cover", objectPosition: CROP[data.focus] }),
     text({ position: "absolute", left: 390, top: 40, fontFamily: "Caladea", fontSize: 400, lineHeight: 1, color: accent }, "“"),
     // The quote and its stars flow as one column, so a short quote never leaves a gap.
     box({ position: "absolute", left: 64, top: Math.round(height * 0.33), width: width - 128, flexDirection: "column", color: onInk },
       text({ fontFamily: "Caladea", fontSize: Math.round(72 * scale), lineHeight: 1.15, lineClamp: 6 }, data.quote || data.headline),
-      box({ marginTop: 48 }, stars(Math.round(rating), 44)),
+      ...(rating ? [box({ marginTop: 48 }, stars(rating, 44))] : []),
       text({ fontSize: 34, marginTop: 12, opacity: 0.9 }, data.author)),
     signature(data, width, onInk));
 }

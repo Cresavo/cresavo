@@ -82,12 +82,11 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         {draft.goal && (
           <div className="space-y-2">
             <span className="block text-sm font-medium">{t("campaigns.goal.suggestions")}</span>
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t("campaigns.goal.suggestions")}>
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label={t("campaigns.goal.suggestions")}>
               {GOAL_STYLES[draft.goal].map((style) => (
                 <Button variant="secondary" size="sm"
                   key={style}
-                  role="radio"
-                  aria-checked={draft.style === style}
+                  aria-pressed={draft.style === style}
                   aria-label={t(`campaigns.style.${style}`)}
                   onClick={() => onChange({ style })}
                   className={cx("flex-col !gap-1 !p-1 !text-minimum", draft.style === style ? "!ring-2 ring-action" : "ring-input-border")}

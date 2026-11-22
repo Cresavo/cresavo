@@ -1542,7 +1542,7 @@ const messages = {
   "campaigns.goal.giftcard.name": "Presentkort",
   "campaigns.goal.giftcard.lead": "Ge bort",
   "campaigns.goal.giftcard.headline": "ett presentkort",
-  "campaigns.goal.giftcard.detail": "Köp i salongen eller online. Gäller i ett år.",
+  "campaigns.goal.giftcard.detail": "Fråga oss i salongen.",
   "campaigns.goal.review.name": "Våra kunder säger",
   "campaigns.goal.suggestions": "Tre förslag för ditt mål",
   "campaigns.goal.moreStyles": "Fler stilar",

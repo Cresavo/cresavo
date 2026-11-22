@@ -1,6 +1,6 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
-import { t, tc } from "../i18n";
+import { t, tc, translate } from "../i18n";
 import { dayChipLabel, formatDayMonth, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
@@ -94,12 +94,17 @@ const MAX_LIST = 6;
 const SLOT_DAYS = 7;
 const MAX_SLOTS = 4;
 
-/** The first day within a week that still has free times for the treatment, with up to four of them spread over the day. */
-function freeTimes(state: DemoState, serviceId: string | undefined) {
+/**
+ * The first day in the offer period (and within a week of its start, never before today) that still has free
+ * times for the treatment, with up to four of them spread over the day.
+ */
+function freeTimes(state: DemoState, serviceId: string | undefined, period?: { from: DateKey; to: DateKey }) {
   if (!serviceId) return null;
   const clock = salonClock();
+  const start = period && period.from > clock.today ? period.from : clock.today;
   for (let i = 0; i < SLOT_DAYS; i++) {
-    const date = addDays(clock.today, i);
+    const date = addDays(start, i);
+    if (period && date > period.to) break;
     const slots = openSlots(state, serviceId, date, clock);
     if (!slots.length) continue;
     const step = Math.max(1, Math.floor(slots.length / MAX_SLOTS));
@@ -109,32 +114,39 @@ function freeTimes(state: DemoState, serviceId: string | undefined) {
   return null;
 }
 
+/** The newest published review with the customer's public name, or null when the salon has none. */
+export function newestReview(state: DemoState) {
+  const [review] = recentReviews(state.reviews, 1);
+  if (!review) return null;
+  const customer = state.customers.find((c) => c.id === review.customerId);
+  return { text: review.text, rating: review.rating, author: customer ? publicName(customer.firstName, customer.lastName) : "" };
+}
+
 /** What the season, review and free-times posters show, from the holiday, the published reviews and the calendar. */
-function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "sticker" | "items"> {
+function storyFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "cta" | "quote" | "author" | "stars" | "sticker" | "items"> {
   if (draft.style === "review") {
-    const [review] = recentReviews(state.reviews, 1);
-    const customer = review && state.customers.find((c) => c.id === review.customerId);
-    return review ? { quote: review.text, author: customer ? publicName(customer.firstName, customer.lastName) : "" } : {};
+    const review = newestReview(state);
+    return review ? { quote: review.text, author: review.author, stars: review.rating } : {};
   }
   if (draft.style === "slots") {
-    const free = freeTimes(state, draft.serviceIds[0]);
-    return free ? { sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: t("campaigns.engine.book") } : { cta: t("campaigns.engine.book") };
+    const free = freeTimes(state, draft.serviceIds[0], draft);
+    return free ? { sticker: [dayChipLabel(free.date, free.today), formatDayMonth(free.date)], items: free.times.map((name) => ({ name, price: "" })), cta: translate(state.localization.language, "campaigns.engine.book") } : { cta: translate(state.localization.language, "campaigns.engine.book") };
   }
-  return { cta: t("campaigns.engine.book") };
+  return { cta: translate(state.localization.language, "campaigns.engine.book") };
 }
 
 /** Price, sticker and price list for the engine styles, from the treatments the campaign is about. */
-function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "lead" | "backdrop"> {
+function engineFields(state: DemoState, draft: Draft): Pick<CampaignPoster, "price" | "sticker" | "items" | "cta" | "quote" | "author" | "stars" | "lead" | "backdrop"> {
   if (draft.style === "season" || draft.style === "review" || draft.style === "slots") return storyFields(state, draft);
-  if (draft.style === "beforeafter") return { cta: t("campaigns.engine.book") };
-  if (draft.style === "portrait") return { cta: t("campaigns.engine.book"), lead: draft.posterEdits.lead ?? t("campaigns.engine.portraitLead"), backdrop: draft.posterEdits.backdrop ?? "bloom" };
+  if (draft.style === "beforeafter") return { cta: translate(state.localization.language, "campaigns.engine.book") };
+  if (draft.style === "portrait") return { cta: translate(state.localization.language, "campaigns.engine.book"), lead: draft.posterEdits.lead ?? translate(state.localization.language, "campaigns.engine.portraitLead"), backdrop: draft.posterEdits.backdrop ?? "bloom" };
   const chosen = state.services.filter((s) => draft.serviceIds.includes(s.id) && !s.hidden);
   const listed = (chosen.length > 1 ? chosen : state.services.filter((s) => !s.hidden)).slice(0, MAX_LIST);
   const off = (price: number) => Math.round(price * (1 - draft.discountPercent / 100));
   const first = chosen[0];
   return {
     ...(first && { price: formatMoney(off(first.price)) }),
-    ...(draft.discountPercent > 0 && { sticker: [t("campaigns.engine.offer"), `–${draft.discountPercent}%`] as [string, string] }),
+    ...(draft.discountPercent > 0 && { sticker: [translate(state.localization.language, "campaigns.engine.offer"), `–${draft.discountPercent}%`] as [string, string] }),
     items: listed.map((s) => ({ name: s.name, price: formatMoney(chosen.includes(s) ? off(s.price) : s.price) })),
   };
 }
@@ -143,7 +155,7 @@ function defaultHeadline(state: DemoState, draft: Draft): string {
   if (draft.style === "price" || draft.style === "beforeafter" || draft.style === "portrait") return state.services.find((s) => s.id === draft.serviceIds[0])?.name ?? draft.name;
   if (draft.style === "season") return state.holidays.find((h) => h.id === draft.holidayId)?.name ?? draft.name;
   if (draft.style === "slots") {
-    const free = freeTimes(state, draft.serviceIds[0]);
+    const free = freeTimes(state, draft.serviceIds[0], draft);
     return free ? tc("campaigns.engine.slotsLeft", free.count) : draft.name;
   }
   if (draft.style === "pricelist") return draft.name;
@@ -158,8 +170,10 @@ const SHORT_DETAIL = 70;
 export function firstSentence(text: string): string {
   const sentence = text.trim().split(/(?<=[.!?])\s/)[0] ?? "";
   if (sentence.length <= SHORT_DETAIL) return sentence;
-  const cut = sentence.slice(0, SHORT_DETAIL + 1);
-  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 1)).replace(/[,;:–-]$/, "").trim()}…`;
+  // One character is kept for the ellipsis; without a word boundary the text is cut mid-word.
+  const head = sentence.slice(0, SHORT_DETAIL);
+  const space = head.lastIndexOf(" ");
+  return `${(space > SHORT_DETAIL / 2 ? head.slice(0, space) : head.slice(0, SHORT_DETAIL - 1)).replace(/[,;:–-]$/, "").trim()}…`;
 }
 
 function defaultDetail(state: DemoState, draft: Draft): string {

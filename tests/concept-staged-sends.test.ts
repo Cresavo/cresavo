@@ -11,7 +11,7 @@ const { showToast, showActionFailure } = vi.hoisted(() => ({ showToast: vi.fn(),
 vi.mock("@/concept/ui/toast", () => ({ showToast, showActionFailure }));
 
 // A fixed Tuesday: the demo salon is closed on Sundays, when "today's free times" would be empty.
-const NOW = new Date("2026-11-17T09:00:00+01:00");
+const NOW = new Date(2026, 10, 17, 9, 0);
 const today = toKey(NOW);
 
 /** One tab's localStorage, with a hook that runs before each save. */
