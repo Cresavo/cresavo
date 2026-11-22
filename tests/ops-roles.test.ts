@@ -17,7 +17,7 @@ const names = (list: string) => [...list.matchAll(/"([^"]+)"/g)].map((m) => m[1]
 /** role -> table -> privilege -> columns ("*" when granted on the whole table). */
 function parseGrants(text: string) {
   const out = new Map<string, Map<string, Map<string, Set<string>>>>();
-  for (const m of text.matchAll(/GRANT\s+(?!EXECUTE|CONNECT|USAGE|CREATE)([\s\S]+?)\s+ON\s+((?:"[^"]+"\s*,?\s*)+)\s+TO\s+([a-z_, ]+);/g)) {
+  for (const m of text.matchAll(/GRANT\s+(?!EXECUTE|CONNECT|USAGE|CREATE)([\s\S]+?)\s+ON\s+("[^"]+"(?:\s*,\s*"[^"]+")*)\s+TO\s+([a-z_, ]+);/g)) {
     const privileges = [...m[1].matchAll(/(SELECT|INSERT|UPDATE|DELETE)(?:\s*\(([^)]*)\))?/g)];
     for (const role of m[3].split(",").map((r) => r.trim())) {
       for (const table of names(m[2])) {
