@@ -1,25 +1,29 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { DomainError } from "./errors";
+import { RATE_POLICY, type RateRoute } from "./rate-limit-policy";
 
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
 export const rateLimitDatabase = createDatabaseClient(undefined, 1);
-type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant";
 export type Reservation = { key: string; generation: string; count: number };
 
-export async function reserveRateLimit(
-  route: Route,
-  identity: string,
-  consume = true,
-): Promise<Reservation> {
+function bucketKey(route: RateRoute, identity: string) {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) throw new Error("RATE_LIMIT_CONFIG_INVALID");
-  const key = createHmac("sha256", secret)
+  return createHmac("sha256", secret)
     .update(`rate-limit:v1:${route}:${identity}`)
     .digest("hex");
-  const limit =
-    route === "login" || route === "signup" ? 5 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : 60;
+}
+
+export async function reserveRateLimit(
+  route: RateRoute,
+  identity: string,
+  consume = true,
+  windowMs?: number,
+): Promise<Reservation> {
+  const key = bucketKey(route, identity);
+  const { limit, windowMs: defaultWindowMs } = RATE_POLICY[route];
   return rateLimitDatabase.$transaction(async (tx) => {
     // Small bounded preview store. This lock has no domain/session dependencies;
     // it is released before credential verification or booking processing.
@@ -48,13 +52,21 @@ export async function reserveRateLimit(
     }
     const value = {
       generation: active?.generation ?? randomUUID(),
-      expiresAt: active?.expiresAt ?? new Date(now.getTime() + (route === "public-tenant" ? 60 : 15) * 60_000),
+      expiresAt: active?.expiresAt ?? new Date(now.getTime() + (windowMs ?? defaultWindowMs)),
       count: (active?.count ?? 0) + 1,
     };
     await tx.rateLimitBucket.upsert({
       where: { key }, create: { key, ...value }, update: value,
     });
     return { key, generation: value.generation, count: value.count };
+  }, { maxWait: 30000, timeout: 10000 });
+}
+
+export async function clearRateLimit(route: RateRoute, identity: string) {
+  const key = bucketKey(route, identity);
+  await rateLimitDatabase.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking-lab:rate-store:v1'))`;
+    await tx.rateLimitBucket.deleteMany({ where: { key } });
   }, { maxWait: 30000, timeout: 10000 });
 }
 

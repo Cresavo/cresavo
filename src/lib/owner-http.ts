@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { failure } from "./http";
 import { ownerAccountsEnabled } from "./owner-accounts";
-import { OWNER_COOKIE, OWNER_HINT_COOKIE, OWNER_SESSION_MS } from "./owner-session";
+import { OWNER_COOKIE, OWNER_HINT_COOKIE, renewedOwnerCookie, type OwnerCookie } from "./owner-session";
 import { isPublicReadonly, readonlyForbidden } from "./public-readonly";
 import { isSameOriginWrite } from "./same-origin";
 
@@ -40,10 +40,18 @@ const cookieOptions = { httpOnly: true, sameSite: "strict" as const, secure: pro
 // The hint holds no secret: it only tells the studio to ask the server for an account salon.
 const hintOptions = { ...cookieOptions, httpOnly: false };
 
-export function withSession(response: NextResponse, value: string) {
-  response.cookies.set(OWNER_COOKIE, value, { ...cookieOptions, maxAge: OWNER_SESSION_MS / 1000 });
-  response.cookies.set(OWNER_HINT_COOKIE, "1", { ...hintOptions, maxAge: OWNER_SESSION_MS / 1000 });
+/** Sets the session cookies; they last until the cookie's idle deadline. */
+export function withSession(response: NextResponse, cookie: OwnerCookie, now = Date.now()) {
+  const maxAge = Math.max(0, Math.floor((cookie.expires.getTime() - now) / 1000));
+  response.cookies.set(OWNER_COOKIE, cookie.value, { ...cookieOptions, maxAge });
+  response.cookies.set(OWNER_HINT_COOKIE, "1", { ...hintOptions, maxAge });
   return response;
+}
+
+/** Keeps an active owner signed in: moves the idle deadline forward once more than half of it has passed. */
+export function withRenewedSession(response: NextResponse, request: NextRequest) {
+  const renewed = renewedOwnerCookie(request.cookies.get(OWNER_COOKIE)?.value);
+  return renewed ? withSession(response, renewed) : response;
 }
 
 export function withoutSession(response: NextResponse) {

@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Owner account security (behind `OWNER_ACCOUNTS_ENABLED`).** An account locks after 5 wrong passwords in 15 minutes (15 minutes, then 30, 60 ... up to 8 hours for repeat locks within a day), counted per typed address in the shared rate-limit store next to the per-address limit; an unknown address, a wrong password and a locked account all get the same "wrong email or password" answer after a full password check. `POST /api/owner/password/reset-request` e-mails a reset link (simulated unless the live flags and a provider are set; the same answer and a rate limit whether or not the address exists) and `POST /api/owner/password/reset` sets a new password from it: the link is signed, expires after 30 minutes, works once (it is tied to the account's credential version and password hash, so nothing is stored) and ends every session and lifts a lock. New `/account/reset` page and a "Forgot your password?" link, in English and Swedish. Sessions now end after 12 hours without use and 14 days at most (the cookie's idle deadline moves forward with use), and "Sign out everywhere" (`POST /api/owner/logout-all`) ends them on every device. Every response now carries `X-Frame-Options` matching `frame-ancestors`, and a business's own address follows the page it rewrites to, so its booking widget can be embedded; `tests/security-headers.test.ts` asserts the headers per route class. Owner MFA (TOTP) is not built: it needs a migration (columns for the secret and recovery codes).
+
 ## [0.7.0] - 2026-11-22
 
 ### Added

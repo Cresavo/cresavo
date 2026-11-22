@@ -2,11 +2,11 @@ import { isPublicReadonly } from "./public-readonly";
 import { setTimeout as delay } from "node:timers/promises";
 import { verifiedClientAddress } from "../../scripts/client-address.mjs";
 import { DomainError, PasswordCapacityError } from "./errors";
+import { RATE_POLICY, type RateRoute } from "./rate-limit-policy";
 
 // One bounded map per process. No persistence or cross-worker guarantee.
 const buckets = new Map<string, { count: number; until: number }>();
-const windowMs = 15 * 60_000;
-// "public-tenant" is the writes one salon takes from the public, whoever sends them: 60 per hour, not per 15 minutes.
+// Limits and windows: rate-limit-policy.ts. "public-tenant" is the writes one salon takes from the public, whoever sends them: 60 per hour.
 
 function postgresStore() {
   if (isPublicReadonly()) return false;
@@ -22,20 +22,23 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant",
+  route: RateRoute,
   ip: string,
   consume = true,
   now = Date.now(),
+  /** Length of a new window, when it should not be the route's default. */
+  windowMs?: number,
 ) {
   if (postgresStore())
     return import("./postgres-rate-limit").then(async (store) =>
-      (await store.reserveRateLimit(route, ip, consume)).count,
+      (await store.reserveRateLimit(route, ip, consume, windowMs)).count,
     );
   for (const [key, bucket] of buckets)
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
-  const bucket = buckets.get(key) ?? { count: 0, until: now + (route === "public-tenant" ? 4 * windowMs : windowMs) };
-  const limit = route === "login" || route === "signup" ? 5 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "public-tenant" ? 60 : 30;
+  const policy = RATE_POLICY[route];
+  const bucket = buckets.get(key) ?? { count: 0, until: now + (windowMs ?? policy.windowMs) };
+  const limit = policy.limit;
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",
@@ -49,6 +52,12 @@ export function checkRateLimit(
     buckets.set(key, bucket);
   }
   return bucket.count;
+}
+
+/** Forgets one identity's bucket: a successful login clears its failures, a password reset its lock. */
+export async function clearRateLimit(route: RateRoute, identity: string) {
+  if (postgresStore()) return (await import("./postgres-rate-limit")).clearRateLimit(route, identity);
+  buckets.delete(`${route}:${identity}`);
 }
 
 export const LOGIN_FAILURE_DELAY_MS = 100;

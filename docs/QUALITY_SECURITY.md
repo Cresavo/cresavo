@@ -81,8 +81,13 @@ Handling a finding:
 ## Pilot gate: before the first real customer
 
 Security
-- [ ] Real authentication for owners/staff with MFA, secure sessions,
-      password reset and account lockout.
+- [x] Owner accounts: secure sessions (HttpOnly, `Secure` in production,
+      `SameSite=Strict`, 12-hour idle and 14-day absolute timeout, "sign out
+      everywhere"), password reset (30-minute single-use signed link, all
+      sessions ended) and account lockout (5 failures in 15 minutes, doubling
+      lock up to 8 hours, one generic answer). Behind `OWNER_ACCOUNTS_ENABLED`.
+- [ ] MFA (TOTP with recovery codes) for owners, and real authentication for
+      staff. Owner MFA needs a migration: see CHANGELOG "Unreleased".
 - [ ] Tenant isolation enforced in the database (row-level security or
       equivalent) and covered by tests that try to read another tenant.
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
@@ -92,7 +97,10 @@ Security
 - [ ] Encryption at rest for journal entries and other sensitive fields.
 - [x] Secret scanning and code scanning (e.g. GitHub secret scanning and
       CodeQL) enabled; no high/critical dependency findings.
-- [ ] Security headers (CSP, HSTS, frame-ancestors) and CSRF/origin checks.
+- [x] Security headers (CSP with nonce, HSTS in production, `frame-ancestors`
+      and `X-Frame-Options`, Referrer-Policy, Permissions-Policy, nosniff),
+      asserted per route class in `tests/security-headers.test.ts`, and
+      same-origin checks on owner writes.
 - [ ] External penetration test or at least an independent review.
 
 Privacy (GDPR)

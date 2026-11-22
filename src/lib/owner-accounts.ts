@@ -5,6 +5,7 @@ import { createSalon, salonDraft, suggestedSlug } from "@/concept/onboarding/sal
 import { checkSlug, SLUG_MAX } from "@/concept/page/slug";
 import { salonClock } from "@/concept/tools/clock";
 import { db } from "./db";
+import { accountLocked, clearFailedLogins, recordFailedLogin } from "./owner-lockout";
 import { hashPassword, newPasswordSchema, verifyPasswordHash } from "./password";
 import { findSalonTenant } from "./public-booking";
 import { assertWritable } from "./public-readonly";
@@ -81,12 +82,22 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
   return { ok: false, reason: "slug_unavailable" };
 }
 
-/** Unknown emails pay the same password cost as known ones, so timing does not reveal accounts. */
+/**
+ * Unknown emails pay the same password cost as known ones, so timing does not reveal accounts. A locked account
+ * is checked like any other (the password is verified and thrown away) and answers exactly like a wrong password.
+ * Failures are counted per typed address, known or not, so a lock never says whether the account exists.
+ */
 export async function verifyOwnerCredentials(input: unknown): Promise<OwnerIdentity | null> {
   assertWritable();
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return null;
-  const account = await db.ownerAccount.findUnique({ where: { email: parsed.data.email } });
-  const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, parsed.data.password);
-  return account?.active && valid ? { id: account.id, credentialVersion: account.credentialVersion } : null;
+  const { email, password } = parsed.data;
+  const [account, locked] = await Promise.all([db.ownerAccount.findUnique({ where: { email } }), accountLocked(email)]);
+  const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, password);
+  if (account?.active && valid && !locked) {
+    await clearFailedLogins(email);
+    return { id: account.id, credentialVersion: account.credentialVersion };
+  }
+  if (!locked) await recordFailedLogin(email);
+  return null;
 }
