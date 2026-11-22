@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **An "About us" section on the booking page.** A business can now describe itself in its own words: a heading and a few paragraphs of plain text (up to 1,500 characters; line breaks are kept and an empty line starts a new paragraph, with no HTML or Markdown). The owner switches the section on under Booking page, moves it like any other section, picks a plain or card look and sees it in the live preview; an empty heading reads "About <business name>", and the section stays hidden until there is text. It is off on every existing page. A freshly started demo of Salong Eko shows it after the team with invented text in English and Swedish. The assistant understands "add an about us section" and "ta bort om oss". The server validates the text with `page/set`, which now requires the page's `about` field, and a text whose section is off is never sent to the public page.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

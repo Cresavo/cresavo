@@ -128,10 +128,10 @@ describe("migrateState", () => {
     });
   });
 
-  it("lifts a v22 salon to v23 and keeps its modules, bookings and reminder preferences", () => {
+  it("lifts a v22 salon to the current version and keeps its modules, bookings and reminder preferences", () => {
     const own = createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }, { examplesAfter: 0 });
     const saved = { ...own, version: 22, modules: { ...own.modules, finance: true, campaigns: true } };
-    expect(migrateState(saved)).toEqual({ ...saved, version: 23 });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
     expect(migrateState(saved)!.bookings.every((booking) => booking.example)).toBe(true);
   });
 
