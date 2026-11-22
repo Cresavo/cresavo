@@ -349,3 +349,24 @@ it("shows the QR code in posts and stories only when the owner asks, and remembe
   expect(withQr.socialQr).toBe(true);
   expect(newDraft(defaultPrefill(state, "2026-11-21"), withQr).posterEdits.socialQr).toBe(true);
 });
+
+it("starts a campaign from a goal with its offer and three different suggested posters", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { applyGoal, GOALS, GOAL_STYLES } = await import("@/concept/campaigns/goals");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), posterEdits: { textSize: "large" as const, headline: "Old" } };
+  for (const goal of GOALS) {
+    const patch = applyGoal(state, draft, goal, "2026-11-21");
+    expect(patch).toMatchObject({ goal, style: GOAL_STYLES[goal][0], from: "2026-11-21" });
+    expect(new Set(GOAL_STYLES[goal]).size).toBe(3);
+    // The owner's look stays; words from an earlier goal do not.
+    expect(patch.posterEdits?.textSize).toBe("large");
+    expect(patch.posterEdits?.headline).not.toBe("Old");
+    expect(patch.name).toBeTruthy();
+  }
+  const fill = applyGoal(state, draft, "fill", "2026-11-21");
+  expect(fill).toMatchObject({ discountPercent: 0, to: "2026-11-27" });
+  const gift = { ...draft, ...applyGoal(state, draft, "giftcard", "2026-11-21") };
+  expect(resolvePoster(state, gift)).toMatchObject({ style: "portrait", lead: "Give away", headline: "a gift card" });
+});

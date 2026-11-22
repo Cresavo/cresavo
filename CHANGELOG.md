@@ -10,6 +10,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Start a campaign from a goal.** The campaign studio first asks what the owner wants to do: fill free times, promote a treatment, wellness benefits, sell gift cards or share a review. The goal fills in the campaign's name, offer and dates, and the poster step shows three suggested posters with different compositions above the full list of styles.
 - **One message per poster.**
   - Posters now start from the first sentence of a treatment's description; the full description belongs in the post's text.
   - The QR code is on the printed window poster by default. Posts and stories show it only when the owner ticks "Show the QR code in posts and stories too", and new campaigns keep that choice.

@@ -4,6 +4,7 @@ import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
+import { GOAL_STYLES } from "../../campaigns/goals";
 import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
 import { headlineTooLong, isEngineStyle, MAX_BADGES, POSTER_FORMATS, POSTER_IMAGES, POSTER_STYLES, WELLNESS_BADGES } from "../../campaigns/poster-layout";
 import type { DemoState, PosterFocus, PosterFormat, PosterTextSize } from "../../data/types";
@@ -78,8 +79,30 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
         </Button>
       </div>
       <div className="space-y-5">
+        {draft.goal && (
+          <div className="space-y-2">
+            <span className="block text-sm font-medium">{t("campaigns.goal.suggestions")}</span>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t("campaigns.goal.suggestions")}>
+              {GOAL_STYLES[draft.goal].map((style) => (
+                <Button variant="secondary" size="sm"
+                  key={style}
+                  role="radio"
+                  aria-checked={draft.style === style}
+                  aria-label={t(`campaigns.style.${style}`)}
+                  onClick={() => onChange({ style })}
+                  className={cx("flex-col !gap-1 !p-1 !text-minimum", draft.style === style ? "!ring-2 ring-action" : "ring-input-border")}
+                >
+                  <span className="pointer-events-none block w-full overflow-hidden rounded-sm">
+                    <PosterView source={{ ...source, poster: resolvePoster(state, { ...draft, style }) }} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
+                  </span>
+                  {t(`campaigns.style.${style}`)}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
-          <span className="block text-sm font-medium">{t("campaigns.poster.style")}</span>
+          <span className="block text-sm font-medium">{t(draft.goal ? "campaigns.goal.moreStyles" : "campaigns.poster.style")}</span>
           <div className="flex gap-2 overflow-x-auto pb-1" role="radiogroup" aria-label={t("campaigns.poster.style")}>
             {POSTER_STYLES.map((style) => (
               <Button variant="secondary" size="sm"

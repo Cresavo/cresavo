@@ -5,6 +5,7 @@ import { dayChipLabel, formatDayMonth, formatDuration, formatMoney, formatTime }
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
+import type { Goal } from "./goals";
 import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS } from "./channels";
@@ -16,6 +17,8 @@ import type { CampaignPrefill } from "./prefill";
 
 /** A campaign being made in the studio, before it is published. */
 export interface Draft extends CampaignPrefill {
+  /** What the owner wants to achieve; it decides the three suggested posters. */
+  goal?: Goal;
   channels: Channel[];
   /** Final text per channel. */
   copy: Partial<Record<Channel, string>>;
