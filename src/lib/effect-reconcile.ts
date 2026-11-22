@@ -36,10 +36,13 @@ import { messageAddress, messageDeliverable } from "./message-sink";
 
 /** Longest wait for a row a deliverer is writing: its writes take milliseconds. */
 const LOCK_TIMEOUT = "3000ms";
-/** Error codes of a terminal attempt that may have reached the provider. */
-const MAYBE_SENT_ERRORS = new Set(["EMAIL_UNCERTAIN", "STUDIO_STORE_SINK_TIMEOUT"]);
+/**
+ * Error codes of a terminal attempt whose request may have reached the provider. A sink timeout is not one: a
+ * request in flight keeps the `dispatched` marker, and one that never started has it released.
+ */
+const MAYBE_SENT_ERRORS = new Set(["EMAIL_UNCERTAIN"]);
 /** The reasons the sink and this tool write, and the provider codes it maps: the only ones shown. */
-const REASONS = new Set<string>([...ERROR_CODES, "uncertain", "reconcile", "not_sent", "snapshot_purged"]);
+const REASONS = new Set<string>([...ERROR_CODES, "uncertain", "reconcile", "not_sent", "snapshot_purged", "snapshot_missing"]);
 
 /**
  * A failed e-mail that may have been sent: marked so by the sink, or out of attempts with a request that may have
@@ -50,6 +53,13 @@ export function isUncertain(status: string, delivery: DeliveryState): boolean {
   if (delivery.reason) return delivery.reason === "uncertain";
   return delivery.dispatched === true || MAYBE_SENT_ERRORS.has(delivery.lastError ?? "");
 }
+
+/**
+ * What `mark-sent` and `mark-failed` may settle: an uncertain row, or one the provider refused because the key was
+ * reused with another body (`reconcile`) after a request that may have left.
+ */
+const settleable = (status: string, delivery: DeliveryState) =>
+  isUncertain(status, delivery) || (status === "failed" && delivery.reason === "reconcile" && delivery.dispatched === true);
 
 /** What a list may show as a row's error: an allowlisted reason or code, else `other`. */
 export function shownError(delivery: DeliveryState): string | undefined {
@@ -102,6 +112,8 @@ export function decide(action: ReconcileAction, row: EffectRow | undefined, tena
     if ((delivery.dispatched || uncertain || delivery.reason === "not_sent") && !forceMaybeDuplicate) return refused(delivery.dispatched ? "dispatched" : "uncertain");
     // Retention blanked the message but kept its sender: it cannot be resent as it was.
     if (delivery.reason === "snapshot_purged" || (!delivery.mail && (delivery.from || delivery.link || delivery.replyTo))) return refused("snapshot_purged");
+    // Rendered once (an older row, or one whose snapshot was dropped when it settled) but not kept: a retry would send new content.
+    if (!delivery.mail && (delivery.firstAttemptAt !== undefined || delivery.submittedAt !== undefined)) return refused("snapshot_missing");
     if (!row.deliverable) return refused("booking_gone");
     // The reason would fail it again at once; the frozen message, link, sender and reply-to stay for the resend.
     const cleared = without(delivery, forceMaybeDuplicate ? ["reason", "lastError", "dispatched", "provider", "account"] : ["reason", "lastError"]);
@@ -109,13 +121,13 @@ export function decide(action: ReconcileAction, row: EffectRow | undefined, tena
   }
   if (action === "mark-sent") {
     if (row.status === "delivered") return unchanged("delivered");
-    if (!uncertain) return refused(row.status === "failed" ? "not_uncertain" : row.status);
+    if (!settleable(row.status, delivery)) return refused(row.status === "failed" ? "not_uncertain" : row.status);
     if (row.leased) return refused("leased");
     const settled = without(delivery, ["reason", "lastError", "dispatched", "provider", "account", "mail", "link", "from", "replyTo"]);
     return { outcome: "change", status: "delivered", delivery: { ...settled, sent: true, reconciled: "sent" }, reopen: false };
   }
   if (row.status === "failed" && delivery.reconciled === "not_sent") return unchanged("not_sent");
-  if (!uncertain) return refused(row.status === "failed" ? "not_uncertain" : row.status);
+  if (!settleable(row.status, delivery)) return refused(row.status === "failed" ? "not_uncertain" : row.status);
   if (row.leased) return refused("leased");
   // The marker stays: a request did leave once, so a later retry still has to be forced.
   return { outcome: "change", status: "failed", delivery: { ...without(delivery, ["lastError"]), reason: "not_sent", reconciled: "not_sent" }, reopen: false };

@@ -265,7 +265,7 @@ describe("reconciling the e-mail outbox", () => {
     expect(mails).toHaveLength(1);
   });
 
-  it("settles an uncertain row as not sent, and resends it only when forced", async () => {
+  it("settles an uncertain row as not sent, and never resends one whose snapshot was dropped when it settled", async () => {
     provider = "postmark";
     outcome = fail(connectionError("email", "postmark", "network"));
     const id = await book(840);
@@ -276,16 +276,10 @@ describe("reconciling the e-mail outbox", () => {
     expect(await act("retry", id)).toEqual({ effectId: id, outcome: "refused", reason: "dispatched" });
     expect(await act("retry", id, { tenantId: `other-${run}`, force: true })).toEqual({ effectId: id, outcome: "refused", reason: "not_found" });
 
-    expect(await act("retry", id, { force: true })).toEqual({ effectId: id, outcome: "change" });
-    const reopened = await effect(id);
-    expect(reopened).toMatchObject({ status: "pending", attempts: 1, delivery: { attemptBase: 1 } });
-    expect(reopened.delivery).not.toHaveProperty("dispatched");
-    expect(reopened.delivery).not.toHaveProperty("reason");
-    provider = "resend";
-    outcome = ok({ id: "m-5", to: [] }, "sent");
-    expect(await drain(CLOCK + 2 * HOUR)).toEqual({ delivered: 1, retried: 0, failed: 0 });
-    expect(mails).toHaveLength(2);
-    expect(mails[1]).toMatchObject({ to: ["lisa@example.test"], idempotencyKey: id });
+    // Marked uncertain, the sink dropped the frozen message: a forced retry would send new content, so the salon follows up.
+    expect(await act("retry", id, { force: true })).toEqual({ effectId: id, outcome: "refused", reason: "snapshot_missing" });
+    expect(await effect(id)).toMatchObject({ status: "failed", delivery: { reason: "not_sent" } });
+    expect(mails).toHaveLength(1);
   });
 
   it("refuses an id that does not exist, and changes nothing on a dry run of a mark", async () => {
@@ -321,6 +315,41 @@ describe("reconciling the e-mail outbox", () => {
 });
 
 describe("reconcile safety", () => {
+  it("hands back the marker of a send the pause held after it was marked, in the write that releases the row", async () => {
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    const id = await book(780, "2026-11-27");
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    // The pause is switched on while the sink commits `dispatched`, just before its provider call.
+    const pauseAtDispatch = new Proxy(prisma, {
+      get(target, key) {
+        if (key === "$transaction") {
+          return async (...args: Parameters<PrismaClient["$transaction"]>) => {
+            const out = await (target.$transaction as (...a: unknown[]) => Promise<unknown>)(...args);
+            vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+            return out;
+          };
+        }
+        const value = Reflect.get(target, key);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const held = { ...SIMULATED_SINKS, message: messageSink(pauseAtDispatch, registry) };
+    // The last attempt: a marker left behind would make an unsent message uncertain for good.
+    const report = await deliverDue({
+      db: prisma, clock: async () => CLOCK + HOUR, sinks: held, simulatedSinks: SIMULATED_SINKS,
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, sinkTimeoutMs: 10_000, tenants: [tenantId],
+    }, 10);
+    expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
+    expect(mails).toHaveLength(0);
+    const { delivery } = await effect(id);
+    expect(await effect(id)).toMatchObject({ status: "pending", attempts: 1, delivery: { attemptBase: 1, mail: expect.anything() } });
+    for (const key of ["dispatched", "provider", "account", "submittedAt"]) expect(delivery).not.toHaveProperty(key);
+
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    expect(await drain(CLOCK + 2 * HOUR)).toEqual({ delivered: 1, retried: 0, failed: 0 });
+    expect(mails).toHaveLength(1);
+  });
+
   it("never lets a stale worker from before a retry clear the newer claim's dispatched marker", async () => {
     vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
     const id = await book(600, "2026-11-27");
@@ -375,6 +404,17 @@ describe("reconcile safety", () => {
     expect(await act("retry", notice)).toEqual({ effectId: notice, outcome: "change" });
     expect(await effect(notice)).toMatchObject({ status: "pending", attempts: 10, delivery: { attemptBase: 10 } });
     await db.$executeRaw`DELETE FROM tenant_effect WHERE id = ${notice}`;
+
+    // A move notice is not reopened by hand once the booking it moved was cancelled.
+    const moved = `moved-${run}`;
+    await db.$executeRaw`
+      INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, status, attempts)
+      VALUES (${tenantId}, 9200002, 0, ${moved}, 'fingerprint', 'message', ${JSON.stringify({
+        id: "o-moved", port: "email", action: "send", body: "Fictional", cost: null, live: true,
+        reference: messageReference(booking, "moved", "email", 98), delivery: { lastError: "EMAIL_NOT_CONFIGURED" },
+      })}::jsonb, 'failed', 10)`;
+    expect(await act("retry", moved)).toEqual({ effectId: moved, outcome: "refused", reason: "booking_gone" });
+    await db.$executeRaw`DELETE FROM tenant_effect WHERE id = ${moved}`;
   });
 
   it("refuses a snapshot whose message retention has purged", async () => {

@@ -46,11 +46,14 @@ export interface EffectDelivery {
  * Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`.
  * Returning `"failed"` marks it failed at once, for a permanent error a retry cannot fix (a bad address).
  * Returning `"deferred"` leaves it pending without using up an attempt (delivery is paused).
+ * Returning `"held"` is a deferral the sink decided after it marked the message `dispatched` but before any request
+ * left: the outbox drops that marker (`delivery.dispatched`, `provider`, `account`, and a `submittedAt` this claim set)
+ * in the same guarded write that releases the row, so a paused send can never look like one that may have gone out.
  * Returning `"skipped"` acknowledges that there was nothing to send (an erased or cancelled booking): the row becomes
  * `delivered` only if it is still pending under this claim, so an erasure's `cancelled` stands.
  * `signal` aborts when the sink timeout is over: check it before anything that cannot be undone.
  */
-export type SinkOutcome = void | "failed" | "deferred" | "skipped";
+export type SinkOutcome = void | "failed" | "deferred" | "held" | "skipped";
 export type EffectSink = (delivery: EffectDelivery, signal: AbortSignal) => SinkOutcome | Promise<SinkOutcome>;
 
 export type EffectSinks = Record<StoreEffect["kind"], EffectSink>;
@@ -198,7 +201,7 @@ function runSink(sink: EffectSink, delivery: EffectDelivery, ms: number | undefi
   return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }
 
-type Failure = "retry" | "permanent" | "timeout" | "deferred";
+type Failure = "retry" | "permanent" | "timeout" | "deferred" | "held";
 
 /**
  * Records a failed send for that row only. Only the deliverer that holds the
@@ -213,15 +216,18 @@ type Failure = "retry" | "permanent" | "timeout" | "deferred";
 async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failure, code?: string): Promise<DeliveryOutcome> {
   const now = await ctx.clock();
   const permanent = kind === "permanent";
-  const deferred = kind === "deferred";
+  const held = kind === "held";
+  const deferred = kind === "deferred" || held;
   const lastError = row.kind === "message" && code ? (EFFECT_ERROR_CODES.has(code) ? code : "OTHER_ERROR") : null;
   const base = attemptBase(row);
   const counted = row.attempts - base;
   const patch = { ...(deferred ? { attemptBase: base + 1 } : {}), ...(lastError ? { lastError } : {}) };
+  // A held send never left: the marker this claim set goes. A first-submission time from an earlier claim stays.
+  const drop = held ? ["dispatched", "provider", "account", ...(row.payload?.delivery?.submittedAt === undefined ? ["submittedAt"] : [])] : [];
   const [outcome] = await ctx.db.$queryRaw<Array<{ status: string }>>`
     UPDATE tenant_effect SET
-      payload = CASE WHEN ${Object.keys(patch).length === 0}::boolean THEN payload
-        ELSE jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb) END,
+      payload = CASE WHEN ${Object.keys(patch).length === 0 && drop.length === 0}::boolean THEN payload
+        ELSE jsonb_set(payload, '{delivery}', (coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb) - ${drop}::text[]) END,
       leased_until = CASE WHEN ${kind === "timeout"}::boolean THEN leased_until END,
       status = CASE WHEN erased_at IS NOT NULL THEN 'cancelled' WHEN ${permanent}::boolean OR (NOT ${deferred}::boolean AND ${counted}::int >= ${ctx.maxAttempts}) THEN 'failed' ELSE status END,
       next_attempt_at = CASE WHEN ${kind === "timeout"}::boolean THEN next_attempt_at
@@ -251,6 +257,7 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
     return recordFailure(ctx, row, heldByPause(row) ? "deferred" : "retry", code);
   }
   // The pause beats a failure: the row waits, and a reason the sink saved still decides once delivery resumes.
+  if (result === "held") return recordFailure(ctx, row, "held");
   if (result === "deferred" || (result === "failed" && heldByPause(row))) return recordFailure(ctx, row, "deferred");
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "skipped") {
