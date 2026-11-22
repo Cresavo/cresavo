@@ -8,6 +8,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-22
+
 ### Added
 
 - **A salon's booking page and free times from its own data (read only, off by default).** With `PUBLIC_BOOKING_LIVE=1` and owner accounts on, `/boka/<slug>` shows a real salon from the server: its page, treatments, team and when it is free. A projection built from explicit public fields leaves out customers, notes, journals, the inbox, surnames, internal roles, past visits and anything not listed; reviews are sent only when the salon has them on and the owner approved them, as ratings alone unless the page shows the reviews section, then with the display name of the few it shows; the page gets only the sanitised stylesheet, and times beyond 28 days are not offered. `GET /api/public/salons/<slug>` and every page view are limited to 120 reads per 15 minutes per address and never cached. An unknown address is a 404 and a store failure an error page, never the browser's own demo copy; the demo build and the demo's host never take this path. A salon whose owner account is switched off is not shown. Confirming still books nothing: before asking for contact details the page says online booking opens soon and gives the salon's phone, in English and Swedish. A unique index gives each salon its own booking address: signing up with a name another salon uses gets the next free address ("-2", also when two people sign up at once), and changing an address to a taken one tells the owner so. The demo and the browser-state booking page are unchanged.
