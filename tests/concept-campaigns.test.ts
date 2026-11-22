@@ -164,6 +164,13 @@ describe("campaign store actions", () => {
     expect(next.campaigns[0].stats?.revenue).toBeGreaterThan(0);
   });
 
+  it("saves the owner's sign-off cleaned: trimmed, one line, 80 characters, no control characters, dropped when empty", () => {
+    const launch = (signOff: string) => reduce(state, { type: "campaign/launch", today, campaign: { ...campaign, signOff } }).campaigns[0].signOff;
+    expect(launch("  Warm regards,\nAnna\u0007 ")).toBe("Warm regards, Anna");
+    expect(launch("x".repeat(120))).toHaveLength(80);
+    expect(launch(" \n ")).toBeUndefined();
+  });
+
   it("scheduling for a later day plans the posts without results", () => {
     const next = reduce(state, { type: "campaign/launch", today, campaign: { ...campaign, publishOn: "2026-11-20" } });
     expect(next.campaigns[0]).toMatchObject({ status: "planned", stats: undefined });

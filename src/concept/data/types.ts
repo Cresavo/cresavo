@@ -394,6 +394,8 @@ export interface Campaign {
   publishOn?: DateKey;
   /** Final text per channel, including the trackable link. */
   copy?: Partial<Record<Channel, string>>;
+  /** The owner's own closing line, added to the captions where it fits. */
+  signOff?: string;
   poster?: CampaignPoster;
   /** Trackable link, e.g. "salongeko.example/c/fathers-day-7k2". */
   link?: string;

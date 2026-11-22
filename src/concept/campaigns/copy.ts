@@ -28,9 +28,9 @@ export function offerText({ name, serviceNames, discountPercent, to }: OfferInpu
   return translate(language, key, { name, percent: discountPercent, services: listServices(serviceNames, language), date: formatDate(to, language) });
 }
 
-/** The channel text without any AI: the task's rule-based draft in the owner's voice, plus link and hashtags. */
-export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale(), voice: OwnerVoice = NEUTRAL_VOICE): string {
-  const { text, hashtags, signOff } = applyVoice(writePostTask.fallback({ offer, channel, locale: language }), voice);
+/** The channel text without any AI: the task's rule-based draft in the owner's voice, plus the owner's sign-off, link and hashtags. */
+export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale(), voice: OwnerVoice = NEUTRAL_VOICE, signOff?: string): string {
+  const { text, hashtags } = applyVoice(writePostTask.fallback({ offer, channel, locale: language }), voice);
   return assembleCopy(channel, text, hashtags, link, language, signOff);
 }
 
