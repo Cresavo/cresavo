@@ -955,6 +955,7 @@ const messages = {
   "import.status.tooLong": "A value is too long",
   "import.tooBig": "The file is larger than 2 MB. Split it into smaller files.",
   "import.tooMany": "The file has more than 5,000 customers. Split it into smaller files.",
+  "import.tooLargeForServer": "This import is too large to save in one go. Split the file, or import at most {rows} customers at a time.",
   "import.unclosedQuote": "A quoted value that starts on line {line} is never closed, so the file cannot be read safely. Fix that line and try again.",
   "import.privacyLocal": "The file is read in your browser and the customers are saved in this browser.",
   "import.privacyAccount": "The file is read in your browser. When you import, the customers, including their notes, are saved to your salon's account on the server.",

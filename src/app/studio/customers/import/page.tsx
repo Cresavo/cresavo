@@ -3,13 +3,12 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
-import { buildImportRows, decodeImportFile, guessMapping, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
+import { buildImportRows, decodeImportFile, guessMapping, importFitsServer, maxRowsForServer, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
 import { runCustomerImport } from "@/concept/customers/run-import";
 import { useActiveWorkspace } from "@/concept/store";
 import { showCommittedToast } from "@/concept/studio/log/commit-toast";
-import { showUndoToast } from "@/concept/studio/log/undo-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -70,17 +69,17 @@ export default function ImportCustomersPage() {
   );
   const ready = rows.flatMap((row) => (row.customer ? [row.customer] : []));
   const summary = summarizeImport(rows);
+  // A signed-in salon's import goes to the server as one action, which has a size limit.
+  const fits = workspace !== "account" || importFitsServer(ready);
 
   // One action for the whole file, bound to the salon this page shows: a salon replaced meanwhile refuses it.
   const runImport = async () => {
     if (!target) return;
     setImporting(true);
-    const outcome = await runCustomerImport(target, ready, state.customers.length);
+    const outcome = await runCustomerImport(target, ready);
     setImporting(false);
     if (!outcome.ok) return showToast(t(outcome.reason === "notStored" ? "import.notStored" : "import.failed"));
-    const message = tc("import.done", outcome.added);
-    if (outcome.result) showCommittedToast(target, outcome.result, message);
-    else showUndoToast(message, outcome.logId);
+    showCommittedToast(target, outcome.result, tc("import.done", outcome.added));
     router.push("/studio/customers?filter=newThisYear");
   };
 
@@ -147,9 +146,10 @@ export default function ImportCustomersPage() {
               ) : (
                 <EmptyState icon={<FileSpreadsheet size={22} />} title={t("import.empty")} />
               )}
+              {!fits && <p role="alert" className="text-sm text-danger">{t("import.tooLargeForServer", { rows: maxRowsForServer(ready) })}</p>}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button width="responsive" disabled={!ready.length || importing} aria-busy={importing} onClick={runImport}>{importing ? t("import.saving") : tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length || !fits || importing} aria-busy={importing} onClick={runImport}>{importing ? t("import.saving") : tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

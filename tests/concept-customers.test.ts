@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
-import { buildImportRows, cleanImportedCustomer, decodeImportFile, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
+import { buildImportRows, cleanImportedCustomer, decodeImportFile, guessMapping, importFitsServer, maxRowsForServer, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
 import { editJournalEntry } from "@/concept/customers/journal";
 import { bookingLink, dueBackList, intervalWeeks, nextVisitFor, suggestionSent, suggestSlot } from "@/concept/customers/return-visits";
 import { birthdayThisMonth, newThisYear, notSeenInThreeMonths, regulars, segmentCustomers, SEGMENTS } from "@/concept/customers/segments";
@@ -202,6 +202,14 @@ describe("CSV import", () => {
     const sameEmail = { ...row.customer!, phone: "073-410 31 07" };
     const next = reduce(base, { type: "customers/import", customers: [row.customer!, sameEmail] });
     expect(next.customers).toHaveLength(base.customers.length + 1);
+  });
+  it("checks the import against the server size limit and suggests a row count", () => {
+    const one = buildImportRows([["Maja", "073-410 22 18"]], { firstName: 0, phone: 1 }, [], defaults)[0].customer!;
+    const big = { ...one, note: "n".repeat(500) };
+    expect(importFitsServer(Array.from({ length: 100 }, () => big))).toBe(true);
+    const many = Array.from({ length: 6000 }, () => big);
+    expect(importFitsServer(many)).toBe(false);
+    expect(importFitsServer(many.slice(0, maxRowsForServer(many)))).toBe(true);
   });
   it("limits file size and row count", () => {
     const rows = (n: number) => "name\n" + "a\n".repeat(n);

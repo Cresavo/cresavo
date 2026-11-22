@@ -1,4 +1,5 @@
 import { normalizePhone } from "../booking/lookup";
+import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
 import { isEmail } from "../connections/core";
 import { fromKey, toKey } from "../data/dates";
 import type { Customer, DateKey, StaffId } from "../data/types";
@@ -258,3 +259,13 @@ export function cleanImportedCustomer(raw: Partial<Record<keyof Omit<Customer, "
     waitlist: false,
   };
 }
+
+const bytesOf = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
+const importAction = (customers: Omit<Customer, "id">[]) => ({ type: "customers/import", customers });
+
+/** Whether the import, sent as one action, is within the server's size limit for it. */
+export const importFitsServer = (customers: Omit<Customer, "id">[]) => bytesOf(importAction(customers)) <= MAX_IMPORT_ACTION_BYTES;
+
+/** About how many of these customers fit in one import, rounded down. */
+export const maxRowsForServer = (customers: Omit<Customer, "id">[]) =>
+  Math.floor(customers.length * (MAX_IMPORT_ACTION_BYTES / bytesOf(importAction(customers))) * 0.95);

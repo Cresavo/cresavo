@@ -932,6 +932,7 @@ const messages = {
   "import.status.tooLong": "Ett värde är för långt",
   "import.tooBig": "Filen är större än 2 MB. Dela upp den i flera filer.",
   "import.tooMany": "Filen har fler än 5 000 kunder. Dela upp den i flera filer.",
+  "import.tooLargeForServer": "Importen är för stor för att sparas på en gång. Dela upp filen eller importera högst {rows} kunder åt gången.",
   "import.unclosedQuote": "Ett citerat värde som börjar på rad {line} avslutas aldrig, så filen går inte att läsa säkert. Rätta den raden och försök igen.",
   "import.privacyLocal": "Filen läses i din webbläsare och kunderna sparas i den här webbläsaren.",
   "import.privacyAccount": "Filen läses i din webbläsare. När du importerar sparas kunderna, med sina anteckningar, i salongens konto på servern.",
