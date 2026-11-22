@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { reduce } from "@/concept/actions";
 import { monthGrid, postDay, shiftMonth } from "@/concept/campaigns/calendar";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "@/concept/campaigns/channels";
@@ -315,6 +315,11 @@ it("fills the review and free-times posters from published reviews and the calen
   const { createDemoState } = await import("@/concept/data/generate");
   const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
   const { toKey } = await import("@/concept/data/dates");
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 17, 9, 0));
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
   const today = toKey(new Date());
   const state = createDemoState(today);
   const draft = newDraft(defaultPrefill(state, today));
@@ -414,7 +419,14 @@ it("shortens descriptions without one-letter stubs or going over 70 characters",
 });
 
 describe("poster words in the business's language", () => {
-  const now = toKey(new Date());
+  // A fixed Tuesday: free times depend on the clock, and the demo salon is closed on Sundays.
+  const NOW = new Date(2026, 10, 17, 9, 0);
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterAll(() => vi.useRealTimers());
+  const now = toKey(NOW);
   const current = createDemoState(now);
   const swedish = { ...current, localization: { ...current.localization, language: "sv" as const } };
   const draft = { ...newDraft({ ...defaultPrefill(current, now), name: "Test offer" }), style: "fullphoto" as const };
