@@ -4,6 +4,7 @@ import { idempotencyKeySchema } from "@/lib/validation";
 import { ownerError, ownerOk, ownerRoute, readJson } from "@/lib/owner-http";
 import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
 import { ownerAction, ownerStore } from "@/lib/owner-store";
+import { SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
 
 const bodySchema = z.object({
   action: z.unknown(),
@@ -23,7 +24,7 @@ export function POST(request: NextRequest) {
     if (!body.success || !action) return ownerError("invalid", 400);
     const result = await ownerStore().apply(owner.tenantId, action, { actor: "owner", source: "button" },
       { expectedVersion: body.data.expectedVersion, idempotencyKey: body.data.idempotencyKey });
-    if (!result.ok) return ownerError(result.reason, STATUS[result.reason]);
+    if (!result.ok) return ownerError(result.detail === SLUG_TAKEN ? SLUG_TAKEN : result.reason, STATUS[result.reason]);
     return ownerOk({ state: result.state, version: result.version, replayed: result.replayed });
   });
 }

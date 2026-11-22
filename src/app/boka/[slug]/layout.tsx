@@ -2,10 +2,14 @@ import { cookies } from "next/headers";
 import { parseLocale } from "@/lib/locale";
 import { DEMO_VISITOR_COOKIE } from "@/lib/locale-cookie";
 import type { Metadata, Viewport } from "next";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { translate } from "@/concept/i18n";
 import { DEFAULT_BOOKING_LANGUAGE } from "@/concept/i18n/business";
-import { serverSalonFor } from "@/lib/public-booking";
+import { loadPublicSalon } from "@/lib/public-booking";
+import { publicPageRequest } from "@/lib/public-page";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { waitlistClientKey } from "@/concept/site/waitlist-server";
 import { BookShell } from "@/concept/booking/shell";
 import { ServerSalonProvider } from "@/concept/server-salon";
 import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
@@ -30,12 +34,19 @@ export const viewport: Viewport = {
 
 export default async function BookingLayout({ children, params }: { children: ReactNode; params: Promise<{ slug: string }> }) {
   const visitorLanguage = parseLocale((await cookies()).get(DEMO_VISITOR_COOKIE)?.value);
-  const salon = await serverSalonFor((await params).slug);
+  const { live, requestHeaders } = await publicPageRequest();
   const shell = <BookShell visitorLanguage={visitorLanguage}>{children}</BookShell>;
-  return (
-    // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
-    <div className="studio-root booking-boundary">
-      {salon ? <ServerSalonProvider state={salon}>{shell}</ServerSalonProvider> : shell}
-    </div>
-  );
+  // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
+  const boundary = (content: ReactNode) => <div className="studio-root booking-boundary">{content}</div>;
+  if (!live) return boundary(shell);
+  // Live: the server's salons only. A missing salon is a 404 and a store failure is an error page, never the browser's own copy.
+  let salon;
+  try {
+    await checkRateLimit("public-read", waitlistClientKey(new Headers(requestHeaders)));
+    salon = await loadPublicSalon((await params).slug.toLowerCase());
+  } catch {
+    return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
+  }
+  if (!salon) notFound();
+  return boundary(<ServerSalonProvider state={salon}>{shell}</ServerSalonProvider>);
 }

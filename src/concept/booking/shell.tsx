@@ -25,7 +25,10 @@ import { UnknownAddress } from "./unknown-address";
 /** Page frame for everything a customer sees: slim header, content, small footer, wearing the business's theme. */
 export function BookShell({ children, visitorLanguage }: { children: ReactNode; visitorLanguage: Locale | null }) {
   const state = usePublicDemo();
-  const slug = useParams<{ slug: string }>()?.slug ?? "";
+  const fromServer = useServerSalon() !== null;
+  // The server looks salons up by lower-case address; the demo compares the path as typed.
+  const pathSlug = useParams<{ slug: string }>()?.slug ?? "";
+  const slug = fromServer ? pathSlug.toLowerCase() : pathSlug;
   const path = usePathname()?.replace(/\/$/, "") || "/";
   const widget = path === widgetPath(slug) || path === "/widget";
   const otherSlug = useWorkspaceSlug(state?.industry ? "demo" : "own");
@@ -44,7 +47,7 @@ export function BookShell({ children, visitorLanguage }: { children: ReactNode; 
     document.querySelector('meta[name="description"]')?.setAttribute("content", translate(language, "language.bookingDescription"));
   }, [language, path]);
   return (
-    <ConceptLanguage language={language} currency={state?.localization.currency ?? DEFAULT_CURRENCY}>
+    <ConceptLanguage language={language} currency={state?.localization.currency ?? DEFAULT_CURRENCY} immediate={fromServer}>
       <PageProvider>
         <Frame slug={slug} widget={widget} switchLanguage={allowSwitch ? {
           language,

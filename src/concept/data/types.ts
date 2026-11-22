@@ -263,6 +263,8 @@ export interface Review {
   text: string;
   source: "Google" | "Booking page";
   reply?: string;
+  /** Public display name ("Maria L."), set only by the server's public projection, which sends no customers. */
+  author?: string;
 }
 
 export type InboxKind = "request" | "reschedule" | "cancel" | "review" | "message" | "system";
