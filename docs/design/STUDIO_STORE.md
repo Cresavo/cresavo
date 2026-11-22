@@ -398,6 +398,61 @@ The lifecycle integration tests cover notification delivery and reconnect,
 privileged replacement, demo-only reset and retention, sandbox expiry and
 simulated delivery, and refusal of oversized writes.
 
+### Row-level security
+
+Prepared, not enforced. Migration `20261122160000_store_rls_policies` creates
+policies on the four store tables and does not enable row-level security, so
+until an operator runs `prisma/grants/rls-enable.sql` isolation rests on the
+code's `tenant_id` conditions alone, as before.
+
+The code already sets the scope. Every statement on a store table runs in a
+transaction that first calls `set_config(…, true)` through
+`src/concept/store/tenant-scope.ts`: transaction-local, so a pooled connection
+never carries a scope into the next request (`tests/integration/store-rls.test.ts`
+checks this). One scope per transaction:
+
+| Setting | Who | What the policies allow |
+| --- | --- | --- |
+| `cresavo.tenant_id` | apply, load, history, erasure, sign-up, owner pages, the in-apply drain, the message sink | every operation on that tenant's rows; a new or changed row must belong to it |
+| `cresavo.cross_tenant = 'outbox'` | `drainPendingEffects` (`npm run effects:drain`), members of `cresavo_app` only | read effects and tenant kind and expiry of every tenant; update effects that are not delivered. No insert or delete, nothing of the log or the replay results, no document change |
+| `cresavo.cross_tenant = 'sweep'` | `npm run store:sweep`, members of `cresavo_sweeper` only | read and lock; delete sandbox tenants and their rows, demo and sandbox log rows, `journal/view` rows and expired keys; update log rows only so that their key is empty; update only settled messages. A salon's state, its other history, its live keys and its pending effects stay out of reach |
+| `cresavo.sandbox_key` | `openSandboxTenant` resolving its token | read the one sandbox row with that key (a hash of the token); the transaction then switches to the tenant |
+| `cresavo.salon_slug` | `findSalonTenant`, `loadPublicTenant` | read the one salon row with that booking address (unique by `tenant_state_salon_slug_key`) |
+
+Why the cross-tenant scopes are safe: each is read-only or limited to the
+operations its worker performs, the column grants of `roles.sql` still apply
+on top (the sweeper never reads a document, a replay result or a fingerprint),
+and the outbox and sweep scopes are tied to their group role inside the policy,
+so the application cannot use the sweep scope and the sweeper not the outbox
+scope. A setting is not a boundary against arbitrary SQL from the application
+login itself: it can set any tenant. What RLS adds is that a query which
+forgets its tenant condition, or a scope that is never entered, sees and
+changes nothing. LISTEN/NOTIFY touches no table; the notification is sent from
+the tenant's own transaction.
+
+Other roles: the table owner keeps every row through the `store_owner` policy
+(FORCE applies the policies to the owner too, so its full access is stated
+rather than implied), so migrations, the admin CLI and operator scripts such as
+`npm run store:loadtest` are unaffected. `cresavo_support` reads its diagnostic
+columns across tenants (`store_support_read`). `erase_subject` runs as
+`cresavo_eraser` inside the caller's transaction, whose tenant scope it shares:
+it erases in that tenant only and refuses another tenant as unknown.
+Superusers and `BYPASSRLS` roles are never subject to RLS.
+
+Order, once per environment and after the application code that sets scopes
+is deployed:
+
+1. `npx prisma migrate deploy` (creates the policies; nothing changes yet)
+2. `roles.sql`, `studio-store.sql`, `erase-subject.sql` and the logins, as in the header of `roles.sql`
+3. `psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql` as the table owner (refuses to run without the policies or the roles)
+4. `psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql`: every table enabled, forced and with nothing missing
+5. Rollback at any time: `prisma/grants/rls-disable.sql`
+
+The application login must not be the table owner or a member of it, or the
+owner policy lets it see every row; `verify-roles.sql` reports that. Every
+store statement becomes a short transaction (`BEGIN`, `set_config`, the
+statement, `COMMIT`), which costs a few round trips per read.
+
 ### Metrics and benchmark (item 10)
 
 `store.store_metrics()` reads a process-local snapshot of commit and

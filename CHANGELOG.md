@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Database-level tenant isolation for the studio store, prepared but not yet enforced.** A new migration (`store_rls_policies`) adds Postgres row-level security policies to the four store tables without switching them on. Every store transaction now sets its tenant first, transaction-local so a pooled connection never carries it into the next request; the outbox poller and the retention sweeps each get a narrow cross-tenant scope tied to their own database role, and resolving a sandbox token or a booking address sees only that one row. An operator enforces it with `prisma/grants/rls-enable.sql` (rollback `rls-disable.sql`, state `verify-rls.sql`); the table owner, migrations and the erase function keep working. Nothing changes for salons or the demo until that step runs.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

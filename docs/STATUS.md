@@ -79,7 +79,7 @@ Also in place:
 
 Still open before real customer data:
 - owner MFA;
-- database-level tenant enforcement (RLS);
+- database-level tenant enforcement (RLS): policies and scopes are prepared, enforcement is one operator step (`prisma/grants/rls-enable.sql`);
 - encryption and server-side access control for journals;
 - staff roles;
 - monitoring;
