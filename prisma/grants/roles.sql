@@ -1,56 +1,88 @@
 -- Least-privilege Postgres roles for a Cresavo installation (pilot operations
 -- groundwork, docs/QUALITY_SECURITY.md "Operations"). Documentation for
 -- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner
--- and the repository's migrations do not create roles. Safe to run again.
+-- and the repository's migrations do not create roles. Safe to run again; the
+-- whole file is one transaction, so a failed run changes nothing and never
+-- leaves the live application without grants.
 --
--- Order, once per environment, as a role that may create roles and grant on the
--- tables (not the application's own role):
---   1. npx prisma migrate deploy                     (as the schema owner)
+-- WHO RUNS IT. Either
+--   (a) a superuser or the managed provider's admin role, or
+--   (b) the schema owner (the role that ran `prisma migrate deploy` and owns the
+--       tables) when it has CREATEROLE. It needs no other attribute: this file
+--       creates roles with all privileged attributes off at creation and only
+--       checks them afterwards; it never runs ALTER ROLE, which a CREATEROLE
+--       role may not do for these attributes.
+-- Run it as the owner of the tables, since only an owner (or a superuser) may
+-- grant on them. Not as one of the roles created here.
+--
+-- ORDER, once per environment (and again after a migration adds a table):
+--   1. npx prisma migrate deploy                          (schema owner)
 --   2. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/roles.sql
 --   3. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/studio-store.sql
---   4. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -v eraser_role=cresavo_eraser -v app_role=cresavo_app \
---        -f prisma/grants/erase-subject.sql
---   4b. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/roles.sql   (again: grants EXECUTE on erase_subject to the sweeper)
---   5. psql "$ADMIN_DATABASE_URL" -v app_role=cresavo_app -f prisma/grants/verify-studio-store.sql   (no rows)
--- After a new migration adds a table, run this file again (and step 3 if the
--- application's store grants were touched). studio-store.sql owns the
--- application's grants on the four store tables; this file does not touch them.
+--   4. erase-subject.sql, which moves function ownership to cresavo_eraser. A
+--      superuser runs it as in its header. A CREATEROLE schema owner first lends
+--      itself the two privileges an ownership transfer needs, and takes them back:
+--        psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 \
+--          -c 'GRANT cresavo_eraser TO CURRENT_USER WITH SET TRUE' \
+--          -c 'GRANT CREATE ON SCHEMA public TO cresavo_eraser'
+--        psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -v eraser_role=cresavo_eraser -v app_role=cresavo_app \
+--          -f prisma/grants/erase-subject.sql
+--        psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 \
+--          -c 'REVOKE CREATE ON SCHEMA public FROM cresavo_eraser' \
+--          -c 'REVOKE cresavo_eraser FROM CURRENT_USER'
+--      (Run the last command even when the second fails.)
+--   5. Create the logins (below), then check what they can really do:
+--        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-studio-store.sql -v app_role=<app login>
+--        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-roles.sql \
+--          -v app_login=<..> -v sweeper_login=<..> -v support_login=<..>
+--      Both must return no rows.
 --
--- NO PASSWORDS HERE. The four roles below are NOLOGIN group roles. The operator
--- creates one login per use out of band, with a password from the secret store,
--- and makes it a member of the group role (psql prompts; never put the password
--- on a command line, in Git or in a log):
+-- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The four roles below are NOLOGIN
+-- group roles. The operator creates one login per use without a password and
+-- sets the password interactively, so it never enters a script, a shell history
+-- or the server log (psql hashes it client-side):
 --
---   CREATE ROLE cresavo_app_login   LOGIN PASSWORD '<from the secret store>' IN ROLE cresavo_app;
---   CREATE ROLE cresavo_sweeper_login LOGIN PASSWORD '<from the secret store>' IN ROLE cresavo_sweeper;
---   CREATE ROLE cresavo_support_login LOGIN PASSWORD '<from the secret store>' IN ROLE cresavo_support;
+--   CREATE ROLE cresavo_app_login     LOGIN IN ROLE cresavo_app;
+--   CREATE ROLE cresavo_sweeper_login LOGIN IN ROLE cresavo_sweeper;
+--   CREATE ROLE cresavo_support_login LOGIN IN ROLE cresavo_support;
+--   \password cresavo_app_login        (and the same for the other two)
 --
--- DATABASE_URL of the web app uses cresavo_app_login; the cron job of
--- `npm run store:sweep` uses cresavo_sweeper_login; support staff use
--- cresavo_support_login (time-limited: drop or VALID UNTIL it when done).
--- cresavo_eraser never logs in; it owns erase_subject (erase-subject.sql).
--- Migrations keep running as the schema owner, never as one of these roles.
+-- DATABASE_URL of the web app uses the app login; the cron job of
+-- `npm run store:sweep` the sweeper login; support staff the support login.
+-- The app's pairing tables may live in a separate database
+-- (PAIRING_DATABASE_URL): run this file there too, for its own app login.
+-- Support access ends by `REVOKE cresavo_support FROM <login>` plus
+-- terminating its sessions (pg_terminate_backend); VALID UNTIL only stops new
+-- password logins. Migrations and the admin CLI (npm run admin:manage) keep
+-- running as the schema owner, never as one of these roles.
 --
--- Every grant below is derived from the queries in the code; the comment above
--- each block names the code. tests/ops-roles.test.ts checks that the tables and
--- columns the sweepers touch are granted to the sweep role.
+-- Every grant is derived from the queries in the code; the comment above each
+-- block names it. tests/ops-roles.test.ts parses this file and holds it to the
+-- sweepers and the Prisma schema.
 
--- statement
+BEGIN;
+
 DO $roles$
 DECLARE
   r text;
+  bad text;
 BEGIN
   FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
-      EXECUTE format('CREATE ROLE %I NOLOGIN', r);
+      EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', r);
     END IF;
-    -- Re-asserted on every run; LOGIN is deliberately left alone.
-    EXECUTE format('ALTER ROLE %I NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', r);
+    -- An existing role is checked, not altered: someone made it more powerful than a group role may be.
+    SELECT string_agg(attr, ', ') INTO bad FROM pg_roles p,
+      LATERAL (VALUES ('LOGIN', p.rolcanlogin), ('SUPERUSER', p.rolsuper), ('CREATEROLE', p.rolcreaterole),
+                      ('CREATEDB', p.rolcreatedb), ('REPLICATION', p.rolreplication), ('BYPASSRLS', p.rolbypassrls)) AS a(attr, on_)
+    WHERE p.rolname = r AND a.on_;
+    IF bad IS NOT NULL THEN
+      RAISE EXCEPTION 'role % must be a plain NOLOGIN group role but has: %', r, bad;
+    END IF;
   END LOOP;
 END
 $roles$;
 
--- statement
 DO $connect$
 DECLARE
   r text;
@@ -61,25 +93,23 @@ BEGIN
 END
 $connect$;
 
--- statement
--- Nobody but the schema owner creates objects (PostgreSQL before 15 lets PUBLIC).
+-- Nobody but the schema owner creates objects (PostgreSQL before 15 lets PUBLIC), and no table is open to PUBLIC.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
--- statement
 REVOKE CREATE ON SCHEMA public FROM cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support;
--- statement
 GRANT USAGE ON SCHEMA public TO cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 
 -- ---------------------------------------------------------------------------
--- cresavo_app: the web application at runtime (src/lib/db.ts,
--- src/lib/postgres-rate-limit.ts, the owner store).
+-- cresavo_app: the web application at runtime. One allowlist per table, from
+-- the Prisma calls and raw SQL under src/ (grep `tx.<model>.` and
+-- `$queryRaw`). The four store tables (tenant_*) are granted by
+-- studio-store.sql and erase-subject.sql: the audit log is append-only for this
+-- role. Not granted at all: "PairToken" (no code uses it), "CardBookingAttempt"
+-- (only the local MCP card profile in src/mcp/time-card) and the Sandbox*
+-- tables (a separate database, docs/DEPLOY_SANDBOX.md). A row lock
+-- (FOR UPDATE / FOR SHARE) needs UPDATE on at least one column, so a table
+-- that is only locked gets one named column and nothing else.
 -- ---------------------------------------------------------------------------
--- The four store tables (tenant_state, tenant_action, tenant_idempotency,
--- tenant_effect) are granted by studio-store.sql and erase-subject.sql: the
--- audit log is append-only for this role. Everything else below is the legacy
--- engine (src/lib/domain.ts), the agent API, pairing, owner accounts and the
--- shared rate-limit table. The Sandbox* tables belong to the separate sandbox
--- database (docs/DEPLOY_SANDBOX.md) and are not granted here.
--- statement
 REVOKE ALL ON
   "Service", "Booking", "Customer", "Staff", "CustomerDataAction", "BookingEvent", "WorkspaceRequest",
   "CardBookingAttempt", "Campaign", "CapacityDecision", "AdminSession", "AdminUser", "RateLimitBucket",
@@ -87,90 +117,94 @@ REVOKE ALL ON
   "AgentAuditEvent", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairToken",
   "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session"
   FROM cresavo_app;
--- statement
-GRANT SELECT, INSERT, UPDATE ON
-  "Service", "Booking", "Customer", "Staff", "CustomerDataAction", "BookingEvent", "WorkspaceRequest",
-  "CardBookingAttempt", "Campaign", "CapacityDecision", "AdminSession", "AdminUser", "RateLimitBucket",
-  "AgentApiKey", "AgentBooking", "AgentClient", "AgentMandate", "AgentApiEvent", "AgentProposal",
-  "AgentAuditEvent", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairToken",
-  "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session"
-  TO cresavo_app;
--- DELETE only where the code deletes (grep deleteMany / .delete( in src):
--- rate-limit and owner-guard rows (postgres-rate-limit.ts, owner-guard-store.ts), expired admin and owner
--- sessions (auth.ts, owner-session.ts), a failed partner attempt (partner-bookings.ts) and the pairing
--- tables (src/concept/pairing/*).
--- statement
-GRANT DELETE ON
-  "RateLimitBucket", "AdminSession", "owner_session", "PartnerBookingAttempt",
-  "PairWorkspace", "PairClient", "PairCode", "PairBudget", "PairGrantToken"
-  TO cresavo_app;
--- Migration history is the schema owner's.
--- statement
-REVOKE ALL ON "_prisma_migrations" FROM PUBLIC, cresavo_app;
+REVOKE ALL ON "_prisma_migrations" FROM cresavo_app;
+
+-- Booking engine (src/lib/domain.ts raw INSERT ... RETURNING, booking-mutations.ts, customers.ts,
+-- workspace-config.ts, campaigns): created, changed, never deleted.
+GRANT SELECT, INSERT, UPDATE ON "Service" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "Booking" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "Customer" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "Staff" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "Campaign" TO cresavo_app;
+-- Append-only history: only create() calls exist (customer-data.ts, domain.ts, booking-mutations.ts,
+-- workspace-write.ts, capacity.ts, agent-api/*).
+GRANT SELECT, INSERT ON "CustomerDataAction" TO cresavo_app;
+GRANT SELECT, INSERT ON "BookingEvent" TO cresavo_app;
+GRANT SELECT, INSERT ON "WorkspaceRequest" TO cresavo_app;
+GRANT SELECT, INSERT ON "CapacityDecision" TO cresavo_app;
+GRANT SELECT, INSERT ON "AgentApiEvent" TO cresavo_app;
+GRANT SELECT, INSERT ON "AgentAuditEvent" TO cresavo_app;
+GRANT SELECT, INSERT ON "AgentBooking" TO cresavo_app;
+
+-- Admin accounts: the web app reads them and locks the row (auth.ts); accounts are created and changed by the
+-- admin CLI as the schema owner. Sessions are created, revoked and expired (auth.ts).
+GRANT SELECT, UPDATE ("active") ON "AdminUser" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "AdminSession" TO cresavo_app;
+
+-- Owner accounts and sessions (owner-accounts.ts, owner-password-reset.ts, owner-session.ts).
+GRANT SELECT, INSERT, UPDATE ON "owner_account" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "owner_session" TO cresavo_app;
+
+-- Shared rate-limit and owner-guard rows (postgres-rate-limit.ts, owner-guard-store.ts).
+GRANT SELECT, INSERT, UPDATE, DELETE ON "RateLimitBucket" TO cresavo_app;
+
+-- Agent API (src/lib/agent-api). Keys: created by OAuth's upsert, revoked and rotated. The client row is created
+-- nested under a key and only locked (FOR SHARE); the mandate is created and locked.
+GRANT SELECT, INSERT, UPDATE ON "AgentApiKey" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ("active") ON "AgentClient" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ("revokedAt") ON "AgentMandate" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "AgentProposal" TO cresavo_app;
+GRANT SELECT, INSERT, DELETE ON "PartnerBookingAttempt" TO cresavo_app;
+
+-- Pairing (src/concept/pairing).
+GRANT SELECT, INSERT, UPDATE, DELETE ON "PairWorkspace" TO cresavo_app;
+GRANT SELECT, INSERT, DELETE ON "PairClient" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "PairCode" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "PairProposal" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "PairBudget" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ON "PairGrant" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "PairGrantToken" TO cresavo_app;
 
 -- ---------------------------------------------------------------------------
--- cresavo_sweeper: `npm run store:sweep` (scripts/sweep-store.mts, the four
--- sweepers in src/concept/store/store-sweepers.ts). Column-level grants: it can
--- see keys, timestamps and tenant kinds, never a salon document, an action
--- payload or an effect payload.
+-- cresavo_sweeper: `npm run store:sweep` (scripts/sweep-store.mts and the
+-- sweepers in src/concept/store/store-sweepers.ts). Column-level grants: it
+-- reads and changes only what retention needs. It cannot read a salon document
+-- or a stored replay result.
 -- ---------------------------------------------------------------------------
--- No sweeper redacts rows. Redaction of personal data is erase_subject() (below)
--- and `customer/erase`, called by the application. The sweeper deletes.
--- statement
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_sweeper;
--- sweepExpiredSandboxes: SELECT tenant_id FROM tenant_state WHERE kind, expires_at ... FOR UPDATE SKIP LOCKED;
--- then DELETE ... WHERE tenant_id = ANY(...) on the four store tables. FOR UPDATE needs UPDATE on at least one
--- column; the least meaningful column of each table is used and nothing else is updatable.
--- sweepDemoActions: tenant_action a JOIN tenant_state s USING (tenant_id) WHERE s.kind, a.at ... FOR UPDATE OF a.
--- sweepExpiredIdempotency: tenant_idempotency WHERE expires_at ... ORDER BY expires_at, tenant_id, key FOR UPDATE.
--- statement
+-- Sandbox expiry and demo retention: tenant kind and expiry; rows deleted. FOR UPDATE needs one UPDATE column.
 GRANT SELECT ("tenant_id", "kind", "expires_at"), UPDATE ("updated_at"), DELETE ON "tenant_state" TO cresavo_sweeper;
--- statement
-GRANT SELECT ("tenant_id", "seq", "at"), UPDATE ("redacted_at"), DELETE ON "tenant_action" TO cresavo_sweeper;
--- statement
+-- Demo retention, journal-view pruning, the age-based redaction of personal fields (sweepActivityPersonalData:
+-- action, idempotency_key, redacted_at; it reads redacted_at to keep the first value) and the join of sweepOutboxBodies on the action's time.
+GRANT SELECT ("tenant_id", "seq", "at", "action", "idempotency_key", "redacted_at"),
+      UPDATE ("action", "idempotency_key", "redacted_at"), DELETE ON "tenant_action" TO cresavo_sweeper;
+-- Expired keys (sweepExpiredIdempotency) and sandbox cleanup.
 GRANT SELECT ("tenant_id", "key", "expires_at"), UPDATE ("expires_at"), DELETE ON "tenant_idempotency" TO cresavo_sweeper;
--- statement
-GRANT SELECT ("tenant_id"), DELETE ON "tenant_effect" TO cresavo_sweeper;
--- sweepOwnerGuardBuckets: DELETE FROM "RateLimitBucket" WHERE "key" IN (SELECT "key" ... WHERE "expiresAt" ...).
--- statement
-GRANT SELECT ("key", "expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
--- erase_subject(tenant, customer) is the only way to redact retained audit rows. No sweeper calls it today; the
--- sweep role may, for the salon trash sweeper that STUDIO_STORE.md ("Erasure") says is still needed. The function
--- exists only after erase-subject.sql, so this block grants when it can: run this file again after step 4.
--- It reads the tenant document under the caller's row lock, hence the UPDATE ("updated_at") above.
--- statement
-DO $erase$
-BEGIN
-  IF to_regprocedure('public.erase_subject(text, text)') IS NOT NULL THEN
-    GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO cresavo_sweeper;
-  END IF;
-END
-$erase$;
--- The sweep client's connect check (scripts/database.mjs assertDatabaseMode) reads only the catalog.
+-- sweepOutboxBodies blanks body, subject, address and the stored mail copy of settled messages; sandbox cleanup deletes.
+GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_at", "next_attempt_at"),
+      UPDATE ("payload"), DELETE ON "tenant_effect" TO cresavo_sweeper;
+-- sweepOwnerGuardBuckets and sweepRateLimits.
+GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
+-- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
+-- checks the effective privilege; the function is owned by cresavo_eraser, so this file cannot touch it).
 
 -- ---------------------------------------------------------------------------
--- cresavo_support: read-only diagnostics. No salon document (journal entries may
--- be health data), no action or effect payloads, no customer tables, no password
--- hashes or session ids. Widening this needs a decision (docs/QUALITY_SECURITY.md,
--- "Roles and permissions": support with time-limited access).
+-- cresavo_support: read-only diagnostics. No salon document (journal entries
+-- may be health data), no action or effect payloads, no customer tables, no
+-- password hashes, session ids or migration logs. Widening this needs a
+-- decision (docs/QUALITY_SECURITY.md, "Roles and permissions").
 -- ---------------------------------------------------------------------------
--- statement
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_support;
--- statement
 GRANT SELECT ("tenant_id", "kind", "version", "expires_at", "updated_at") ON "tenant_state" TO cresavo_support;
--- statement
 GRANT SELECT ("tenant_id", "seq", "actor", "source", "at", "resulting_version", "redacted_at") ON "tenant_action" TO cresavo_support;
--- statement
 GRANT SELECT ("tenant_id", "seq", "expires_at") ON "tenant_idempotency" TO cresavo_support;
 -- Outbox state: enough to see a stuck or uncertain message (docs/operations/INCIDENT_RUNBOOK.md), not its content.
--- statement
 GRANT SELECT ("tenant_id", "seq", "n", "id", "kind", "status", "attempts", "next_attempt_at", "delivered_at",
               "leased_until", "erased_at") ON "tenant_effect" TO cresavo_support;
--- statement
 GRANT SELECT ("id", "tenant_id", "active", "credential_version", "created_at") ON "owner_account" TO cresavo_support;
--- statement
 GRANT SELECT ("account_id", "credential_version", "created_at", "expires_at", "revoked_at") ON "owner_session" TO cresavo_support;
--- statement
 GRANT SELECT ("expiresAt", "count") ON "RateLimitBucket" TO cresavo_support;
--- statement
-GRANT SELECT ON "_prisma_migrations" TO cresavo_support;
+-- Migration status only: not `logs` (free text of a failure) or `checksum`.
+GRANT SELECT ("id", "migration_name", "started_at", "finished_at", "rolled_back_at", "applied_steps_count") ON "_prisma_migrations" TO cresavo_support;
+
+COMMIT;

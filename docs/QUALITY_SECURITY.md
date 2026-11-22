@@ -132,7 +132,7 @@ Operations
       has a passing row and the maintainer has confirmed RPO and RTO).
 - [ ] Least-privilege database roles in place for app, sweeper and support
       (`prisma/grants/roles.sql`, with `studio-store.sql` and `erase-subject.sql`;
-      `verify-studio-store.sql` returns no rows).
+      `verify-studio-store.sql` and `verify-roles.sql` return no rows for the real logins).
 - [ ] Error tracking and alerting to phone; status page.
 - [ ] Structured logs with request id, retention defined.
 - [ ] Runbook for incidents, including personal data breach notification

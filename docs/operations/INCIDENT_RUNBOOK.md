@@ -42,29 +42,65 @@ When unsure, take the higher level and lower it later.
 
 ## Switching features off
 
-All four are environment variables read at runtime. On a Vercel-style host a
-changed variable applies to new deployments, so redeploy after changing it.
-Each is reversible; turning it back on does not lose anything unless noted.
+The four flags are environment variables read at runtime. On a Vercel-style
+host a changed variable applies to new deployments, so redeploy after changing
+it. Each is reversible. **None of them is a stop**: they narrow what the owner
+studio and the public pages do, and leave other writers running (see the
+[hard stop](#hard-stop) when writes must end).
 
-| Flag | Off value | What stops | What keeps working | Watch out |
+| Flag | Off value | What stops | What keeps running | Watch out |
 | --- | --- | --- | --- | --- |
-| `PUBLIC_BOOKING_LIVE` | `0` or unset | The public booking pages and `/api/public/*` serve the browser-state demo instead of a salon's data (`src/lib/public-booking.ts`). New customer bookings stop. | Owner studio, existing bookings, owner sign-in. | Confirmation e-mails for bookings made through the public page are held, not dropped: the message sink returns `deferred` and they send when the flag is back (no attempt is used up). A customer who books during the outage sees the demo, not an error; say so on the status page. |
-| `OWNER_ACCOUNTS_ENABLED` | `0` or unset | Every `/api/owner/*` route answers 404 (`src/lib/owner-http.ts`), so owners cannot sign in or change anything; public booking also stops, because it needs both flags. | The marketing site and the demo. | The strongest switch: use it for a suspected cross-tenant read or a broken session check. Stored sessions are not deleted; they work again when the flag returns. Password-reset links stop working too. |
-| `CONCEPT_CONNECTIONS_LIVE` | empty or `0` | Every connection (e-mail, SMS, payments, ...) is simulated: nothing real leaves, including owner password-reset e-mails (`src/concept/connections/server/config.ts`). | Everything else. | Booking e-mails that were staged for a real send are not sent as simulated: the sink raises `EMAIL_NOT_CONFIGURED` and the outbox retries with exponential backoff (2 s doubling, capped at 1 hour) and gives up after 10 attempts. That is roughly 17 minutes of retries; after that the rows are `failed`, not pending. Keep the switch-off short, or accept that those e-mails need the [manual follow-up](#uncertain-e-mail-outbox-state). |
-| `CONCEPT_EMAIL_PROVIDER` | empty or `simulated` | Only the e-mail port: it resolves to the simulator, SMS and the other ports are unaffected. | Everything else. | Same retry limits as the line above. Use it when the e-mail provider is the problem; use `CONCEPT_CONNECTIONS_LIVE` when anything real must stop. |
+| `PUBLIC_BOOKING_LIVE` | `0` or unset | `/api/public/*` answers 404 on a writable deployment (`src/lib/public-http.ts`), and the public booking pages are served from the demo's browser state instead of a salon's data (`src/lib/public-booking.ts`). | The owner studio and owner sign-in; the legacy `/api/bookings`, `/api/availability`, `/api/admin/*`, `/api/v1`, `/api/waitlist` and pairing routes; every cron job; delivery already queued. | Confirmation e-mails for bookings made through the public page are held, not dropped: the message sink returns `deferred` and they send when the flag is back (no attempt is used up). A customer who opens the page during the outage sees the demo, not an error; say so on the status page. |
+| `OWNER_ACCOUNTS_ENABLED` | `0` or unset | Every `/api/owner/*` route answers 404 (`src/lib/owner-http.ts`), so owners cannot sign in or change anything, and public booking stops too, because it needs both flags. | Same as above: legacy routes, admin, `/api/v1`, pairing, the cron jobs and the deliverers. Stored sessions are not deleted. | The strongest of the four, for a suspected cross-tenant read or a broken session check. Password-reset links stop working too. It does not stop the `/api/admin/*` or `/api/v1` writers. |
+| `CONCEPT_CONNECTIONS_LIVE` | empty or `0` | Every connection (e-mail, SMS, payments, ...) is simulated, including owner password-reset e-mails (`src/concept/connections/server/config.ts`). | Everything else. | Whether a message is "live" is fixed when the store stages it (`record.live`). **Messages staged while this is off are permanently simulated: they never send, even after the flag is back.** Find them with `SELECT tenant_id, seq, n FROM tenant_effect WHERE kind = 'message' AND payload->>'live' = 'false'` over the outage window and have the salons follow up by hand. Messages already staged as live wait: the sink raises `EMAIL_NOT_CONFIGURED`, the outbox retries with exponential backoff (2 s doubling, capped at 1 hour) and gives up after 10 attempts, roughly 17 minutes, after which the rows are `failed`. |
+| `CONCEPT_EMAIL_PROVIDER` | empty or `simulated` | Only the e-mail port: it resolves to the simulator; SMS and the other ports are unaffected. | Everything else. | The same two effects as the row above, for e-mail only: new messages are simulated for good, queued live ones fail after about 17 minutes. Use it when the e-mail provider is the problem; use `CONCEPT_CONNECTIONS_LIVE` when anything real must stop. |
 
 Other switches:
 
-- `PUBLIC_READONLY=1` is the public demo's mode, not an incident switch: it
-  disables database access in that process (`createDatabaseClient` refuses),
-  so owner routes fail instead of going read-only. Do not use it on the pilot
-  deployment.
-- A stuck deliverer: stop the `npm run effects:drain` cron job. Pending rows
-  wait; nothing is lost.
+- `PUBLIC_READONLY=1` is the public demo's mode, not an incident switch. It
+  makes the main database client refuse to start, so owner routes fail rather
+  than turn read-only, and pairing (when enabled) still uses its own
+  `PAIRING_DATABASE_URL`. Do not use it on the pilot deployment.
+- A stuck deliverer: stop the `npm run effects:drain` cron job. That is not
+  enough to stop delivery: web workers also deliver right after each commit.
+  Only the [hard stop](#hard-stop) or removing the e-mail credentials stops
+  every deliverer.
 - The cron job of `npm run store:sweep` can be paused at any time; it only
-  deletes expired rows.
-- A single owner account can be locked by raising its `credential_version`
-  (all of its sessions end) or setting `active = false`, as the schema owner.
+  deletes or redacts rows that retention says may go.
+
+### Hard stop
+
+When writes must end (a restore, a cross-tenant leak, a runaway deliverer),
+stop the processes and remove the database logins' ability to connect, so
+nothing can write whatever is deployed. As the schema owner:
+
+```sql
+ALTER ROLE <app login>     NOLOGIN;
+ALTER ROLE <sweeper login> NOLOGIN;
+-- plus the login of effects:drain and of any other writer, e.g. the admin CLI's
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+WHERE usename IN ('<app login>', '<sweeper login>') AND pid <> pg_backend_pid();
+SELECT usename, count(*) FROM pg_stat_activity GROUP BY usename;   -- wait for no row of those logins
+```
+
+Also scale the web processes and cron jobs to zero, so they do not log failures
+in a loop. Undo with `ALTER ROLE <login> LOGIN`. In-flight work finishes or
+rolls back when its session ends; a message whose provider call was in flight
+may be [uncertain](#uncertain-e-mail-outbox-state).
+
+### Containing one account
+
+Raising an owner's `credential_version` ends its current sessions, but the same
+password opens a new one at once, so it does not contain a compromised account.
+Set the account inactive, as the schema owner, and then raise the version:
+
+```sql
+UPDATE owner_account SET active = false, credential_version = credential_version + 1 WHERE id = '<account id>';
+```
+
+Reset links do not work for an inactive account. To restore access, set
+`active = true`, have the owner reset the password straight away through a
+verified route, and watch the sign-ins.
 
 ## Key rotation
 
@@ -96,8 +132,15 @@ Used as an HMAC key by several features. Rotating it invalidates:
   counters and **owner lock-outs start over**. After a suspected credential-stuffing
   attack, rotating also frees an attacker's locked-out guesses; rotate
   and then watch the sign-in rate.
-- Pairing keys (`src/concept/pairing/http.ts`) and the local MCP recovery
-  values (`src/mcp/time-card/recovery.ts`).
+- The pairing IP budgets (`src/concept/pairing/http.ts`) and the local MCP
+  recovery values (`src/mcp/time-card/recovery.ts`).
+
+It does **not** invalidate pairing: the pairing cookie and the assistant's access
+and refresh tokens are stored and checked as unkeyed digests
+(`src/concept/pairing`), so they stay valid after rotation. If an assistant
+pairing may be compromised, revoke the grants explicitly (delete the affected
+`PairGrantToken` and `PairGrant` rows through the pairing tooling, or end the
+workspace) and tell the owner to pair again.
 
 It does **not** touch data at rest: nothing in the database is encrypted with
 it, so there is nothing to migrate. All web instances must get the new value in
@@ -120,9 +163,22 @@ only needed again if the rotation is rolled back.
 Provider keys (`RESEND_API_KEY`, `POSTMARK_SERVER_TOKEN`, payment and
 accounting keys): create the new key at the provider, deploy it, revoke the
 old one, then check the provider's log for use of the old key during the
-incident window. Database login passwords: `ALTER ROLE <login> PASSWORD ...`
-interactively with `psql` (it prompts; never put the password on the command
-line), update the secret store, redeploy; the group roles have no passwords.
+incident window. **E-mail credentials:** the message sink fingerprints the
+account from the last characters of the credentials
+(`src/concept/connections/server/registry.ts`). A new Resend key for the same
+provider account gets a different fingerprint, so a message already
+`dispatched` under the old key is no longer repeated and becomes `failed` with
+reason `uncertain`. Rotate when no row is in flight (`SELECT count(*) FROM
+tenant_effect WHERE status = 'pending' AND payload #>> '{delivery,dispatched}' =
+'true'` returns 0), or reconcile those rows as
+[below](#uncertain-e-mail-outbox-state). 
+
+Database login passwords: `\password <login>` in `psql` (it prompts and sends
+only a hash; an SQL `PASSWORD '...'` literal lands in shell history and the
+server log), update the secret store, redeploy; the group roles have no
+passwords. When a person's support access ends, `REVOKE cresavo_support FROM
+<login>` and terminate its sessions; `VALID UNTIL` only stops new password
+logins.
 
 ## Uncertain e-mail outbox state
 
