@@ -8,6 +8,7 @@ import { useServerSalon } from "../server-salon";
 import { SALON_TIMEZONE } from "../tools/clock";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
+import { captureLinkToken } from "./link-token";
 import { bookingHome } from "./links";
 import type { PublicBookingView } from "./public-booking-view";
 
@@ -18,15 +19,14 @@ const TITLES = { booked: "booking.confirmation.title", completed: "booking.confi
 /**
  * A booking on a salon's own page, for the holder of the link in the
  * confirmation e-mail. The token is in the address fragment, which the browser
- * never sends; it is read once, posted, and removed from the address bar.
+ * never sends; it is posted once and kept out of the address bar (link-token.tsx).
  */
 export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
   const salon = useServerSalon();
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.hash.slice(1)).get("t");
-    if (token) history.replaceState(null, "", window.location.pathname + window.location.search);
+    const token = captureLinkToken();
     const controller = new AbortController();
     const load: Promise<Loaded> = !token ? Promise.resolve({ state: "link-needed" }) : fetch(`/api/public/salons/${encodeURIComponent(slug)}/bookings/${encodeURIComponent(id)}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store", signal: controller.signal,

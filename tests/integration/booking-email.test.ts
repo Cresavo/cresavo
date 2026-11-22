@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/app/api/public/salons/[slug]/bookings/route";
 import { POST as VIEW } from "../../src/app/api/public/salons/[slug]/bookings/[id]/route";
 import { addressProof } from "../../scripts/client-address.mjs";
@@ -30,7 +30,7 @@ vi.mock("../../src/lib/owner-store", async (importOriginal) => ({ ...(await impo
 
 const mails: EmailMessage[] = [];
 let outcome: PortResult<EmailReceipt> = ok({ id: "m-1", to: [] }, "sent");
-const registry = { resolve: async () => ({ adapter: { send: async (m: EmailMessage) => (mails.push(m), outcome) } as unknown as EmailPort, live: true, reason: "live" as const }) };
+const registry = { resolve: async () => ({ adapter: { info: { provider: "resend" }, send: async (m: EmailMessage) => (mails.push(m), outcome) } as unknown as EmailPort, live: true, reason: "live" as const }) };
 const sinks = { ...SIMULATED_SINKS, message: messageSink(db as unknown as PrismaClient, registry) };
 
 let tenantId = "";
@@ -66,6 +66,11 @@ beforeEach(() => {
   outcome = ok({ id: "m-1", to: [] }, "sent");
 });
 
+// Each test is about its own effect: whatever one leaves pending is not another's to deliver.
+afterEach(async () => {
+  await db.$executeRaw`UPDATE tenant_effect SET status = 'cancelled' WHERE tenant_id = ${tenantId} AND status = 'pending'`;
+});
+
 afterAll(async () => {
   await db.ownerAccount.deleteMany({ where: { email: { endsWith: `-${run}@example.test` } } });
   for (const table of ["tenant_effect", "tenant_idempotency", "tenant_action", "tenant_state"])
@@ -86,6 +91,8 @@ function book(start: number, key: string = randomUUID(), phone = `0735551${100 +
   }), { params: Promise.resolve({ slug }) });
 }
 
+const delivery = () => db.$queryRaw<Array<{ delivery: Record<string, unknown> | null }>>`
+  SELECT payload->'delivery' AS delivery FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`;
 const emailEffects = () => db.$queryRaw<Array<{ status: string; attempts: number }>>`
   SELECT status, attempts FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`;
 const drain = (now = CLOCK) => drainPendingEffects({ prisma: db as unknown as PrismaClient, sinks, tenants: [tenantId], now: async () => now });
@@ -109,10 +116,13 @@ describe("the booking confirmation e-mail", () => {
   it("gives the e-mail a link that opens the booking, and keeps the token out of the log", async () => {
     const { ref } = await (await book(600)).json();
     const token = /#t=(v1\.[^\s"]+)/.exec(mails[0].text)![1];
+    // The token is good for a week after the visit; the store's clock is fixed, so the check's is too.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(CLOCK);
     const view = await VIEW(new NextRequest(`http://localhost/api/public/salons/${slug}/bookings/${ref}`, {
       method: "POST", body: JSON.stringify({ token }),
       headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "x-booking-client-ip": "10.8.99.1", "x-booking-client-proof": addressProof("10.8.99.1", SECRET) },
-    }), { params: Promise.resolve({ slug, id: ref }) });
+    }), { params: Promise.resolve({ slug, id: ref }) }).finally(() => vi.useRealTimers());
     expect(view.status).toBe(200);
     expect((await view.json()).booking).toMatchObject({ date: DATE, start: 600, status: "booked" });
 
@@ -136,6 +146,10 @@ describe("the booking confirmation e-mail", () => {
     outcome = fail(connectionError("email", "resend", "provider_unavailable"));
     expect((await book(720)).status).toBe(201);
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
+    // The first attempt froze the message; it holds no address and no token.
+    const [{ delivery: frozen }] = await delivery();
+    expect(frozen).toMatchObject({ live: true, firstAttemptAt: expect.any(Number) });
+    expect(JSON.stringify(frozen)).not.toMatch(/lisa@example|v1\./);
     expect(await drain(CLOCK)).toEqual({ delivered: 0, retried: 0, failed: 0 });
 
     outcome = ok({ id: "m-2", to: [] }, "sent");
@@ -143,17 +157,60 @@ describe("the booking confirmation e-mail", () => {
     expect(mails).toHaveLength(2);
     expect(mails[1].idempotencyKey).toBe(mails[0].idempotencyKey);
     expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 2 }]);
+    expect((await delivery())[0].delivery).toEqual({ live: true, sent: true, firstAttemptAt: frozen!.firstAttemptAt });
   });
 
-  it("counts a sink that outlasts its timeout as a retry", async () => {
-    outcome = fail(connectionError("email", "resend", "timeout"));
+  it("keeps a timed-out send's claim past its lease, so no second worker can race it", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
     expect((await book(780)).status).toBe(201);
     const hang = { ...sinks, message: () => new Promise<never>(() => {}) };
+    const at = CLOCK + 3_600_000;
     const report = await deliverDue({
-      db: db as unknown as PrismaClient, clock: async () => CLOCK + 3_600_000, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
+      db: db as unknown as PrismaClient, clock: async () => at, sinks: hang, simulatedSinks: SIMULATED_SINKS,
+      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 2 }]);
+    // Not claimable again until after the sink timeout plus its margin, whatever the lease setting.
+    const [{ due }] = await db.$queryRaw<Array<{ due: number }>>`
+      SELECT (extract(epoch FROM next_attempt_at) * 1000)::float8 AS due FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`;
+    expect(due).toBeGreaterThanOrEqual(at + 5_050);
+  });
+
+  it("holds a public booking's e-mail without using an attempt while public booking is off", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    expect((await book(840)).status).toBe(201);
+    expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
+    outcome = ok({ id: "m-3", to: [] }, "sent");
+    const sentBefore = mails.length;
+    vi.stubEnv("PUBLIC_BOOKING_LIVE", "");
+    expect(await drain(CLOCK + 3_600_000)).toEqual({ delivered: 0, retried: 1, failed: 0 });
+    expect(mails).toHaveLength(sentBefore);
+    expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
+    vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
+    expect(await drain(CLOCK + 2 * 3_600_000)).toEqual({ delivered: 1, retried: 0, failed: 0 });
+    expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 2 }]);
+  });
+
+  it("stops claiming when the drain's time budget is spent, leaving the rest for the poller", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    expect((await book(900)).status).toBe(201);
+    const report = await deliverDue({
+      db: db as unknown as PrismaClient, clock: async () => CLOCK + 10 * 3_600_000, sinks, simulatedSinks: SIMULATED_SINKS,
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, budgetMs: 0, tenants: [tenantId],
+    }, 10);
+    expect(report).toEqual({ delivered: 0, retried: 0, failed: 0 });
+    expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
+  });
+
+  it("drops the frozen message when the customer is erased, and cancels the pending send", async () => {
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    expect((await book(960, randomUUID(), "0735551888")).status).toBe(201);
+    expect((await delivery())[0].delivery).toMatchObject({ mail: expect.anything() });
+    const { state } = (await holder.store.load(tenantId))!;
+    const customer = state.customers.find((c) => c.phone.replace(/\D/g, "").endsWith("735551888"))!;
+    expect(await holder.store.eraseSubject(tenantId, customer.id)).toMatchObject({ ok: true });
+    expect((await delivery())[0].delivery).toBeNull();
+    expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 1 }]);
   });
 });

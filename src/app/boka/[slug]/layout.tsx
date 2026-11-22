@@ -10,6 +10,7 @@ import { loadPublicSalon } from "@/lib/public-booking";
 import { publicPageRequest } from "@/lib/public-page";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { waitlistClientKey } from "@/concept/site/waitlist-server";
+import { LinkTokenScrub } from "@/concept/booking/link-token";
 import { BookShell } from "@/concept/booking/shell";
 import { ServerSalonProvider } from "@/concept/server-salon";
 import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
@@ -45,8 +46,8 @@ export default async function BookingLayout({ children, params }: { children: Re
     await checkRateLimit("public-read", waitlistClientKey(new Headers(requestHeaders)));
     salon = await loadPublicSalon((await params).slug.toLowerCase());
   } catch {
-    return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
+    return boundary(<main className="booking-gutters mx-auto max-w-5xl py-12"><LinkTokenScrub /><p role="alert">{translate(DEFAULT_BOOKING_LANGUAGE, "booking.unavailable")}</p></main>);
   }
   if (!salon) notFound();
-  return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}>{shell}</ServerSalonProvider>);
+  return boundary(<ServerSalonProvider state={salon.state} issuedAt={salon.issuedAt}><LinkTokenScrub />{shell}</ServerSalonProvider>);
 }

@@ -215,7 +215,7 @@ BEGIN
       CONTINUE;
     END IF;
     IF v_row.addressed THEN
-      v_next := v_row.payload || '{"body": "[redacted]"}'::jsonb;
+      v_next := (v_row.payload - 'delivery') || '{"body": "[redacted]"}'::jsonb;
       IF v_next ? 'to' THEN v_next := v_next || '{"to": "[redacted]"}'::jsonb; END IF;
       IF v_next ? 'subject' THEN v_next := v_next || '{"subject": "[redacted]"}'::jsonb; END IF;
       v_next := public.studio_scrub(v_next, v_identifiers);

@@ -86,6 +86,15 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect((await post({ token: good })).status).toBe(404);
   });
 
+  it("stops at a week after the visit as it stands now, even when the token was signed for a later one", async () => {
+    // Signed when the visit was a month later; the owner then moved it to the 24th.
+    const late = mintBookingToken(scope, bookingTokenExpiry({ date: "2026-12-24", start: 600, duration: 60 }));
+    vi.setSystemTime(new Date("2026-12-01T10:00:00+01:00"));
+    expect((await post({ token: late })).status).toBe(200);
+    vi.setSystemTime(new Date("2026-12-01T11:00:00+01:00"));
+    expect((await post({ token: late })).status).toBe(404);
+  });
+
   it("refuses an oversized body", async () => {
     expect((await post({ token: "x".repeat(2000) })).status).toBe(413);
   });
