@@ -5,7 +5,10 @@ import { weekday } from "@/concept/data/dates";
 import { DEFAULT_POLICY } from "@/concept/booking/protection";
 import { freeStarts, isFree, needOf, processingGap, staffIntervals, workMinutes } from "@/concept/data/slots";
 import { applyAction } from "@/concept/log/capture";
-import { undoEntry } from "@/concept/log/undo";
+import { undoBlockReason, undoEntry } from "@/concept/log/undo";
+import { openSlots } from "@/concept/booking/suggest";
+import { minuteInGap } from "@/concept/studio/calendar/gap";
+import { liveSlot } from "@/concept/studio/inbox/live-slot";
 import { utilisation } from "@/concept/selectors";
 import { restoreEntry } from "@/concept/trash/trash";
 import type { DemoState, Service } from "@/concept/data/types";
@@ -26,8 +29,8 @@ const empty = (services: Service[], rooms = 2): DemoState => {
   const base = createDemoState("2026-11-16");
   return { ...base, services, bookings: [], checkoutHolds: [], resources: base.resources.slice(0, rooms) };
 };
-const book = (state: DemoState, serviceId: string, start: number, customer = 0) =>
-  reduce(state, { type: "booking/create", customerId: state.customers[customer].id, serviceId, staffId: "anna", date: day, start, source: "phone" });
+const book = (state: DemoState, serviceId: string, start: number, customer = 0, staffId: "anna" | "erik" = "anna") =>
+  reduce(state, { type: "booking/create", customerId: state.customers[customer].id, serviceId, staffId, date: day, start, source: "phone" });
 
 describe("staff busy time", () => {
   it("adds buffers around the visit and leaves out the processing gap", () => {
@@ -217,5 +220,73 @@ describe("occupancy", () => {
     const hours = workMinutes(withTrim, "anna", day);
     expect(utilisation(withTrim, day, 1, "anna") * hours).toBeCloseTo(90);
     expect(utilisation(book(empty([padded]), "padded", hm(10)), day, 1, "anna") * hours).toBeCloseTo(85);
+  });
+});
+
+describe("review fixes", () => {
+  const meta = { actor: "owner", source: "button", at: 0 } as const;
+  const clock = { today: "2026-11-16", minutes: 9 * 60 };
+  const pad30 = service("pad30", 30, { bufferAfter: 30 });
+
+  it("stores only the timing that passed the check when an inbox reply books a slot", () => {
+    const state = empty([trim]);
+    const item = { id: "i-1", kind: "request" as const, customerId: state.customers[0].id, date: "2026-11-16", time: 540, title: "Demo request", body: "Demo", read: false, handled: false };
+    const slot = { staffId: "anna" as const, serviceId: "trim", date: day, start: hm(10), processing: { after: 0, duration: 30 }, bufferBefore: 20 };
+    const booked = reduce({ ...state, inbox: [item] }, { type: "inbox/reply", id: "i-1", reply: "See you", slot });
+    expect(booked.bookings).toHaveLength(1);
+    expect(booked.bookings[0].processing).toBeUndefined();
+    expect(booked.bookings[0].bufferBefore).toBeUndefined();
+  });
+
+  it("suggests moves with the booking's own timing, not the catalogue's", () => {
+    const booked = book(book(empty([pad30, trim]), "pad30", hm(10)), "trim", hm(11, 30), 1);
+    const state = { ...booked, services: booked.services.map((s) => (s.id === "pad30" ? { ...s, bufferAfter: undefined } : s)) };
+    const id = state.bookings[0].id;
+    expect(openSlots(state, "pad30", day, clock, { ignoreId: id }).map((slot) => slot.start)).not.toContain(hm(11));
+    expect(liveSlot(state, { staffId: "anna", serviceId: "pad30", date: day, start: hm(11) }, clock.today, clock.minutes, id)?.start).not.toBe(hm(11));
+    expect(reduce(state, { type: "booking/move", id, date: day, start: hm(11) })).toBe(state);
+  });
+
+  it("opens the clicked time in a processing gap, kept inside the gap", () => {
+    const gap = { start: hm(10, 30), end: hm(11, 30) };
+    expect(minuteInGap(gap, 0, 1.25)).toBe(hm(10, 30));
+    expect(minuteInGap(gap, 37.5, 1.25)).toBe(hm(11));
+    expect(minuteInGap(gap, 44, 1.25)).toBe(hm(11));
+    expect(minuteInGap(gap, 500, 1.25)).toBe(hm(11, 29));
+    expect(minuteInGap({ start: hm(10, 35), end: hm(11, 30) }, 0, 1.25)).toBe(hm(10, 35));
+  });
+
+  it("does not count work during lunch as occupancy", () => {
+    const state = book(empty([pad30]), "pad30", hm(11));
+    const later = { ...state, salon: { ...state.salon, lunch: { start: hm(11, 30), end: hm(12) } } };
+    expect(utilisation(later, day, 1, "anna") * workMinutes(later, "anna", day)).toBeCloseTo(30);
+  });
+
+  it("keeps a deleted treatment's room requirement for a customer in the trash", () => {
+    const roomy = service("roomy", 30, { resourceIds: ["room-1"] });
+    const other = service("other", 30, { staffIds: ["erik"], resourceIds: ["room-1"] });
+    const state = book(empty([roomy, other, trim], 1), "roomy", hm(10));
+    const customerId = state.bookings[0].customerId;
+    const deleted = reduce(reduce(state, { type: "customer/delete", id: customerId }), { type: "service/delete", id: "roomy" });
+    expect(deleted.retiredServices.map((s) => s.id)).toContain("roomy");
+    const taken = book(deleted, "other", hm(10), 1, "erik");
+    const restored = restoreEntry(taken, taken.trash[0].id);
+    expect(restored.bookings.find((b) => b.serviceId === "roomy")?.status).toBe("cancelled");
+  });
+
+  it("rechecks availability for completed visits on customer restore and undo", () => {
+    const booked = book(empty([padded, trim]), "padded", hm(10));
+    const done = reduce(booked, { type: "booking/complete", id: booked.bookings[0].id });
+    expect(done.bookings[0].status).toBe("completed");
+    const customerId = done.bookings[0].customerId;
+
+    const deleted = reduce(done, { type: "customer/delete", id: customerId });
+    const taken = book(deleted, "trim", hm(11), 1);
+    expect(restoreEntry(taken, taken.trash[0].id).bookings.find((b) => b.serviceId === "padded")?.status).toBe("cancelled");
+
+    const logged = applyAction(done, { type: "customer/delete", id: customerId }, meta);
+    const busy = book(logged, "trim", hm(11), 1);
+    expect(undoBlockReason(busy, busy.log[0])).toBe("time-taken");
+    expect(undoBlockReason(logged, logged.log[0])).toBeUndefined();
   });
 });

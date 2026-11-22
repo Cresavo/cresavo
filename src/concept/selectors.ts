@@ -1,5 +1,5 @@
 import { addDays } from "./data/dates";
-import { busyMinutes, isActive, workMinutes, workWindow } from "./data/slots";
+import { bookableIntervals, busyMinutes, isActive, workMinutes } from "./data/slots";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, Service, StaffId } from "./data/types";
 import { salesBetween } from "./stock/sales";
 
@@ -121,7 +121,7 @@ export function utilisation(state: DemoState, from: DateKey, days: number, staff
       const minutes = workMinutes(state, staff.id, date);
       if ((staffId && staff.id !== staffId) || !minutes) continue;
       capacity += minutes;
-      booked += Math.min(minutes, busyMinutes(dayBookings(state, date, staff.id), workWindow(state, staff.id, date)!));
+      booked += Math.min(minutes, busyMinutes(dayBookings(state, date, staff.id), bookableIntervals(state, staff.id, date)));
     }
   }
   return capacity ? booked / capacity : 0;

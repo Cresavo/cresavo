@@ -164,8 +164,13 @@ function createBooking(
   if (!isFree(state, input.staffId, input.date, input.start, need)) return state;
   if (input.id && state.bookings.some(b => b.id === input.id)) return state;
   const booking: Booking = {
-    ...input,
     id: input.id ?? nextId(state, "b"),
+    customerId: input.customerId,
+    serviceId: service.id,
+    staffId: input.staffId,
+    date: input.date,
+    start: input.start,
+    source: input.source,
     protection: protection ?? { terms: { ...quote(state.cancellationPolicy, service, state.localization.currency, false), depositMinor: 0 } },
     duration: service.duration,
     ...timingOf(need),

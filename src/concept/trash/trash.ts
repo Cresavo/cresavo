@@ -2,7 +2,7 @@ import { refundCancellation } from "../booking/settlement";
 import { demoPayments } from "../connections/demo";
 import { t } from "../i18n";
 import { diffDays } from "../data/dates";
-import { isFree, pickResource } from "../data/slots";
+import { isActive, isFree, pickResource } from "../data/slots";
 import { cardsCovered, returnRedemptions } from "../giftcards/cards";
 import { eraseCustomer } from "../customers/erase";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, JournalEntry, ProductSale, Review, ServicePackage } from "../data/types";
@@ -134,13 +134,13 @@ export function restoreEntry(state: DemoState, id: string, payments = demoPaymen
   // A time taken while the customer was in the trash must not be double-booked,
   // and a gift card balance spent meanwhile must not be spent twice.
   for (const booking of entry.bookings) {
-    if (booking.status !== "booked") {
+    if (!isActive(booking)) {
       restored.bookings = [...restored.bookings, booking];
       continue;
     }
     const available = isFree(restored, booking.staffId, booking.date, booking.start, booking, booking.id);
     if (available) {
-      const bookings = [...restored.bookings, rebook(restored, booking)];
+      const bookings = [...restored.bookings, booking.status === "booked" ? rebook(restored, booking) : { ...booking, resourceId: pickResource(restored, booking, booking.date, booking.start, booking.id) }];
       if (cardsCovered({ ...restored, bookings })) {
         restored.bookings = bookings;
         continue;

@@ -67,7 +67,7 @@ function previewUndo(state: DemoState, entry?: LogEntry): DemoState | UndoBlockR
     if (!isActive(booking)) continue;
     const { id, staffId, date, start } = booking;
     const beforeUndo = current.get(id);
-    const restored = booking.status === "booked" && beforeUndo?.status !== "booked";
+    const restored = beforeUndo?.status !== booking.status;
     const moved = beforeUndo && (beforeUndo.staffId !== staffId || beforeUndo.date !== date || beforeUndo.start !== start);
     if (!restored && !moved) continue;
 

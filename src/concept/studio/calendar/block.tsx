@@ -9,6 +9,7 @@ import { t } from "../../i18n";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
+import { minuteInGap } from "./gap";
 import { useStudio } from "../use-studio";
 
 export const DRAG_TYPE = "application/x-eko-booking";
@@ -81,7 +82,7 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
               size="sm"
               className="h-full w-full cursor-copy !p-0"
               aria-label={t("calendar.bookInGap", { from: formatTime(gap.start), to: formatTime(gap.end) })}
-              onClick={() => onGapOpen(gap.start)}
+              onClick={(event) => onGapOpen(minuteInGap(gap, event.clientY - event.currentTarget.getBoundingClientRect().top, scale))}
             />
           )}
         </div>

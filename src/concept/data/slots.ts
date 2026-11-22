@@ -71,13 +71,18 @@ export function staffWorks(ctx: Pick<SlotContext, "salon" | "staff" | "exception
   return workWindow(ctx, staffId, date) !== null;
 }
 
-/** Bookable minutes in a person's day: their working hours minus lunch. */
-export function workMinutes(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): number {
+/** The stretches of a person's day that can be booked: their working hours minus lunch. */
+export function bookableIntervals(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): Interval[] {
   const window = workWindow(ctx, staffId, date);
-  if (!window) return 0;
+  if (!window) return [];
   const lunch = lunchFor(ctx.salon, date);
-  const lunchMinutes = lunch ? Math.max(0, Math.min(lunch.end, window.end) - Math.max(lunch.start, window.start)) : 0;
-  return window.end - window.start - lunchMinutes;
+  if (!lunch || lunch.end <= window.start || lunch.start >= window.end) return [window];
+  return [{ start: window.start, end: lunch.start }, { start: lunch.end, end: window.end }].filter((part) => part.end > part.start);
+}
+
+/** Bookable minutes in a person's day. */
+export function workMinutes(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): number {
+  return bookableIntervals(ctx, staffId, date).reduce((sum, part) => sum + part.end - part.start, 0);
 }
 
 export function isActive(b: Booking) {
@@ -116,7 +121,11 @@ export function processingGap(timing: VisitTiming | undefined, start: number, du
   return gap.end > gap.start ? gap : null;
 }
 
-/** When the staff member is busy for a visit: preparation, the active parts of the treatment and clean-up, but not the processing gap. */
+/**
+ * When the staff member is busy for a visit: preparation, the active parts of the treatment and clean-up, but not the processing gap.
+ * The timing comes from the visit itself, never from its treatment: it is copied onto the booking
+ * or hold when it is made, and a visit without a copy has no buffers, so there is no fallback.
+ */
 export function staffIntervals(timing: VisitTiming | undefined, start: number, duration: number): Interval[] {
   const end = start + duration;
   const from = start - (timing?.bufferBefore ?? 0);
@@ -218,17 +227,20 @@ export function canBlock(ctx: SlotContext, staffId: StaffId, date: DateKey, star
     freeGaps(ctx, staffId, date, { min: 1 }).some(gap => start >= gap.start && end <= gap.end);
 }
 
-/** Minutes of a person's day that are taken by visits, counting overlapping work once and only within the working hours. */
-export function busyMinutes(bookings: Booking[], window: Interval): number {
-  const parts = bookings.flatMap((b) => staffIntervals(b, b.start, b.duration))
-    .map((part) => ({ start: Math.max(part.start, window.start), end: Math.min(part.end, window.end) }))
-    .filter((part) => part.end > part.start)
-    .sort((a, b) => a.start - b.start);
-  let total = 0;
-  let cursor = window.start;
+/** Minutes of the bookable intervals that visits take, counting overlapping work once. */
+export function busyMinutes(bookings: Booking[], bookable: Interval[]): number {
+  const parts = bookings.flatMap((b) => staffIntervals(b, b.start, b.duration)).sort((a, b) => a.start - b.start);
+  const union: Interval[] = [];
   for (const part of parts) {
-    total += Math.max(0, part.end - Math.max(part.start, cursor));
-    cursor = Math.max(cursor, part.end);
+    const last = union.at(-1);
+    if (last && part.start <= last.end) last.end = Math.max(last.end, part.end);
+    else union.push({ ...part });
   }
-  return total;
+  return bookable.reduce((sum, window) => sum + union.reduce((inside, part) => inside + Math.max(0, Math.min(part.end, window.end) - Math.max(part.start, window.start)), 0), 0);
+}
+
+/** What a booking being moved needs: its own length and timing, as the reducer checks the move. Anything else needs `fallback`. */
+export function moveNeed(ctx: Pick<SlotContext, "bookings">, bookingId: string | undefined, fallback: Need): Need {
+  const booking = bookingId ? ctx.bookings.find((b) => b.id === bookingId) : undefined;
+  return booking ? { serviceId: booking.serviceId, duration: booking.duration, ...timingOf(booking) } : fallback;
 }

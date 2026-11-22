@@ -108,9 +108,9 @@ export function serviceUsage(state: DemoState, id: string, today: DateKey): Serv
   };
 }
 
-/** True when a record somewhere still needs the treatment's name, price or rooms. */
+/** True when a record somewhere, even one in the trash, still needs the treatment's name, price or rooms. */
 export function serviceIsReferenced(state: DemoState, id: string): boolean {
-  return state.bookings.some((b) => b.serviceId === id) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
+  return state.bookings.some((b) => b.serviceId === id) || state.checkoutHolds.some((h) => h.serviceId === id) || state.trash.some((e) => e.kind === "customer" && e.bookings.some((b) => b.serviceId === id)) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
 }
 
 /** Timing fields that are zero or unset are left out, so a service without them stays as it was. */
