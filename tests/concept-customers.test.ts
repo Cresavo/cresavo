@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
-import { buildImportRows, decodeImportFile, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
+import { buildImportRows, chunkImport, cleanImportedCustomer, decodeImportFile, guessMapping, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
 import { editJournalEntry } from "@/concept/customers/journal";
 import { bookingLink, dueBackList, intervalWeeks, nextVisitFor, suggestionSent, suggestSlot } from "@/concept/customers/return-visits";
 import { birthdayThisMonth, newThisYear, notSeenInThreeMonths, regulars, segmentCustomers, SEGMENTS } from "@/concept/customers/segments";
@@ -204,10 +204,63 @@ describe("CSV import", () => {
     expect(next.customers).toHaveLength(base.customers.length + 1);
   });
   it("limits file size and row count", () => {
-    expect(readImportFile("name\n" + "a".repeat(MAX_IMPORT_BYTES))).toEqual({ problem: "tooBig" });
-    expect(readImportFile("name\n" + "a\n".repeat(MAX_IMPORT_ROWS + 1))).toEqual({ problem: "tooMany" });
-    expect(readImportFile("name\n" + "a\n".repeat(MAX_IMPORT_ROWS))).toHaveProperty("rows");
-    expect(readImportFile("name")).toEqual({ problem: "empty" });
+    const rows = (n: number) => "name\n" + "a\n".repeat(n);
+    expect(readImportFile("name\na", MAX_IMPORT_BYTES + 1)).toEqual({ problem: "tooBig" });
+    expect(readImportFile(rows(MAX_IMPORT_ROWS + 1), 100)).toEqual({ problem: "tooMany" });
+    expect(readImportFile(rows(MAX_IMPORT_ROWS), 100)).toHaveProperty("rows");
+    expect(readImportFile("name", 4)).toEqual({ problem: "empty" });
+  });
+  it("rejects a quote that never closes and says where it opened", () => {
+    expect(readImportFile('name;note\nMaja;"fine"\nOskar;"open\nSigrid;x', 50)).toEqual({ problem: "unclosedQuote", line: 3 });
+  });
+  it("treats a bare CR as a record boundary and keeps CR inside quotes", () => {
+    expect(parseCsv("a;b\r1;2\r3;4")).toEqual([["a", "b"], ["1", "2"], ["3", "4"]]);
+    expect(parseCsv('a;b\n"x\ry";2')[1]).toEqual(["x\ry", "2"]);
+  });
+  it("removes our export's apostrophe only before = + - @", () => {
+    const rows = buildImportRows([["Maja", "073-410 22 18", "'+desk@mail.example", "'twas fine", "'=1+1"]], { firstName: 0, phone: 1, email: 2, lastName: 3, note: 4 }, [], defaults);
+    expect(rows[0].customer).toMatchObject({ email: "+desk@mail.example", lastName: "'twas fine", note: "=1+1" });
+  });
+  it("prefers the address column and never maps a consent column to e-mail", () => {
+    expect(guessMapping(["Namn", "Telefon", "E-postsamtycke", "E-post"])).toMatchObject({ email: 3 });
+    expect(guessMapping(["Namn", "Email consent", "Mail"])).toMatchObject({ email: 2 });
+    expect(guessMapping(["Namn", "SMS preferences"])).not.toHaveProperty("phone");
+  });
+  it("uses the shared e-mail rule and checks both names after splitting a full name", () => {
+    const rows = buildImportRows([["Maja", "073-410 22 18", "test@sample.example,"], ["X".repeat(61), "073-410 31 07", ""], ["Ann " + "Y".repeat(61), "073-410 45 63", ""]], { fullName: 0, phone: 1, email: 2 }, [], defaults);
+    expect(rows.map((r) => r.problem)).toEqual(["badEmail", "tooLong", "tooLong"]);
+  });
+  it("sees the same international number written with + or 00 as one customer", () => {
+    const rows = buildImportRows([["A", "+44 7700 900123"], ["B", "0044 7700 900123"], ["C", "070-174 06 51"], ["D", "+46 70 174 06 51"]], { firstName: 0, phone: 1 }, [], defaults);
+    expect(rows.map((r) => r.problem)).toEqual([undefined, "duplicate", undefined, "duplicate"]);
+  });
+  it("rebuilds every stored customer from allowed fields and skips invalid records in the reducer", () => {
+    const good = { firstName: " Maja ", lastName: "Lind", phone: "073-410 22 18", email: " MAJA@Mail.Example ", preferredStaff: "anna", since: today };
+    const hostile = [
+      { ...good, phone: "073-410 31 07", email: "other@mail.example", waitlist: true, isRegular: true, tags: ["VIP"], id: "k-1", category: "x", extra: 1 },
+      { ...good, phone: "073-410 45 63", email: "b@mail.example", note: "n".repeat(501) },
+      { ...good, phone: "073-410 58 92", email: undefined },
+      { ...good, phone: "073-410 66 25", email: "maja@mail.example" },
+      { ...good, phone: "073-410 71 40", email: "x@mail.example", preferredStaff: "nobody" },
+      null,
+    ] as unknown as Parameters<typeof chunkImport>[0];
+    const next = reduce(base, { type: "customers/import", customers: [good as never, ...hostile] });
+    const added = next.customers.slice(base.customers.length);
+    expect(added.map((c) => c.phone)).toEqual(["073-410 22 18", "073-410 31 07", "073-410 58 92"]);
+    expect(added[0]).toMatchObject({ firstName: "Maja", email: "maja@mail.example", waitlist: false });
+    expect(added[1]).toMatchObject({ waitlist: false, isRegular: false, tags: ["Imported"], category: "both" });
+    expect(added[1]).not.toHaveProperty("extra");
+    expect(added[1].id).not.toBe("k-1");
+    expect(cleanImportedCustomer({ ...good, since: "2026-02-31" }, ["anna"])).toBeNull();
+  });
+  it("splits an import into pieces below the owner API limit", () => {
+    const customer = { ...buildImportRows([["Maja", "073-410 22 18"]], { firstName: 0, phone: 1 }, [], defaults)[0].customer!, note: "n".repeat(500) };
+    const many = Array.from({ length: 400 }, () => customer);
+    const chunks = chunkImport(many);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.flat()).toHaveLength(400);
+    for (const chunk of chunks) expect(new TextEncoder().encode(JSON.stringify({ type: "customers/import", customers: chunk })).length).toBeLessThanOrEqual(48 * 1024);
+    expect(chunkImport([])).toEqual([]);
   });
   it("accepts the example file's columns", async () => {
     const [header, ...body] = parseCsv(await readFile("public/demo/customers-example.csv", "utf8"));

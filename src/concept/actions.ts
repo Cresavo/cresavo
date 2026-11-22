@@ -11,7 +11,7 @@ import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
-import { MAX_IMPORT_ROWS } from "./customers/csv";
+import { cleanImportedCustomer, MAX_IMPORT_ROWS } from "./customers/csv";
 import { earliestBookingStart } from "./booking/policy";
 import { cleanSignOff } from "./campaigns/channels";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
@@ -359,17 +359,19 @@ function replyToInbox(state: DemoState, id: string, reply: string, slot?: SlotSu
   };
 }
 
-/** Adds imported customers, skipping any whose phone number is already known (or repeats within the list). */
+/** Adds imported customers, rebuilt from their allowed fields. Invalid records are skipped, and so is any whose phone number or e-mail is already known (or repeats within the list). */
 function importCustomers(state: DemoState, incoming: Omit<Customer, "id">[]): DemoState {
   const known = new Set(state.customers.map((c) => normalizePhone(c.phone)));
   const knownEmails = new Set(state.customers.map((c) => c.email.toLowerCase()).filter(Boolean));
+  const staff = state.staff.map((s) => s.id);
   const added: Customer[] = [];
-  for (const customer of incoming.slice(0, MAX_IMPORT_ROWS)) {
+  for (const raw of Array.isArray(incoming) ? incoming.slice(0, MAX_IMPORT_ROWS) : []) {
+    const customer = raw && typeof raw === "object" ? cleanImportedCustomer(raw, staff) : null;
+    if (!customer) continue;
     const phone = normalizePhone(customer.phone);
-    const email = customer.email.toLowerCase();
-    if (phone.length < 7 || known.has(phone) || (email && knownEmails.has(email))) continue;
+    if (known.has(phone) || (customer.email && knownEmails.has(customer.email))) continue;
     known.add(phone);
-    if (email) knownEmails.add(email);
+    if (customer.email) knownEmails.add(customer.email);
     added.push({ ...customer, id: `k-${state.seq + added.length}` });
   }
   return added.length ? { ...state, seq: state.seq + added.length, customers: [...state.customers, ...added] } : state;

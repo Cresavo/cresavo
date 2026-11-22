@@ -15,6 +15,7 @@ import { ownerHintPresent } from "./hint";
 const SALON = "/api/owner/salon";
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
+let failed = false;
 
 const key = () => crypto.randomUUID().replaceAll("-", "");
 
@@ -47,6 +48,7 @@ function send(action: DemoAction) {
     try {
       const response = await post(action, idempotencyKey);
       if (response.status === 401) {
+        failed = true;
         closeAccountSalon();
         showToast(t("account.sync.signedOut"));
         return;
@@ -57,15 +59,28 @@ function send(action: DemoAction) {
         if (pending === 1) replaceAccountSalon(body.state);
         return;
       }
+      failed = true;
       await reload();
       showToast(t("account.sync.refused"));
     } catch {
+      failed = true;
       await reload();
       showToast(t("account.sync.offline"));
     } finally {
       pending--;
     }
   });
+}
+
+/**
+ * Waits until every change sent so far is answered. True when the server accepted all of them since the last
+ * call; false when one was refused or could not be sent (the salon is then read again). True without an account salon.
+ */
+export async function syncOutcome(): Promise<boolean> {
+  await queue;
+  const ok = !failed;
+  failed = false;
+  return ok;
 }
 
 /** Opens the signed-in owner's salon in the studio, if this browser has one. Returns true when it did. */

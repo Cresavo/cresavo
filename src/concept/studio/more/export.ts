@@ -5,14 +5,20 @@ import { findService } from "../../selectors";
 // Plain exports of the demo data. Column names stay in English on purpose:
 // they are a data format, not UI text.
 
-/** Stops a spreadsheet from running free text as a formula: a leading = + - @ (or tab/CR) gets an apostrophe. Plain numbers and phone numbers stay as they are. */
+/**
+ * Stops a spreadsheet from running free text as a formula: text that starts with = + - @ (or tab or CR) gets
+ * an apostrophe, which the customer import removes again. Use it on free-text columns only; phone numbers,
+ * dates and amounts are written as the values they are.
+ */
 export function defuseFormula(text: string): string {
-  return /^[=+\-@\t\r]/.test(text) && !/^[+-]?[\d\s().-]+$/.test(text) ? `'${text}` : text;
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
 }
 
+const safe = (text: string | undefined) => (text === undefined ? undefined : defuseFormula(text));
+
 function csvCell(value: string | number | undefined): string {
-  const text = value === undefined ? "" : typeof value === "number" ? String(value) : defuseFormula(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  const text = value === undefined ? "" : String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 export function toCsv(rows: (string | number | undefined)[][]): string {
@@ -22,7 +28,7 @@ export function toCsv(rows: (string | number | undefined)[][]): string {
 export function customersCsv(state: DemoState): string {
   return toCsv([
     ["id", "first_name", "last_name", "phone", "email", "customer_since", "tags", "note"],
-    ...state.customers.map((c) => [c.id, c.firstName, c.lastName, c.phone, c.email, c.since, c.tags.join("; "), c.note]),
+    ...state.customers.map((c) => [c.id, safe(c.firstName), safe(c.lastName), c.phone, safe(c.email), c.since, safe(c.tags.join("; ")), safe(c.note)]),
   ]);
 }
 
@@ -35,7 +41,7 @@ export function bookingsCsv(state: DemoState): string {
       formatTime(b.start),
       b.duration,
       b.customerId,
-      findService(state, b.serviceId)?.name,
+      safe(findService(state, b.serviceId)?.name),
       b.staffId,
       b.price,
       b.status,

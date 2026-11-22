@@ -3,10 +3,12 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, Upload } from "lucide-react";
-import { buildImportRows, decodeImportFile, guessMapping, IMPORT_FIELDS, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
+import { buildImportRows, chunkImport, decodeImportFile, guessMapping, IMPORT_FIELDS, MAX_IMPORT_BYTES, readImportFile, summarizeImport, type FileProblem, type ImportProblem, type Mapping } from "@/concept/customers/csv";
 import { t, tc } from "@/concept/i18n";
 import type { MessageKey } from "@/concept/i18n";
-import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
+import { syncOutcome } from "@/concept/account/sync";
+import { currentState, dispatchWithLog, useActiveWorkspace } from "@/concept/store";
+import { showUndoToast } from "@/concept/studio/log/undo-toast";
 import { BackLink } from "@/concept/studio/back-link";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -15,10 +17,11 @@ import { Button, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Field, Input, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
+import { showToast } from "@/concept/ui/toast";
 
 const EXAMPLE = "/demo/customers-example.csv";
 const PREVIEW_ROWS = 10;
-const FILE_PROBLEM: Record<FileProblem, MessageKey> = { empty: "import.empty", tooBig: "import.tooBig", tooMany: "import.tooMany" };
+const FILE_PROBLEM: Record<FileProblem, MessageKey> = { empty: "import.empty", tooBig: "import.tooBig", tooMany: "import.tooMany", unclosedQuote: "import.unclosedQuote" };
 const PROBLEM_LABEL: Record<ImportProblem, MessageKey> = {
   duplicate: "import.status.duplicate",
   missingName: "import.status.missingName",
@@ -32,24 +35,30 @@ export default function ImportCustomersPage() {
   const router = useRouter();
   const [table, setTable] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
-  const [error, setError] = useState<MessageKey | null>(null);
+  const [error, setError] = useState<{ key: MessageKey; line?: number } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const workspace = useActiveWorkspace();
 
-  const load = (text: string) => {
-    const file = readImportFile(text);
-    setError("problem" in file ? FILE_PROBLEM[file.problem] : null);
+  const load = (bytes: ArrayBuffer) => {
+    const file = readImportFile(decodeImportFile(bytes), bytes.byteLength);
+    setError("problem" in file ? { key: FILE_PROBLEM[file.problem], line: file.line } : null);
     setTable("rows" in file ? file.rows : null);
     setMapping("rows" in file ? guessMapping(file.rows[0]) : {});
   };
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) load(decodeImportFile(await file.arrayBuffer()));
     event.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_IMPORT_BYTES) {
+      setTable(null);
+      setError({ key: "import.tooBig" });
+    } else load(await file.arrayBuffer());
   };
   const useExample = async () => {
     try {
-      load(await (await fetch(EXAMPLE)).text());
+      load(await (await fetch(EXAMPLE)).arrayBuffer());
     } catch {
-      setError("import.readFailed");
+      setError({ key: "import.readFailed" });
     }
   };
 
@@ -61,8 +70,22 @@ export default function ImportCustomersPage() {
   const ready = rows.flatMap((row) => (row.customer ? [row.customer] : []));
   const summary = summarizeImport(rows);
 
-  const runImport = () => {
-    dispatchWithUndoToast({ type: "customers/import", customers: ready }, tc("import.done", ready.length));
+  // Sent in pieces the owner API accepts. Success is shown only when the server took every piece.
+  const runImport = async () => {
+    setImporting(true);
+    const before = currentState()?.customers.length ?? 0;
+    const logIds: ReturnType<typeof dispatchWithLog>[] = [];
+    let accepted = true;
+    for (const customers of chunkImport(ready)) {
+      logIds.push(dispatchWithLog({ type: "customers/import", customers }));
+      accepted = await syncOutcome();
+      if (!accepted) break;
+    }
+    const saved = (currentState()?.customers.length ?? 0) - before;
+    setImporting(false);
+    if (!accepted) return showToast(t("import.partial", { saved, total: ready.length }));
+    if (logIds.length === 1 && logIds[0]) showUndoToast(tc("import.done", saved), logIds[0]);
+    else showToast(tc("import.done", saved));
     router.push("/studio/customers?filter=newThisYear");
   };
 
@@ -71,7 +94,7 @@ export default function ImportCustomersPage() {
       <PageHeader title={t("import.title")} subtitle={t("import.subtitle")} back={<BackLink href="/studio/customers" label={t("import.back")} />} />
       <div className="space-y-6">
         <Card className="space-y-4 p-5 md:max-w-form">
-          <p className="text-sm text-text-secondary">{t("import.hint")}</p>
+          <p className="text-sm text-text-secondary">{t("import.hint")} {t(workspace === "account" ? "import.privacyAccount" : "import.privacyLocal")}</p>
           <div className="flex flex-wrap gap-2">
             <label className={`${buttonClass(table ? "secondary" : "primary", "md", "w-full sm:w-fit")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
               <Upload size={18} />
@@ -85,7 +108,7 @@ export default function ImportCustomersPage() {
             </a>
           </div>
           <p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-text-secondary"><strong className="font-medium text-text">{t("import.legalTitle")}.</strong> {t("import.legal")}</p>
-          {error && <p role="alert" className="text-sm text-danger">{t(error)}</p>}
+          {error && <p role="alert" className="text-sm text-danger">{t(error.key, { line: error.line ?? 0 })}</p>}
         </Card>
 
         {table && (
@@ -131,7 +154,7 @@ export default function ImportCustomersPage() {
               )}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button width="responsive" disabled={!ready.length} onClick={runImport}>{tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length || importing} onClick={runImport}>{tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

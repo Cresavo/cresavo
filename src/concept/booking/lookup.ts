@@ -2,9 +2,12 @@ import type { Booking, Customer, DateKey, DemoState } from "../data/types";
 import { hasSettlement } from "./protection";
 import { changeRule } from "./policy";
 
-/** Digits only, without country code or trunk zero, so "070-174 06 50" equals "+46 70 174 06 50". */
+/**
+ * Digits only, without the "00" or "+" international prefix, the Swedish country code or trunk zero, so
+ * "070-174 06 50" equals "+46 70 174 06 50", and "0044 7700 900123" equals "+44 7700 900123".
+ */
 export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "").replace(/^(?:00)?46/, "").replace(/^0/, "");
+  return phone.replace(/\D/g, "").replace(/^00/, "").replace(/^46/, "").replace(/^0/, "");
 }
 
 const PHONE_INPUT = /^\+?[\d\s().-]+$/;
