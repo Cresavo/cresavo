@@ -117,6 +117,8 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
   await page.getByRole("button", { name: "Night and gold" }).click();
   await page.getByRole("button", { name: "Elegant" }).click();
   await page.getByRole("radio", { name: "Sharp" }).click();
+  // Reviews sits below the team and the About text; two steps take it to right after the price list.
+  await page.getByRole("button", { name: "Move Reviews up" }).click();
   await page.getByRole("button", { name: "Move Reviews up" }).click();
   await page.getByRole("button", { name: "Questions", exact: true }).click();
   await page.getByRole("radio", { name: "One quote" }).click();
