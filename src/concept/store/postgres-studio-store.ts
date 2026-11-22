@@ -88,6 +88,8 @@ const SANDBOX_TTL_MS = 24 * 60 * 60 * 1000;
 export const LOCK_TIMEOUT_MS = 2_000;
 /** Most effects one apply's drain delivers, its own and any earlier ones it unblocks. */
 const DRAIN_LIMIT = 100;
+/** Longest an apply's own drain keeps claiming after the commit; the poller takes what is left. */
+const DRAIN_BUDGET_MS = 5_000;
 const TRANSACTION = { maxWait: 5_000, timeout: 15_000 } as const;
 
 export { EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, type TenantKind };
@@ -629,6 +631,7 @@ export class PostgresStudioStore implements StudioStore {
         leaseMs: this.leaseMs,
         maxAttempts: this.maxAttempts,
         sinkTimeoutMs: EFFECT_SINK_TIMEOUT_MS,
+        budgetMs: DRAIN_BUDGET_MS,
         tenants: [tenantId],
       }, DRAIN_LIMIT);
       this.metrics.failedEffects(report.failed);

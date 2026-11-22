@@ -16,6 +16,8 @@ export interface EmailMessage {
   /** Short key/value labels for the provider's dashboard. No personal data. */
   tags?: Record<string, string>;
   idempotencyKey?: string;
+  /** False turns link and open tracking off for this message where the provider tracks per message (Postmark). Resend tracks per sending domain. */
+  tracking?: false;
   /** Your own stable id for the send. Kept by the simulated adapter; never sent to a provider. */
   reference?: string;
 }

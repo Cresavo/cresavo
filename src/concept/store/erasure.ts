@@ -79,8 +79,9 @@ export function plainTextPatterns(identifiers: readonly string[]): string[] {
 
 /** A message's recipient, subject and text are personal; a payment keeps its amount and reference. */
 export function redactEffectPayload(record: OutboxEntry, identifiers: readonly string[]): OutboxEntry {
+  const rest = { ...record, delivery: undefined };
   const redacted: OutboxEntry = record.port === "payments" ? { ...record } : {
-    ...record,
+    ...rest,
     body: REDACTED,
     ...(record.to === undefined ? {} : { to: REDACTED }),
     ...(record.subject === undefined ? {} : { subject: REDACTED }),

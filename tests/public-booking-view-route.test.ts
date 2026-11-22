@@ -86,6 +86,26 @@ describe("POST /api/public/salons/[slug]/bookings/[id]", () => {
     expect((await post({ token: good })).status).toBe(404);
   });
 
+  it("stops at a week after the visit as it stands now, even when the token was signed for a later one", async () => {
+    // Signed when the visit was a month later; the owner then moved it to the 24th.
+    const late = mintBookingToken(scope, bookingTokenExpiry({ date: "2026-12-24", start: 600, duration: 60 }));
+    vi.setSystemTime(new Date("2026-12-01T10:00:00+01:00"));
+    expect((await post({ token: late })).status).toBe(200);
+    vi.setSystemTime(new Date("2026-12-01T11:00:00+01:00"));
+    expect((await post({ token: late })).status).toBe(404);
+  });
+
+  it("keeps a moved booking's link working until a week after the new visit, and not the old link past its own expiry", async () => {
+    const moved = { ...booking, date: "2026-12-10" };
+    query.mockResolvedValue([{ tenant_id: TENANT, doc: { ...doc, bookings: [moved] } }]);
+    vi.setSystemTime(new Date("2026-12-05T10:00:00+01:00")); // after the old visit's week, before the new visit
+    const fresh = await post({ token: mintBookingToken(scope, bookingTokenExpiry(moved)) });
+    expect([fresh.status, (await fresh.json()).booking.date]).toEqual([200, "2026-12-10"]);
+    expect((await post({ token: goodToken() })).status).toBe(404);
+    vi.setSystemTime(new Date("2026-12-18T10:00:00+01:00")); // a week after the new visit
+    expect((await post({ token: mintBookingToken(scope, bookingTokenExpiry(moved)) })).status).toBe(404);
+  });
+
   it("refuses an oversized body", async () => {
     expect((await post({ token: "x".repeat(2000) })).status).toBe(413);
   });

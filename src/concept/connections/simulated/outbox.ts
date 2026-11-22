@@ -1,5 +1,21 @@
 import type { Money, PortName } from "../core";
 
+/** Bookkeeping a sink keeps on a stored message effect, never sent anywhere. Erasure drops all of it. */
+export interface DeliveryState {
+  /** Decided at the first attempt: the deployment meant this to go out for real. */
+  live?: boolean;
+  /** Epoch milliseconds of the first attempt. */
+  firstAttemptAt?: number;
+  /** The provider accepted it. A retry that finds this only acknowledges. */
+  sent?: boolean;
+  /** The request was started and its outcome is not known. */
+  dispatched?: boolean;
+  /** Why the effect failed, for whoever reconciles it by hand. */
+  reason?: string;
+  /** The message as first rendered, resent unchanged under the same key. */
+  mail?: { subject: string; text: string; html: string };
+}
+
 /** What a simulated adapter "would have sent". Recipients are references or addresses exactly as given; nothing here leaves the process. */
 export interface OutboxEntry {
   id: string;
@@ -10,6 +26,7 @@ export interface OutboxEntry {
   body: string;
   reference?: string;
   cost: Money | null;
+  delivery?: DeliveryState;
 }
 
 export interface Outbox {

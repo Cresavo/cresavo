@@ -31,7 +31,7 @@ const holder = vi.hoisted(() => ({ store: undefined as unknown as import("../../
 vi.mock("../../src/lib/owner-store", async (importOriginal) => ({ ...(await importOriginal<object>()), ownerStore: () => holder.store }));
 
 const mails: EmailMessage[] = [];
-const registry = { resolve: async () => ({ adapter: { send: async (m: EmailMessage) => (mails.push(m), ok({ id: `m-${mails.length}`, to: [] }, "sent")) } as unknown as EmailPort, live: true, reason: "live" as const }) };
+const registry = { resolve: async () => ({ adapter: { info: { provider: "resend" }, send: async (m: EmailMessage) => (mails.push(m), ok({ id: `m-${mails.length}`, to: [] }, "sent")) } as unknown as EmailPort, live: true, reason: "live" as const }) };
 const sinks = { ...SIMULATED_SINKS, message: messageSink(db as unknown as PrismaClient, registry) };
 
 let tenantId = "";

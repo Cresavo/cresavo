@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { verifyBookingToken } from "@/lib/booking-token";
+import { bookingTokenExpiry, verifyBookingToken } from "@/lib/booking-token";
 import { readBoundedJson } from "@/lib/bounded-json";
 import { loadPublicTenant } from "@/lib/public-booking";
 import { publicError, publicOk, publicRoute } from "@/lib/public-http";
@@ -24,7 +24,8 @@ export function POST(request: NextRequest, { params }: { params: Promise<{ slug:
     const { slug, id } = await params;
     const found = body.success ? await loadPublicTenant(slug.toLowerCase()) : null;
     const booking = found?.state.bookings.find((b) => b.publicRef === id);
-    if (!body.success || !found || !booking || !verifyBookingToken(body.data.token, { tenantId: found.tenantId, bookingId: booking.id, ref: id, customerId: booking.customerId, purpose: "manage" })) {
+    // The signed expiry, or a week after the visit as it stands now if the visit was moved earlier.
+    if (!body.success || !found || !booking || Date.now() >= bookingTokenExpiry(booking) * 1000 || !verifyBookingToken(body.data.token, { tenantId: found.tenantId, bookingId: booking.id, ref: id, customerId: booking.customerId, purpose: "manage" })) {
       return publicError("not_found", 404);
     }
     return publicOk({ booking: publicBookingView(found.state, booking) });
