@@ -34,11 +34,17 @@ export type ServerBookingResult =
 interface ServerSalonValue {
   state: DemoState;
   book: (input: ServerBookingInput) => Promise<ServerBookingResult>;
+  /** Asks the server for the salon's free times again. */
+  reload: () => Promise<void>;
 }
 
 const ServerSalon = createContext<ServerSalonValue | null>(null);
 
 export const useServerSalon = () => useContext(ServerSalon)?.state ?? null;
+
+/** Refreshes the server salon's free times; does nothing on the browser's own salon. */
+const NO_RELOAD = async () => undefined;
+export const useServerReload = () => useContext(ServerSalon)?.reload ?? NO_RELOAD;
 
 /** Books on the server's salon; null on the browser's own salon. */
 export const useServerBook = () => useContext(ServerSalon)?.book ?? null;
@@ -98,6 +104,6 @@ export function ServerSalonProvider({ state, issuedAt, children }: { state: Demo
     return { ok: false, reason };
   }, [salon, address, reload]);
 
-  const value = useMemo(() => ({ state: made.length ? { ...salon, bookings: [...salon.bookings, ...made] } : salon, book }), [salon, made, book]);
+  const value = useMemo(() => ({ state: made.length ? { ...salon, bookings: [...salon.bookings, ...made] } : salon, book, reload }), [salon, made, book, reload]);
   return <ServerSalon.Provider value={value}>{children}</ServerSalon.Provider>;
 }

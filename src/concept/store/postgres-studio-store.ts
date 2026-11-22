@@ -581,6 +581,7 @@ export class PostgresStudioStore implements StudioStore {
     }
 
     // 6. Commit: state, log entry, effects and the key in one transaction.
+    await options.beforeCommit?.();
     const version = locked.version + 1;
     const entry: TenantAction = {
       seq,

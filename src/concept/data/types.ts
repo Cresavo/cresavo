@@ -299,7 +299,7 @@ export interface SlotSuggestion {
 
 export interface InboxItem {
   /** Simulated booking delivery; never an outgoing network request. */
-  delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder"; slot: string };
+  delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder" | "cancellation" | "moved"; slot: string };
   id: string;
   kind: InboxKind;
   customerId?: string;

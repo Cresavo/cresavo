@@ -26,8 +26,15 @@ describe("a business's own address", () => {
     expect(route(`${api}/bookings/0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d`)).toEqual({ action: "next" });
   });
 
+  it("lets through the cancel and move of the business's own booking, and no other path below it", () => {
+    for (const action of ["cancel", "move"]) expect(route(`${api}/bookings/ref-1/${action}`)).toEqual({ action: "next" });
+    for (const path of [`${api}/bookings/ref-1/other`, `${api}/bookings/ref-1/cancel/`, `${api}/bookings/ref-1/cancel/x`, `${api}/bookings//cancel`, `${api}/bookings/a.b/move`, `${api}/bookings/${"a".repeat(65)}/cancel`, "/api/public/salons/another-salong/bookings/ref-1/cancel", `${api}x/bookings/ref-1/move`]) {
+      expect(route(path), path).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+    }
+  });
+
   it("lets through nothing else of the API, and no other business's", () => {
-    for (const path of [`${api}/bookings/ref-1/cancel`, `${api}/bookings/`, `${api}/bookings/${"a".repeat(65)}`, `${api}/bookings/a.b`, "/api/public/salons/another-salong/bookings/ref-1", `${api}/other`, "/api/public/salons/another-salong", "/api/public/salons/another-salong/bookings", "/api/public/salons", "/api/owner/salon/actions"]) {
+    for (const path of [`${api}/bookings/`, `${api}/bookings/${"a".repeat(65)}`, `${api}/bookings/a.b`, "/api/public/salons/another-salong/bookings/ref-1", `${api}/other`, "/api/public/salons/another-salong", "/api/public/salons/another-salong/bookings", "/api/public/salons", "/api/owner/salon/actions"]) {
       expect(route(path), path).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
     }
   });

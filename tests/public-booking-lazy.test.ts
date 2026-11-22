@@ -12,9 +12,16 @@ vi.mock("@/lib/owner-store", () => { throw new Error("the store was loaded"); })
 const SECRET = "synthetic-address-secret";
 const ip = "192.0.2.9";
 
-async function post(headers: Record<string, string> = {}, view = false) {
-  const { POST } = view ? await import("@/app/api/public/salons/[slug]/bookings/[id]/route") : await import("@/app/api/public/salons/[slug]/bookings/route");
-  return POST(new NextRequest(`http://localhost/api/public/salons/salong-fiktiv/bookings${view ? "/ref-1" : ""}`, {
+const ROUTES = {
+  create: () => import("@/app/api/public/salons/[slug]/bookings/route"),
+  view: () => import("@/app/api/public/salons/[slug]/bookings/[id]/route"),
+  cancel: () => import("@/app/api/public/salons/[slug]/bookings/[id]/cancel/route"),
+  move: () => import("@/app/api/public/salons/[slug]/bookings/[id]/move/route"),
+};
+
+async function post(headers: Record<string, string> = {}, route: keyof typeof ROUTES = "create") {
+  const { POST } = await ROUTES[route]();
+  return POST(new NextRequest(`http://localhost/api/public/salons/salong-fiktiv/bookings${route === "create" ? "" : "/ref-1"}`, {
     method: "POST", body: "{}",
     headers: { host: "localhost", origin: "http://localhost", "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, SECRET), ...headers },
   }), { params: Promise.resolve({ slug: "salong-fiktiv", id: "ref-1" }) });
@@ -56,12 +63,12 @@ describe("POST /api/public/salons/[slug]/bookings before its guards have passed"
     expect((await post({ origin: "https://evil.example" })).status).toBe(403);
   });
 
-  it("holds for the booking view too", async () => {
-    expect((await post({}, true)).status).toBe(404);
+  it.each(["view", "cancel", "move"] as const)("holds for the booking %s too", async (route) => {
+    expect((await post({}, route)).status).toBe(404);
     live();
     vi.stubEnv("PUBLIC_READONLY", "1");
-    expect((await post({}, true)).status).toBe(403);
+    expect((await post({}, route)).status).toBe(403);
     vi.stubEnv("PUBLIC_READONLY", "");
-    expect((await post({ origin: "https://evil.example" }, true)).status).toBe(403);
+    expect((await post({ origin: "https://evil.example" }, route)).status).toBe(403);
   });
 });

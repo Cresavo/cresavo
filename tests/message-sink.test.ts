@@ -92,6 +92,33 @@ describe("the message sink", () => {
     expect(sent[0].text).not.toContain("/booking/b-1");
   });
 
+  it("describes each queued change as it was agreed: two moves and then a cancellation, drained after all three", async () => {
+    // The booking now stands cancelled at its last slot; the effects were staged one per change, before any was delivered.
+    doc = withBooking({ date: "2026-11-27", start: 720, status: "cancelled" });
+    const at = (date: string, start: number, occasion: number, kind: "moved" | "cancellation") => messageReference({ ...booking, date, start }, kind, "email", occasion);
+    const first = at("2026-11-25", 540, 3, "moved");
+    const second = at("2026-11-27", 720, 5, "moved");
+    const cancelled = at("2026-11-27", 720, 7, "cancellation");
+    for (const reference of [first, second, cancelled]) {
+      stored = {};
+      expect(await run({ reference })).toBeUndefined();
+    }
+    expect(sent).toHaveLength(3);
+    expect(sent[0].subject).toContain("25 Nov 2026 09:00");
+    expect(sent[0].text).toContain("Your booking is moved to 25 Nov 2026 at 09:00");
+    expect(sent[1].subject).toContain("27 Nov 2026 12:00");
+    // A move's link is made for the move it describes, and a cancellation has none.
+    const token = (text: string) => /#t=(v1\.[^\s"]+)/.exec(text)![1];
+    expect(token(sent[0].text)).not.toBe(token(sent[1].text));
+    expect(sent[2].text).toContain("Your booking is cancelled");
+    expect(sent[2].text).not.toContain("#t=");
+    // A confirmation for a cancelled booking is still skipped.
+    sent.length = 0;
+    stored = {};
+    await run();
+    expect(sent).toHaveLength(0);
+  });
+
   it("acknowledges an effect an earlier, slow attempt already sent", async () => {
     stored = { sent: true };
     await run();

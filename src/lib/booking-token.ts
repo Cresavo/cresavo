@@ -33,6 +33,14 @@ export const bookingTokenExpiry = (booking: Pick<Booking, "date" | "start" | "du
 
 export const mintBookingToken = (scope: BookingTokenScope, exp: number) => `v1.${scope.ref}.${exp}.${mac(scope, exp)}`;
 
+/**
+ * True when the token opens this booking at `now`: valid for its scope, and not
+ * past its signed expiry nor a week after the visit as it stands. One rule for
+ * the view, cancel and move, so a link that opens nothing says nothing else.
+ */
+export const verifyBookingLink = (token: string, scope: BookingTokenScope, booking: Pick<Booking, "date" | "start" | "duration">, now = Date.now()) =>
+  now < bookingTokenExpiry(booking) * 1000 && verifyBookingToken(token, scope, now);
+
 /** True when the token was minted for exactly this scope and has not expired at `now` (epoch milliseconds). */
 export function verifyBookingToken(token: string, scope: BookingTokenScope, now = Date.now()): boolean {
   const match = /^v1\.(.+)\.(\d{1,12})\.([a-f0-9]{64})$/.exec(token);

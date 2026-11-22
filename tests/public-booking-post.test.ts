@@ -68,7 +68,8 @@ beforeEach(() => {
   vi.stubEnv("SESSION_SECRET", "synthetic-session-secret-of-32-chars!!");
   live();
   query.mockReset().mockImplementation(async () => [{ tenant_id: TENANT, doc: doc() }]);
-  apply.mockReset().mockResolvedValue(committed());
+  // Like the store: a new commit takes the salon's allowance under its lock, so it can be refused with 429.
+  apply.mockReset().mockImplementation(async (_tenant: string, _action: unknown, _meta: unknown, options?: { beforeCommit?: () => Promise<void> }) => (await options?.beforeCommit?.(), committed()));
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -167,14 +168,14 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
     expect(response.status).toBe(201);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toEqual({ ref: "ref-fictional", serviceId: service.id, staffId: "anna", date, start, duration: service.duration });
-    const [tenant, action, meta, options] = apply.mock.calls[0] as [string, Extract<DemoAction, { type: "online/book" }>, unknown, { idempotencyKey: string; expectedVersion?: number }];
+    const [tenant, action, meta, options] = apply.mock.calls[0] as [string, Extract<DemoAction, { type: "online/book" }>, unknown, { idempotencyKey: string; expectedVersion?: number; beforeCommit?: unknown }];
     expect(tenant).toBe(TENANT);
     expect(action).toMatchObject({ type: "online/book", serviceId: service.id, staffId: "anna", date, start, guest: { name: "Lisa Berg", phone: "073-555 01 02", email: "lisa@example.test" }, public: { slug: SLUG, terms } });
     expect(action.public?.publicRef).toMatch(/^[0-9a-f-]{36}$/);
     // The notice is the reducer's to write, from the salon's own data, so it is not part of what is fingerprinted.
     expect(action).not.toHaveProperty("notice");
     expect(meta).toEqual({ actor: "customer", source: "customer-page" });
-    expect(options).toEqual({ idempotencyKey: "booking-page:a-key" });
+    expect(options).toEqual({ idempotencyKey: "booking-page:a-key", beforeCommit: expect.any(Function) });
   });
 
   it("never returns the store's state or the internal booking id", async () => {
@@ -313,6 +314,9 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
       for (let i = 0; i < 62; i++) statuses.push((await post(form(), fromEverywhere(i))).status);
       expect(statuses.filter((s) => s === 201)).toHaveLength(60);
       expect(statuses.slice(60)).toEqual([429, 429]);
+      // A retry the store recognises is answered with its receipt even now.
+      apply.mockResolvedValueOnce(committed(true));
+      expect((await post(form(), { ip: "203.0.113.9" })).status).toBe(201);
       vi.setSystemTime(new Date(NOW.getTime() + 16 * 60_000));
       expect((await post(form({ issuedAt: issuedAtToken(TENANT, SLUG, NOW.getTime()) }), { ip: "203.0.113.1" })).status).toBe(429);
       vi.setSystemTime(new Date(NOW.getTime() + 61 * 60_000));

@@ -71,7 +71,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     }
     case "customers/message":
       return { summary: tc("log.customersMessage", next.inbox.length - prev.inbox.length) };
-    case "booking/move": {
+    case "booking/move":
+    case "online/move": {
       const old = bookingOf(prev, action.id)!;
       const now = bookingOf(next, action.id)!;
       return { summary: t("log.bookingMove", { customer: customerName(prev, old.customerId), service: serviceName(prev, old.serviceId) }), before: when(prev, old), after: when(next, now) };
@@ -79,6 +80,10 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     case "booking/cancel": {
       const old = bookingOf(prev, action.id)!;
       return { summary: t("log.bookingCancel", { customer: customerName(prev, old.customerId), service: serviceName(prev, old.serviceId) }), before: when(prev, old), after: action.reason ? t("log.cancelledWith", { reason: action.reason }) : t("log.cancelled") };
+    }
+    case "online/cancel": {
+      const old = bookingOf(prev, action.id)!;
+      return { summary: t("log.bookingCancel", { customer: customerName(prev, old.customerId), service: serviceName(prev, old.serviceId) }), before: when(prev, old), after: t("log.cancelled") };
     }
     case "booking/create": {
       const made = next.bookings[next.bookings.length - 1];

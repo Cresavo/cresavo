@@ -123,9 +123,10 @@ export function routeHost(rawHost: string | null | undefined, pathname: string, 
     return pathname === own || pathname.startsWith(`${own}/`) ? { action: "next" } : { action: "rewrite", path: UNKNOWN_PATH };
   }
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return { action: "next" };
-  // The page's own calls: this business's free times, booking and one booking's view, never another business's.
+  // The page's own calls: this business's free times, booking, and one booking's view, cancel and move, never another business's.
   const api = `/api/public/salons/${resolution.slug}`;
-  if (pathname === api || pathname === `${api}/bookings` || (pathname.startsWith(`${api}/bookings/`) && /^[\w-]{1,64}$/.test(pathname.slice(api.length + 10)))) return { action: "next" };
+  const rest = pathname.startsWith(api) ? pathname.slice(api.length) : null;
+  if (rest !== null && (rest === "" || rest === "/bookings" || /^\/bookings\/[\w-]{1,64}(?:\/(?:cancel|move))?$/.test(rest))) return { action: "next" };
   if (pathname === "/" || pathname === "") return { action: "rewrite", path: `/boka/${resolution.slug}` };
   if (BOOKING_PATHS.test(pathname)) return { action: "rewrite", path: `/boka/${resolution.slug}${pathname.replace(/\/$/, "")}` };
   return { action: "rewrite", path: UNKNOWN_PATH };
