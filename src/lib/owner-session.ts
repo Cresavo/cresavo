@@ -93,6 +93,8 @@ export interface OwnerContext {
   accountId: string;
   email: string;
   tenantId: string;
+  /** Two-step sign-in is on for the account. */
+  mfaEnabled: boolean;
 }
 
 /** The signed-in owner for a cookie value; null for anything else. */
@@ -101,10 +103,11 @@ export async function ownerFromCookie(cookie: string | undefined, now = Date.now
   if (!id) return null;
   const session = await db.ownerSession.findFirst({
     where: { id, revokedAt: null, expiresAt: { gt: new Date(now) }, account: { is: { active: true } } },
-    select: { credentialVersion: true, account: { select: { id: true, email: true, tenantId: true, credentialVersion: true } } },
+    select: { credentialVersion: true, account: { select: { id: true, email: true, tenantId: true, credentialVersion: true, totpEnabledAt: true } } },
   });
   if (!session || session.credentialVersion !== session.account.credentialVersion) return null;
-  return { accountId: session.account.id, email: session.account.email, tenantId: session.account.tenantId };
+  const { account } = session;
+  return { accountId: account.id, email: account.email, tenantId: account.tenantId, mfaEnabled: account.totpEnabledAt !== null };
 }
 
 export async function closeOwnerSession(cookie: string | undefined, now = Date.now()) {
