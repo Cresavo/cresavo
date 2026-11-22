@@ -1,20 +1,21 @@
 import { addDays } from "../data/dates";
 import type { CampaignPoster, Channel, DateKey, DemoState, PosterStyle } from "../data/types";
 import { t, tc, translate } from "../i18n";
-import { dayChipLabel, formatDayMonth, formatDayShort, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { dayChipLabel, formatDate, formatDayLong, formatDayMonth, formatDayShort, formatDuration, formatMoney, formatTime } from "../i18n/format";
 import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
 import type { Goal } from "./goals";
 import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
 import { serviceCopy } from "../i18n/salon-eko-copy";
-import { CHANNELS } from "./channels";
-import { listServices, offerText } from "./copy";
+import { CHANNELS, cleanSignOff } from "./channels";
+import { listServices, offerText, rulesCopy } from "./copy";
 import { bookingHome } from "../booking/links";
 import { campaignCode, trackingLink } from "./links";
 import { isOwnPhoto } from "./own-photo";
 import { isNeutralTone } from "./poster-engine/tone";
 import type { CampaignPrefill } from "./prefill";
+import type { OwnerVoice } from "./voice";
 
 /** A campaign being made in the studio, before it is published. */
 export interface Draft extends CampaignPrefill {
@@ -25,6 +26,12 @@ export interface Draft extends CampaignPrefill {
   copy: Partial<Record<Channel, string>>;
   /** The offer the texts were written for; texts are rewritten when it changes. */
   copyFor: string;
+  /** Channels whose text the owner has changed by hand; a new offer never overwrites them. */
+  copyEdited?: Channel[];
+  /** The owner's own closing line, typed in the texts step. */
+  signOff?: string;
+  /** Edited channels whose offer changed after the owner wrote them: to be looked over; cleared when edited again. */
+  copyStale?: Channel[];
   style: PosterStyle;
   /** Poster text and photo the owner changed; the rest follows the offer. */
   posterEdits: Partial<Pick<CampaignPoster, "image" | "headline" | "detail" | "textSize" | "focus" | "badges" | "before" | "lead" | "backdrop" | "socialQr" | "photoTone">>;
@@ -34,15 +41,18 @@ export interface Draft extends CampaignPrefill {
  * A new campaign. With `last`, the poster starts from the owner's latest one: its style,
  * text size and photo crop, so the choices they keep making need not be made again.
  */
-export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster): Draft {
+export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster, signOff?: string): Draft {
   const posterEdits: Draft["posterEdits"] = {
     ...(last?.textSize && { textSize: last.textSize }),
     ...(last?.focus && { focus: last.focus }),
     ...(last?.badges?.length && { badges: last.badges }),
     ...(last?.socialQr && { socialQr: true }),
   };
-  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits };
+  return { ...prefill, channels: [...CHANNELS], copy: {}, copyFor: "", style: last?.style ?? "price", posterEdits, ...(signOff && { signOff }) };
 }
+
+/** The sign-off of the most recently made campaign, so the owner does not type it again. */
+export const latestSignOff = (state: Pick<DemoState, "campaigns">) => state.campaigns[0]?.signOff;
 
 /** The poster of the most recently made campaign (new campaigns come first). */
 export const latestPoster = (state: Pick<DemoState, "campaigns">) => state.campaigns.find((campaign) => campaign.poster)?.poster;
@@ -72,16 +82,91 @@ export function draftLink(state: DemoState, draft: Pick<Draft, "name" | "from">,
   return trackingLink(draft.name, draft.from);
 }
 
-/** The sentence the texts are written from. */
+/** The sentence the texts are written from, shaped by the campaign's goal in the business's language. */
 export function draftOffer(state: DemoState, draft: Draft): string {
   const language = state.localization.language;
   const names = state.services.filter((s) => draft.serviceIds.includes(s.id)).map((s) => serviceCopy(s, language).name);
-  return offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
+  const plain = offerText({ name: draft.name, serviceNames: names, discountPercent: draft.discountPercent, to: draft.to }, language);
+  switch (draft.goal) {
+    case "fill": {
+      const free = freeTimes(state, draft.serviceIds[0], draft);
+      return free ? translate(language, "campaigns.offer.fill", { day: formatDayLong(free.date, language), times: free.times.join(", ") }) : plain;
+    }
+    case "wellness": {
+      const badges = draft.posterEdits.badges?.join(", ");
+      const vars = { name: draft.name, services: listServices(names, language), badges: badges ?? "", date: formatDate(draft.to, language) };
+      return translate(language, badges ? "campaigns.offer.wellness" : "campaigns.offer.wellnessNoBadges", vars);
+    }
+    case "giftcard":
+      return translate(language, "campaigns.offer.giftcard", { name: draft.name });
+    case "review": {
+      const review = newestReview(state);
+      return review ? reviewOffer(review, firstSentence(review.text)) : plain;
+    }
+    default:
+      return plain;
+  }
 }
 
-export function offerSignature(state: DemoState, draft: Draft): string {
-  return `${state.localization.language}|${draftOffer(state, draft)}|${draftLink(state, draft)}`;
+/** The quote with who said it; the attribution is never part of what is cut. */
+const reviewOffer = (review: { author: string }, quote: string) => `“${quote}”${review.author ? ` – ${review.author}` : ""}`;
+
+/**
+ * An SMS holds 160 characters: the quote is shortened until the whole line with its closing quote mark and
+ * author fits next to the link. Other goals and channels use the plain offer.
+ */
+function smsOffer(state: DemoState, draft: Draft, link: string, voice: OwnerVoice, signOff?: string): string {
+  const offer = draftOffer(state, draft);
+  const review = draft.goal === "review" ? newestReview(state) : null;
+  if (!review) return offer;
+  const sentence = firstSentence(review.text);
+  for (let length = sentence.length; length > 1; length--) {
+    const candidate = reviewOffer(review, length < sentence.length ? `${sentence.slice(0, length - 1).trimEnd()}…` : sentence);
+    if (rulesCopy("sms", candidate, link, state.localization.language, voice, signOff).startsWith(candidate)) return candidate;
+  }
+  return reviewOffer(review, `${sentence.slice(0, 1)}…`);
 }
+
+/** What the texts were written for: language, offer, link, the chosen treatments and the sign-off. */
+export function offerSignature(state: DemoState, draft: Draft): string {
+  return [state.localization.language, draftOffer(state, draft), draftLink(state, draft), draft.serviceIds.join(","), cleanSignOff(draft.signOff) ?? ""].join("|");
+}
+
+/** Whether a free-times campaign would go out after the day its texts advertise. */
+export function advertisedTimesPassed(state: DemoState, draft: Draft, publishOn: DateKey): boolean {
+  const free = draft.goal === "fill" ? freeTimes(state, draft.serviceIds[0], draft) : null;
+  return !!free && publishOn > free.date;
+}
+
+/**
+ * The texts for the current offer: written again by the rules for every channel the owner has not edited by hand.
+ * `regenerated` are those channels, `stale` the edited ones, which keep their text and should be checked.
+ */
+export function refreshCopy(state: DemoState, draft: Draft, voice: OwnerVoice) {
+  const stale = (draft.copyEdited ?? []).filter((channel) => draft.copy[channel] !== undefined);
+  const regenerated = CHANNELS.filter((channel) => !stale.includes(channel));
+  const offer = draftOffer(state, draft);
+  const link = draftLink(state, draft);
+  const signOff = cleanSignOff(draft.signOff);
+  const copy: Draft["copy"] = {};
+  for (const channel of CHANNELS) {
+    copy[channel] = stale.includes(channel) ? draft.copy[channel] : rulesCopy(channel, channel === "sms" ? smsOffer(state, draft, link, voice, signOff) : offer, link, state.localization.language, voice, signOff);
+  }
+  return { copy, copyFor: offerSignature(state, draft), regenerated, stale };
+}
+
+/** The patch for a hand edit: the owner's text, the channel marked as edited, and no longer waiting to be checked. */
+export function editCopy(draft: Draft, channel: Channel, text: string): Pick<Draft, "copy" | "copyEdited" | "copyStale"> {
+  return {
+    copy: { ...draft.copy, [channel]: text },
+    copyEdited: [...new Set([...(draft.copyEdited ?? []), channel])],
+    copyStale: (draft.copyStale ?? []).filter((c) => c !== channel),
+  };
+}
+
+/** Whether a late AI text may replace a channel's text: same offer, not edited by hand, still the text it was started from. */
+export const canApplyAiText = (draft: Draft, channel: Channel, signature: string, written: string | undefined) =>
+  draft.copyFor === signature && !(draft.copyEdited ?? []).includes(channel) && draft.copy[channel] === written;
 
 /** The poster a published campaign keeps: a photo that only lives in this tab is replaced by the template's own. */
 export function posterToSave(state: DemoState, draft: Draft): CampaignPoster {

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { reviewSummary } from "../../booking/reviews";
 import { CalendarClock, Send } from "lucide-react";
 import { CHANNELS } from "../../campaigns/channels";
-import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
+import { advertisedTimesPassed, draftLink, offerSignature, refreshCopy, resolvePoster, type Draft } from "../../campaigns/draft";
+import { ownerVoice } from "../../campaigns/voice";
 import type { Channel, DateKey, DemoState } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDate } from "../../i18n/format";
@@ -26,10 +27,23 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
   const [selected, setSelected] = useState<Channel>(draft.channels[0] ?? "instagram");
   const [scheduling, setScheduling] = useState(false);
   const [day, setDay] = useState(scheduleDefault);
+  const [updated, setUpdated] = useState(false);
+  const [passed, setPassed] = useState(false);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster: resolvePoster(state, draft) };
   const preview = draft.channels.includes(selected) ? selected : draft.channels[0];
   const toggle = (channel: Channel) =>
     onChange({ channels: CHANNELS.filter((c) => (c === channel ? !draft.channels.includes(c) : draft.channels.includes(c))) });
+  // The offer can change after the texts were written (poster badges, a free time that passed): write the unedited texts again and let the owner look before anything goes out.
+  const publish = (publishOn: DateKey) => {
+    const late = advertisedTimesPassed(state, draft, publishOn);
+    setPassed(late);
+    if (late) return;
+    if (offerSignature(state, draft) === draft.copyFor) return onPublish(publishOn);
+    const { copy, copyFor, stale } = refreshCopy(state, draft, ownerVoice(state));
+    onChange({ copy, copyFor, copyStale: stale });
+    setUpdated(!stale.length);
+  };
+  const toCheck = draft.copyStale ?? [];
   const poster = (format: "post" | "story") => <PosterView source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />;
 
   return (
@@ -61,8 +75,14 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
         </div>
         <p className="text-sm text-text-secondary [overflow-wrap:anywhere]">{t("campaigns.publish.link", { link: draftLink(state, draft) })}</p>
         <div className="space-y-3">
+          {passed && <p role="alert" className="rounded-lg bg-surface-2 p-3 text-sm text-danger">{t("campaigns.publish.timesPassed")}</p>}
+          {(toCheck.length > 0 || updated) && (
+            <p role="status" className="rounded-lg bg-surface-2 p-3 text-sm">
+              {toCheck.length ? t("campaigns.publish.checkTexts", { channels: toCheck.map((channel) => t(`channel.${channel}`)).join(", ") }) : t("campaigns.publish.textsUpdated")}
+            </p>
+          )}
           <div>
-            <Button size="lg" width="responsive" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(today)}>
+            <Button size="lg" width="responsive" icon={<Send size={18} />} disabled={!draft.channels.length} onClick={() => publish(today)}>
               {t("campaigns.publish.everywhere")}
             </Button>
           </div>
@@ -71,7 +91,7 @@ export function PublishStep({ state, today, draft, scheduleDefault, onChange, on
               <Field width="date" label={t("campaigns.publish.day")} hint={formatDate(day)}>
                 <TextInput type="date" value={day} min={today} onChange={(event) => event.target.value && setDay(event.target.value)} />
               </Field>
-              <Button variant="secondary" width="responsive" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => onPublish(day)}>
+              <Button variant="secondary" width="responsive" icon={<CalendarClock size={18} />} disabled={!draft.channels.length} onClick={() => publish(day)}>
                 {day > today ? t("campaigns.publish.scheduleOn", { day: formatDate(day) }) : t("campaigns.publish.everywhere")}
               </Button>
             </div>

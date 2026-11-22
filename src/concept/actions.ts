@@ -12,6 +12,7 @@ import { applyCustomerReview, type CustomerReviewAction } from "./booking/review
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { earliestBookingStart } from "./booking/policy";
+import { cleanSignOff } from "./campaigns/channels";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
 import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
 import { demoPayments, sendDemoCampaign } from "./connections/demo";
@@ -285,8 +286,10 @@ function averagePrice(state: DemoState, serviceIds: string[]): number {
 function launchCampaign(state: DemoState, input: NewCampaign, today: DateKey): DemoState {
   if (!input.name.trim() || !input.channels.length || !input.publishOn) return state;
   const live = input.publishOn <= today;
+  const signOff = cleanSignOff(input.signOff);
   const campaign: Campaign = {
     ...input,
+    signOff,
     id: nextId(state, "c"),
     status: live ? "active" : "planned",
     stats: live

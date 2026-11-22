@@ -1,15 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { isAiConfigured, runAiTask } from "../../ai/api-client";
-import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "../../campaigns/channels";
-import { rulesCopy } from "../../campaigns/copy";
-import { draftLink, draftOffer, offerSignature, type Draft } from "../../campaigns/draft";
-import type { Channel, DemoState } from "../../data/types";
+import { assembleCopy, CHANNEL_LIMIT, CHANNELS, cleanSignOff, isOverLimit, MAX_SIGN_OFF } from "../../campaigns/channels";
+import { postRequest } from "../../campaigns/copy";
+import { applyVoice, ownerVoice } from "../../campaigns/voice";
+import { canApplyAiText, draftLink, draftOffer, editCopy, offerSignature, refreshCopy, type Draft } from "../../campaigns/draft";
+import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { cx } from "../../ui/cx";
-import { TextArea } from "../../ui/controls";
+import { Field, TextArea, TextInput } from "../../ui/controls";
 
 interface TextsStepProps {
   state: DemoState;
@@ -25,23 +26,28 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   });
   const language = state.localization.language;
   const signature = offerSignature(state, draft);
+  const voice = ownerVoice(state);
+  const [signOff, setSignOff] = useState(draft.signOff ?? "");
 
   useEffect(() => {
     const current = latest.current;
     if (current.copyFor === signature) return;
+    const { copy, copyFor, regenerated, stale } = refreshCopy(state, current, voice);
+    onChange({ copy, copyFor, copyStale: stale });
     const offer = draftOffer(state, current);
     const link = draftLink(state, current);
-    const copy = Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language)])) as Record<Channel, string>;
-    onChange({ copy, copyFor: signature });
     let cancelled = false;
     void isAiConfigured(!!state.industry).then((ready) => {
       if (!ready) return;
-      for (const channel of CHANNELS) {
-        runAiTask<{ text: string; hashtags: string[] }>("write-post", { offer, channel, locale: language }, !!state.industry)
+      for (const channel of regenerated) {
+        const request = postRequest(current.goal, offer, channel, language, voice);
+        if (!request) continue;
+        runAiTask<{ text: string; hashtags: string[] }>("write-post", request, !!state.industry)
           .then(({ output, log }) => {
             const now = latest.current;
-            if (cancelled || log.source !== "ai" || now.copyFor !== signature || now.copy[channel] !== copy[channel]) return;
-            onChange({ copy: { ...now.copy, [channel]: assembleCopy(channel, output.text, output.hashtags, link, language) } });
+            if (cancelled || log.source !== "ai" || !canApplyAiText(now, channel, signature, copy[channel])) return;
+            const post = applyVoice(output, voice);
+            onChange({ copy: { ...now.copy, [channel]: assembleCopy(channel, post.text, post.hashtags, link, language, cleanSignOff(now.signOff)) } });
           })
           .catch(() => undefined);
       }
@@ -54,17 +60,22 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
   }, [signature]);
 
   const rewrite = () => {
-    const offer = draftOffer(state, draft);
-    const link = draftLink(state, draft);
-    onChange({ copy: Object.fromEntries(CHANNELS.map((channel) => [channel, rulesCopy(channel, offer, link, language)])), copyFor: signature });
+    const { copy, copyFor } = refreshCopy(state, { ...draft, copyEdited: [] }, voice);
+    onChange({ copy, copyFor, copyEdited: [], copyStale: [] });
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-text-secondary">{t("campaigns.texts.hint")}</p>
+        <div className="text-sm text-text-secondary">
+          <p>{t("campaigns.texts.hint")}</p>
+          {voice.hashtags.length > 0 && <p>{t("campaigns.texts.voice")}</p>}
+        </div>
         <Button variant="ghost" size="sm" width="responsive" icon={<RefreshCw size={15} />} onClick={rewrite}>{t("campaigns.texts.rewrite")}</Button>
       </div>
+      <Field label={t("campaigns.texts.signOff")}>
+        <TextInput value={signOff} maxLength={MAX_SIGN_OFF} onChange={(event) => setSignOff(event.target.value.replace(/[\r\n]+/g, " "))} onBlur={() => onChange({ signOff: cleanSignOff(signOff) })} />
+      </Field>
       {CHANNELS.map((channel) => {
         const text = draft.copy[channel] ?? "";
         const over = isOverLimit(channel, text);
@@ -80,8 +91,9 @@ export function TextsStep({ state, draft, onChange }: TextsStepProps) {
               id={`copy-${channel}`}
               value={text}
               rows={channel === "sms" ? 4 : 5}
-              onChange={(event) => onChange({ copy: { ...draft.copy, [channel]: event.target.value } })}
+              onChange={(event) => onChange(editCopy(draft, channel, event.target.value))}
             />
+            {draft.copyStale?.includes(channel) && <p role="status" className="text-sm text-danger">{t("campaigns.publish.checkTexts", { channels: t(`channel.${channel}`) })}</p>}
           </Card>
         );
       })}

@@ -4,6 +4,8 @@ import type { Channel, DateKey } from "../data/types";
 import { getActiveLocale, translate, translateCount } from "../i18n";
 import { formatDate } from "../i18n/format";
 import { assembleCopy } from "./channels";
+import type { Goal } from "./goals";
+import { applyVoice, NEUTRAL_VOICE, styleHints, type OwnerVoice } from "./voice";
 
 const NAMED_SERVICES = 2;
 
@@ -26,8 +28,18 @@ export function offerText({ name, serviceNames, discountPercent, to }: OfferInpu
   return translate(language, key, { name, percent: discountPercent, services: listServices(serviceNames, language), date: formatDate(to, language) });
 }
 
-/** The channel text without any AI: the task's rule-based draft plus link and hashtags. */
-export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale()): string {
-  const draft = writePostTask.fallback({ offer, channel, locale: language });
-  return assembleCopy(channel, draft.text, draft.hashtags, link, language);
+/** The channel text without any AI: the task's rule-based draft in the owner's voice, plus the owner's sign-off, link and hashtags. */
+export function rulesCopy(channel: Channel, offer: string, link: string, language: Locale = getActiveLocale(), voice: OwnerVoice = NEUTRAL_VOICE, signOff?: string): string {
+  const { text, hashtags } = applyVoice(writePostTask.fallback({ offer, channel, locale: language }), voice);
+  return assembleCopy(channel, text, hashtags, link, language, signOff);
+}
+
+/**
+ * The request for the AI writer, or null when the text stays with the rules: a review is quoted word for word and
+ * names a customer, so it never leaves the browser. Of the owner's voice only the style hints are sent; the
+ * sign-off and hashtags are applied locally afterwards.
+ */
+export function postRequest(goal: Goal | undefined, offer: string, channel: Channel, locale: Locale, voice: OwnerVoice) {
+  const style = styleHints(voice);
+  return goal === "review" ? null : { offer, channel, locale, ...(style && { voice: style }) };
 }

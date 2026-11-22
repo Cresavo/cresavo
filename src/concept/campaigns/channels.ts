@@ -27,15 +27,36 @@ function truncate(text: string, max: number): string {
   return `${(lastSpace > max / 2 ? cut.slice(0, lastSpace) : cut).trimEnd()}${ELLIPSIS}`;
 }
 
+export const MAX_SIGN_OFF = 80;
+
+/** The sign-off as it is kept: one line of at most 80 characters without control characters; undefined when empty. */
+export function cleanSignOff(text: string | undefined): string | undefined {
+  const clean = (text ?? "").replace(/[\r\n\t]+/g, " ").replace(/\p{Cc}/gu, "").trim().slice(0, MAX_SIGN_OFF).trim();
+  return clean || undefined;
+}
+
+/** The body without the sign-off it already ends with (an AI text may repeat it). */
+const withoutSignOff = (body: string, signOff: string) => {
+  const start = body.length - signOff.length;
+  return body.endsWith(signOff) && (start === 0 || /\s/.test(body[start - 1])) ? body.slice(0, start).trimEnd() : body;
+};
+
 /**
- * Final text for a channel: the written body (shortened if needed), the
- * trackable link and, where they belong, hashtags. The link is never cut off.
+ * Final text for a channel: the written body (shortened if needed), trackable link and, where they belong,
+ * hashtags. The link is never cut off. The owner's sign-off goes before the link only when everything fits
+ * without shortening the body; an SMS never gets one.
  */
-export function assembleCopy(channel: Channel, body: string, hashtags: string[], link: string, language = getActiveLocale()): string {
+export function assembleCopy(channel: Channel, body: string, hashtags: string[], link: string, language = getActiveLocale(), signOff?: string): string {
   const tags = HASHTAG_CHANNELS.includes(channel) ? hashtags.slice(0, MAX_HASHTAGS).join(" ") : "";
-  const footer = [linkLine(channel, link, language), tags].filter(Boolean).join("\n");
+  const text = body.trim();
+  const rest = [linkLine(channel, link, language), tags];
+  if (signOff && channel !== "sms") {
+    const full = `${withoutSignOff(text, signOff)}\n${[signOff, ...rest].filter(Boolean).join("\n")}`;
+    if (full.length <= CHANNEL_LIMIT[channel]) return full;
+  }
+  const footer = rest.filter(Boolean).join("\n");
   const room = CHANNEL_LIMIT[channel] - footer.length - 1;
-  return room > 0 ? `${truncate(body.trim(), room)}\n${footer}` : truncate(footer, CHANNEL_LIMIT[channel]);
+  return room > 0 ? `${truncate(text, room)}\n${footer}` : truncate(footer, CHANNEL_LIMIT[channel]);
 }
 
 export function isOverLimit(channel: Channel, text: string): boolean {
