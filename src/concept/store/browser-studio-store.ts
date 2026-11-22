@@ -193,7 +193,8 @@ export interface CommitExtras {
   send?: (current: DemoState) => boolean;
 }
 
-export type CommitFailure = ApplyFailure | "replaced";
+/** `unavailable`: an account salon's server could not be reached, or the owner was signed out. */
+export type CommitFailure = ApplyFailure | "replaced" | "unavailable";
 
 /** `apply`'s result plus the activity log entry the change wrote (null for an unlogged change). */
 export type CommitResult =

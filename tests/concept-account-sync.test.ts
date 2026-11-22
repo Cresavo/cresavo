@@ -1,20 +1,24 @@
 import { afterEach, expect, it, vi } from "vitest";
 import type { DemoAction } from "@/concept/actions";
+import type { AccountChange } from "@/concept/store";
 import { createDemoState } from "@/concept/data/generate";
 import { t } from "@/concept/i18n";
 
 // When the server refuses an address another salon uses, the owner is told so in the studio's own words.
 
-const ctx = vi.hoisted(() => ({ send: undefined as undefined | ((action: DemoAction) => void), toasts: [] as string[] }));
+const ctx = vi.hoisted(() => ({ send: undefined as undefined | ((action: DemoAction, change: AccountChange) => void), toasts: [] as string[] }));
 vi.mock("@/concept/account/hint", () => ({ ownerHintPresent: () => true }));
 vi.mock("@/concept/store", () => ({
-  openAccountSalon: (_state: unknown, send: (action: DemoAction) => void) => { ctx.send = send; return true; },
+  openAccountSalon: (_state: unknown, send: (action: DemoAction, change: AccountChange) => void) => { ctx.send = send; return true; },
   replaceAccountSalon: () => undefined,
+  restoreAccountSalon: () => undefined,
   closeAccountSalon: () => undefined,
 }));
 vi.mock("@/concept/ui/toast", () => ({ showToast: (text: string) => ctx.toasts.push(text) }));
 
 afterEach(() => vi.unstubAllGlobals());
+
+const change = (state: AccountChange["before"]): AccountChange => ({ before: state, after: state, epoch: "account-test" });
 
 it("says the address is taken instead of a generic refusal", async () => {
   const salon = { state: createDemoState("2026-11-16"), version: 1 };
@@ -27,7 +31,7 @@ it("says the address is taken instead of a generic refusal", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => answers.shift()!));
   const { openSignedInSalon } = await import("@/concept/account/sync");
   expect(await openSignedInSalon()).toBe(true);
-  ctx.send!({ type: "salon/slug", slug: "salong-upptagen" });
+  ctx.send!({ type: "salon/slug", slug: "salong-upptagen" }, change(salon.state));
   await vi.waitFor(() => expect(ctx.toasts).toHaveLength(1));
   expect(ctx.toasts[0]).toBe(t("address.slug.taken"));
 });
@@ -37,7 +41,7 @@ it("keeps the generic message for other refusals", async () => {
   const salon = { state: createDemoState("2026-11-16"), version: 1 };
   const answers = [Response.json({ error: "rejected" }, { status: 422 }), Response.json(salon)];
   vi.stubGlobal("fetch", vi.fn(async () => answers.shift()!));
-  ctx.send!({ type: "salon/slug", slug: "salong-annan" });
+  ctx.send!({ type: "salon/slug", slug: "salong-annan" }, change(salon.state));
   await vi.waitFor(() => expect(ctx.toasts).toHaveLength(1));
   expect(ctx.toasts[0]).toBe(t("account.sync.refused"));
 });

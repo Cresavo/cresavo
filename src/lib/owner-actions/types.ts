@@ -23,4 +23,10 @@ export const OWNER_ACTION_TYPES = [
 /** The most an action may weigh once serialised. */
 export const MAX_ACTION_BYTES = 64 * 1024;
 
+/** A customer import carries a whole file's rows (up to `MAX_IMPORT_ROWS`), so it has its own, larger cap. */
+export const MAX_IMPORT_ACTION_BYTES = 2.5 * 1024 * 1024;
+
+/** The serialised size cap for an action of this type. */
+export const actionByteLimit = (type: unknown): number => (type === "customers/import" ? MAX_IMPORT_ACTION_BYTES : MAX_ACTION_BYTES);
+
 export type OwnerActionType = (typeof OWNER_ACTION_TYPES)[number];
