@@ -1946,6 +1946,7 @@ const messages = {
   "booking.confirm": "Confirm booking",
   "booking.confirmNote": "Free to change or cancel until 24 hours before. You pay at the salon.",
   "booking.confirmDisabled": "Enter your name and a valid mobile number to confirm.",
+  "booking.opensSoon": "Online booking opens soon. Please call the salon to book this time.",
   "booking.slotTaken": "Sorry, that time was just taken. Please choose another.",
 
   "booking.waitlist.title": "Notify me if something opens up",

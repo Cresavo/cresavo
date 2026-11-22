@@ -5,7 +5,9 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { translate } from "@/concept/i18n";
 import { DEFAULT_BOOKING_LANGUAGE } from "@/concept/i18n/business";
+import { serverSalonFor } from "@/lib/public-booking";
 import { BookShell } from "@/concept/booking/shell";
+import { ServerSalonProvider } from "@/concept/server-salon";
 import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
 import "../../studio/studio.css";
 
@@ -26,12 +28,14 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function BookingLayout({ children }: { children: ReactNode }) {
+export default async function BookingLayout({ children, params }: { children: ReactNode; params: Promise<{ slug: string }> }) {
   const visitorLanguage = parseLocale((await cookies()).get(DEMO_VISITOR_COOKIE)?.value);
+  const salon = await serverSalonFor((await params).slug);
+  const shell = <BookShell visitorLanguage={visitorLanguage}>{children}</BookShell>;
   return (
     // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
     <div className="studio-root booking-boundary">
-      <BookShell visitorLanguage={visitorLanguage}>{children}</BookShell>
+      {salon ? <ServerSalonProvider state={salon}>{shell}</ServerSalonProvider> : shell}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import { moduleEnabled } from "../modules/registry";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
+import { useServerSalon } from "../server-salon";
 import { targetOf } from "../store";
 import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
@@ -43,10 +44,13 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
   const [run, pending] = useCommit();
+  const fromServer = useServerSalon() !== null;
+  const [opensSoon, setOpensSoon] = useState(false);
 
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
 
   const confirm = () => run(async () => {
+    if (fromServer) return setOpensSoon(true);
     const target = targetOf(state);
     if (!isGuestValid(guest)) return;
     const name = guest.name.trim();
@@ -115,6 +119,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
           </Button>
           {!isGuestValid(guest) && <p className="text-meta text-text-secondary">{t("booking.confirmDisabled")}</p>}
+          {opensSoon && <p role="status" className="text-meta text-text-secondary">{t("booking.opensSoon")}</p>}
         </div>
       </form>
     </div>

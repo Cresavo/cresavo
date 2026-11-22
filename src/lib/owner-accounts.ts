@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { createSalon, salonDraft, suggestedSlug } from "@/concept/onboarding/salon";
+import { SLUG_MAX } from "@/concept/page/slug";
 import { salonClock } from "@/concept/tools/clock";
 import { db } from "./db";
 import { hashPassword, newPasswordSchema, verifyPasswordHash } from "./password";
+import { findSalonTenant } from "./public-booking";
 import { assertWritable } from "./public-readonly";
 
 // Owner accounts for real salons: one account owns one salon, stored as a
@@ -31,6 +33,14 @@ export type SignupResult =
   | { ok: true; identity: OwnerIdentity; tenantId: string }
   | { ok: false; reason: "invalid" | "email_taken" };
 
+/** The slug, or the first "-2", "-3", … variant that no salon uses yet. */
+async function availableSlug(slug: string) {
+  for (let n = 1; ; n++) {
+    const candidate = n === 1 ? slug : `${slug.slice(0, SLUG_MAX - `-${n}`.length)}-${n}`;
+    if (!(await findSalonTenant(candidate))) return candidate;
+  }
+}
+
 /** Creates the account and its salon in one transaction. Nothing is created when either part fails. */
 export async function createOwnerAccount(input: unknown, now = new Date()): Promise<SignupResult> {
   assertWritable();
@@ -39,7 +49,7 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
   const { email, password, salonName, language } = parsed.data;
   const passwordHash = await hashPassword(password);
   const draft = { ...salonDraft(language), name: salonName, industry: "other" as const, treatments: [] };
-  const salon = createSalon(salonClock(now).today, { ...draft, slug: suggestedSlug(draft) });
+  const salon = createSalon(salonClock(now).today, { ...draft, slug: await availableSlug(suggestedSlug(draft)) });
   const tenantId = `salon_${randomUUID()}`;
   try {
     const account = await db.$transaction(async (tx) => {
@@ -48,7 +58,7 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
     });
     return { ok: true, identity: account, tenantId };
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, reason: "email_taken" };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002" && error.message.includes("owner_account_email_key")) return { ok: false, reason: "email_taken" };
     throw error;
   }
 }

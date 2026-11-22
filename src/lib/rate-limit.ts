@@ -21,7 +21,7 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api",
+  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read",
   ip: string,
   consume = true,
   now = Date.now(),
@@ -34,7 +34,7 @@ export function checkRateLimit(
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
   const bucket = buckets.get(key) ?? { count: 0, until: now + windowMs };
-  const limit = route === "login" || route === "signup" ? 5 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : 30;
+  const limit = route === "login" || route === "signup" ? 5 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : route === "public-read" ? 120 : 30;
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",

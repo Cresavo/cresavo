@@ -1897,6 +1897,7 @@ const messages = {
   "booking.confirm": "Bekräfta bokning",
   "booking.confirmNote": "Du kan boka om eller avboka kostnadsfritt fram till 24 timmar före besöket. Du betalar i salongen.",
   "booking.confirmDisabled": "Ange ditt namn och ett giltigt mobilnummer för att bekräfta.",
+  "booking.opensSoon": "Onlinebokning öppnar snart. Ring salongen för att boka den här tiden.",
   "booking.slotTaken": "Någon hann boka den tiden. Välj gärna en annan.",
   "booking.waitlist.title": "Meddela mig om en tid blir ledig",
   "booking.waitlist.intro": "Det finns inga lediga tider för {service} {day}. Lämna ditt nummer så skickar vi ett sms om en tid blir ledig.",

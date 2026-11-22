@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { DEFAULT_PAGE, normalizePage, type PageConfig } from "../page/config";
-import { useDemo } from "../store";
+import { usePublicDemo } from "../store";
 
 // The page config the booking pages draw from: the business's saved one, or,
 // inside the editor's preview frame, the draft the editor sends. A draft is
@@ -21,7 +21,7 @@ function isPreviewFrame() {
 }
 
 export function PageProvider({ children }: { children: ReactNode }) {
-  const state = useDemo();
+  const state = usePublicDemo();
   const [draft, setDraft] = useState<PageConfig>();
   useEffect(() => {
     if (!isPreviewFrame()) return;

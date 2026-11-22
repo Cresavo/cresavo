@@ -10,6 +10,7 @@ import { parseLocale, type Locale } from "@/lib/locale";
 import { t, translate } from "../i18n";
 import { ConceptLanguage } from "../i18n/boundary";
 import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
+import { useServerSalon } from "../server-salon";
 import { openBookingWorkspace, usePublicDemo, useWorkspaceSlug } from "../store";
 import { ButtonLink } from "../ui/button";
 import { Select } from "../ui/controls";
@@ -64,6 +65,7 @@ function Frame({ children, slug, widget, switchLanguage }: {
   const page = usePage();
   const known = !state || state.salon.slug === slug;
   const ownerView = useOwnerView();
+  const fromServer = useServerSalon() !== null;
   useTenantIcon(known ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
@@ -101,9 +103,11 @@ function Frame({ children, slug, widget, switchLanguage }: {
                 <option value="sv" lang="sv">{t("language.sv")}</option>
               </Select>
             )}
-            <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary">
-              {t("booking.myBookings")}
-            </ButtonLink>
+            {!fromServer && (
+              <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary">
+                {t("booking.myBookings")}
+              </ButtonLink>
+            )}
           </div>
         </div>
       </header>
@@ -111,10 +115,14 @@ function Frame({ children, slug, widget, switchLanguage }: {
         {state ? children : <p role="status" className="py-12 text-center text-text-secondary">{t("booking.loading")}</p>}
       </main>
       <footer className="booking-gutters booking-safe-bottom border-t border-hairline py-4 text-center text-meta text-text-secondary print:hidden">
-        {t("booking.demoNote")}{" "}
-        <Link href={ownerView} className="inline-flex min-h-target items-center font-medium text-action underline-offset-2 hover:underline">
-          {t("booking.ownerView")}
-        </Link>
+        {!fromServer && (
+          <>
+            {t("booking.demoNote")}{" "}
+            <Link href={ownerView} className="inline-flex min-h-target items-center font-medium text-action underline-offset-2 hover:underline">
+              {t("booking.ownerView")}
+            </Link>
+          </>
+        )}
         {TENANT_POLICY.attribution && <span className="mt-1 block">{t("booking.attribution")}</span>}
       </footer>
       <Toaster />
