@@ -74,7 +74,7 @@ export function ResetForm({ language }: { language: Locale }) {
     );
   }
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       <h1 className="text-h1 font-semibold tracking-tight">{t(token ? "account.reset.newTitle" : "account.reset.title")}</h1>
       <p className="text-body text-text-secondary">{t(token ? "account.reset.newText" : "account.reset.requestText")}</p>
       {token ? (

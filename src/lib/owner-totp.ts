@@ -51,17 +51,17 @@ export function normalizeTotp(input: unknown): string | null {
 
 /**
  * The step whose code this is, within the window and later than `lastStep`; null otherwise. Every candidate is
- * compared, in constant time, so the answer takes the same time whichever step matched.
+ * compared, in constant time, so the answer takes the same time whichever step matched. When two steps in the
+ * window share the code, it is refused: otherwise a used code could match again on the other step.
  */
 export function matchTotp(secret: Uint8Array, code: string, nowMs: number, lastStep: number | null): number | null {
   const current = totpStep(nowMs);
   const given = Buffer.from(code.padEnd(TOTP_DIGITS, "x").slice(0, TOTP_DIGITS));
-  let matched: number | null = null;
+  const matches: number[] = [];
   for (let step = current - TOTP_WINDOW; step <= current + TOTP_WINDOW; step++) {
-    const same = timingSafeEqual(Buffer.from(hotp(secret, step)), given);
-    if (same && step > (lastStep ?? -1) && matched === null) matched = step;
+    if (timingSafeEqual(Buffer.from(hotp(secret, step)), given)) matches.push(step);
   }
-  return matched;
+  return matches.length === 1 && matches[0] > (lastStep ?? -1) ? matches[0] : null;
 }
 
 /** The address an authenticator app reads from the QR code. */

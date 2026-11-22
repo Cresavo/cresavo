@@ -13,14 +13,19 @@ export default async function AccountPage() {
   if (!owner) redirect("/account/login");
   const language = await getLocale();
   const t = (key: Parameters<typeof translate>[1]) => translate(language, key);
-  // OWNER_MFA_REQUIRED=1 and no two-step sign-in yet: the session may only set it up.
+  // OWNER_MFA_REQUIRED=1 and no two-step sign-in yet: the session may only set it up, and reads no salon data.
   const limited = enrolmentOnly(owner);
+  const salonName = limited ? null : await ownerSalonName(owner.tenantId);
   return (
     <div className="space-y-5">
       <h1 className="text-h1 font-semibold tracking-tight">{t("account.home.title")}</h1>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-body">
-        <dt className="text-text-secondary">{t("account.home.salon")}</dt>
-        <dd className="min-w-0 break-words font-medium">{await ownerSalonName(owner.tenantId)}</dd>
+        {salonName !== null && (
+          <>
+            <dt className="text-text-secondary">{t("account.home.salon")}</dt>
+            <dd className="min-w-0 break-words font-medium">{salonName}</dd>
+          </>
+        )}
         <dt className="text-text-secondary">{t("account.home.email")}</dt>
         <dd className="min-w-0 break-words">{owner.email}</dd>
       </dl>

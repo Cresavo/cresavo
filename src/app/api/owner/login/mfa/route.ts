@@ -25,7 +25,8 @@ export function POST(request: NextRequest) {
         outcome.reason = result.reason;
         return false;
       }
-      outcome.cookie = (await openOwnerSession(result.identity)) ?? undefined;
+      // Consumes the challenge with the session, so one correct password opens at most one session.
+      outcome.cookie = (await openOwnerSession(result.identity, Date.now(), { mfaVerified: true, challenge: result.challenge })) ?? undefined;
       if (!outcome.cookie) outcome.reason = "expired";
       return outcome.cookie !== undefined;
     });

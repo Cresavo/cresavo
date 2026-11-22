@@ -19,6 +19,9 @@ import { GET as meRoute } from "../../src/app/api/owner/me/route";
 import { GET as salonRoute } from "../../src/app/api/owner/salon/route";
 import { POST as actionsRoute } from "../../src/app/api/owner/salon/actions/route";
 import { POST as signupRoute } from "../../src/app/api/owner/signup/route";
+import { POST as logoutAllRoute } from "../../src/app/api/owner/logout-all/route";
+import { loginGuard } from "../../src/lib/owner-guard-store";
+import { regenerateRecoveryCodes } from "../../src/lib/owner-mfa-setup";
 
 // Owner two-step sign-in against a disposable local *_test database, through the routes. All data is fictional.
 // Date is faked so codes can be taken from a known step; the shared lock store reads the database clock, which
@@ -328,7 +331,7 @@ describe("managing two-step sign-in", () => {
 
   it("turns off with a code, deletes the codes and ends other sessions", async () => {
     const a = await enrolled("disable");
-    const other = (await openOwnerSession({ id: a.identity.id, credentialVersion: a.identity.credentialVersion + 1 }))!.value;
+    const other = (await openOwnerSession({ id: a.identity.id, credentialVersion: a.identity.credentialVersion + 1 }, Date.now(), { mfaVerified: true }))!.value;
     const cookies = { [OWNER_COOKIE]: a.session };
     expect((await disableRoute(post("/api/owner/mfa/disable", { password: "not the password", code: codeNow(a.key) }, { cookies }))).status).toBe(403);
     const response = await disableRoute(post("/api/owner/mfa/disable", { password, code: codeNow(a.key) }, { cookies }));
@@ -396,5 +399,111 @@ describe("OWNER_MFA_REQUIRED=1", () => {
   it("is off by default", async () => {
     const a = await account("not-required");
     expect((await salonRoute(get("/api/owner/salon", a.session))).status).toBe(200);
+  });
+});
+
+describe("review fixes", () => {
+  const wrongCode = (key: Buffer) => ({ code: String((Number(codeNow(key)) + 7) % 1_000_000).padStart(6, "0") });
+
+  it("refuses a session of an enrolled account that did not pass the second step, as an older worker would open it", async () => {
+    const a = await enrolled("legacy-session");
+    const version = (await db.ownerAccount.findUniqueOrThrow({ where: { id: a.identity.id } })).credentialVersion;
+    // This build will not open one at all.
+    expect(await openOwnerSession({ id: a.identity.id, credentialVersion: version })).toBeNull();
+    // A row without the marker at the current version, as a password-only worker writes it, is refused on use.
+    const verified = (await openOwnerSession({ id: a.identity.id, credentialVersion: version }, Date.now(), { mfaVerified: true }))!.value;
+    expect(await ownerFromCookie(verified)).not.toBeNull();
+    await db.ownerSession.updateMany({ where: { accountId: a.identity.id }, data: { mfaVerifiedAt: null } });
+    expect(await ownerFromCookie(verified)).toBeNull();
+    expect(await ownerFromCookie(a.session)).toBeNull();
+    expect((await salonRoute(get("/api/owner/salon", verified))).status).toBe(401);
+  });
+
+  it("marks the sessions it opens after the second step and after enabling", async () => {
+    const a = await enrolled("marked");
+    const { pending } = await passwordStep("marked");
+    const signedIn = await secondStep(pending, { code: codeNow(a.key) });
+    const rows = await db.ownerSession.findMany({ where: { accountId: a.identity.id, revokedAt: null }, select: { mfaVerifiedAt: true } });
+    expect(rows.length).toBe(2);
+    expect(rows.every((row) => row.mfaVerifiedAt !== null)).toBe(true);
+    expect(await ownerFromCookie(cookieValue(signedIn, OWNER_COOKIE))).not.toBeNull();
+  });
+
+  it("uses a password challenge once, even with another valid factor", async () => {
+    const a = await enrolled("challenge-once");
+    const { pending } = await passwordStep("challenge-once");
+    expect((await secondStep(pending, { code: codeNow(a.key) })).status).toBe(200);
+    // A copy of the cookie kept by the client is spent.
+    expect(await answer(await secondStep(pending, { recoveryCode: a.recoveryCodes[0] }))).toEqual({ status: 401, body: { error: "mfa_expired" } });
+    expect(await db.ownerRecoveryCode.count({ where: { accountId: a.identity.id, usedAt: { not: null } } })).toBe(0);
+  });
+
+  it("ends outstanding challenges on sign out everywhere", async () => {
+    const a = await enrolled("challenge-logout");
+    const { pending } = await passwordStep("challenge-logout");
+    expect((await logoutAllRoute(post("/api/owner/logout-all", {}, { cookies: { [OWNER_COOKIE]: a.session } }))).status).toBe(200);
+    expect(await answer(await secondStep(pending, { code: codeNow(a.key) }))).toEqual({ status: 401, body: { error: "mfa_expired" } });
+  });
+
+  it("answers a deactivated account generically, also after the runbook's version bump", async () => {
+    const a = await enrolled("runbook");
+    const { pending } = await passwordStep("runbook");
+    await db.ownerAccount.update({ where: { id: a.identity.id }, data: { active: false, credentialVersion: { increment: 1 } } });
+    const refused = await secondStep(pending, { code: codeNow(a.key) });
+    expect(await answer(refused)).toEqual({ status: 401, body: { error: "invalid_code" } });
+    expect(setCookie(refused, OWNER_MFA_PENDING_COOKIE)).toBeUndefined();
+  });
+
+  it("answers 503 for a recovery code under another key, without counting a failure", async () => {
+    const a = await enrolled("rotated-recovery");
+    vi.stubEnv("OWNER_MFA_KEY", randomBytes(32).toString("base64"));
+    for (let n = 0; n < 6; n++) {
+      const { pending } = await passwordStep("rotated-recovery");
+      expect(await answer(await secondStep(pending, { recoveryCode: a.recoveryCodes[0] }))).toEqual({ status: 503, body: { error: "not_configured" } });
+    }
+    const disable = await disableRoute(post("/api/owner/mfa/disable", { password, recoveryCode: a.recoveryCodes[0] }, { cookies: { [OWNER_COOKIE]: a.session } }));
+    expect(disable.status).toBe(503);
+    vi.stubEnv("OWNER_MFA_KEY", MFA_KEY);
+    const { pending } = await passwordStep("rotated-recovery");
+    expect((await secondStep(pending, { recoveryCode: a.recoveryCodes[0] })).status).toBe(200);
+  });
+
+  it("counts a wrong first code at enrolment toward the lock-out", async () => {
+    const a = await account("enrol-strikes");
+    const cookies = { [OWNER_COOKIE]: a.session };
+    const { secret } = await (await setupRoute(post("/api/owner/mfa/setup", { password }, { cookies }))).json();
+    const key = fromBase32(secret);
+    for (let n = 0; n < 5; n++) expect((await enableRoute(post("/api/owner/mfa/enable", { password, ...wrongCode(key) }, { cookies }))).status).toBe(400);
+    expect((await enableRoute(post("/api/owner/mfa/enable", { password, code: codeNow(key) }, { cookies }))).status).toBe(403);
+    expect((await db.ownerAccount.findUniqueOrThrow({ where: { id: a.identity.id } })).totpEnabledAt).toBeNull();
+    expect(await verifyOwnerCredentials({ email: email("enrol-strikes"), password })).toBeNull();
+  });
+
+  it("does not replace recovery codes when the credentials changed after the password was checked", async () => {
+    const a = await enrolled("regen-race");
+    const guard = loginGuard();
+    const real = guard.locked.bind(guard);
+    let calls = 0;
+    // The second lock check in confirmPassword runs after the password was judged: a reset lands right there.
+    const spy = vi.spyOn(guard, "locked").mockImplementation(async (who, at) => {
+      if (++calls === 2) await db.ownerAccount.update({ where: { id: a.identity.id }, data: { credentialVersion: { increment: 1 } } });
+      return real(who, at);
+    });
+    const before = (await db.ownerRecoveryCode.findMany({ where: { accountId: a.identity.id }, select: { id: true } })).map((r) => r.id).sort();
+    const stepBefore = (await db.ownerAccount.findUniqueOrThrow({ where: { id: a.identity.id } })).totpLastStep;
+    expect(await regenerateRecoveryCodes(a.identity.id, { password, code: codeNow(a.key) })).toEqual({ ok: false, reason: "not_enabled" });
+    spy.mockRestore();
+    const after = (await db.ownerRecoveryCode.findMany({ where: { accountId: a.identity.id }, select: { id: true } })).map((r) => r.id).sort();
+    expect(after).toEqual(before);
+    // The code was not spent either: the transaction never judged it.
+    expect((await db.ownerAccount.findUniqueOrThrow({ where: { id: a.identity.id } })).totpLastStep).toBe(stepBefore);
+  });
+
+  it("keeps the enrolment-only account page and routes away from salon data", async () => {
+    vi.stubEnv("OWNER_MFA_REQUIRED", "1");
+    const a = await account("enrol-only-erase");
+    const erase = await (await import("../../src/app/api/owner/salon/erase/route")).POST(
+      post("/api/owner/salon/erase", { customerId: "c1", name: "Nobody" }, { cookies: { [OWNER_COOKIE]: a.session } }));
+    expect(await answer(erase)).toEqual({ status: 403, body: { error: "mfa_required" } });
   });
 });

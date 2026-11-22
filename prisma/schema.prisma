@@ -613,6 +613,7 @@ model OwnerAccount {
   totpLastStep         BigInt?   @map("totp_last_step")
   sessions          OwnerSession[]
   recoveryCodes     OwnerRecoveryCode[]
+  mfaChallenges     OwnerMfaChallenge[]
   @@map("owner_account")
 }
 
@@ -637,7 +638,22 @@ model OwnerSession {
   createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
   revokedAt         DateTime?    @map("revoked_at") @db.Timestamptz(3)
+  /// Set when the sign-in passed the second step. Required while the account has two-step sign-in on.
+  mfaVerifiedAt     DateTime?    @map("mfa_verified_at") @db.Timestamptz(3)
   @@index([accountId])
   @@index([expiresAt])
   @@map("owner_session")
+}
+
+/// A correct password still waiting for the second step. The id is the SHA-256 of the pending cookie's nonce.
+model OwnerMfaChallenge {
+  id                String       @id
+  accountId         String       @map("account_id")
+  account           OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  credentialVersion Int          @map("credential_version")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("owner_mfa_challenge")
 }

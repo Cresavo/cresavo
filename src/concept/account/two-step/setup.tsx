@@ -49,7 +49,7 @@ export function TwoStepSetup({ language, onEnabled, onCancel }: { language: Loca
   }
 
   return (
-    <form onSubmit={confirm} className="space-y-4" noValidate>
+    <form method="post" onSubmit={confirm} className="space-y-4" noValidate>
       <StepHeading>{t("account.mfa.setup.start")}</StepHeading>
       <p className="text-body text-text-secondary">{t("account.mfa.setup.scan")}</p>
       <QrCode value={shown.otpauthUri} label={t("account.mfa.setup.qrLabel")} />

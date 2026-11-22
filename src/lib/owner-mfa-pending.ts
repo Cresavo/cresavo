@@ -1,10 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 // The short-lived proof that a password was right, carried from POST /api/owner/login to
-// POST /api/owner/login/mfa. Nothing is stored: the cookie holds the account id, its credential version, an
-// expiry and a random nonce, with an HMAC over all four under SESSION_SECRET. The second step checks the
-// version against the account, so enabling or disabling two-step sign-in or a password reset retires every
-// pending cookie. It never opens a session by itself.
+// POST /api/owner/login/mfa. The cookie holds the account id, its credential version, an expiry and a random
+// nonce, with an HMAC over all four under SESSION_SECRET. The database keeps only the SHA-256 of the nonce
+// (owner_mfa_challenge), which opening the session consumes, so a challenge works once; "sign out
+// everywhere", a password reset and any credential version change retire it. It never opens a session by itself.
 
 export const OWNER_MFA_PENDING_COOKIE = "cresavo_owner_mfa";
 export const OWNER_MFA_PENDING_PATH = "/api/owner/login";
@@ -22,14 +22,18 @@ export interface PendingSecondStep {
   credentialVersion: number;
 }
 
+/** The stored id of a challenge: the SHA-256 of its nonce. */
+export const challengeId = (nonce: string) => createHash("sha256").update(nonce).digest("hex");
+
 export function signPending({ accountId, credentialVersion }: PendingSecondStep, now = Date.now()) {
   const expires = now + MFA_PENDING_MS;
-  const body = `${accountId}.${credentialVersion}.${expires}.${randomBytes(16).toString("hex")}`;
-  return { value: `${body}.${sign(body)}`, expires: new Date(expires) };
+  const nonce = randomBytes(16).toString("hex");
+  const body = `${accountId}.${credentialVersion}.${expires}.${nonce}`;
+  return { value: `${body}.${sign(body)}`, expires: new Date(expires), challenge: challengeId(nonce) };
 }
 
 /** The account the cookie was issued for; null when it is malformed, expired or not signed by this server. */
-export function parsePending(value: string | undefined, now = Date.now()): PendingSecondStep | null {
+export function parsePending(value: string | undefined, now = Date.now()): (PendingSecondStep & { challenge: string }) | null {
   if (!value || !PATTERN.test(value)) return null;
   const [accountId, version, expiry, nonce, signature] = value.split(".");
   const expires = Number(expiry);
@@ -37,5 +41,5 @@ export function parsePending(value: string | undefined, now = Date.now()): Pendi
   const expected = Buffer.from(sign(`${accountId}.${version}.${expiry}.${nonce}`));
   const given = Buffer.from(signature);
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
-  return { accountId, credentialVersion: Number(version) };
+  return { accountId, credentialVersion: Number(version), challenge: challengeId(nonce) };
 }

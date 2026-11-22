@@ -43,7 +43,7 @@ export function SecondStep({ language, onRestart }: { language: Locale; onRestar
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       <StepHeading level={1} focus={false}>{t("account.mfa.title")}</StepHeading>
       <p className="text-body text-text-secondary">{t(recovery ? "account.mfa.login.recoveryText" : "account.mfa.login.text")}</p>
       {recovery ? (

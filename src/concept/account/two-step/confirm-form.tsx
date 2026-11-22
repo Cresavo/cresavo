@@ -46,7 +46,7 @@ export function ConfirmForm({ language, title, text, submit, path, allowRecovery
   }
 
   return (
-    <form onSubmit={send} className="space-y-4" noValidate>
+    <form method="post" onSubmit={send} className="space-y-4" noValidate>
       <StepHeading>{t(title)}</StepHeading>
       <p className="text-body text-text-secondary">{t(text)}</p>
       {children}

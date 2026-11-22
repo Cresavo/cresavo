@@ -60,7 +60,7 @@ export function AccountForm({ mode, language }: { mode: Mode; language: Locale }
   if (secondStep) return <SecondStep language={language} onRestart={(reason) => { setSecondStep(false); setError(reason); }} />;
   const signup = mode === "signup";
   return (
-    <form onSubmit={submit} className="space-y-5" noValidate>
+    <form method="post" onSubmit={submit} className="space-y-5" noValidate>
       <h1 className="text-h1 font-semibold tracking-tight">{t(signup ? "account.signup.title" : "account.login.title")}</h1>
       {signup && <p className="text-body text-text-secondary">{t("account.signup.text")}</p>}
       {signup && (

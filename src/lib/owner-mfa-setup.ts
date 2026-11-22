@@ -3,7 +3,7 @@ import { db } from "./db";
 import type { OwnerIdentity } from "./owner-accounts";
 import { loginGuard } from "./owner-guard-store";
 import { decryptSecret, encryptSecret, mfaKey, newRecoveryCodes } from "./owner-mfa-crypto";
-import { readingSecret, recoveryFactor, replaceRecoveryCodes, spendFactor, totpFactor } from "./owner-mfa";
+import { readingSecret, recoveryFactor, replaceRecoveryCodes, spendFactor, spendTotp, totpFactor } from "./owner-mfa";
 import { closeAllOwnerSessions, openOwnerSession, type OwnerCookie } from "./owner-session";
 import { base32, matchTotp, newTotpSecret, normalizeTotp, otpauthUri } from "./owner-totp";
 import { verifyPasswordHash } from "./password";
@@ -57,10 +57,13 @@ async function authorize<T extends { password: string }>(accountId: string, sche
   return account ? { ok: true as const, account, key, body: parsed.data } : fail("wrong_password");
 }
 
-/** Ends every session of the account and opens a new one for this device. Null when the account changed meanwhile. */
-async function restartSessions(identity: OwnerIdentity, now: number): Promise<OwnerCookie | null> {
+/**
+ * Ends every session of the account and opens a new one for this device, marked as past the second step when
+ * two-step sign-in is now on. Null when the account changed meanwhile.
+ */
+async function restartSessions(identity: OwnerIdentity, now: number, mfaVerified: boolean): Promise<OwnerCookie | null> {
   await closeAllOwnerSessions(identity.id, now);
-  return openOwnerSession(identity, now);
+  return openOwnerSession(identity, now, { mfaVerified });
 }
 
 /** A wrong second factor from a signed-in owner counts like one at sign-in. */
@@ -79,7 +82,8 @@ export async function beginMfaSetup(accountId: string, input: unknown, now = Dat
   if (account.totpSecretEnc) return fail("already_enabled");
   const secret = newTotpSecret();
   const { count } = await db.ownerAccount.updateMany({
-    where: { id: account.id, totpSecretEnc: null },
+    // The row lock of the update checks the account is still the one whose password was confirmed.
+    where: { id: account.id, active: true, credentialVersion: account.credentialVersion, totpSecretEnc: null },
     data: { totpPendingEnc: encryptSecret(secret, account.id, key), totpPendingExpiresAt: new Date(now + SETUP_TTL_MS) },
   });
   if (count !== 1) return fail("already_enabled");
@@ -99,7 +103,12 @@ export async function enableMfa(accountId: string, input: unknown, now = Date.no
   if (secret === "not_configured") return fail(secret);
   const code = normalizeTotp(body.code);
   const step = code ? matchTotp(secret, code, now, null) : null;
-  if (step === null) return fail("invalid_code");
+  const guard = loginGuard();
+  if (step === null) {
+    await guard.failed(account.email);
+    return fail("invalid_code");
+  }
+  if (await guard.locked(account.email)) return fail("invalid_code");
   const recoveryCodes = newRecoveryCodes();
   const enabled = await db.$transaction(async (tx) => {
     const { count } = await tx.ownerAccount.updateMany({
@@ -114,7 +123,7 @@ export async function enableMfa(accountId: string, input: unknown, now = Date.no
     return true;
   });
   if (!enabled) return fail("setup_expired");
-  const cookie = await restartSessions({ id: account.id, credentialVersion: account.credentialVersion + 1 }, now);
+  const cookie = await restartSessions({ id: account.id, credentialVersion: account.credentialVersion + 1 }, now, true);
   return { ok: true as const, recoveryCodes, cookie };
 }
 
@@ -130,7 +139,7 @@ export async function disableMfa(accountId: string, input: unknown, now = Date.n
   if (used !== true) return fail(used || "invalid_code");
   const disabled = await db.$transaction(async (tx) => {
     const { count } = await tx.ownerAccount.updateMany({
-      where: { id: account.id, credentialVersion: account.credentialVersion, totpSecretEnc: secret },
+      where: { id: account.id, active: true, credentialVersion: account.credentialVersion, totpSecretEnc: secret },
       data: {
         totpSecretEnc: null, totpPendingEnc: null, totpPendingExpiresAt: null, totpEnabledAt: null, totpLastStep: null,
         credentialVersion: { increment: 1 },
@@ -141,7 +150,7 @@ export async function disableMfa(accountId: string, input: unknown, now = Date.n
     return true;
   });
   if (!disabled) return fail("not_enabled");
-  const cookie = await restartSessions({ id: account.id, credentialVersion: account.credentialVersion + 1 }, now);
+  const cookie = await restartSessions({ id: account.id, credentialVersion: account.credentialVersion + 1 }, now, false);
   return { ok: true as const, cookie };
 }
 
@@ -151,17 +160,25 @@ export async function regenerateRecoveryCodes(accountId: string, input: unknown,
   const auth = await authorize(accountId, enableSchema, input);
   if (!auth.ok) return auth;
   const { account, key, body } = auth;
-  const secret = account.totpSecretEnc;
-  if (!secret) return fail("not_enabled");
-  const used = await spendOrCount(account, { code: body.code }, key, now);
-  if (used !== true) return fail(used || "invalid_code");
+  if (!account.totpSecretEnc) return fail("not_enabled");
   const recoveryCodes = newRecoveryCodes();
-  const replaced = await db.$transaction(async (tx) => {
-    const [row] = await tx.$queryRaw<{ totp_secret_enc: string | null }[]>`
-      SELECT "totp_secret_enc" FROM "owner_account" WHERE "id" = ${account.id} FOR UPDATE`;
-    if (row?.totp_secret_enc !== secret) return false;
+  // Under the account's row lock: still active, still the credential version whose password was confirmed (a
+  // password reset in between keeps the secret but raises the version), the code spent and the codes replaced
+  // in one transaction.
+  const outcome = await readingSecret(() => db.$transaction(async (tx): Promise<"replaced" | "wrong_code" | "changed"> => {
+    const [row] = await tx.$queryRaw<{ active: boolean; credential_version: number; totp_secret_enc: string | null; totp_last_step: bigint | null }[]>`
+      SELECT "active", "credential_version", "totp_secret_enc", "totp_last_step" FROM "owner_account" WHERE "id" = ${account.id} FOR UPDATE`;
+    if (!row?.active || row.credential_version !== account.credentialVersion || !row.totp_secret_enc) return "changed";
+    const current = { id: account.id, totpSecretEnc: row.totp_secret_enc, totpLastStep: row.totp_last_step };
+    if (!(await spendTotp(current, body.code, key, now, tx))) return "wrong_code";
     await replaceRecoveryCodes(tx, account.id, recoveryCodes, key, now);
-    return true;
-  });
-  return replaced ? { ok: true as const, recoveryCodes } : fail("not_enabled");
+    return "replaced";
+  }));
+  if (outcome === "not_configured") return fail(outcome);
+  if (outcome === "changed") return fail("not_enabled");
+  if (outcome === "wrong_code") {
+    await loginGuard().failed(account.email);
+    return fail("invalid_code");
+  }
+  return { ok: true as const, recoveryCodes };
 }

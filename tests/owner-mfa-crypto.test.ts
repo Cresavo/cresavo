@@ -44,6 +44,17 @@ describe("TOTP (RFC 6238)", () => {
     expect(matchTotp(RFC_SECRET, hotp(RFC_SECRET, step + 1), now, step)).toBe(step + 1);
   });
 
+  it("refuses a code two steps in the window share", () => {
+    // Steps 153567 and 153569 of the RFC secret both give 468457.
+    expect(hotp(RFC_SECRET, 153567)).toBe("468457");
+    expect(hotp(RFC_SECRET, 153569)).toBe("468457");
+    const middle = 153568 * TOTP_STEP_SECONDS * 1000;
+    expect(matchTotp(RFC_SECRET, "468457", middle, null)).toBeNull();
+    expect(matchTotp(RFC_SECRET, "468457", middle, 153567)).toBeNull();
+    // Outside the overlap the code is an ordinary one.
+    expect(matchTotp(RFC_SECRET, "468457", middle - TOTP_STEP_SECONDS * 1000, null)).toBe(153567);
+  });
+
   it("reads typed codes with spaces and refuses anything else", () => {
     expect(normalizeTotp("123 456")).toBe("123456");
     for (const bad of ["12345", "1234567", "12a456", "", 123456, null, "1".repeat(30)]) expect(normalizeTotp(bad)).toBeNull();
@@ -131,11 +142,13 @@ describe("pending second-step cookie", () => {
 
   it("names the account and version until it expires after five minutes", () => {
     vi.stubEnv("SESSION_SECRET", "x".repeat(40));
-    const { value, expires } = signPending(pending, now);
+    const { value, expires, challenge } = signPending(pending, now);
     expect(expires.getTime()).toBe(now + MFA_PENDING_MS);
     expect(MFA_PENDING_MS).toBe(5 * 60_000);
-    expect(parsePending(value, now)).toEqual(pending);
-    expect(parsePending(value, now + MFA_PENDING_MS - 1)).toEqual(pending);
+    expect(challenge).toMatch(/^[a-f0-9]{64}$/);
+    expect(value).not.toContain(challenge);
+    expect(parsePending(value, now)).toEqual({ ...pending, challenge });
+    expect(parsePending(value, now + MFA_PENDING_MS - 1)).toEqual({ ...pending, challenge });
     expect(parsePending(value, now + MFA_PENDING_MS)).toBeNull();
     expect(signPending(pending, now).value).not.toBe(value);
   });

@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { verifyOwnerCredentials } from "@/lib/owner-accounts";
 import { ownerError, ownerOk, ownerRoute, readJson, withPendingSecondStep, withSession } from "@/lib/owner-http";
+import { startSecondStep } from "@/lib/owner-mfa";
 import { mfaKey } from "@/lib/owner-mfa-crypto";
-import { signPending } from "@/lib/owner-mfa-pending";
 import { openOwnerSession, type OwnerCookie } from "@/lib/owner-session";
 import { checkLoginAttempt, clientIp } from "@/lib/rate-limit";
 
@@ -18,7 +18,7 @@ export function POST(request: NextRequest) {
     const accepted = await checkLoginAttempt(clientIp(request.headers), async () => {
       const verified = await verifyOwnerCredentials(input);
       if (verified?.next === "mfa") {
-        if (mfaKey()) outcome.pending = signPending({ accountId: verified.identity.id, credentialVersion: verified.identity.credentialVersion }).value;
+        if (mfaKey()) outcome.pending = await startSecondStep(verified.identity);
         else outcome.notConfigured = true;
         return true;
       }
