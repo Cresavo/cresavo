@@ -820,7 +820,7 @@ const messages = {
   "today.bookingCount": "{count} booking|{count} bookings",
   "today.dayOff": "Day off today",
   "today.closed": "Closed today",
-  "today.closedText": "The salon is closed. The next customer is shown on the right.",
+  "today.closedText": "The salon is closed. The next customer is shown below.",
   "today.phoneMode": "Someone is calling",
   "today.schedule": "Today's schedule",
   "today.showAll": "Show all ({count})",
