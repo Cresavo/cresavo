@@ -7,13 +7,13 @@ import h from "./home.module.css";
  * its CSS size; the engine pads the canvas around it. `children` is the
  * fallback, shown without JavaScript or when the canvas cannot be drawn.
  * The dot colours come from the canvas's own CSS (color, top and bottom
- * border colours), so they follow the theme; `theme` re-tints on a change.
+ * border colours), so they follow the theme; a new `tint` key re-reads them.
  */
-export function DotField({ className, shape, label, theme, children }: {
+export function DotField({ className, shape, label, tint, children }: {
   className: string;
   shape: (host: HTMLElement) => Omit<DotOptions, "palette">;
   label?: string;
-  theme: string;
+  tint: string;
   children?: ReactNode;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -32,7 +32,7 @@ export function DotField({ className, shape, label, theme, children }: {
     return () => { f?.destroy(); field.current = null; };
   }, []);
 
-  useEffect(() => { field.current?.retint(); }, [theme]);
+  useEffect(() => { field.current?.retint(); }, [tint]);
 
   return (
     <div ref={host} className={`${className} ${h.dotHost}`} data-ready={ready ? "" : undefined}>

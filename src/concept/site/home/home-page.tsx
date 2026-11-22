@@ -17,11 +17,11 @@ import l from "../landing.module.css";
 /** Salong Eko's client booking page, on the same host as the studio. */
 const BOOKING_PATH = "/boka/salong-eko";
 
-function Hero({ demo, booking, theme }: { demo: string; booking: string; theme: string }) {
+function Hero({ demo, booking, tint }: { demo: string; booking: string; tint: string }) {
   const { site } = useSiteCopy();
   return (
     <section className={h.hero} id="top" aria-labelledby="hero-heading">
-      <DotField className={h.dotStage} shape={wordmarkShape} label={site["home.hero.mark"]} theme={theme}>
+      <DotField className={h.dotStage} shape={wordmarkShape} label={site["home.hero.mark"]} tint={tint}>
         <Wordmark className={h.fallback} label="" />
       </DotField>
       <div className={`${h.wrap} ${h.heroCopy}`}>
@@ -69,6 +69,9 @@ function Product() {
 export function HomePage({ links, waitlist, waitlistOpen, origin }: ProductSiteProps) {
   const { site, locale } = useSiteCopy();
   const { choice, theme, toggle } = useHomeTheme();
+  // The dots re-read their colours whenever the page's colour source changes. The theme alone is not enough:
+  // a saved "light" on a dark system leaves it at "light" while data-theme lands a render after the field is built.
+  const tint = `${choice ?? "system"}:${theme}`;
   // The demo opens in the language of the page the visitor came from, whatever an earlier visit saved.
   const query = `?lang=${locale}`;
   const demo = `${links.demo}${query}`;
@@ -79,7 +82,7 @@ export function HomePage({ links, waitlist, waitlistOpen, origin }: ProductSiteP
       <a className={h.skip} href="#main">{site["skip"]}</a>
       <HomeHeader demo={demo} theme={theme} onTheme={toggle} />
       <main id="main">
-        <Hero demo={demo} booking={booking} theme={theme} />
+        <Hero demo={demo} booking={booking} tint={tint} />
         <Product />
         <Manifesto />
         <OpenSource />

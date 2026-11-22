@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The homepage's dot wordmark is visible again for visitors whose saved light or dark choice differs from their system.** A saved light theme on a dark Mac or phone drew the wordmark in the dark theme's near-white dots on the light page, so it all but vanished; the dots now re-read their colours once the saved choice is applied, and their colours never transition, so reduced motion cannot hand them the old theme's colours either.
+
 ### Changed
 
 - **A calmer, less templated homepage.** The section labels in capitals, the 01 / 02 / 03 numbering and the dot icons beside each moment are gone; the menu and theme toggle are plain buttons without frames, and each second action (the customer booking page, the code, an email to the founder) is a text link instead of a second framed button. Text below the first screen is left-aligned, and on phones the hero is too. Sections no longer fade in as you scroll and the product screens no longer animate: the dot wordmark at the top is the one moving moment. The plum accent is deeper and more neutral, the dark theme a warmer near-black, and the screens and plans lose their drop shadows. Design rules for the public site, for people and coding agents, are in `docs/design/SITE_RULES.md`.

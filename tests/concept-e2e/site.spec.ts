@@ -96,6 +96,28 @@ test("the theme follows the system until the toggle pins it, and the choice surv
   expect(await root.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(250, 247, 243)");
 });
 
+test("the dot wordmark takes the colours of a saved theme that differs from the system's", async ({ page }) => {
+  // Average colour of the drawn dots: plum on the light page, near-white on the dark one.
+  const ink = () => page.locator("canvas").evaluate((canvas: HTMLCanvasElement) => {
+    const data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+    let sum = 0, count = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i + 3] > 200) { sum += (data[i] + data[i + 1] + data[i + 2]) / 3; count++; }
+    return count ? sum / count : 128;
+  });
+  // Both with and without reduced motion: its near-zero transitions used to hand the dots the old colours.
+  for (const reducedMotion of ["reduce", "no-preference"] as const) {
+    for (const [system, saved] of [["dark", "light"], ["light", "dark"]] as const) {
+      await page.emulateMedia({ colorScheme: system, reducedMotion });
+      await page.goto("/");
+      await page.evaluate((value) => localStorage.setItem("cresavo-site-theme", value), saved);
+      await page.reload();
+      await expect(page.locator("[data-ready]")).toHaveCount(1);
+      if (saved === "light") await expect.poll(ink, `${reducedMotion} ${saved}`).toBeLessThan(110);
+      else await expect.poll(ink, `${reducedMotion} ${saved}`).toBeGreaterThan(200);
+    }
+  }
+});
+
 test("the dot fields size from their host and never grow", async ({ page }) => {
   await page.goto("/");
   const stage = page.locator("[data-ready]").first();
