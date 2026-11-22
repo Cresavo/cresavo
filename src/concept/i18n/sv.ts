@@ -1563,7 +1563,7 @@ const messages = {
   "campaigns.tone.warmth": "Värme",
   "campaigns.tone.reset": "Återställ ton",
   "campaigns.feed.preview": "Förhandsvisa i flödet",
-  "campaigns.poster.stale": "Några tider på den här affischen är redan bokade. Gör en ny affisch innan du delar den.",
+  "campaigns.poster.stale": "Några tider på den här affischen går inte längre att boka. Gör en ny affisch innan du delar den.",
   "campaigns.poster.style": "Stil",
   "campaigns.poster.photo": "Foto",
   "campaigns.poster.headline": "Stor text",

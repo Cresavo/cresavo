@@ -3,7 +3,7 @@ import { bookingHome } from "../../booking/links";
 import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
-import { applyWarmth, clampTone, toneFilter, toneKey } from "./tone";
+import { applyLightContrast, applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "./tone";
 
 // The browser side of the poster engine: gathers what a template needs, turns
 // photos into JPEG or, for cut-outs, PNG (the renderer cannot read WebP), and asks the server for
@@ -39,7 +39,21 @@ export function hasTransparency(pixels: Uint8ClampedArray, step = 97): boolean {
   return false;
 }
 
-/** The photo at most `side` px, with the owner's light and contrast (canvas filter) and warmth (pixels) applied. */
+let filterSupport: boolean | undefined;
+/** Whether this browser applies canvas filters: some Safari versions accept `filter` and silently ignore it. */
+function canvasFilters(): boolean {
+  if (filterSupport === undefined) {
+    const probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    if (!probe) return (filterSupport = false);
+    probe.fillStyle = "#808080";
+    probe.filter = "brightness(0%)";
+    probe.fillRect(0, 0, 1, 1);
+    filterSupport = probe.getImageData(0, 0, 1, 1).data[0] < 10;
+  }
+  return filterSupport;
+}
+
+/** The photo at most `side` px, with the owner's light and contrast (canvas filter, or pixels as a fallback) and warmth (pixels) applied. */
 function draw(bitmap: ImageBitmap, side: number, tone?: PosterTone) {
   const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
@@ -47,11 +61,13 @@ function draw(bitmap: ImageBitmap, side: number, tone?: PosterTone) {
   canvas.height = Math.round(bitmap.height * scale);
   const context = canvas.getContext("2d");
   if (!context) return canvas;
-  context.filter = toneFilter(tone);
+  const native = canvasFilters();
+  if (native) context.filter = toneFilter(tone);
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const warmth = tone ? clampTone(tone).warmth : 0;
-  if (warmth !== 0) {
+  if (tone && !isNeutralTone(tone)) {
+    const { light, contrast, warmth } = clampTone(tone);
     const image = context.getImageData(0, 0, canvas.width, canvas.height);
+    if (!native) applyLightContrast(image.data, light, contrast);
     applyWarmth(image.data, warmth);
     context.putImageData(image, 0, 0);
   }
@@ -184,4 +200,20 @@ export function fetchPosterSvg(body: Awaited<ReturnType<typeof engineRequest>>):
     svgs.set(key, cached);
   }
   return cached;
+}
+
+let mounted = 0;
+
+/**
+ * The poster SVG with every id given a prefix unique to this mount, and the references to them rewritten.
+ * Satori numbers its clip paths and gradients from 1 in every render, so two posters on one page (a story
+ * and its feed preview, or the style thumbnails) would otherwise borrow each other's crops.
+ */
+export function uniqueIds(markup: string, prefix = `poster${++mounted}-`): string {
+  const ids = new Set([...markup.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]));
+  if (!ids.size) return markup;
+  return markup
+    .replace(/(\sid=")([^"]+)"/g, (_, start: string, id: string) => `${start}${prefix}${id}"`)
+    .replace(/url\(#([^)]+)\)/g, (match, id: string) => (ids.has(id) ? `url(#${prefix}${id})` : match))
+    .replace(/(href=")#([^"]+)"/g, (match, start: string, id: string) => (ids.has(id) ? `${start}#${prefix}${id}"` : match));
 }

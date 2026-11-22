@@ -1604,7 +1604,7 @@ const messages = {
   "campaigns.tone.warmth": "Warmth",
   "campaigns.tone.reset": "Reset tone",
   "campaigns.feed.preview": "Preview in the feed",
-  "campaigns.poster.stale": "Some times on this poster are already booked. Make a new poster before you share it.",
+  "campaigns.poster.stale": "Some times on this poster are no longer available. Make a new poster before you share it.",
   "campaigns.poster.style": "Style",
   "campaigns.poster.photo": "Photo",
   "campaigns.poster.headline": "Big text",

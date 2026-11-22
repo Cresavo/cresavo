@@ -35,3 +35,16 @@ export function applyWarmth(pixels: Uint8ClampedArray, warmth: number): void {
     pixels[i + 2] = pixels[i + 2] * (1 - amount);
   }
 }
+
+/**
+ * Light and contrast in place on RGBA pixels, matching the canvas `brightness()` and `contrast()` filters,
+ * for browsers that ignore canvas filters (some Safari versions).
+ */
+export function applyLightContrast(pixels: Uint8ClampedArray, light: number, contrast: number): void {
+  const gain = 1 + clamp(light, TONE_RANGE.light) / 100;
+  const slope = 1 + clamp(contrast, TONE_RANGE.contrast) / 100;
+  if (gain === 1 && slope === 1) return;
+  for (let i = 0; i < pixels.length; i += 4) {
+    for (let c = i; c < i + 3; c++) pixels[c] = (pixels[c] * gain - 128) * slope + 128;
+  }
+}
