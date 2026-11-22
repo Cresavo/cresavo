@@ -17,6 +17,12 @@ function frameAncestors(pathname: string): string {
   return "'none'";
 }
 
+/** The X-Frame-Options value for older browsers, matching `frame-ancestors`: null where any site may frame the page (the widget). */
+export function frameOptions(pathname: string): "DENY" | "SAMEORIGIN" | null {
+  const ancestors = frameAncestors(pathname);
+  return ancestors === "*" ? null : ancestors === "'self'" ? "SAMEORIGIN" : "DENY";
+}
+
 export function createNonce(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);

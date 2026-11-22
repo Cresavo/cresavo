@@ -8,6 +8,7 @@ import { addressProof } from "../../scripts/client-address.mjs";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
 import { issuedAtToken } from "../../src/lib/public-issued-at";
+import { GUARD_PREFIXES } from "../../src/lib/owner-guard-keys";
 import { rateLimitDatabase, reserveRateLimit } from "../../src/lib/postgres-rate-limit";
 import { reserveTenantQuota } from "../../src/lib/rate-limit";
 import type { DemoAction } from "../../src/concept/actions";
@@ -252,12 +253,15 @@ describe("the salon's allowance and account flag, under the store's lock", () =>
   it("keeps the shared rate store within its 10,000 buckets when a salon's first reservation commits", async () => {
     const salon = await newSalon();
     const marker = `capacity-${run}`;
+    // Owner sign-in guard rows have their own cap and are outside this one, so only ordinary buckets count.
+    const ordinary = { NOT: GUARD_PREFIXES.map((prefix) => ({ key: { startsWith: prefix } })) };
+    const missing = 10000 - (await db.rateLimitBucket.count({ where: ordinary }));
     await db.$executeRawUnsafe(`INSERT INTO "RateLimitBucket" ("key", "generation", "count", "expiresAt")
-      SELECT '${marker}-' || g, 'g', 1, now() + interval '2 hours' FROM generate_series(1, 10000 - (SELECT count(*) FROM "RateLimitBucket")::int) g`);
+      SELECT '${marker}-' || g, 'g', 1, now() + interval '2 hours' FROM generate_series(1, ${Math.max(0, missing)}) g`);
     try {
-      expect((await db.rateLimitBucket.count())).toBeGreaterThanOrEqual(10000);
+      expect(await db.rateLimitBucket.count({ where: ordinary })).toBeGreaterThanOrEqual(10000);
       expect((await bookIn(salon, { start: 540 })).status).toBe(201);
-      expect(await db.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
+      expect(await db.rateLimitBucket.count({ where: ordinary })).toBeLessThanOrEqual(10000);
     } finally {
       await db.$executeRawUnsafe(`DELETE FROM "RateLimitBucket" WHERE "key" LIKE '${marker}-%'`);
     }
