@@ -67,6 +67,13 @@ of exact hosts that redirect to the Swedish site. It defaults to
 - New dependencies only when clearly needed, with a licence check
   (AGPL-3.0-only); say why in the commit message.
 
+## Product site design
+
+Before changing the product homepage or another public site page, read
+[`docs/design/SITE_RULES.md`](docs/design/SITE_RULES.md): the banned template
+tells, type and spacing, the quality floor and the screenshot check before
+you say done.
+
 ## Working method
 
 - Work happens in maintainer-approved tasks. See [CONTRIBUTING](CONTRIBUTING.md).
