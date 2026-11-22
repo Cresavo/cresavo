@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import Link from "next/link";
 import { cx } from "./cx";
 
-type Variant = "primary" | "secondary" | "tertiary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "tertiary" | "ghost" | "danger" | "link";
 type Size = "sm" | "md" | "lg";
 type Align = "center" | "start" | "between";
 type Width = "responsive";
@@ -23,6 +23,8 @@ const variants: Record<Variant, string> = {
   tertiary: "rounded-md text-text hover:bg-surface-2 active:bg-surface-2",
   ghost: "rounded-md text-text hover:bg-surface-2 active:bg-surface-2",
   danger: "rounded-md bg-surface text-danger ring-1 ring-inset ring-danger hover:bg-surface-2 active:bg-surface-2",
+  // A quiet action in running text: an underlined word with the full touch target and no frame or fill.
+  link: "rounded-md text-text underline decoration-text-secondary/50 decoration-1 underline-offset-4 hover:decoration-current",
 };
 const sizes: Record<Size, string> = {
   sm: "px-3 py-1 text-body",
@@ -31,7 +33,7 @@ const sizes: Record<Size, string> = {
 };
 
 export function buttonClass(variant: Variant = "primary", size: Size = "md", className?: string, align: Align = "center") {
-  return cx(base, alignment[align], variants[variant], sizes[size], className);
+  return cx(base, alignment[align], variants[variant], variant === "link" ? "text-body" : sizes[size], className);
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

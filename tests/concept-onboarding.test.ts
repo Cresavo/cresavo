@@ -172,6 +172,8 @@ describe("Today for a new salon", () => {
   it("shows the next five rows that have not ended, the day's last ones late in the day, or everything on request", () => {
     expect(scheduleRows(rows, 0)).toEqual(rows.slice(0, SCHEDULE_ROWS));
     expect(scheduleRows(rows, 11 * 60)).toEqual(rows.slice(2, 7));
+    // Three left at three o'clock: the two finished just before them fill the list.
+    expect(scheduleRows(rows, 15 * 60)).toEqual(rows.slice(4, 9));
     expect(scheduleRows(rows, 20 * 60)).toEqual(rows.slice(-SCHEDULE_ROWS));
     expect(scheduleRows(rows, 11 * 60, true)).toEqual(rows);
     expect(scheduleRows(rows.slice(0, 3), 0)).toHaveLength(3);

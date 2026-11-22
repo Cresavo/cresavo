@@ -60,7 +60,7 @@
   --space-8: 32px;
   --space-12: 48px;
   --touch-target: 44px;
-  --type-h1: clamp(1.875rem, 1.5rem + 1.25vw, 2.25rem);
+  --type-h1: 1.75rem;
   --type-h2: 1.25rem;
   --type-h3: 1rem;
   --type-body: 0.9375rem;

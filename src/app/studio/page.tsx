@@ -13,12 +13,13 @@ import { NeedsMoving } from "@/concept/studio/today/needs-moving";
 import { PageHeader } from "@/concept/studio/page-header";
 import { EveningSummary } from "@/concept/studio/today/evening-summary";
 import { Attention } from "@/concept/studio/today/attention";
-import { NextCustomer } from "@/concept/studio/today/next-customer";
+import { NextDayCustomer } from "@/concept/studio/today/next-customer";
 import { Timeline } from "@/concept/studio/today/timeline";
 import { TodayStats } from "@/concept/studio/today/today-stats";
 import { useStudio } from "@/concept/studio/use-studio";
 import { FirstSteps } from "@/concept/studio/onboarding/checklist";
-import { SalonEntry } from "@/concept/studio/onboarding/entry";
+import { SalonEntry, useDemoTour } from "@/concept/studio/onboarding/entry";
+import { DemoTour } from "@/concept/studio/onboarding/tour";
 import { Button, ButtonLink } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { EmptyState } from "@/concept/ui/empty-state";
@@ -43,6 +44,7 @@ export default function TodayPage() {
   const { state, today, minutes } = useStudio();
   const [sheet, setSheet] = useState<OpenSheet>(null);
   const role = useRole();
+  const tour = useDemoTour();
   const viewer = role === "staff" ? staffViewer(state) : null;
   const open = !!openingFor(state.salon, today);
   const off = !!viewer && !staffWorks(state, viewer.id, today);
@@ -64,15 +66,14 @@ export default function TodayPage() {
           </Button>
         }
       />
-      {role === "owner" && <>
-        {!state.industry && <SalonEntry today />}
-        {state.industry && <FirstSteps />}
-      </>}
-      {/* The next customer comes first, then the day's schedule. */}
-      {empty ? <EmptyState icon={<CalendarOff size={22} />} title={t("setup.empty.today")} action={<ButtonLink href={state.services.length ? "/studio/calendar" : "/studio/more/services"}>{t(state.services.length ? "nav.calendar" : "services.add")}</ButtonLink>} /> : <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_clamp(20rem,30vw,26rem)] lg:gap-8">
-        <div className="min-w-0 space-y-6">
-          <NextCustomer staffId={viewer?.id} onOpen={setSheet} />
-          {open && !viewer && hasRealBookings && <TodayStats />}
+      {role === "owner" && state.industry && <FirstSteps />}
+      {/* The day is the page: the schedule in the main column with the next customer inside it, and the morning
+          brief beside it on a wide screen. Spacing and a few hairlines group things; nothing sits in a card. */}
+      {empty ? <EmptyState icon={<CalendarOff size={22} />} title={t("setup.empty.today")} action={<ButtonLink href={state.services.length ? "/studio/calendar" : "/studio/more/services"}>{t(state.services.length ? "nav.calendar" : "services.add")}</ButtonLink>} /> : <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_clamp(18rem,28vw,24rem)] lg:gap-16">
+        <div className="flex min-w-0 flex-col gap-8">
+          {role === "owner" && !state.industry && tour.open && <DemoTour close={tour.close} />}
+          {/* On a phone the day comes first; the day's figures follow it. */}
+          {open && !viewer && hasRealBookings && <div className="max-lg:order-last"><TodayStats /></div>}
           <Section title={t("today.schedule")}>
             {!open ? (
               <DayStatus text={t("today.closed")} />
@@ -82,14 +83,15 @@ export default function TodayPage() {
               <Timeline date={today} staffId={viewer?.id} onOpen={setSheet} />
             )}
           </Section>
+          <NextDayCustomer staffId={viewer?.id} onOpen={setSheet} />
         </div>
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-8">
           <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
           {!viewer && hasRealBookings && <EveningSummary />}
           {!viewer && <Attention onOpen={setSheet} />}
         </div>
       </div>}
-      {state.industry && role === "owner" && <SalonEntry />}
+      {role === "owner" && (state.industry ? <SalonEntry /> : <SalonEntry onExplore={tour.start} exploreRef={tour.explore} />)}
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

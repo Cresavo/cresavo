@@ -16,6 +16,8 @@
 
 /* The highlight: apricot as a fill with dark ink, the same in both themes. Never as text on a light ground. */
 .studio-root {
+  /* Page titles are larger in the studio than the kit's app scale: about 30 px on a phone, 36 px on a wide screen. */
+  --type-h1: clamp(1.875rem, 1.5rem + 1.25vw, 2.25rem);
   --studio-highlight: #f2b184;
   --studio-highlight-text: #211820;
   --studio-elevation-card: 0 1px 2px light-dark(rgb(44 36 46 / 0.05), rgb(0 0 0 / 0.3)), 0 8px 24px light-dark(rgb(80 54 75 / 0.08), rgb(0 0 0 / 0.28));
