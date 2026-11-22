@@ -70,7 +70,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
           return (
             <li key={b.id} data-figure-row className={cx(isNext && "my-2 rounded-lg bg-surface")}>
               <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })} className={cx(ROW, isNext && "pt-3")}
-                leading={<span className={cx(TIME, isNext ? "font-semibold" : "text-text-secondary", quiet && "opacity-80")}>{formatTime(b.start)}</span>}
+                leading={<span className={cx(TIME, isNext ? "font-semibold" : "text-text-secondary")}>{formatTime(b.start)}</span>}
                 title={<span className={cx(isNext && "text-lg font-semibold tracking-tight", cancelled && "line-through", quiet && "font-normal text-text-secondary")}>{customer ? fullName(customer) : ""}</span>}
                 meta={<span className="flex items-center gap-2">
                   <StaffDot staffId={b.staffId} />
