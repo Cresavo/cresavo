@@ -19,7 +19,7 @@ import { demoPayments, sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "./customers/return-visits";
 import type { CostKind } from "./finance/types";
-import { isFree, needOf, pickResource } from "./data/slots";
+import { isFree, needOf, pickResource, timingOf } from "./data/slots";
 import { undoEntry } from "./log/undo";
 import { bookableServices, inboxItemVisible } from "./selectors";
 import { moduleById, moduleEnabled, moduleKeys, presetModules, type PresetId } from "./modules/registry";
@@ -51,6 +51,7 @@ import type {
   SlotSuggestion,
   StaffId,
   StockItem,
+  VisitTiming,
 } from "./data/types";
 
 // Every change to the demo goes through this pure reducer. Buttons use it
@@ -167,20 +168,29 @@ function createBooking(
   state: DemoState,
   input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource },
   protection?: BookingProtection,
+  /** The timing the slot was checked with; a paid hold keeps the one it reserved. */
+  timing?: VisitTiming,
 ): { state: DemoState; booking: Booking } | null {
   const service = state.services.find((s) => s.id === input.serviceId);
-  if (!service || !service.staffIds.includes(input.staffId) || !isFree(state, input.staffId, input.date, input.start, needOf(service))) return null;
+  if (!service || !service.staffIds.includes(input.staffId)) return null;
+  const need = { serviceId: service.id, duration: service.duration, ...(timing ?? timingOf(service)) };
+  if (!isFree(state, input.staffId, input.date, input.start, need)) return null;
   const taken = takenIds(state, "bookings");
   if (input.id && taken.has(input.id)) return null;
-  const id = input.id ?? freeId(taken, state.seq, "b");
   const booking: Booking = {
-    ...input,
-    id,
+    id: input.id ?? freeId(taken, state.seq, "b"),
+    customerId: input.customerId,
+    serviceId: service.id,
+    staffId: input.staffId,
+    date: input.date,
+    start: input.start,
+    source: input.source,
     protection: protection ?? { terms: { ...quote(state.cancellationPolicy, service, state.localization.currency, false), depositMinor: 0 } },
     duration: service.duration,
+    ...timingOf(need),
     price: protection ? Number(majorString({ amountMinor: protection.terms.priceMinor, currency: protection.terms.currency })) : service.price,
     status: "booked",
-    resourceId: pickResource(state, needOf(service), input.date, input.start),
+    resourceId: pickResource(state, need, input.date, input.start),
   };
   return { state: { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] }, booking };
 }
@@ -233,7 +243,7 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
   if (!terms.depositMinor) return state;
   const { guest, notice, staffId, date, start } = action;
   const hold = {
-    id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration,
+    id: `hold-${now}-${state.seq}`, guest, notice, staffId, date, start, terms, duration: service.duration, ...timingOf(service),
     resourceId: pickResource(state, needOf(service), date, start), serviceId: service.id, expiresAt: now + 10 * 60_000,
   };
   return { ...state, seq: state.seq + 1, checkoutHolds: [...state.checkoutHolds.filter(h => h.expiresAt > now), hold] };
@@ -244,17 +254,17 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
   if (!hold || !depositMethods(hold.terms.depositMinor, hold.terms.currency).includes(action.method)) return state;
   const service = bookableServices(state).find(s => s.id === hold.serviceId && s.staffIds.includes(hold.staffId));
   const released = { ...state, checkoutHolds: state.checkoutHolds.filter(h => h.id !== hold.id) };
-  if (!service || service.duration !== hold.duration || !isFree(released, hold.staffId, hold.date, hold.start, needOf(service))) return state;
+  if (!service || service.duration !== hold.duration || !isFree(released, hold.staffId, hold.date, hold.start, hold)) return state;
   const id = collect(`${state.salon.slug}-${hold.id}-${hold.expiresAt}`, hold.terms.depositMinor, hold.terms.currency, "deposit", action.method, payments);
   if (!id) return state;
   const clock = salonClock(new Date(now));
   const guest = { ...hold.guest, at: { date: clock.today, time: clock.minutes } };
-  return confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } });
+  return confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } }, timingOf(hold));
 }
 
-function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection): DemoState {
+function confirmOnline(state: DemoState, action: Omit<OnlineRequest, "type">, service: DemoState["services"][number], protection: BookingProtection, timing?: VisitTiming): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection);
+  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online" }, protection, timing);
   if (!created) return state;
   const bookingId = created.booking.id;
   const notified = reduce(created.state, {

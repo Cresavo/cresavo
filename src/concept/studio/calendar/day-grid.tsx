@@ -14,12 +14,12 @@ import { commitWithUndoToast } from "../log/commit-toast";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
+import { snapMinutes } from "./gap";
 import { calendarScale, HourLines, TimeAxis } from "./time-axis";
 
 const PX_PER_MIN = 1.25;
 const WARNING_BLOCK_HEIGHT = 64;
 
-const snap = (minutes: number) => Math.floor(minutes / 15) * 15;
 
 /** "3 bookings", or what is wrong when the person is not working but has bookings left. */
 function dayHeading(count: number, works: boolean) {
@@ -49,7 +49,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   );
   const height = (to - from) * scale;
   const minuteAt = (event: { clientY: number; currentTarget: Element }) =>
-    snap(from + (event.clientY - event.currentTarget.getBoundingClientRect().top) / scale);
+    snapMinutes(from + (event.clientY - event.currentTarget.getBoundingClientRect().top) / scale);
 
   const onColumnClick = (person: Staff) => (event: MouseEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
@@ -117,7 +117,9 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                     misfit={misfit}
                     top={(booking.start - from) * scale + 1}
                     height={booking.duration * scale - 2}
+                    scale={scale}
                     onOpen={() => onOpen({ kind: "booking", id: booking.id })}
+                    onGapOpen={(start) => onOpen({ kind: "new", preset: { staffId: person.id, date, start } })}
                   />
                 ))}
                 {date === today && minutes > from && minutes < to && (
