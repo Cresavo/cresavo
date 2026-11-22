@@ -8,6 +8,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-22
+
 ### Added
 
 - **What's new in the studio.** Help now has a "What's new" entry listing the latest releases (0.6.0 and 0.7.0 to start) in plain language, in English and Swedish, and an item can open the studio page it is about. A small dot on the Help button says there is something new until the list is opened; which version was seen is remembered per device in the browser only, and nothing is fetched. The list lives in `src/concept/whats-new.ts`, and `docs/RELEASING.md` has the release step that keeps it current.
