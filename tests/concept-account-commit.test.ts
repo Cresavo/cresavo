@@ -9,7 +9,9 @@ import type { DemoState } from "@/concept/data/types";
 
 const today = "2026-11-16";
 const date = "2026-12-07";
-const salon = (): DemoState => ({ ...createDemoState(today), industry: "other" });
+// Building the demo salon is slow, so it is built once and each test gets its own copy.
+const base: DemoState = { ...createDemoState(today), industry: "other" };
+const salon = (): DemoState => structuredClone(base);
 
 function storage() {
   const items = new Map<string, string>();
