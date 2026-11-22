@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Pause booking e-mail and reconcile the outbox (operators).** `CONCEPT_EMAIL_PAUSED=1` holds every booking e-mail: neither the `effects:drain` poller nor a web worker's drain after a commit claims one, so due e-mails stay pending without using an attempt and none becomes `failed` however long the pause lasts; unset it and they go out. Booking and the staging of e-mails are unchanged, and SMS and payments keep being delivered. `npm run effects:reconcile` lists `failed` and `uncertain` e-mails per tenant (id, kind, age, attempts, last error code, recipient's domain only, never a body or an address) and, only with `--apply` and for the `--tenant` named, retries a failed e-mail that never left (the same frozen message, link, sender and reply-to; one that may have left only with `--force-maybe-duplicate`) or settles an uncertain one as sent or not sent after a look at the provider's log. Each change runs under the row's lock, is idempotent and prints one JSON audit line. A failed attempt now keeps its error code on the e-mail's delivery record. The incident runbook recommends the pause instead of switching `CONCEPT_CONNECTIONS_LIVE` or the provider off. No migration.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

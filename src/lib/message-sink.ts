@@ -8,7 +8,7 @@ import type { EmailPort } from "../concept/connections/ports/email";
 import { simulatedEmail } from "../concept/connections/simulated/adapters";
 import { createOutbox, type DeliveryState } from "../concept/connections/simulated/outbox";
 import { productDomain } from "../concept/page/address";
-import type { EffectDelivery, EffectSink } from "../concept/store/effect-outbox";
+import { emailDeliveryPaused, type EffectDelivery, type EffectSink } from "../concept/store/effect-outbox";
 import { migrateSaved } from "../concept/store/studio-store";
 import { bookingLink, bookingLinkBase } from "./booking-link";
 
@@ -49,8 +49,8 @@ const SIMULATED_ON_PURPOSE = new Set<ResolutionReason>(["public-demo", "live-off
 const LINK_MARK = "__BOOKING_LINK__";
 /** Longest the dispatch transaction waits for the tenant's lock: an apply holds it for milliseconds. */
 const DISPATCH_LOCK_TIMEOUT = "3000ms";
-/** The frozen message and what it was made with, dropped once the effect is settled. */
-const SETTLED = { mail: null, link: null, from: null, replyTo: null } as const;
+/** The frozen message and what it was made with, and the last attempt's error code, dropped once the effect is settled. */
+const SETTLED = { mail: null, link: null, from: null, replyTo: null, lastError: null } as const;
 
 type BookingMessage = NonNullable<ReturnType<typeof parseMessageReference>>;
 type Registry = { resolve: (port: "email", business: string) => Promise<{ adapter: EmailPort; live: boolean; reason: ResolutionReason; account?: string }> };
@@ -74,6 +74,22 @@ interface Recipient {
   visit: Booking;
 }
 
+/** The address a booking's e-mail goes to: the one typed on a public booking; a visit the owner made falls back to the profile. */
+const addressOf = (booking: Booking | undefined, customer: Customer | undefined) =>
+  (booking?.publicRef ? booking.contactEmail : booking?.contactEmail || customer?.email || "")?.trim() ?? "";
+
+/**
+ * The address a stored booking e-mail is for, whatever became of the booking since, or undefined when the document
+ * no longer names one (an erased customer). For an operator's masked view only: never print it.
+ */
+export function messageAddress(doc: unknown, reference: string | undefined): string | undefined {
+  const message = reference ? parseMessageReference(reference) : undefined;
+  const state = message && migrateSaved(doc);
+  const booking = state?.bookings.find((b) => b.id === message!.bookingId);
+  const to = addressOf(booking, state?.customers.find((c) => c.id === booking?.customerId));
+  return isEmail(to) ? to : undefined;
+}
+
 /**
  * Who the message goes to, or undefined when there is nothing to send and nothing to retry: erased, cancelled
  * or without a usable address. A public booking goes to the address typed on it, never to a profile that
@@ -83,7 +99,7 @@ function recipientOf(doc: unknown, message: BookingMessage): Recipient | undefin
   const state = migrateSaved(doc);
   const booking = state?.bookings.find((b) => b.id === message.bookingId);
   const customer = state?.customers.find((c) => c.id === booking?.customerId);
-  const to = (booking?.publicRef ? booking.contactEmail : booking?.contactEmail || customer?.email || "")?.trim() ?? "";
+  const to = addressOf(booking, customer);
   // A cancellation is about a booking that is no longer booked and has no use for a link to manage it; a move
   // describes the move it was made for, so it still goes out when a later cancellation came first.
   const cancelled = message.kind === "cancellation";
@@ -157,6 +173,8 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     // An earlier attempt sent it and was only too slow to say so; or one already decided it fails and crashed before saying so.
     if (!message || kept?.sent) return;
     if (kept?.reason) return "failed";
+    // Paused by the operator (CONCEPT_EMAIL_PAUSED=1): a row claimed just before the switch waits, keeping its attempt.
+    if (emailDeliveryPaused()) return "deferred";
     const [row] = await prisma.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;
     const found = row && recipientOf(row.doc, message);
     if (!found) return "skipped";
