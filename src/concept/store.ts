@@ -21,6 +21,7 @@ import { getPack } from "./packs";
 import { newEpoch } from "./store/salon-tx";
 import { sameContent } from "./store/studio-store";
 import { useServerSalon } from "./server-salon";
+import { registerRecordSettledCheck } from "./account/settled";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -704,6 +705,8 @@ function namesProvisionalRecord(action: DemoAction): boolean {
 export function accountRecordSettled(collection: "bookings" | "log", id: string): boolean {
   return !accountBase || active !== "account" || accountBase[collection].some((record) => record.id === id);
 }
+
+registerRecordSettledCheck(accountRecordSettled);
 
 /**
  * Shows a signed-in owner's salon from the server and selects it. `onChange`
