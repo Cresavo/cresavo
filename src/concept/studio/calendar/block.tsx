@@ -57,13 +57,14 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         onClick={settled ? onOpen : undefined}
         aria-disabled={!settled || undefined}
         className={cx(
-          "h-full w-full !items-start overflow-hidden border-l-2 !px-1 !text-minimum",
+          "h-full w-full !items-start overflow-hidden border-l-2 !text-minimum",
+          compact ? "!px-1" : "!px-2",
           anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
           misfit && "ring-2 ring-danger",
         )}
       >
         <span className="min-w-0">
-          <span className="block truncate font-semibold">{compact ? (booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "") : visitorName(booking, customer)}</span>
+          <span className={cx("block truncate font-semibold", !compact && "text-meta")}>{compact ? (booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "") : visitorName(booking, customer)}</span>
           <span className="block truncate text-text-secondary">
             {formatTime(booking.start)}
             {!compact && ` · ${service?.name}`}

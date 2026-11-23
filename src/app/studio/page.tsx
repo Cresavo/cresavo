@@ -20,13 +20,23 @@ import { useStudio } from "@/concept/studio/use-studio";
 import { FirstSteps } from "@/concept/studio/onboarding/checklist";
 import { SalonEntry } from "@/concept/studio/onboarding/entry";
 import { Button, ButtonLink } from "@/concept/ui/button";
-import { Section } from "@/concept/ui/card";
+import { Card, Section } from "@/concept/ui/card";
 import { EmptyState } from "@/concept/ui/empty-state";
 
 function greeting(minutes: number, name?: string) {
   const part = minutes < 11 * 60 ? "morning" : minutes < 17 * 60 ? "afternoon" : "evening";
   // A new salon's owner may not have given a name; greet without one rather than with the salon's name.
   return name ? t(`today.greeting.${part}`, { name }) : t(`today.greeting.${part}.plain`);
+}
+
+/** One quiet line when there is no schedule to show; the header already says why. */
+function DayStatus({ text }: { text: string }) {
+  return (
+    <Card className="flex min-h-14 items-center gap-3 px-4 py-3 text-text-secondary">
+      <CalendarOff size={18} aria-hidden className="shrink-0" />
+      <p>{text}</p>
+    </Card>
+  );
 }
 
 export default function TodayPage() {
@@ -65,9 +75,9 @@ export default function TodayPage() {
           {open && !viewer && hasRealBookings && <TodayStats />}
           <Section title={t("today.schedule")}>
             {!open ? (
-              <EmptyState icon={<CalendarOff size={22} />} title={t("today.closed")} text={t("today.closedText")} />
+              <DayStatus text={t("today.closed")} />
             ) : off && count === 0 ? (
-              <EmptyState icon={<CalendarOff size={22} />} title={t("today.dayOff")} />
+              <DayStatus text={t("today.dayOff")} />
             ) : (
               <Timeline date={today} staffId={viewer?.id} onOpen={setSheet} />
             )}

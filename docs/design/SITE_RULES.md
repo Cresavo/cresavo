@@ -31,12 +31,32 @@ Calm, mobile first, less is more: only show what the visitor needs right now.
 
 ## Type and spacing
 
-- At most two type families. Today: Inter for everything, a monospace only for
-  the code line.
+- Two type families, each with one job:
+  - **Instrument Serif 400** (no other weight, no italic) for the display layer:
+    the hero `h1`, section `h2`s, the product moment `h3`s, the manifesto lines,
+    the founder's quote and the closing heading. Loaded in `src/pages/_app.tsx`
+    as `--font-display`; `font-synthesis: none`, never a faux bold.
+  - **Inter** for body text, buttons, navigation, small labels (the founder
+    heading, status and plan names, prices, FAQ questions) and every product
+    panel. The panels replicate the studio, so they stay in the studio's face.
+  - A monospace only for the code line.
+- Serif sizes (390 px → from 600 px, clamped to 1280 px): `h1` 56 → 64–92 px,
+  line-height 1.0; section `h2` 42 → 48–64 px, 1.04; moment `h3` 34 → 40 px and
+  up to 56 px on wide screens, 1.06; the booking headline 40 → 52 → 56–80 px;
+  closing 46 → 56–80 px; manifesto 36 → 44–64 px; quote 28 → 32–42 px, 1.2.
+  Tracking −0.01em (−0.015em on the largest), never the old −0.035em.
+- Never one word in a heading set in italics or a colour. No all-caps or
+  tracked-caps labels on the site (the product panels show the studio's own).
 - Spacing on a 4 px scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64 …).
-- Body text 16 px or larger (17 px on the homepage); nothing a visitor must
-  read below 13 px.
-- Headings tight (letter-spacing about −0.025em), body at line-height 1.5–1.6.
+- Body text 16 px or larger (17 px on the homepage) at line-height 1.5–1.6;
+  nothing a visitor must read below 13 px.
+
+## The product section
+
+Each moment in "From booking to chair" has its own layout (headline across the
+page, full-width screen, screen first with words under it, a closing band).
+Don't return to alternating text-and-screen rows or any zigzag; a new moment
+gets a form the others don't use.
 
 ## Quality floor
 
