@@ -108,7 +108,11 @@ function Overview({ state, now, customerId }: { state: DemoState; now: Now; cust
               return (
                 <div key={booking.id} className="p-4">
                   <div className="flex flex-wrap items-center gap-3">
-                    <ListRow className="flex-1 !px-0" title={service?.name} meta={`${formatDayLong(booking.date)} · ${formatMoney(booking.price)}`} />
+                    <ListRow className="flex-1 !px-0" title={service?.name}
+                      meta={<>
+                        {booking.visitFor && <span className="block font-medium text-text">{t("booking.for.visit", { name: booking.visitFor })}</span>}
+                        {formatDayLong(booking.date)} · {formatMoney(booking.price)}
+                      </>} />
                     <VisitLinks state={state} booking={booking} />
                   </div>
                   <ReviewForm state={state} booking={booking} now={now} />
@@ -129,6 +133,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
     <Card className="space-y-4 p-4">
       <ListRow className="!px-0" title={service?.name}
         meta={<>
+          {booking.visitFor && <span className="block font-medium text-text">{t("booking.for.visit", { name: booking.visitFor })}</span>}
           <span className="block">{formatDayLong(booking.date)}, {formatTime(booking.start)}</span>
           {person && <WithStaff people={[person]} />} · {formatDuration(booking.duration)} · {formatMoney(booking.price)}
         </>}

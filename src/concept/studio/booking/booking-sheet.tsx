@@ -58,10 +58,12 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId)!;
   const name = visitorName(booking, customer);
+  const firstName = booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "";
   const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
   const finished = booking.status === "booked" && !upcoming;
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
-  const lastJournal = state.modules.journal
+  // A visit booked for someone else: the note, the advice and the journal are the booker's, not the visitor's.
+  const lastJournal = state.modules.journal && !booking.visitFor
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
@@ -72,7 +74,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 
   const markDone = () => run(async () => {
     const usesStock = state.modules.stock && !!service?.consumption?.length;
-    const first = customer?.firstName ?? "";
+    const first = firstName;
     const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
     if (await commit({ type: "booking/complete", id: booking.id }, message)) onClose();
     else report("booking.completeFailed");
@@ -80,7 +82,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 
   const confirmMove = () => run(async () => {
     if (!slot) return;
-    const message = t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
+    const message = t("booking.movedToast", { name: firstName, when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
     if (await commit({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message)) onClose();
     else report("booking.move.failed");
   });
@@ -252,7 +254,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         {(booking.contactEmail || (booking.status === "cancelled" && booking.cancelReason)) && (
           <EditBookingContact booking={booking} save={(patch) => commit({ type: "booking/update", id: booking.id, patch }, t("booking.contact.saved"))} />
         )}
-        {customer?.note && (
+        {customer?.note && !booking.visitFor && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
             {customer.note}

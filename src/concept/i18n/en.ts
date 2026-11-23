@@ -934,6 +934,7 @@ const messages = {
   "next.lastVisit": "Last {ago}",
   "next.lastAdvice": "Last advice:",
   "next.call": "Call",
+  "next.callContact": "Call the contact",
   "next.profile": "Profile",
 
   "suggest.dismiss": "Dismiss suggestion",

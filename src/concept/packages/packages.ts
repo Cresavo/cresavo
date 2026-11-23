@@ -18,10 +18,13 @@ export function activePackage(state: DemoState, customerId: string, serviceId: s
   return state.packages.find((p) => p.customerId === customerId && p.serviceId === serviceId && visitsLeft(p) > 0);
 }
 
-/** The package a booking that is not done yet would use. */
-/** An existing gift-card payment takes precedence over using a package visit. */
+/**
+ * The package a booking that is not done yet would use. An existing gift-card
+ * payment takes precedence over using a package visit, and a visit booked for
+ * someone else never uses the booker's package: it is theirs, not the visitor's.
+ */
 export const packageFor = (state: DemoState, booking: Booking) =>
-  booking.status === "booked" && !booking.protection?.deposit && paidWithCards(state, booking.id) === 0
+  booking.status === "booked" && !booking.visitFor && !booking.protection?.deposit && paidWithCards(state, booking.id) === 0
     ? activePackage(state, booking.customerId, booking.serviceId)
     : undefined;
 

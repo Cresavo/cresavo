@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 import { Checkbox, Field, Segmented, TextInput } from "../ui/controls";
 import { isMobilePhone } from "./lookup";
-import { VISIT_FOR_MAX } from "./visit-for";
+import { GUEST_NAME_MAX, GUEST_PHONE_MAX, VISIT_FOR_MAX, withinGuestLimits } from "./visit-for";
 
 export interface GuestInput {
   name: string;
@@ -9,7 +9,7 @@ export interface GuestInput {
 }
 
 export function isGuestValid({ name, phone }: GuestInput): boolean {
-  return name.trim().length >= 2 && isMobilePhone(phone);
+  return name.trim().length >= 2 && withinGuestLimits({ name, phone }) && isMobilePhone(phone);
 }
 
 /** Name and mobile number: the only things a first-time booker has to type. */
@@ -17,10 +17,10 @@ export function GuestFields({ value, onChange, staffEntry = false, disabled = fa
   return (
     <div className="space-y-4">
       <Field label={t(staffEntry ? "newBooking.customerName" : "booking.yourName")}>
-        <TextInput required={!staffEntry} disabled={disabled} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" placeholder={t("booking.namePlaceholder")} />
+        <TextInput required={!staffEntry} disabled={disabled} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" maxLength={GUEST_NAME_MAX} placeholder={t("booking.namePlaceholder")} />
       </Field>
       <Field label={t(staffEntry ? "newBooking.customerPhone" : "booking.yourPhone")} hint={staffEntry ? undefined : t("booking.phoneHint")}>
-        <TextInput required={!staffEntry} disabled={disabled} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" placeholder={t("booking.phonePlaceholder")} />
+        <TextInput required={!staffEntry} disabled={disabled} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" maxLength={GUEST_PHONE_MAX} placeholder={t("booking.phonePlaceholder")} />
       </Field>
     </div>
   );

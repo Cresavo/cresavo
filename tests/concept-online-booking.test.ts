@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAX_UPCOMING_ONLINE_PER_PHONE, reduce, type DemoAction, type OnlineGuest } from "@/concept/actions";
 import { bookingMessage } from "@/concept/booking/messages";
 import { acceptedTerms } from "@/concept/booking/public-terms";
-import { VISIT_FOR_MAX } from "@/concept/booking/visit-for";
+import { GUEST_NAME_MAX, GUEST_PHONE_MAX, VISIT_FOR_MAX } from "@/concept/booking/visit-for";
 import { PUBLIC_WINDOW_DAYS } from "@/concept/booking/public-projection";
 import { eraseCustomer } from "@/concept/customers/erase";
 import { addDays } from "@/concept/data/dates";
@@ -68,14 +68,30 @@ describe("online/book for someone else", () => {
     expect(bookingMessage(next, booking, "reminder").body).toContain("Elsa Berg");
   });
 
-  it("stores no guest for a booking for oneself, also when the booker repeats their own name", () => {
+  it("stores no guest for a booking for oneself, and keeps a guest who shares the booker's name", () => {
     expect(reduce(state, book(date, startOn(date))).bookings.at(-1)).not.toHaveProperty("visitFor");
-    expect(reduce(state, book(date, startOn(date), { visitFor: "lisa berg" })).bookings.at(-1)).not.toHaveProperty("visitFor");
+    expect(reduce(state, book(date, startOn(date), { visitFor: "lisa berg" })).bookings.at(-1)!.visitFor).toBe("lisa berg");
   });
 
-  it("refuses a name that is too short or too long", () => {
+  it("refuses a name that is too short, too long or does not show", () => {
     expect(reduce(state, book(date, startOn(date), { visitFor: " E " }))).toBe(state);
     expect(reduce(state, book(date, startOn(date), { visitFor: "E".repeat(VISIT_FOR_MAX + 1) }))).toBe(state);
+    // Two directional marks are two characters but an empty calendar row; an override could reorder the text around it.
+    expect(reduce(state, book(date, startOn(date), { visitFor: "\u200E\u200F" }))).toBe(state);
+    expect(reduce(state, book(date, startOn(date), { visitFor: "Elsa\u202EBerg" }))).toBe(state);
+    expect(reduce(state, book(date, startOn(date), { visitFor: "Elsa\u0007Berg" }))).toBe(state);
+    expect(reduce(state, book(date, startOn(date), { visitFor: "\u0633\u0627\u0631\u0629 \u0623\u062D\u0645\u062F" })).bookings.at(-1)!.visitFor).toBe("\u0633\u0627\u0631\u0629 \u0623\u062D\u0645\u062F");
+  });
+
+  it("refuses a contact name or phone beyond the form's limits, for a booking and for the waiting list", () => {
+    const long = { name: "L".repeat(GUEST_NAME_MAX + 1) };
+    const padded = { phone: `073-555 01 02${" ".repeat(4)}${"0".repeat(GUEST_PHONE_MAX)}` };
+    expect(reduce(state, book(date, startOn(date), long))).toBe(state);
+    expect(reduce(state, book(date, startOn(date), padded))).toBe(state);
+    expect(reduce(state, book(date, startOn(date), { name: "L".repeat(GUEST_NAME_MAX) }))).not.toBe(state);
+    const wait = (over: Partial<OnlineGuest>): DemoAction => ({ type: "online/waitlist", guest: { ...guest, ...over }, notice, serviceId: "medical-foot-care" });
+    expect(reduce(state, wait(long))).toBe(state);
+    expect(reduce(state, wait({}))).not.toBe(state);
   });
 
   it("is refused from a salon's public page, whose erasure does not cover the name yet", () => {

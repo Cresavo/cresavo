@@ -918,6 +918,7 @@ const messages = {
   "next.lastVisit": "Senast {ago}",
   "next.lastAdvice": "Senaste rådet:",
   "next.call": "Ring",
+  "next.callContact": "Ring kontaktpersonen",
   "next.profile": "Profil",
   "suggest.dismiss": "Dölj förslaget",
   "suggest.more": "Visa {count} förslag till|Visa {count} förslag till",

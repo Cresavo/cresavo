@@ -117,6 +117,45 @@ test("a customer books for someone else and the studio shows the guest and the c
   await expect(sheet.getByRole("link", { name: /070-000 99 13/ })).toBeVisible();
 });
 
+test("a visit for someone else names the visitor to the booker and keeps the booker's notes out of the visit", async ({ page }) => {
+  await page.goto("/boka/salong-eko");
+  const before = await state(page);
+  // A regular with a note and journal advice books for a child: neither describes the child.
+  const contact = before.customers.find(c => c.note && /^07/.test(c.phone) && before.journals.some(j => j.customerId === c.id && j.advice))!;
+  expect(contact).toBeTruthy();
+  const ask = page.getByRole("textbox", { name: /What would you like to book/ });
+  await ask.fill("Foot care day after tomorrow with Anna");
+  await ask.press("Enter");
+  await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+  await page.getByRole("radiogroup", { name: "Who is the visit for?" }).getByRole("radio", { name: "For someone else" }).click();
+  // The form holds no more than a public page accepts.
+  await expect(page.getByLabel("Your name", { exact: true })).toHaveAttribute("maxlength", "80");
+  await expect(page.getByLabel("Mobile number")).toHaveAttribute("maxlength", "20");
+  await page.getByLabel("Your name", { exact: true }).fill(fullName(contact));
+  await page.getByLabel("Mobile number").fill(contact.phone);
+  await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
+  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  const booking = (await state(page)).bookings.at(-1)!;
+  expect(booking).toMatchObject({ customerId: contact.id, visitFor: "Elsa Demo" });
+
+  await page.goto(`/boka/salong-eko/me?ref=${contact.id}`);
+  await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel booking", exact: true }).first().click();
+  const cancel = page.getByRole("dialog");
+  await expect(cancel.getByText(/Visit for Elsa Demo\./)).toBeVisible();
+  await cancel.getByRole("button", { name: "Keep booking" }).click();
+
+  await page.goto(`/studio/customers/${contact.id}`);
+  await page.getByRole("button", { name: /Visit for Elsa Demo/ }).first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: "Elsa Demo" })).toBeVisible();
+  await expect(sheet.getByText("Booked by")).toBeVisible();
+  await expect(sheet.getByText(fullName(contact))).toBeVisible();
+  await expect(sheet.getByText(contact.note!)).toHaveCount(0);
+  await expect(sheet.getByText("Advice last visit")).toHaveCount(0);
+});
+
 test("the owner moves a booking with a quick command and undoes it", async ({ page }) => {
   await page.goto("/studio");
   const { booking, date, start } = moveTarget(await state(page));
