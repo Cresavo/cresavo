@@ -8,7 +8,7 @@ import { CORNERS, FONT_PAIR_IDS, PALETTES, PALETTE_IDS, PHOTO_IDS, type PageThem
 import { Button } from "../../ui/button";
 import { Chip, Input, Segmented } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
-import { uploadable, uploadPicture } from "../../media/library-client";
+import { currentSession, uploadable, uploadPicture } from "../../media/library-client";
 import { useActiveWorkspace } from "../../store";
 import { readLogo } from "./read-logo";
 
@@ -59,6 +59,7 @@ function LogoField({ theme, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const pick = async (file: File | undefined) => {
     if (!file) return;
+    const bound = account ? await currentSession() : null;
     const source = account ? await uploadable(file) : file;
     if (!(source instanceof Blob)) return showToast(t(source.error));
     // The small copy also gives the colours offered as accents.
@@ -66,7 +67,7 @@ function LogoField({ theme, onChange }: Props) {
     if (!small) return showToast(t("pageEditor.logo.failed"));
     if (!account) return onChange(small);
     setBusy(true);
-    const answer = await uploadPicture(file, "logo");
+    const answer = await uploadPicture(file, "logo", bound);
     setBusy(false);
     if (!answer.ok) return showToast(t(answer.error));
     if (answer.asset.publicUrl) onChange({ logo: answer.asset.publicUrl, logoColors: small.logoColors });

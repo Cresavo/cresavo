@@ -701,6 +701,7 @@ const messages = {
   "photos.error.busy": "Fotot sparas fortfarande. Försök igen om en stund.",
   "photos.error.logoInline": "Ladda upp logotypen igen: den sparas nu med dina foton.",
   "photos.error.logoUnknown": "Logotypen finns inte längre i ditt fotobibliotek. Ladda upp den igen.",
+  "photos.error.sessionChanged": "Du loggade in eller ut under tiden, så fotona lades inte till. Välj dem igen.",
   "photos.error.restore": "Fotot gick inte att få tillbaka.",
   "photos.error.failed": "Det fungerade inte. Kontrollera anslutningen och försök igen.",
   "campaigns.photo.library": "Ditt foto {number}",

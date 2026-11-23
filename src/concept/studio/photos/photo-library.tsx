@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { ImagePlus, Images, Megaphone, Trash2 } from "lucide-react";
 import { MAX_PHOTOS } from "@/lib/media/limits";
-import { deletePicture, describePicture, photosOf, restorePicture, uploadPicture, useLibrary, type MediaSummary } from "../../media/library-client";
+import { currentSession, deletePicture, describePicture, photosOf, restorePicture, uploadPicture, useLibrary, type MediaSummary } from "../../media/library-client";
 import { t, tc } from "../../i18n";
 import { moduleEnabled } from "../../modules/registry";
 import { PHOTOS, type PhotoId } from "../../page/theme";
@@ -54,9 +54,11 @@ function AccountLibrary() {
 
   const add = async (files: File[]) => {
     setBusy(files.length);
+    // The whole batch belongs to the session it was picked in.
+    const bound = await currentSession();
     let added = 0;
     for (const file of files) {
-      const answer = await uploadPicture(file);
+      const answer = await uploadPicture(file, "photo", bound);
       setBusy((left) => left - 1);
       if (answer.ok) added += answer.deduped ? 0 : 1;
       else showToast(t(answer.error));

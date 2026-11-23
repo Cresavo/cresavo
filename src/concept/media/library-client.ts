@@ -2,8 +2,9 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import type { MediaSummary } from "@/lib/media/library";
-import { MAX_MEDIA_BYTES, type MediaKind } from "@/lib/media/limits";
+import { MAX_MEDIA_BYTES, UPLOAD_SESSION_HEADER, type MediaKind } from "@/lib/media/limits";
 import type { MessageKey } from "../i18n";
+import { onSessionSignal, signalSessionChange } from "../account/session-signal";
 import { onAccountChange } from "../store";
 
 // The signed-in owner's photo library in the browser: one shared list for the Photos page, the logo field and
@@ -39,7 +40,35 @@ function newSession(key: string | null) {
   resetters.forEach((reset) => reset());
   emit();
 }
-if (typeof window !== "undefined") onAccountChange(() => newSession(null));
+if (typeof window !== "undefined") {
+  // This tab opened or closed an account salon: start over, and tell the other tabs.
+  onAccountChange(() => { newSession(null); signalSessionChange(); });
+  // Another tab signed in, out or switched accounts, or this tab comes back after a while: start over if the session is not the one cached.
+  onSessionSignal(() => newSession(null));
+  window.addEventListener("focus", () => { if (session !== null) void checkSession(); });
+}
+
+/** Asks the server which session the cookie holds now; a different one starts a new generation. */
+async function checkSession(): Promise<string | null> {
+  const asked = generation;
+  try {
+    const response = await fetch("/api/owner/me", { credentials: "same-origin" });
+    const key = response.ok ? ((await response.json()) as { session?: unknown }).session : null;
+    if (asked !== generation) return null;
+    if (typeof key !== "string") {
+      if (session !== null) newSession(null);
+      return null;
+    }
+    return answeredFor(key, asked) ? key : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The session uploads are bound to: the cached one, or the server's answer. Null when signed out. */
+export async function currentSession(): Promise<string | null> {
+  return session ?? checkSession();
+}
 
 /** The current session generation; a result fetched under an older one must be dropped. */
 export const sessionGeneration = () => generation;
@@ -96,7 +125,7 @@ export const photosOf = (list: MediaSummary[] | null) => (list ?? []).filter((it
 const ERRORS: Record<string, MessageKey> = {
   heic: "photos.error.heic", unsupported: "photos.error.unsupported", corrupt: "photos.error.corrupt", too_many_pixels: "photos.error.tooBig",
   too_large: "photos.error.tooBig", animated: "photos.error.animated", busy: "photos.error.busy", photo_limit: "photos.error.photoLimit", storage_limit: "photos.error.storageLimit",
-  signed_out: "photos.error.signedOut", mfa_required: "photos.error.signedOut",
+  signed_out: "photos.error.signedOut", mfa_required: "photos.error.signedOut", session_changed: "photos.error.sessionChanged",
 };
 const errorOf = (code: unknown, status: number): MessageKey => (status === 429 ? "photos.error.rateLimited" : ERRORS[String(code)] ?? "photos.error.failed");
 
@@ -132,15 +161,27 @@ export async function uploadable(file: File): Promise<Blob | { error: MessageKey
 
 export type UploadAnswer = { ok: true; asset: MediaSummary; deduped: boolean } | { ok: false; error: MessageKey };
 
-/** Uploads one picked file to the library; a new logo replaces the old one. */
-export async function uploadPicture(file: File, kind: MediaKind = "photo"): Promise<UploadAnswer> {
+/**
+ * Uploads one picked file to the library, for the session `bound` names: the one the files were picked in
+ * (`currentSession()` at the moment of picking). The server refuses it for any other session, so a batch
+ * that outlives a sign-out or an account switch never lands in another account. A new logo replaces the
+ * unsaved one.
+ */
+export async function uploadPicture(file: File, kind: MediaKind, bound: string | null): Promise<UploadAnswer> {
+  if (!bound) return { ok: false, error: "photos.error.signedOut" };
+  const asked = generation;
   const body = await uploadable(file);
   if ("error" in body) return { ok: false, error: body.error };
-  const asked = generation;
+  if (asked !== generation || (session !== null && session !== bound)) return { ok: false, error: "photos.error.sessionChanged" };
   try {
-    const response = await fetch(`${API}?kind=${kind}`, { method: "POST", credentials: "same-origin", headers: { "content-type": body.type || "application/octet-stream" }, body });
+    const response = await fetch(`${API}?kind=${kind}`, {
+      method: "POST", credentials: "same-origin", headers: { "content-type": body.type || "application/octet-stream", [UPLOAD_SESSION_HEADER]: bound }, body,
+    });
     const answer = await response.json().catch(() => ({}));
-    if (!response.ok) return { ok: false, error: errorOf(answer.error, response.status) };
+    if (!response.ok) {
+      if (answer.error === "session_changed") void checkSession();
+      return { ok: false, error: errorOf(answer.error, response.status) };
+    }
     if (!answeredFor(answer.session, asked)) return { ok: false, error: "photos.error.signedOut" };
     const asset = answer.asset as MediaSummary;
     set([asset, ...(items ?? []).filter((item) => item.id !== asset.id && !(kind === "logo" && item.kind === "logo"))], asked);

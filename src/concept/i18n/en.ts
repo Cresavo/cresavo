@@ -704,6 +704,7 @@ const messages = {
   "photos.error.busy": "That photo is still being saved. Try again in a moment.",
   "photos.error.logoInline": "Upload the logo again: it is now kept with your photos.",
   "photos.error.logoUnknown": "That logo is no longer in your photo library. Upload it again.",
+  "photos.error.sessionChanged": "You signed in or out in the meantime, so these photos were not added. Pick them again.",
   "photos.error.restore": "The photo could not be brought back.",
   "photos.error.failed": "That did not work. Check the connection and try again.",
   "campaigns.photo.library": "Your photo {number}",
