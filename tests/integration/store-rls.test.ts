@@ -20,6 +20,7 @@ import {
 } from "@/concept/store/store-sweepers";
 import { enterScope, inScope, OUTBOX_SCOPE, scoped, SWEEP_SCOPE, type StoreScope } from "@/concept/store/tenant-scope";
 import { messageSink } from "@/lib/message-sink";
+import { messageReference } from "@/concept/booking/messages";
 import { createOwnerAccount } from "@/lib/owner-accounts";
 import { findSalonTenant, loadPublicTenant } from "@/lib/public-booking";
 import { createDatabaseClient } from "../../scripts/database.mjs";
@@ -399,15 +400,17 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     expect(await lookup({ sandboxKey: "sbx" })).toEqual([]);
     expect(await attempt(app, { sandboxKey: key }, `UPDATE tenant_state SET version = version WHERE tenant_id = '${loaded!.tenantId}'`)).toBe(0);
 
-    // Sign-up writes its salon in its own scope; the address scope finds exactly that salon, read only.
+    // Sign-up writes its salon in its own scope; an address resolves to its tenant id and nothing of its row.
     const signup = await createOwnerAccount({ email: `owner-${run}@example.test`, password: randomBytes(16).toString("hex"), salonName: `Rls ${run}`, language: "en" });
     if (!signup.ok) throw new Error(`signup refused: ${signup.reason}`);
     createdTenants.push(signup.tenantId);
     const slug = (await store.load(signup.tenantId))!.state.salon.slug;
     expect(await findSalonTenant(slug)).toBe(signup.tenantId);
     expect(await loadPublicTenant(slug)).toMatchObject({ tenantId: signup.tenantId });
-    expect(await lookup({ salonSlug: slug })).toEqual([{ tenant_id: signup.tenantId }]);
-    expect(await attempt(app, { salonSlug: slug }, `UPDATE tenant_state SET version = version`)).toBe(0);
+    expect(await app.$queryRaw`SELECT store_salon_by_slug(${slug}) AS t`).toEqual([{ t: signup.tenantId }]);
+    // The address alone shows nothing of the row: without the tenant's scope the salon stays invisible.
+    expect(await app.$queryRaw`SELECT count(*)::int AS n FROM tenant_state WHERE tenant_id = ${signup.tenantId}`).toEqual([{ n: 0 }]);
+    await expect(outbox.$queryRaw`SELECT store_salon_by_slug(${slug}) AS t`).rejects.toThrow(/permission denied/);
     expect(await findSalonTenant(`${slug}-none`)).toBeNull();
     store.close();
   });
@@ -454,33 +457,57 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
       for (const table of STORE) await expect(call(outbox, scope, `SELECT count(tenant_id) FROM ${table}`), table).rejects.toThrow(/permission denied/);
       expect(await attempt(outbox, scope, `UPDATE tenant_effect SET attempts = attempts WHERE tenant_id = '${B}'`)).toBe("denied");
     }
-    // A due message of salon B: the web login claims nothing in the outbox scope, the sweeper may not call the claim.
+    // A due message of salon B about one of its bookings: the web login claims nothing in the outbox scope, the sweeper
+    // may not call the claim.
+    const { state: salonB } = depositState(B);
+    const target = salonB.bookings.find((b) => salonB.customers.some((c) => c.id === b.customerId))!;
     await admin.$executeRaw`
       INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, next_attempt_at)
-      VALUES (${B}, 3, 0, ${`${PREFIX}-due`}, 'f', 'message', ${JSON.stringify({ port: "email", body: "Fictional", to: "customer:c-1", reference: "bk-1-confirmation-email-1" })}::jsonb,
+      VALUES (${B}, 3, 0, ${`${PREFIX}-due`}, 'f', 'message',
+              ${JSON.stringify({ port: "email", body: "Fictional", to: `customer:${target.customerId}`, reference: messageReference(target, "confirmation", "email") })}::jsonb,
               now() - interval '1 hour')`;
-    const claim = `SELECT id, attempts FROM store_outbox_claim(now(), 60000, 60000, ARRAY['${B}'], NULL, false)`;
+    const claim = `SELECT id, attempts, claim_token FROM store_outbox_claim(now(), 60000, 60000, ARRAY['${B}'], NULL, false)`;
     expect(await call(app, OUTBOX_SCOPE, claim)).toEqual([]);
     await expect(call(sweeper, OUTBOX_SCOPE, claim)).rejects.toThrow(/permission denied/);
-    // The poller claims it; with that claim it sees the salon only through the message view, and only for the booking
-    // the message names.
-    expect(await call(outbox, OUTBOX_SCOPE, claim)).toEqual([{ id: `${PREFIX}-due`, attempts: 1 }]);
-    const [{ view }] = await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_message_view('${PREFIX}-due', 1, 'bk-1', false) AS view`);
-    const doc = view as { customers: unknown[]; bookings: unknown[]; journals: unknown[]; inbox: unknown[]; log: unknown[]; salon: object; services: unknown[] };
-    expect(doc.salon).toBeTruthy();
-    expect(doc.services.length).toBeGreaterThan(0);
-    for (const list of [doc.customers, doc.bookings, doc.journals, doc.inbox, doc.log]) expect(list).toEqual([]);
-    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_message_view('${PREFIX}-due', 1, 'other', false) AS view`)).toEqual([{ view: null }]);
-    // Without a claim (attempt 0) or for a row it does not hold, nothing changes.
+    // The poller claims it and gets a random token; only with that token does it see the salon, as the message view.
+    const [claimed] = await call(outbox, OUTBOX_SCOPE, claim);
+    expect(claimed).toMatchObject({ id: `${PREFIX}-due`, attempts: 1 });
+    const token = claimed.claim_token as string;
+    expect(token).toMatch(/^[0-9a-f-]{36}$/);
+    const view = async (claimToken: string) => (await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_message_view('${PREFIX}-due', '${claimToken}', false) AS view`))[0].view;
+    expect(await view(randomUUID())).toBeNull();
+    const doc = (await view(token)) as Record<string, unknown> & {
+      salon: Record<string, unknown>; bookings: Array<{ id: string }>; customers: Array<Record<string, unknown>>; staff: Array<Record<string, unknown>>;
+      exceptions: unknown[]; journals?: unknown; inbox: unknown[]; log: unknown[];
+    };
+    // Exactly the booking the stored reference names, its customer's first name and contact, the staff's first name.
+    expect(doc.bookings.map((b) => b.id)).toEqual([target.id]);
+    expect(doc.customers.map((c) => c.id)).toEqual([target.customerId]);
+    for (const customer of doc.customers) expect(Object.keys(customer).every((k) => ["id", "firstName", "email", "phone"].includes(k))).toBe(true);
+    for (const member of doc.staff) expect(Object.keys(member).every((k) => ["id", "firstName", "name"].includes(k))).toBe(true);
+    expect(Object.keys(doc.salon).every((k) => ["name", "address", "phone", "email", "slug"].includes(k))).toBe(true);
+    for (const list of [doc.exceptions, doc.inbox, doc.log]) expect(list).toEqual([]);
+    expect(doc.journals).toBeUndefined();
+    // Without the current token, nothing is read or changed.
+    const other = randomUUID();
     for (const sql of [
-      `SELECT store_outbox_note('${PREFIX}-waiting', 0, '{"x": 1}') AS r`,
-      `SELECT store_outbox_skip('${PREFIX}-waiting', 0, now()) AS r`,
-      `SELECT store_outbox_delivered('${PREFIX}-settled', 1, now(), NULL) AS r`,
-      `SELECT store_outbox_freeze('${PREFIX}-waiting', 0, '{"from": "x"}') AS r`,
-    ]) expect(await call(outbox, OUTBOX_SCOPE, sql), sql).toEqual([{ r: sql.includes("freeze") ? null : 0 }]);
-    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_fail('${PREFIX}-waiting', 0, '{}', '{}', false, true, now()) AS r`)).toEqual([{ r: null }]);
-    // Its own claim it can settle.
-    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_skip('${PREFIX}-due', 1, now()) AS r`)).toEqual([{ r: 1 }]);
+      `SELECT store_outbox_note('${PREFIX}-due', '${other}', 'uncertain', true, false) AS r`,
+      `SELECT store_outbox_skip('${PREFIX}-due', '${other}') AS r`,
+      `SELECT store_outbox_release('${PREFIX}-due', '${other}', true) AS r`,
+      `SELECT store_outbox_dispatch('${PREFIX}-due', '${other}', 'resend', NULL, 1) AS r`,
+    ]) expect(await call(outbox, OUTBOX_SCOPE, sql), sql).toEqual([{ r: 0 }]);
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_delivered('${PREFIX}-due', '${other}', true) AS r`)).toEqual([{ r: null }]);
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_fail('${PREFIX}-due', '${other}', now(), now(), false, true, false, NULL, false, false) AS r`)).toEqual([{ r: null }]);
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_freeze('${PREFIX}-due', '${other}', 1, 's', 't', 'h', 'f', NULL, 'https://evil.example.test/x', 1) AS r`)).toEqual([{ r: null }]);
+    // A reason must look like a code: free text is refused even under the right token.
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_note('${PREFIX}-due', '${token}', 'Free text with a name', true, false) AS r`)).toEqual([{ r: 0 }]);
+    // A delivered row that never was claimed cannot be touched with a made-up token.
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_delivered('${PREFIX}-settled', '${other}', true) AS r`)).toEqual([{ r: null }]);
+    // Its own claim it can settle once; afterwards the token is spent: no read, no second write.
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_skip('${PREFIX}-due', '${token}') AS r`)).toEqual([{ r: 1 }]);
+    expect(await view(token)).toBeNull();
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_delivered('${PREFIX}-due', '${token}', true) AS r`)).toEqual([{ r: null }]);
+    expect(await admin.$queryRaw`SELECT status, claim_token FROM tenant_effect WHERE id = ${`${PREFIX}-due`}`).toEqual([{ status: "delivered", claim_token: null }]);
     expect(await admin.$queryRaw`SELECT status, payload ->> 'body' AS body FROM tenant_effect WHERE id = ${`${PREFIX}-waiting`}`)
       .toEqual([{ status: "pending", body: "Fictional body" }]);
   });
@@ -524,6 +551,18 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     await expect(sweepCall(sweeper, { tenant: B }, `SELECT store_sweep_idempotency(now(), 10) AS n`)).rejects.toThrow(/sweep scope/);
     await expect(sweepCall(app, SWEEP_SCOPE, `SELECT store_sweep_idempotency(now(), 10) AS n`)).rejects.toThrow(/permission denied/);
     await expect(sweepCall(outbox, SWEEP_SCOPE, `SELECT store_sweep_sandboxes(now(), 10) AS n`)).rejects.toThrow(/permission denied/);
+    // A fresh session without the scope, and a missing or unbounded batch, are refused.
+    await expect(sweeper.$queryRawUnsafe(`SELECT store_sweep_idempotency(now(), 10) AS n`)).rejects.toThrow(/sweep scope/);
+    for (const limit of ["NULL", "0", "100000"]) {
+      await expect(sweepCall(sweeper, SWEEP_SCOPE, `SELECT store_sweep_idempotency(now(), ${limit}) AS n`), limit).rejects.toThrow(/between 1 and 10000/);
+    }
+    // The rate-limit table: no direct grant, and an active lock-out is never removed, whatever clock is passed.
+    expect(await attempt(sweeper, SWEEP_SCOPE, `DELETE FROM "RateLimitBucket" WHERE "key" = 'lock:${PREFIX}'`)).toBe("denied");
+    await admin.$executeRaw`INSERT INTO "RateLimitBucket" ("key", "generation", "count", "expiresAt") VALUES (${`lock:${PREFIX}`}, 'g', 1, now() + interval '1 hour'),
+      (${`acct:${PREFIX}`}, 'g', 1, now() - interval '1 minute')`;
+    expect(await sweepCall(sweeper, SWEEP_SCOPE, `SELECT store_sweep_owner_guard(now() + interval '1 day', 1000) AS n`)).toEqual([{ n: 1 }]);
+    expect(await admin.$queryRaw`SELECT "key" FROM "RateLimitBucket" WHERE "key" LIKE ${`%:${PREFIX}`}`).toEqual([{ key: `lock:${PREFIX}` }]);
+    await admin.$executeRaw`DELETE FROM "RateLimitBucket" WHERE "key" LIKE ${`%:${PREFIX}`}`;
 
     const sandbox = await sweepExpiredSandboxes({ prisma: sweeper });
     expect(sandbox.tenants).toBeGreaterThanOrEqual(1);

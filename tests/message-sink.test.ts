@@ -49,7 +49,9 @@ const merge = (patch: Record<string, unknown>) => {
   stored = merged as DeliveryState;
 };
 const open = (attempt: number) => row.status === "pending" && !row.erased && row.attempts === attempt;
-// Interprets the store_outbox_* function calls the sink makes (migration store_rls_policies), by their text.
+// Interprets the store_outbox_* function calls the sink makes (migration store_rls_policies), by their text. A claim's
+// token here is `claim-<attempt>`, so the current claim is the row's attempt count.
+const attemptOf = (claim: unknown) => Number(String(claim).replace("claim-", ""));
 const database = {
   $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = sql(strings);
@@ -57,38 +59,42 @@ const database = {
     if (text.includes("store_outbox_message_view")) {
       // Read under the share lock just before `dispatched` is committed: where an erasure can win.
       if (text.includes(", true)")) beforeDispatch?.();
-      return [{ doc: doc ?? null }];
+      // A held claim always gets a view; a missing salon is an empty one (store_outbox_message_view).
+      return [{ doc: doc ?? {} }];
     }
     if (text.includes("store_outbox_freeze")) {
-      const [, attempt, first] = values as [string, number, string];
-      if (!open(attempt)) return [{ delivery: null }];
-      if (!("from" in stored)) merge(JSON.parse(first));
+      const [, claim, firstAttemptAt, subject, body, html, from, replyTo, linkUrl, linkExp] =
+        values as [string, string, number, string, string, string, string, string | null, string | null, number | null];
+      if (!open(attemptOf(claim))) return [{ delivery: null }];
+      if (!("from" in stored)) {
+        merge({ firstAttemptAt, mail: { subject, text: body, html }, from, ...(replyTo ? { replyTo } : {}), ...(linkUrl ? { link: { url: linkUrl, exp: linkExp! } } : {}) });
+      }
       return [{ delivery: structuredClone(stored) }];
     }
     if (text.includes("store_outbox_open")) return [{ open: row.status === "pending" && !row.erased }];
     if (text.includes("store_outbox_dispatch")) {
-      const [, attempt, provider, account, submittedAt] = values as [string, number, string, string | null, number];
-      if (!open(attempt)) return [{ n: 0 }];
+      const [, claim, provider, account, submittedAt] = values as [string, string, string, string | null, number];
+      if (!open(attemptOf(claim))) return [{ n: 0 }];
       merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }), submittedAt: stored.submittedAt ?? submittedAt });
       return [{ n: 1 }];
     }
     // Drops this claim's marker when nothing left; guarded by the claim, not by the status.
     if (text.includes("store_outbox_release")) {
-      const [, attempt, drop] = values as [string, number, string[]];
-      if (row.attempts !== attempt || row.erased || stored.sent) return [{ n: 0 }];
-      merge(Object.fromEntries(drop.map((key) => [key, null])));
+      const [, claim, ownSubmission] = values as [string, string, boolean];
+      if (row.attempts !== attemptOf(claim) || row.erased || stored.sent) return [{ n: 0 }];
+      merge({ dispatched: null, provider: null, account: null, ...(ownSubmission ? { submittedAt: null } : {}) });
       return [{ n: 1 }];
     }
     if (text.includes("store_outbox_delivered")) {
-      merge(JSON.parse(values[2] as string));
+      merge({ sent: true, dispatched: null, provider: null, account: null, submittedAt: null, mail: null, link: null, from: null, replyTo: null, lastError: null });
       row.status = "delivered";
-      return [{ n: 1 }];
+      return [{ outcome: "delivered" }];
     }
-    // A note for the latest claim of a pending effect.
+    // A note for the current claim of a pending effect.
     if (text.includes("store_outbox_note")) {
-      const [, attempt, patch] = values as [string, number, string];
-      if (!open(attempt)) return [{ n: 0 }];
-      merge(JSON.parse(patch));
+      const [, claim, reason, settle, dropSubmitted] = values as [string, string, string, boolean, boolean];
+      if (!open(attemptOf(claim))) return [{ n: 0 }];
+      merge({ reason, lastError: null, ...(settle ? { mail: null, link: null, from: null, replyTo: null } : {}), ...(dropSubmitted ? { submittedAt: null } : {}) });
       return [{ n: 1 }];
     }
     throw new Error(`unexpected query: ${text}`);
@@ -100,7 +106,7 @@ const prisma = database as unknown as PrismaClient;
 let clock = T0;
 const run = (over: Partial<{ port: "email" | "sms"; reference: string; live: boolean }> = {}, signal = new AbortController().signal) => {
   const delivery: EffectDelivery = {
-    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: row.attempts,
+    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: row.attempts, claim: `claim-${row.attempts}`,
     effect: { kind: "message", record: {
       id: "o-1", port: over.port ?? "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, live: "live" in over ? over.live : true,
       reference: over.reference ?? messageReference(booking, "confirmation", "email"), delivery: structuredClone(stored),
@@ -540,8 +546,8 @@ describe("a retry's payload", () => {
     expect(stored.link).toMatchObject({ url: expect.stringContaining(`/booking/${REF}`), exp: expect.any(Number) });
     // The stored link has no token, and the message nothing but the marker where it goes.
     expect(JSON.stringify(stored)).not.toMatch(/v1\.|#t=/);
-    // The visit moves (the token's expiry would follow), the salon is renamed and changes its address.
-    doc = { ...withBooking({ date: "2026-12-10", start: 840 }), salon: { ...base.salon, name: "Salong Omdöpt", email: "ny@example.test", slug: "omdopt" } };
+    // The visit moves (the token's expiry would follow), the salon is renamed and changes its e-mail.
+    doc = { ...withBooking({ date: "2026-12-10", start: 840 }), salon: { ...base.salon, name: "Salong Omdöpt", email: "ny@example.test" } };
     clock = T0 + HOUR;
     outcome = ok({ id: "m-2", to: [] }, "sent");
     await run();
@@ -549,6 +555,24 @@ describe("a retry's payload", () => {
     expect(sent[1]).toMatchObject({ from: sent[0].from, replyTo: "salong@example.test", subject: sent[0].subject, text: sent[0].text, html: sent[0].html });
     expect(sent[1].from).toContain("Salong Fiktiv");
     expect(sent[1].text).toContain(`/boka/${base.salon.slug}/booking/${REF}#t=v1.`);
+  });
+
+  it("never attaches a token to a stored link that leads elsewhere than the booking's own page", async () => {
+    doc = withBooking();
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    const before = sent.length;
+    const frozen = structuredClone(stored);
+    // The salon's address changed since (or the stored link was altered): the frozen link no longer leads to this
+    // booking's page, so nothing is sent and a person decides.
+    for (const url of [`https://evil.example.test/boka/${base.salon.slug}/booking/${REF}`, frozen.link!.url.replace(`/boka/${base.salon.slug}/`, "/boka/omdopt/")]) {
+      stored = { ...structuredClone(frozen), link: { ...frozen.link!, url } };
+      clock += HOUR;
+      outcome = ok({ id: "m-3", to: [] }, "sent");
+      expect(await run()).toBe("failed");
+      expect(sent).toHaveLength(before);
+      expect(stored.reason).toBe("link_mismatch");
+    }
   });
 });
 
@@ -663,7 +687,7 @@ describe("the public demo and an unconfigured server", () => {
 
 function delivery(): EffectDelivery {
   return {
-    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: 1,
+    id: "effect-1", tenantId: TENANT, tenantKind: "salon", seq: 1, n: 0, attempt: 1, claim: "claim-1",
     effect: { kind: "message", record: { id: "o-1", port: "email", action: "send", to: `customer:${booking.customerId}`, body: "x", cost: null, live: false, reference: messageReference(booking, "confirmation", "email") } },
   };
 }

@@ -28,7 +28,10 @@ const expectedList = (sql: string) => [...sql.matchAll(/\('(tenant_\w+)', '(\w+)
 describe("store row-level security files", () => {
   it("the migration creates only the store functions: no policy, grant, role or table change", () => {
     expect(migration).not.toMatch(/ROW LEVEL SECURITY|CREATE POLICY|GRANT |CREATE ROLE|ALTER ROLE/i);
-    expect(migration).not.toMatch(/\b(ALTER TABLE|DROP|CREATE TABLE)\b/i);
+    expect(migration).not.toMatch(/\b(DROP|CREATE TABLE)\b/i);
+    // Its only table change: the two outbox columns the functions keep the claim and a late confirmation in.
+    expect(migration.match(/ALTER TABLE[^;]+;/g)).toEqual([
+      'ALTER TABLE "tenant_effect" ADD COLUMN "claim_token" UUID;', 'ALTER TABLE "tenant_effect" ADD COLUMN "late_confirmation" JSONB;']);
     expect(migration).toMatch(/REVOKE ALL ON FUNCTION/);
     // A role is only ever looked up by name when a function runs, never needed to create one.
     const roleMentions = [...migration.matchAll(/'(cresavo_\w+)'/g)].map((m) => m.index!);
@@ -59,7 +62,8 @@ describe("store row-level security files", () => {
       else if (policy === "store_support_read") expect(roles).toEqual(["cresavo_support"]);
       else expect(roles, `${table}.${policy}`).toEqual(["cresavo_app"]);
     }
-    expect(policies.filter((p) => !/store_(owner|tenant|support_read)$/.test(p))).toEqual(["tenant_state.store_salon_slug_lookup", "tenant_state.store_sandbox_lookup"]);
+    // A booking address resolves through store_salon_by_slug (a tenant id only), never through a policy on the row.
+    expect(policies.filter((p) => !/store_(owner|tenant|support_read)$/.test(p))).toEqual(["tenant_state.store_sandbox_lookup"]);
     // The sandbox lookup takes only a full key.
     expect(enableCode).toContain("~ '^sbx_[0-9a-f]{32}$'");
   });
@@ -70,7 +74,11 @@ describe("store row-level security files", () => {
     for (const [text, name] of functions) {
       expect(text, name).toContain("SET search_path = public, pg_temp");
       const definer = text.includes("SECURITY DEFINER");
-      expect(definer, `${name} SECURITY DEFINER`).toBe(/^store_(outbox|sweep)_/.test(name) && !["store_sweep_check", "store_outbox_caller"].includes(name));
+      expect(definer, `${name} SECURITY DEFINER`).toBe(/^store_(outbox|sweep|salon)_/.test(name) && !["store_sweep_check", "store_outbox_caller"].includes(name));
+      // Every authorization in a body is IS TRUE (or IS NOT TRUE): an unset setting never passes.
+      for (const call of text.matchAll(/(?<!FUNCTION )store_outbox_caller\([^)]*\)(?! IS TRUE)/g)) {
+        expect(text.slice(call.index!, call.index! + call[0].length + 8), name).toContain("IS TRUE");
+      }
       expect(migration, `${name} is revoked from PUBLIC`).toMatch(new RegExp(`REVOKE ALL ON FUNCTION[^;]*\\b${name}\\(`));
     }
     const grantFiles = code(read("prisma/grants/roles.sql")) + code(read("prisma/grants/studio-store.sql"));
@@ -78,7 +86,7 @@ describe("store row-level security files", () => {
       .filter(([, , roles]) => roles.split(",").map((r) => r.trim()).includes(role))
       .flatMap(([, list]) => [...list.matchAll(/(store_\w+)\(/g)].map((m) => m[1])).sort();
     expect(grantsTo("cresavo_outbox")).toEqual(functions.map(([, name]) => name).filter((n) => n.startsWith("store_outbox_") && n !== "store_outbox_caller").sort());
-    expect(grantsTo("cresavo_app")).toEqual(grantsTo("cresavo_outbox"));
+    expect(grantsTo("cresavo_app")).toEqual([...grantsTo("cresavo_outbox"), "store_salon_by_slug"].sort());
     expect(grantsTo("cresavo_sweeper")).toEqual(functions.map(([, name]) => name).filter((n) => n.startsWith("store_sweep_") && n !== "store_sweep_check").sort());
     expect(grantsTo("cresavo_support")).toEqual([]);
     // The sweep functions redact with the same map as the application and erase_subject.
@@ -126,7 +134,9 @@ describe("store row-level security files", () => {
   it("the sweep functions bound each sweep by the retention periods of retention.ts", () => {
     const intervals = new Set([...migration.matchAll(/interval '([^']+)'/g)].map((m) => m[1]));
     expect([...intervals].sort()).toEqual([`${RETENTION.activityPersonalDataMonths} months`, `${RETENTION.journalAccessLogMonths} months`,
-      "168 hours", `${RETENTION.outboxBodyDays * 24} hours`].sort());
+      "168 hours", `${RETENTION.outboxBodyDays * 24} hours`, `${RETENTION.rateLimitDays * 24} hours`, "2 hours"].sort());
+    // The longest wait the outbox may set ("2 hours") is above its longest backoff, an hour.
+    expect(rawMigration).toContain("least(greatest(coalesce(p_next, store_clock(p_now)), store_clock(p_now)), store_clock(p_now) + interval '2 hours')");
     // The demo log is kept seven days (an engineering default, not a personal-data period in retention.ts).
     expect(rawMigration).toContain("demo log 168 hours");
     // Calendar months are counted in UTC, as monthsBefore does.

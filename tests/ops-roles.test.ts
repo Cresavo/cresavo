@@ -58,17 +58,17 @@ describe("prisma/grants/roles.sql", () => {
     expect(code.match(/\bCOMMIT;/g)).toHaveLength(1);
   });
 
-  it("gives the sweep role no store table and the rate-limit table only what its two sweeps use", () => {
+  it("gives the sweep role no store table and no rate-limit table: it sweeps both through the store_sweep functions", () => {
     const body = sweepers.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     // The store sweeps are fixed SECURITY DEFINER functions (migration store_rls_policies): no direct statement on a store table.
     expect(body).not.toMatch(/(FROM|JOIN|UPDATE|DELETE FROM|INSERT INTO)\s+"?tenant_\w+/);
-    for (const sweep of ["idempotency", "demo_actions", "sandboxes", "outbox_bodies", "activity_keys", "activity_redact", "journal_views"]) {
+    expect(body).not.toMatch(/(FROM|JOIN|UPDATE|DELETE FROM|INSERT INTO)\s+"?RateLimitBucket/);
+    for (const sweep of ["idempotency", "demo_actions", "sandboxes", "outbox_bodies", "activity_keys", "activity_redact", "journal_views", "rate_limits", "owner_guard"]) {
       expect(body, sweep).toContain(`store_sweep_${sweep}(`);
     }
-    expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])]).toEqual(["RateLimitBucket"]);
-    for (const column of ["key", "expiresAt"]) expect(can("cresavo_sweeper", "RateLimitBucket", "SELECT", column), column).toBe(true);
-    expect(can("cresavo_sweeper", "RateLimitBucket", "DELETE")).toBe(true);
-    expect(body.match(/FOR UPDATE/g)?.length, "a new row lock or update needs a grant: update roles.sql").toBe(1);
+    // Only the photo library's own sweep keeps direct grants (media_asset, checked below).
+    expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])]).toEqual(["media_asset"]);
+    expect(body).not.toMatch(/FOR UPDATE/);
   });
 
   it("gives the outbox poller role no table at all: it works through the store_outbox functions", () => {
