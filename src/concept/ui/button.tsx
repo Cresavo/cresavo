@@ -18,7 +18,7 @@ const alignment: Record<Align, string> = {
   between: "justify-between text-left",
 };
 const variants: Record<Variant, string> = {
-  primary: "rounded-full px-5 bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
+  primary: "rounded-full bg-action text-on-action hover:bg-action-hover active:bg-action-hover",
   secondary: "ui-button-tint rounded-md text-text",
   tertiary: "rounded-md text-text hover:bg-surface-2 active:bg-surface-2",
   ghost: "rounded-md text-text hover:bg-surface-2 active:bg-surface-2",
@@ -33,7 +33,7 @@ const sizes: Record<Size, string> = {
 };
 
 export function buttonClass(variant: Variant = "primary", size: Size = "md", className?: string, align: Align = "center") {
-  return cx(base, alignment[align], variants[variant], variant === "link" ? "text-body" : sizes[size], className);
+  return cx(base, alignment[align], variants[variant], variant === "primary" && "px-5", variant === "link" ? "text-body" : sizes[size], className);
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

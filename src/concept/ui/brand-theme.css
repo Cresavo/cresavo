@@ -205,7 +205,12 @@ body:has(.ui-media-dialog[open]) { overflow: hidden; }
 }
 .ui-action-bar { padding-bottom: max(var(--space-3), env(safe-area-inset-bottom)); }
 .ui-sheet, .ui-sheet-body { max-height: 92dvh; }
-.ui-sheet-side, .ui-sheet-side .ui-sheet-body { max-height: 100dvh; }
+.ui-sheet-side { top: var(--sheet-top, 0px); height: var(--sheet-height, 100dvh); }
+.ui-sheet-side, .ui-sheet-side .ui-sheet-body { max-height: var(--sheet-height, 100dvh); }
+/* The page behind a full-height panel stays still while the keyboard opens. */
+body:has(.ui-sheet-side[open]) { overflow: hidden; }
+/* iOS zooms into any field with text under 16px and does not zoom back out, which pushes panels past the screen edge. */
+@media (pointer: coarse) { :is(input, textarea, select):is(.text-body, .text-sm, .text-xs) { font-size: max(1rem, 16px); } }
 .ui-sheet-side-header { padding-top: max(var(--space-2), env(safe-area-inset-top)); }
 @media (min-width: 640px) { .ui-sheet-side { width: 27.5rem; } }
 .ui-composer-input:focus-visible { outline: none; }
