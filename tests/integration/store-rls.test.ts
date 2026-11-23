@@ -10,13 +10,16 @@ import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState, Service, StaffId } from "@/concept/data/types";
 import { bookableServices } from "@/concept/selectors";
-import { drainPendingEffects, type EffectDelivery, type EffectSinks } from "@/concept/store/effect-outbox";
+import { ok } from "@/concept/connections/core";
+import type { EmailMessage, EmailPort } from "@/concept/connections/ports/email";
+import { drainPendingEffects, SIMULATED_SINKS, type EffectDelivery, type EffectSinks } from "@/concept/store/effect-outbox";
 import { PostgresStudioStore } from "@/concept/store/postgres-studio-store";
 import type { StoreChange } from "@/concept/store/studio-store";
 import {
   sweepActivityPersonalData, sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes, sweepJournalAccessRows, sweepOutboxBodies,
 } from "@/concept/store/store-sweepers";
 import { enterScope, inScope, OUTBOX_SCOPE, scoped, SWEEP_SCOPE, type StoreScope } from "@/concept/store/tenant-scope";
+import { messageSink } from "@/lib/message-sink";
 import { createOwnerAccount } from "@/lib/owner-accounts";
 import { findSalonTenant, loadPublicTenant } from "@/lib/public-booking";
 import { createDatabaseClient } from "../../scripts/database.mjs";
@@ -26,7 +29,8 @@ import { withOwnSlug } from "./own-slug";
 // prisma/grants/rls-enable.sql) against a disposable local *_test database.
 // The grants files are applied as in roles.sql's header, RLS is switched on,
 // and the store runs as real logins: an application login (member of
-// cresavo_app) and a sweeper login (member of cresavo_sweeper). Skipped when
+// cresavo_app), a sweeper login (cresavo_sweeper), an outbox login
+// (cresavo_outbox, the effects:drain poller) and a support login. Skipped when
 // the connecting role cannot create roles or alter the store tables. RLS is
 // switched off again afterwards. All data is fictional.
 
@@ -95,7 +99,10 @@ const A = tenant("a");
 const B = tenant("b");
 const DEMO = tenant("demo");
 const SANDBOX = tenant("sbx-expired");
-const LOGINS = { app: `cresavo_rls_app_${run}`, sweeper: `cresavo_rls_sweeper_${run}`, support: `cresavo_rls_support_${run}` };
+const MAIL_A = tenant("mail-a");
+const MAIL_B = tenant("mail-b");
+const MAIL_C = tenant("mail-c");
+const LOGINS = { app: `cresavo_rls_app_${run}`, sweeper: `cresavo_rls_sweeper_${run}`, support: `cresavo_rls_support_${run}`, outbox: `cresavo_rls_outbox_${run}` };
 const password = randomBytes(24).toString("hex");
 const asLogin = (login: string) => {
   const url = new URL(adminUrl);
@@ -104,12 +111,13 @@ const asLogin = (login: string) => {
   return url.href;
 };
 
-/** Runs a file of SQL (its own BEGIN/COMMIT, DO blocks) on one connection, as psql would. */
-async function runSql(sql: string) {
+/** Runs a file of SQL (its own BEGIN/COMMIT, DO blocks) on one connection, as psql would, and returns each statement's rows. */
+async function runSql(sql: string): Promise<Array<Record<string, unknown>[]>> {
   const connection = new pg.Client({ connectionString: adminUrl });
   await connection.connect();
   try {
-    await connection.query(sql);
+    const results = await connection.query(sql);
+    return (Array.isArray(results) ? results : [results]).map((result) => result.rows ?? []);
   } finally {
     await connection.end();
   }
@@ -158,6 +166,16 @@ const hold = (service: Service, slot: { staffId: StaffId; date: string; start: n
 });
 const dismiss = (id: string): DemoAction => ({ type: "card/dismiss", id });
 
+/** Hold then pay a deposit: a payment and the booking's confirmation messages. */
+async function payDeposit(store: PostgresStudioStore, id: string) {
+  const { deposit, state } = depositState(id);
+  const held = await store.apply(id, hold(deposit, slotFor(state, deposit)));
+  if (!held.ok) throw new Error("hold refused");
+  const paid = await store.apply(id, { type: "online/pay", id: held.state.checkoutHolds.at(-1)!.id, method: "card" });
+  if (!paid.ok) throw new Error("pay refused");
+  return paid;
+}
+
 let eraseSubjectInstalled = false;
 let rlsOn = false;
 
@@ -165,6 +183,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
   let app: PrismaClient;
   let sweeper: PrismaClient;
   let support: PrismaClient;
+  let outbox: PrismaClient;
   const delivered: EffectDelivery[] = [];
   const sinks: EffectSinks = { payment: (d) => { delivered.push(d); }, message: (d) => { delivered.push(d); } };
   const appStore = (options: Partial<ConstructorParameters<typeof PostgresStudioStore>[0]> = {}) =>
@@ -186,11 +205,12 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
       `CREATE ROLE ${LOGINS.app} LOGIN PASSWORD '${password}' IN ROLE cresavo_app`,
       `CREATE ROLE ${LOGINS.sweeper} LOGIN PASSWORD '${password}' IN ROLE cresavo_sweeper`,
       `CREATE ROLE ${LOGINS.support} LOGIN PASSWORD '${password}' IN ROLE cresavo_support`,
+      `CREATE ROLE ${LOGINS.outbox} LOGIN PASSWORD '${password}' IN ROLE cresavo_outbox`,
     ].join(";"));
 
     // Fixtures, written by the owner: two salons, a demo with an old log, an expired sandbox, and rows for the sweeps.
     const old = "2020-01-01T00:00:00Z";
-    for (const [id, kind] of [[A, "salon"], [B, "salon"], [DEMO, "demo"]] as const) {
+    for (const [id, kind] of [[A, "salon"], [B, "salon"], [DEMO, "demo"], [MAIL_A, "salon"], [MAIL_B, "salon"], [MAIL_C, "salon"]] as const) {
       await admin.$executeRaw`INSERT INTO tenant_state (tenant_id, kind, doc) VALUES (${id}, ${kind}::tenant_kind, ${JSON.stringify(depositState(id).state)}::jsonb)`;
     }
     await admin.$executeRaw`
@@ -222,6 +242,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     app = client(asLogin(LOGINS.app));
     sweeper = client(asLogin(LOGINS.sweeper));
     support = client(asLogin(LOGINS.support));
+    outbox = client(asLogin(LOGINS.outbox));
     holder.db = app;
   });
 
@@ -242,13 +263,48 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
 
   const createdTenants: string[] = [];
 
-  it("reports every store table enabled, forced and with its policies", async () => {
+  it("reports every store table enabled, forced and with exactly its policies, and no login that can bypass them", async () => {
+    const [tables, problems] = await runSql(grant("verify-rls.sql"));
+    expect(tables.map((r) => [r.table, r.enabled, r.forced, r.missing, r.unexpected, r.changed])).toEqual(
+      [...STORE].sort().map((table) => [table, true, true, "", "", ""]));
+    expect(problems).toEqual([]);
+    const [roleProblems] = await runSql(grant("verify-roles.sql")
+      .replaceAll(":'app_login'", `'${LOGINS.app}'`).replaceAll(":'sweeper_login'", `'${LOGINS.sweeper}'`)
+      .replaceAll(":'support_login'", `'${LOGINS.support}'`).replaceAll(":'outbox_login'", `'${LOGINS.outbox}'`));
+    expect(roleProblems).toEqual([]);
+  });
+
+  it("refuses to enable on a changed, missing or extra policy, and reports a login that can become a bypassing role", async () => {
+    const ROLLBACK = "rollback";
     const connection = new pg.Client({ connectionString: adminUrl });
     await connection.connect();
+    const refusal = async (change: string) => {
+      await connection.query("BEGIN");
+      try {
+        await connection.query(change);
+        return await connection.query(grant("rls-enable.sql").replace(/^BEGIN;$/m, "").replace(/^COMMIT;$/m, "")).then(() => "enabled", (error: Error) => error.message);
+      } finally {
+        await connection.query("ROLLBACK");
+      }
+    };
     try {
-      const { rows } = await connection.query(grant("verify-rls.sql"));
-      expect(rows.map((r) => [r.table, r.enabled, r.forced, r.missing])).toEqual(
-        [...STORE].sort().map((table) => [table, true, true, ""]));
+      expect(await refusal(`ALTER POLICY store_tenant ON tenant_state USING (true)`)).toMatch(/tenant_state\.store_tenant \(changed\)/);
+      expect(await refusal(`ALTER POLICY store_tenant ON tenant_effect TO PUBLIC`)).toMatch(/tenant_effect\.store_tenant \(changed\)/);
+      expect(await refusal(`DROP POLICY store_sweep_delete ON tenant_action`)).toMatch(/tenant_action\.store_sweep_delete \(missing\)/);
+      expect(await refusal(`CREATE POLICY extra ON tenant_idempotency FOR SELECT USING (true)`)).toMatch(/tenant_idempotency\.extra \(unexpected\)/);
+      // A login that may SET ROLE to the table owner, without inheriting it, is reported.
+      await connection.query("BEGIN");
+      try {
+        const owner = (await connection.query("SELECT tableowner FROM pg_tables WHERE tablename = 'tenant_state'")).rows[0].tableowner as string;
+        await connection.query(`GRANT "${owner}" TO ${LOGINS.app} WITH INHERIT FALSE, SET TRUE`);
+        const results = await connection.query(grant("verify-rls.sql")) as unknown as Array<{ rows: Array<{ problem: string }> }>;
+        expect(results[1].rows.map((r) => r.problem).join("\n")).toContain(`login ${LOGINS.app} can become`);
+        throw new Error(ROLLBACK);
+      } catch (error) {
+        if ((error as Error).message !== ROLLBACK) throw error;
+      } finally {
+        await connection.query("ROLLBACK");
+      }
     } finally {
       await connection.end();
     }
@@ -259,6 +315,11 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     const listener = appStore({ prisma: client(asLogin(LOGINS.app)) });
     const changes: StoreChange[] = [];
     listener.subscribe(A, (change) => changes.push(change));
+    const eavesdropper = new pg.Client({ connectionString: asLogin(LOGINS.support) });
+    const heard: string[] = [];
+    await eavesdropper.connect();
+    eavesdropper.on("notification", ({ payload }) => { if (payload) heard.push(payload); });
+    await eavesdropper.query("LISTEN tenant_changes");
     await expect.poll(() => listener.notificationsReady).toBe(true);
 
     expect(await store.load(A)).toMatchObject({ version: 0 });
@@ -270,11 +331,20 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     const paid = await store.apply(A, { type: "online/pay", id: held.state.checkoutHolds.at(-1)!.id, method: "card" });
     if (!paid.ok) throw new Error("pay refused");
     expect(paid.effects.some((e) => e.kind === "payment")).toBe(true);
-    await expect.poll(() => changes.map((c) => c.version)).toEqual([held.version, paid.version]);
+    // The wake-up is opaque; the listener reads the version in A's own scope.
+    await expect.poll(() => changes.at(-1)?.version).toBe(paid.version);
+    expect(changes.every((c) => c.tenantId === A && c.version >= held.version)).toBe(true);
+    // What any listening login sees: a tag, never the tenant or the version.
+    expect(heard.length).toBeGreaterThanOrEqual(2);
+    for (const payload of heard) {
+      expect(Object.keys(JSON.parse(payload)).sort()).toEqual(["sender", "tag"]);
+      expect(payload).not.toContain(A);
+    }
+    await eavesdropper.end();
     expect((await store.history(A, { limit: 10 })).entries.map((e) => e.seq)).toEqual([1, 2]);
 
-    // The poller crosses tenants in the outbox scope and delivers A's effects; B's waiting row is not yet due.
-    const report = await drainPendingEffects({ prisma: app, sinks, tenants: [A, B] });
+    // The poller (its own login) crosses tenants in the outbox scope and delivers A's effects; B's waiting row is not yet due.
+    const report = await drainPendingEffects({ prisma: outbox, sinks, tenants: [A, B] });
     expect(report.delivered).toBeGreaterThan(0);
     expect(new Set(delivered.map((d) => d.tenantId))).toEqual(new Set([A]));
 
@@ -304,6 +374,9 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     const lookup = (scope: StoreScope) => scoped(app, scope, (db) => db.$queryRaw<Array<{ tenant_id: string }>>`SELECT tenant_id FROM tenant_state`);
     expect(await lookup({ sandboxKey: key })).toEqual([{ tenant_id: loaded!.tenantId }]);
     expect(await lookup({ sandboxKey: "sbx_unknown" })).toEqual([]);
+    // Only the full key: a prefix of it, or the bare marker, finds nothing.
+    expect(await lookup({ sandboxKey: key.slice(0, 12) })).toEqual([]);
+    expect(await lookup({ sandboxKey: "sbx" })).toEqual([]);
     expect(await attempt(app, { sandboxKey: key }, `UPDATE tenant_state SET version = version WHERE tenant_id = '${loaded!.tenantId}'`)).toBe(0);
 
     // Sign-up writes its salon in its own scope; the address scope finds exactly that salon, read only.
@@ -325,6 +398,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
       expect(await count(app, table), table).toBe(0);
       expect(await count(sweeper, table), table).toBe(0);
     }
+    for (const table of ["tenant_state", "tenant_effect"]) expect(await count(outbox, table), table).toBe(0);
     expect(await app.$executeRawUnsafe(`UPDATE tenant_state SET version = version WHERE ${ours}`)).toBe(0);
   });
 
@@ -352,29 +426,77 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     store.close();
   });
 
-  it("limits the outbox scope to the poller's work and to the application role", async () => {
-    // Effects and tenant kind across tenants, read; nothing of the log or the replay results.
-    expect(await count(app, "tenant_effect")).toBe(0);
-    const outbox = (sql: string) => scoped(app, OUTBOX_SCOPE, (db) => db.$queryRawUnsafe<Array<{ n: number }>>(sql));
-    expect((await outbox(`SELECT count(DISTINCT tenant_id)::int AS n FROM tenant_effect WHERE ${ours}`))[0].n).toBeGreaterThanOrEqual(2);
-    expect((await outbox(`SELECT count(*)::int AS n FROM tenant_state WHERE ${ours}`))[0].n).toBeGreaterThanOrEqual(3);
-    expect(await outbox(`SELECT count(*)::int AS n FROM tenant_action WHERE ${ours}`)).toEqual([{ n: 0 }]);
-    expect(await outbox(`SELECT count(*)::int AS n FROM tenant_idempotency WHERE ${ours}`)).toEqual([{ n: 0 }]);
-    // An undelivered row may be claimed; a delivered one is final; no document or other table changes.
-    expect(await attempt(app, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-waiting'`)).toBe(1);
-    expect(await attempt(app, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-settled'`)).toBe(0);
-    expect(await attempt(app, OUTBOX_SCOPE, `UPDATE tenant_state SET version = version WHERE ${ours}`)).toBe(0);
-    expect(await attempt(app, OUTBOX_SCOPE, `INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload)
-      VALUES ('${B}', 9, 0, '${PREFIX}-forged', 'f', 'message', '{}'::jsonb)`)).toBe("rls");
-    // The scope is the application's: the sweeper login sees nothing in it, and the app nothing in the sweep scope.
-    expect(await scoped(sweeper, OUTBOX_SCOPE, (db) => db.$queryRawUnsafe<Array<{ n: number }>>(`SELECT count(tenant_id)::int AS n FROM tenant_effect`))).toEqual([{ n: 0 }]);
-    expect(await scoped(app, SWEEP_SCOPE, (db) => db.$queryRawUnsafe<Array<{ n: number }>>(`SELECT count(*)::int AS n FROM tenant_effect`))).toEqual([{ n: 0 }]);
+  it("limits the outbox scope to the poller's login and the poller's work", async () => {
+    const read = (db: PrismaClient, scope: StoreScope, sql: string) => scoped(db, scope, (tx) => tx.$queryRawUnsafe<Array<{ n: number }>>(sql));
+    // Effects and tenant kind across tenants, read.
+    expect((await read(outbox, OUTBOX_SCOPE, `SELECT count(DISTINCT tenant_id)::int AS n FROM tenant_effect WHERE ${ours}`))[0].n).toBeGreaterThanOrEqual(2);
+    expect((await read(outbox, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_state WHERE ${ours}`))[0].n).toBeGreaterThanOrEqual(3);
+    // Nothing of the log or the replay results, and no fingerprint: not granted at all.
+    await expect(read(outbox, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_action`)).rejects.toThrow(/permission denied/);
+    await expect(read(outbox, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_idempotency`)).rejects.toThrow(/permission denied/);
+    await expect(read(outbox, OUTBOX_SCOPE, `SELECT fingerprint FROM tenant_effect LIMIT 1`)).rejects.toThrow(/permission denied/);
+    // An undelivered row may be claimed; a delivered one is final; no document changes, nothing is inserted or deleted.
+    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-waiting'`)).toBe(1);
+    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-settled'`)).toBe(0);
+    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_state SET updated_at = now() WHERE ${ours}`)).toBe(0);
+    expect(await attempt(outbox, { tenant: B }, `UPDATE tenant_state SET updated_at = now() WHERE tenant_id = '${B}'`)).toBe("rls");
+    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_effect SET erased_at = now() WHERE id = '${PREFIX}-waiting'`)).toBe("denied");
+    expect(await attempt(outbox, OUTBOX_SCOPE, `INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload)
+      VALUES ('${B}', 9, 0, '${PREFIX}-forged', 'f', 'message', '{}'::jsonb)`)).toBe("denied");
+    expect(await attempt(outbox, OUTBOX_SCOPE, `DELETE FROM tenant_effect WHERE id = '${PREFIX}-waiting'`)).toBe("denied");
+    // The web login gets nothing in the outbox scope, and neither does the sweeper; the poller nothing in the sweep scope.
+    for (const db of [app, sweeper]) {
+      expect(await read(db, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_effect`)).toEqual([{ n: 0 }]);
+      expect(await read(db, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_state`)).toEqual([{ n: 0 }]);
+    }
+    expect(await attempt(app, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-waiting'`)).toBe(0);
+    expect(await read(outbox, SWEEP_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_effect`)).toEqual([{ n: 0 }]);
+  });
+
+  it("delivers booking e-mails of two salons through the real message sink: the poller as its login, a web worker in its tenant", async () => {
+    const mails: EmailMessage[] = [];
+    const provider = { info: { provider: "resend" }, send: async (message: EmailMessage) => (mails.push(message), ok({ id: `m-${mails.length}`, to: [] }, "sent")) } as unknown as EmailPort;
+    const registry = { resolve: async () => ({ adapter: provider, live: true, reason: "live" as const }) };
+    const live = { liveMessage: () => true };
+    // Two salons commit without delivering, as if the web worker had crashed after the commit; the poller sends.
+    for (const id of [MAIL_A, MAIL_B]) {
+      const store = appStore(live);
+      await payDeposit(store, id);
+      store.close();
+    }
+    const report = await drainPendingEffects({ prisma: outbox, sinks: { ...SIMULATED_SINKS, message: messageSink(outbox, registry) }, tenants: [MAIL_A, MAIL_B] });
+    expect(report.failed).toBe(0);
+    // A third salon's web worker delivers its own e-mail right after the commit, in its tenant's scope, as the app login.
+    const web = appStore({ ...live, deliverAfterCommit: true, sinks: { ...SIMULATED_SINKS, message: messageSink(app, registry) } });
+    await payDeposit(web, MAIL_C);
+    web.close();
+    const emails = await admin.$queryRaw<Array<{ tenant_id: string; status: string; sent: boolean | null }>>`
+      SELECT tenant_id, status, (payload #>> '{delivery,sent}')::boolean AS sent FROM tenant_effect
+      WHERE tenant_id = ANY(${[MAIL_A, MAIL_B, MAIL_C]}::text[]) AND payload ->> 'port' = 'email' ORDER BY tenant_id`;
+    expect(new Set(emails.map((e) => e.tenant_id))).toEqual(new Set([MAIL_A, MAIL_B, MAIL_C]));
+    expect(emails.every((e) => e.status === "delivered" && e.sent === true)).toBe(true);
+    expect(mails.length).toBe(emails.length);
+    // Each mail was rendered from its own salon's document and keyed by its own effect.
+    const ids = await admin.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM tenant_effect WHERE tenant_id = ANY(${[MAIL_A, MAIL_B, MAIL_C]}::text[]) AND payload ->> 'port' = 'email'`;
+    expect(mails.map((m) => m.idempotencyKey).sort()).toEqual(ids.map((row) => row.id).sort());
   });
 
   it("lets the sweeper login run every sweep and nothing beyond them", async () => {
     // Narrow first, before the sweeps remove the rows these statements aim at.
     const sweep = (sql: string) => attempt(sweeper, SWEEP_SCOPE, sql);
-    expect(await sweep(`DELETE FROM tenant_state WHERE tenant_id = '${B}'`)).toBe(0);
+    // A live salon's state, history, keys and pending effects are out of reach in the sweep scope and with its tenant id set.
+    for (const scope of [SWEEP_SCOPE, { tenant: B }] as StoreScope[]) {
+      for (const statement of [
+        `DELETE FROM tenant_state WHERE tenant_id = '${B}'`,
+        `DELETE FROM tenant_action WHERE tenant_id = '${B}' AND seq = 2`,
+        `DELETE FROM tenant_idempotency WHERE tenant_id = '${B}' AND key = 'live'`,
+        `DELETE FROM tenant_effect WHERE tenant_id = '${B}'`,
+        `UPDATE tenant_effect SET payload = '{}'::jsonb WHERE tenant_id = '${B}' AND seq = 2 AND n = 1`,
+      ]) expect(await attempt(sweeper, scope, statement), `${statement} in ${JSON.stringify(scope)}`).toBe(0);
+    }
+    // A sandbox that has not expired is no sweep's.
+    expect(await sweep(`DELETE FROM tenant_state WHERE kind = 'sandbox' AND expires_at > now() AND ${ours}`)).toBe(0);
     expect(await sweep(`DELETE FROM tenant_action WHERE tenant_id = '${B}' AND seq = 2`)).toBe(0);
     expect(await sweep(`DELETE FROM tenant_idempotency WHERE tenant_id = '${B}' AND key = 'live'`)).toBe(0);
     expect(await sweep(`UPDATE tenant_effect SET payload = '{}'::jsonb WHERE tenant_id = '${B}' AND seq = 2 AND n = 1`)).toBe(0);

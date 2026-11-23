@@ -48,7 +48,7 @@ describe("prisma/grants/roles.sql", () => {
     expect(code).not.toMatch(/CREATE ROLE[^;]*\bLOGIN\b/i);
     expect(code).toContain("CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS");
     expect(code).toContain("RAISE EXCEPTION");
-    for (const role of ["cresavo_app", "cresavo_eraser", "cresavo_sweeper", "cresavo_support"]) expect(code).toContain(`'${role}'`);
+    for (const role of ["cresavo_app", "cresavo_eraser", "cresavo_sweeper", "cresavo_support", "cresavo_outbox"]) expect(code).toContain(`'${role}'`);
   });
 
   it("is one transaction", () => {
@@ -93,6 +93,31 @@ describe("prisma/grants/roles.sql", () => {
     }
     expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])].sort()).toEqual(["RateLimitBucket", ...STORE].sort());
     expect(code).not.toMatch(/GRANT EXECUTE/i);
+  });
+
+  it("gives the outbox poller role only what claiming, acknowledging and rendering a message needs", () => {
+    const outbox = grants.get("cresavo_outbox")!;
+    expect([...outbox.keys()].sort()).toEqual(["tenant_effect", "tenant_state"]);
+    for (const table of ["tenant_effect", "tenant_state"]) {
+      expect(can("cresavo_outbox", table, "INSERT"), `INSERT ${table}`).toBe(false);
+      expect(can("cresavo_outbox", table, "DELETE"), `DELETE ${table}`).toBe(false);
+    }
+    // The claim, retry and acknowledgement of effect-outbox.ts and the writes of message-sink.ts.
+    const outboxCode = read("src/concept/store/effect-outbox.ts") + read("src/lib/message-sink.ts");
+    for (const column of ["id", "tenant_id", "seq", "n", "kind", "payload", "status", "attempts", "next_attempt_at", "leased_until", "erased_at", "delivered_at"]) {
+      expect(outboxCode, column).toContain(column);
+      expect(can("cresavo_outbox", "tenant_effect", "SELECT", column), `SELECT tenant_effect.${column}`).toBe(true);
+    }
+    for (const column of ["payload", "status", "attempts", "next_attempt_at", "leased_until", "delivered_at"]) {
+      expect(can("cresavo_outbox", "tenant_effect", "UPDATE", column), `UPDATE tenant_effect.${column}`).toBe(true);
+    }
+    for (const column of ["id", "tenant_id", "seq", "n", "kind", "erased_at", "fingerprint"]) {
+      expect(can("cresavo_outbox", "tenant_effect", "UPDATE", column), `no UPDATE tenant_effect.${column}`).toBe(false);
+    }
+    expect(can("cresavo_outbox", "tenant_effect", "SELECT", "fingerprint")).toBe(false);
+    for (const column of ["tenant_id", "kind", "expires_at", "doc"]) expect(can("cresavo_outbox", "tenant_state", "SELECT", column), column).toBe(true);
+    // One column for the share lock of the dispatch check; the policy refuses any real update.
+    expect([...(outbox.get("tenant_state")?.get("UPDATE") ?? [])]).toEqual(["updated_at"]);
   });
 
   it("gives the application only the operations its code performs", () => {
