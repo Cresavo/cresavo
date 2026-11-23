@@ -4,6 +4,7 @@ import type { Locale } from "@/lib/locale";
 import { getActiveLocale, translate } from "../../i18n";
 import { FONT_PAIRS, type PageTheme } from "../../page/theme";
 import { libraryIdOf, posterPhotoRef } from "../../../lib/media/limits";
+import { onSessionChange, sessionGeneration } from "../../media/library-client";
 import { usesPhoto } from "../poster-layout";
 import { applyLightContrast, applyWarmth, clampTone, isNeutralTone, toneFilter, toneKey } from "./tone";
 
@@ -24,7 +25,18 @@ export interface EngineContext {
   rating?: { average: number; count: number };
 }
 
+// Both caches can hold a signed-in owner's own photos, so they belong to one session (library-client.ts):
+// their keys carry the session generation and a new session empties them.
 const photos = new Map<string, Promise<PosterPhoto>>();
+const svgs = new Map<string, Promise<string>>();
+onSessionChange(() => { photos.clear(); svgs.clear(); });
+
+/** Thrown for a result that arrived for a session that has ended since it was asked for. */
+class StaleSession extends Error {}
+const current = <T>(generation: number, value: T): T => {
+  if (generation !== sessionGeneration()) throw new StaleSession();
+  return value;
+};
 const CUTOUT_SIDE = 1100;
 /** Below the server's 2.8 MB limit for one photo. */
 const MAX_DATA_URL = 2_700_000;
@@ -82,11 +94,12 @@ function draw(bitmap: ImageBitmap, side: number, tone?: PosterTone) {
  * tone is applied; the photo itself is untouched.
  */
 export function posterPhoto(url: string, tone?: PosterTone): Promise<PosterPhoto> {
-  const key = `${toneKey(tone)}|${url}`;
+  const generation = sessionGeneration();
+  const key = `${generation}|${toneKey(tone)}|${url}`;
   let cached = photos.get(key);
   if (!cached) {
     cached = (async () => {
-      const bitmap = await createImageBitmap(await (await fetch(url)).blob());
+      const bitmap = await createImageBitmap(current(generation, await (await fetch(url)).blob()));
       try {
         const probe = draw(bitmap, 400);
         const pixels = probe.getContext("2d")?.getImageData(0, 0, probe.width, probe.height).data;
@@ -201,18 +214,19 @@ export async function engineRequest(poster: CampaignPoster, format: PosterFormat
   };
 }
 
-const svgs = new Map<string, Promise<string>>();
-
 /** The renderer could not draw a named library photo (a WebP, or one too large); the browser sends a copy instead. */
 class LibraryPhotoUnsuitable extends Error {}
 
 /** The poster's SVG from the server; the same request twice is fetched once. */
 export function fetchPosterSvg(body: Awaited<ReturnType<typeof engineRequest>>): Promise<string> {
-  const key = JSON.stringify(body);
+  const generation = sessionGeneration();
+  const request = JSON.stringify(body);
+  const key = `${generation}|${request}`;
   let cached = svgs.get(key);
   if (!cached) {
-    cached = fetch("/api/concept/poster", { method: "POST", headers: { "content-type": "application/json" }, body: key })
-      .then((response) => (response.ok ? response.text() : Promise.reject(response.status === 422 && key.includes('"media:') ? new LibraryPhotoUnsuitable() : new Error(`Poster ${response.status}`))));
+    cached = fetch("/api/concept/poster", { method: "POST", headers: { "content-type": "application/json" }, body: request })
+      .then((response) => (response.ok ? response.text() : Promise.reject(response.status === 422 && request.includes('"media:') ? new LibraryPhotoUnsuitable() : new Error(`Poster ${response.status}`))))
+      .then((svg) => current(generation, svg));
     cached.catch(() => svgs.delete(key));
     if (svgs.size > 40) svgs.delete(svgs.keys().next().value!);
     svgs.set(key, cached);
@@ -222,11 +236,12 @@ export function fetchPosterSvg(body: Awaited<ReturnType<typeof engineRequest>>):
 
 /** The poster's SVG. A library photo is read by the renderer itself when it can draw it, and sent from here when it cannot. */
 export async function posterSvg(poster: CampaignPoster, format: PosterFormat, kicker: string, context: EngineContext): Promise<string> {
+  const generation = sessionGeneration();
   try {
-    return await fetchPosterSvg(await engineRequest(poster, format, kicker, context, { library: true }));
+    return current(generation, await fetchPosterSvg(await engineRequest(poster, format, kicker, context, { library: true })));
   } catch (error) {
     if (!(error instanceof LibraryPhotoUnsuitable)) throw error;
-    return fetchPosterSvg(await engineRequest(poster, format, kicker, context));
+    return current(generation, await fetchPosterSvg(await engineRequest(poster, format, kicker, context)));
   }
 }
 
