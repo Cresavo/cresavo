@@ -31,8 +31,19 @@ while signed in (`OWNER_ACCOUNTS_ENABLED`). The public demo stores nothing.
   the logo's id and the SHA-256 of its bytes, and answers only while the
   saved page uses it. Copies may be kept for five minutes
   (`max-age=300, must-revalidate`).
+- A logo is also rebuilt without its ICC profile: it is published and needs
+  none.
 - An account salon's page can no longer take a new inline (data URL) logo;
-  the demo, which stores nothing on the server, still can.
+  the demo, which stores nothing on the server, still can. No account salons
+  existed when this was introduced, so there are no older inline logos to
+  clean up; one would be kept as it is until the owner uploads a logo.
+- The public logo also requires what the public booking page requires: an
+  active owner account and a salon that has not expired. Only the demo photos
+  go through Next.js's image optimiser (`images.localPatterns` in
+  `next.config.ts`), so no optimised copy of a logo outlives it.
+- The studio binds each batch of picked files to the session it was picked
+  in and sends it in `x-cresavo-session`; the server refuses an upload for
+  any other session before it reads a byte.
 - A deleted photo can be restored for one day and is purged by
   `npm run store:sweep` 30 days after deletion. A logo that was uploaded and
   replaced before any page used it is purged after an hour.
@@ -54,8 +65,10 @@ Version 4. The app uses no SDK.
 With S3, an upload first writes its row as `pending`, then sends the bytes,
 then marks the row `ready`. A failed or abandoned upload stays pending, and
 the sweep removes its object and row after an hour. The sweep purges each
-picture on its own and reports the ones the store refused (`mediaFailed`);
-they are tried again on the next run. Object keys are always
+picture on its own: it locks the row, checks again that it is due, deletes
+the object and then the row, and reports the ones the store refused
+(`mediaFailed`); they are tried again on the next run. An upload whose row is
+gone by the time it is confirmed fails and removes its object. Object keys are always
 `media/<tenant>/<id>`: the database checks this, and the app checks it again
 before every read and delete.
 
