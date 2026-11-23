@@ -33,8 +33,9 @@ GRANT SELECT, UPDATE ("payload", "status", "erased_at") ON "tenant_effect" TO :"
 -- statement
 GRANT SELECT, UPDATE ("key", "result") ON "tenant_idempotency" TO :"eraser_role";
 -- statement
--- Server-side journals: the customer's encrypted versions and the versions the store replaced by a scrubbed copy.
-GRANT SELECT ("tenant_id", "customer_id", "id", "version", "replaces"), DELETE ON "journal_entry" TO :"eraser_role";
+-- Server-side journals: the customer's encrypted versions are deleted, and another customer's version that named
+-- them is replaced by the scrubbed copy the store encrypted (studio_erase_journal_mentions).
+GRANT SELECT, INSERT, DELETE ON "journal_entry" TO :"eraser_role";
 
 -- statement
 CREATE OR REPLACE FUNCTION studio_phone_digits(p text) RETURNS text
@@ -305,20 +306,55 @@ BEGIN
     AND (key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(public.studio_redact_replay_action(result, p_customer, v_digit_list, v_contact_patterns, v_fields), p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM result);
   GET DIAGNOSTICS v_keys = ROW_COUNT;
 
-  -- Server-side journals: every version of the customer's entries, and every version of another customer's entry
-  -- that named them, which the store replaced by a scrubbed copy (`replaces`) in this transaction before the call.
-  -- Ciphertext needs no reading: rows are found by their columns alone.
-  DELETE FROM journal_entry o WHERE o.tenant_id = p_tenant
-    AND (o.customer_id = p_customer OR EXISTS (
-      SELECT 1 FROM journal_entry n WHERE n.tenant_id = o.tenant_id AND n.id = o.id AND n.replaces = o.version));
+  -- Server-side journals: every version of the customer's entries (studio_erase_journal_mentions replaced the
+  -- versions of other customers' entries that named them before this call). Found by their columns alone.
+  DELETE FROM journal_entry o WHERE o.tenant_id = p_tenant AND o.customer_id = p_customer;
   GET DIAGNOSTICS v_journals = ROW_COUNT;
   RETURN jsonb_build_object('actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys, 'journalEntries', v_journals,
                             'pendingPayments', v_pending_payments, 'inFlightMessages', v_in_flight);
 END $fn$;
 
 -- statement
+-- Server-side journals, before erase_subject in the same transaction: each version of ANOTHER customer's entry that
+-- named the customer being erased is replaced by its scrubbed copy, which the store encrypted for the next version
+-- of that entry (p_copies: [{id, replaces, version, ciphertext, iv, keyVersion}], ciphertext and iv in base64). The
+-- copy keeps the replaced version's customer, author and trash mark, links to it (`replaces`), and the replaced
+-- version is deleted at once: a link is only ever made and used inside this erasure. Refused unless the customer is
+-- still in the salon's document (the caller holds its row lock), and for a version of the customer's own entries.
+CREATE OR REPLACE FUNCTION studio_erase_journal_mentions(p_tenant text, p_customer text, p_copies jsonb) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_copy jsonb;
+  v_old record;
+  v_count integer := 0;
+BEGIN
+  IF jsonb_typeof(coalesce(p_copies, '[]'::jsonb)) <> 'array' THEN RAISE EXCEPTION 'studio_erase_journal_mentions: copies must be an array'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM tenant_state s WHERE s.tenant_id = p_tenant AND (
+      EXISTS (SELECT 1 FROM jsonb_array_elements(s.doc -> 'customers') c WHERE c ->> 'id' = p_customer)
+      OR EXISTS (SELECT 1 FROM jsonb_array_elements(s.doc -> 'trash') t WHERE t ->> 'kind' = 'customer' AND t -> 'customer' ->> 'id' = p_customer))) THEN
+    RAISE EXCEPTION 'studio_erase_journal_mentions: unknown customer';
+  END IF;
+  FOR v_copy IN SELECT jsonb_array_elements(coalesce(p_copies, '[]'::jsonb)) LOOP
+    SELECT j.customer_id, j.id, j.version, j.author, j.deleted_at INTO v_old FROM journal_entry j
+    WHERE j.tenant_id = p_tenant AND j.id = v_copy ->> 'id' AND j.version = (v_copy ->> 'replaces')::integer;
+    IF NOT FOUND OR v_old.customer_id = p_customer THEN RAISE EXCEPTION 'studio_erase_journal_mentions: no such version'; END IF;
+    IF (v_copy ->> 'version')::integer IS DISTINCT FROM
+        (SELECT max(j.version) + 1 FROM journal_entry j WHERE j.tenant_id = p_tenant AND j.id = v_old.id) THEN
+      RAISE EXCEPTION 'studio_erase_journal_mentions: not the next version';
+    END IF;
+    INSERT INTO journal_entry (tenant_id, customer_id, id, version, author, ciphertext, iv, key_version, replaces, deleted_at)
+    VALUES (p_tenant, v_old.customer_id, v_old.id, (v_copy ->> 'version')::integer, v_old.author,
+            decode(v_copy ->> 'ciphertext', 'base64'), decode(v_copy ->> 'iv', 'base64'), (v_copy ->> 'keyVersion')::integer,
+            v_old.version, v_old.deleted_at);
+    DELETE FROM journal_entry j WHERE j.tenant_id = p_tenant AND j.id = v_old.id AND j.version = v_old.version;
+    v_count := v_count + 1;
+  END LOOP;
+  RETURN v_count;
+END $fn$;
+
+-- statement
 REVOKE ALL ON FUNCTION studio_phone_digits(text), studio_redact_path(jsonb, text[]), studio_scrub_text(text, text[]),
-  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), erase_subject(text, text) FROM PUBLIC;
+  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb) FROM PUBLIC;
 -- statement
 ALTER FUNCTION studio_phone_digits(text) OWNER TO :"eraser_role";
 -- statement
@@ -334,7 +370,11 @@ ALTER FUNCTION studio_redact_replay_action(jsonb, text, text[], text[], jsonb) O
 -- statement
 ALTER FUNCTION erase_subject(text, text) OWNER TO :"eraser_role";
 -- statement
+ALTER FUNCTION studio_erase_journal_mentions(text, text, jsonb) OWNER TO :"eraser_role";
+-- statement
 GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO :"app_role";
+-- statement
+GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions(text, text, jsonb) TO :"app_role";
 
 -- statement
 COMMIT;

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { decryptJournal, encryptJournal, journalAad, journalKey, JournalUnreadable, type JournalKey } from "@/concept/store/journal-crypto";
+import { decryptJournal, encryptJournal, journalAad, journalKey, JournalUnreadable, keyVerifier, verifiesKey, type JournalKey } from "@/concept/store/journal-crypto";
 
 // Encryption at rest for server-side journals: a round trip, a changed byte, another key and the associated data
 // that binds a version to its tenant, customer, entry and version. Keys are made at run time; all text is invented.
@@ -72,5 +72,15 @@ describe("journal encryption", () => {
     expect(() => journalAad({ ...place, customerId: "c|1" })).toThrow(RangeError);
     expect(() => journalAad({ ...place, version: 0 })).toThrow(RangeError);
     expect(() => encryptJournal(content, { ...place, id: "" }, key)).toThrow(RangeError);
+  });
+
+  it("tells the key a version was first used with from any other key of that version", () => {
+    const stored = keyVerifier(key);
+    expect(stored.iv).toHaveLength(12);
+    expect(verifiesKey(stored, key)).toBe(true);
+    expect(verifiesKey(stored, journalKey(keyValue())!)).toBe(false);
+    expect(verifiesKey(stored, { version: 2, key: key.key })).toBe(false);
+    expect(verifiesKey({ ...stored, verifier: flip(stored.verifier, 0) }, key)).toBe(false);
+    expect(verifiesKey({ ...stored, iv: stored.iv.subarray(0, 4) }, key)).toBe(false);
   });
 });

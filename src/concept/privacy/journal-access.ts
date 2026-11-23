@@ -29,6 +29,8 @@ export interface JournalViewAction {
   customerId?: string;
   actor: JournalAccess["actor"];
   staffId?: StaffId;
+  /** Set only by the server's journal route (never accepted from a client): it handed the text out. */
+  served?: true;
 }
 
 /** Adds one read to the log, or returns the same state when it is invalid or repeats a read just made. Reads older than the log's retention fall off. */
@@ -38,12 +40,15 @@ export function recordJournalView(state: DemoState, action: JournalViewAction, n
   if (action.staffId !== undefined && (action.actor !== "staff" || !state.staff.some((s) => s.id === action.staffId))) return state;
   const log = state.journalAccess ?? [];
   const window = action.customerId === undefined ? LOAD_WINDOW_MS : SAME_READ_WINDOW_MS;
-  const repeated = log.some((entry) => now - entry.at < window && entry.actor === action.actor && entry.staffId === action.staffId && entry.customerId === action.customerId);
+  // A read the server handed out is only ever the repeat of another such read, never of one the studio reported.
+  const repeated = log.some((entry) => now - entry.at < window && entry.actor === action.actor && entry.staffId === action.staffId &&
+    entry.customerId === action.customerId && !!entry.served === !!action.served);
   if (repeated) return state;
   const entry: JournalAccess = {
     id: `ja-${state.seq}`, at: now, actor: action.actor,
     ...(action.staffId ? { staffId: action.staffId } : {}),
     ...(action.customerId ? { customerId: action.customerId } : {}),
+    ...(action.served === true ? { served: true as const } : {}),
   };
   const cutoff = monthsBefore(now, RETENTION.journalAccessLogMonths);
   const journalAccess = [entry, ...log.filter((old) => old.at >= cutoff)].slice(0, JOURNAL_ACCESS_CAP);

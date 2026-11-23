@@ -131,7 +131,7 @@ REVOKE ALL ON
   "AgentApiKey", "AgentBooking", "AgentClient", "AgentMandate", "AgentApiEvent", "AgentProposal",
   "AgentAuditEvent", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairToken",
   "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session", "owner_recovery_code",
-  "owner_mfa_challenge", "media_asset", "journal_entry"
+  "owner_mfa_challenge", "media_asset", "journal_entry", "journal_key"
   FROM cresavo_app;
 REVOKE ALL ON "_prisma_migrations" FROM cresavo_app;
 
@@ -173,10 +173,14 @@ GRANT SELECT, INSERT, DELETE ON "owner_mfa_challenge" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE ("deleted_at", "alt_text", "status", "published_at") ON "media_asset" TO cresavo_app;
 
 -- Server-side journals (src/concept/store/journal-vault.ts, JOURNALS_ON_SERVER): encrypted versions are read and
--- appended, and marked trashed or restored with their customer (deleted_at). Never rewritten or deleted by the app:
--- erasure deletes through erase_subject (erase-subject.sql grants cresavo_eraser its DELETE). The table is in the
--- row-level security of rls-enable.sql like the store tables. No other role reads it, not even support.
-GRANT SELECT, INSERT, UPDATE ("deleted_at") ON "journal_entry" TO cresavo_app;
+-- appended, and marked trashed or restored with their customer (deleted_at). Never rewritten or deleted by the app,
+-- and it may not write `replaces`: only the erasure links a scrubbed copy to the version it replaces and deletes
+-- that version, as cresavo_eraser (erase-subject.sql). The table is in the row-level security of rls-enable.sql
+-- like the store tables. No other role reads it, not even support.
+GRANT SELECT, INSERT ("tenant_id", "customer_id", "id", "version", "created_at", "author", "ciphertext", "iv", "key_version", "deleted_at"),
+  UPDATE ("deleted_at") ON "journal_entry" TO cresavo_app;
+-- The key verifier: one row per key version, written once by the first worker with that key, then only read.
+GRANT SELECT, INSERT ON "journal_key" TO cresavo_app;
 
 -- Shared rate-limit and owner-guard rows (postgres-rate-limit.ts, owner-guard-store.ts).
 GRANT SELECT, INSERT, UPDATE, DELETE ON "RateLimitBucket" TO cresavo_app;

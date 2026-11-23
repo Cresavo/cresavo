@@ -482,6 +482,8 @@ export interface JournalAccess {
   staffId?: StaffId;
   /** The customer whose journal was read. Absent when a server load delivered every customer's journal to a device at once. */
   customerId?: string;
+  /** The server handed the text out itself (JOURNALS_ON_SERVER), rather than the studio reporting a read. */
+  served?: true;
 }
 
 /** The owner's privacy settings. */

@@ -53,6 +53,7 @@ REVOKE ALL ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_swee
   store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
   store_sweep_journal_views(timestamptz, integer), store_sweep_rate_limits(timestamptz, integer),
   store_sweep_owner_guard(timestamptz, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION store_journal_redact_audit(text, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
   store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
   store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
@@ -62,6 +63,9 @@ GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
   store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean),
   store_salon_by_slug(text)
   TO cresavo_app;
+-- Server-side journals (migration server_journals): the journal text of the tenant's own audit rows from before its
+-- journals moved, removed while they move, in its own scope only.
+GRANT EXECUTE ON FUNCTION store_journal_redact_audit(text, jsonb) TO cresavo_app;
 
 -- Erasure (item 7): the only path that may change tenant_action is the
 -- SECURITY DEFINER function erase_subject(tenant, customerId), owned by a

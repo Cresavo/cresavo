@@ -94,3 +94,27 @@ export function decryptJournal(row: SealedRow, place: JournalRowPlace, key: Jour
     throw new JournalUnreadable();
   }
 }
+
+const VERIFIER_TEXT = "cresavo journal key check";
+const verifierAad = (version: number) => Buffer.from(`cresavo-journal-key:v1|${version}`, "utf8");
+
+/** The known value stored for a key version (`journal_key`), encrypted under that key. */
+export function keyVerifier(key: JournalKey): { verifier: Buffer; iv: Buffer } {
+  const iv = randomBytes(IV_BYTES);
+  const cipher = createCipheriv("aes-256-gcm", key.key, iv).setAAD(verifierAad(key.version));
+  const body = Buffer.concat([cipher.update(VERIFIER_TEXT, "utf8"), cipher.final()]);
+  return { verifier: Buffer.concat([body, cipher.getAuthTag()]), iv };
+}
+
+/** True when the key decrypts its version's stored verifier: the key the journals of that version were written with. */
+export function verifiesKey(stored: { verifier: Buffer; iv: Buffer }, key: JournalKey): boolean {
+  if (stored.iv.length !== IV_BYTES || stored.verifier.length < TAG_BYTES) return false;
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key.key, stored.iv).setAAD(verifierAad(key.version));
+    decipher.setAuthTag(stored.verifier.subarray(stored.verifier.length - TAG_BYTES));
+    const plain = Buffer.concat([decipher.update(stored.verifier.subarray(0, stored.verifier.length - TAG_BYTES)), decipher.final()]);
+    return plain.toString("utf8") === VERIFIER_TEXT;
+  } catch {
+    return false;
+  }
+}

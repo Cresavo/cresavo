@@ -90,7 +90,8 @@ describe("store row-level security files", () => {
       .filter(([, , roles]) => roles.split(",").map((r) => r.trim()).includes(role))
       .flatMap(([, list]) => [...list.matchAll(/(store_\w+)\(/g)].map((m) => m[1])).sort();
     expect(grantsTo("cresavo_outbox")).toEqual(functions.map(([, name]) => name).filter((n) => n.startsWith("store_outbox_") && n !== "store_outbox_caller").sort());
-    expect(grantsTo("cresavo_app")).toEqual([...grantsTo("cresavo_outbox"), "store_salon_by_slug"].sort());
+    // And the journal migration's audit redaction, for the app moving its own tenant's journals.
+    expect(grantsTo("cresavo_app")).toEqual([...grantsTo("cresavo_outbox"), "store_journal_redact_audit", "store_salon_by_slug"].sort());
     expect(grantsTo("cresavo_sweeper")).toEqual(functions.map(([, name]) => name).filter((n) => n.startsWith("store_sweep_") && n !== "store_sweep_check").sort());
     expect(grantsTo("cresavo_support")).toEqual([]);
     // The sweep functions redact with the same map as the application and erase_subject.
@@ -101,7 +102,9 @@ describe("store row-level security files", () => {
   it("studio-store.sql repeats the migration's revokes, so a restore without privileges closes the functions again", () => {
     const revokes = (sql: string) => sql.match(/REVOKE ALL ON FUNCTION store_[^;]+;/g);
     expect(revokes(rawMigration)).toHaveLength(3);
-    expect(revokes(read("prisma/grants/studio-store.sql"))).toEqual(revokes(rawMigration));
+    const journals = read("prisma/migrations/20261123090000_server_journals/migration.sql");
+    expect(revokes(journals)).toEqual(["REVOKE ALL ON FUNCTION store_journal_redact_audit(text, jsonb) FROM PUBLIC;"]);
+    expect(revokes(read("prisma/grants/studio-store.sql"))).toEqual([...revokes(rawMigration)!, ...revokes(journals)!]);
   });
 
   it("bootstrap-roles.sql and roles.sql create the same group roles in the same way", () => {

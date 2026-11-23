@@ -184,4 +184,41 @@ describe("prisma/grants/roles.sql", () => {
     }
     for (const table of [...unused, ...sandbox]) expect(grants.get("cresavo_app")?.has(table) ?? false, table).toBe(false);
   });
+
+  it("lets the app append journal versions and mark them trashed, but never link a copy to the version it replaces", () => {
+    const inserted = [...(grants.get("cresavo_app")?.get("journal_entry")?.get("INSERT") ?? [])].sort();
+    expect(inserted).toEqual(["author", "ciphertext", "created_at", "customer_id", "deleted_at", "id", "iv", "key_version", "tenant_id", "version"]);
+    expect(can("cresavo_app", "journal_entry", "INSERT", "replaces")).toBe(false);
+    expect([...(grants.get("cresavo_app")?.get("journal_entry")?.get("UPDATE") ?? [])]).toEqual(["deleted_at"]);
+    expect(can("cresavo_app", "journal_entry", "DELETE")).toBe(false);
+    for (const role of ["cresavo_support", "cresavo_sweeper", "cresavo_outbox"]) expect(grants.get(role)?.has("journal_entry") ?? false, role).toBe(false);
+    // The store's own inserts name exactly those columns; only the erasure (erase-subject.sql) writes `replaces`.
+    const vault = read("src/concept/store/journal-vault.ts");
+    const appInsert = vault.match(/INSERT INTO journal_entry \((tenant_id, customer_id, id, version, created_at[^)]*)\)/)![1];
+    // The statements-mode erasure (staging, as the table owner) is the only other insert, and the only one with `replaces`.
+    expect(vault.match(/INSERT INTO journal_entry/g)).toHaveLength(2);
+    expect(appInsert.split(",").map((c) => c.trim()).sort()).toEqual(inserted);
+    const erase = read("prisma/grants/erase-subject.sql");
+    expect(erase).toMatch(/GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions\(text, text, jsonb\) TO :"app_role";/);
+    expect(erase).toMatch(/studio_erase_journal_mentions\(p_tenant text, p_customer text, p_copies jsonb\) RETURNS integer\s+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp/);
+    // erase_subject deletes the customer's own rows only: no row is deleted on the strength of a `replaces` link.
+    expect(erase.match(/DELETE FROM journal_entry[^;]*;/g)?.sort()).toEqual([
+      "DELETE FROM journal_entry j WHERE j.tenant_id = p_tenant AND j.id = v_old.id AND j.version = v_old.version;",
+      "DELETE FROM journal_entry o WHERE o.tenant_id = p_tenant AND o.customer_id = p_customer;",
+    ]);
+  });
+
+  it("redacts old journal audit rows only through a fixed function in the tenant's own scope", () => {
+    const journals = read("prisma/migrations/20261123090000_server_journals/migration.sql").replace(/--.*$/gm, "");
+    const fn = journals.match(/CREATE FUNCTION store_journal_redact_audit\(p_tenant text, p_ids jsonb\)[\s\S]*?\$fn\$;/)![0];
+    expect(fn).toContain("SECURITY DEFINER SET search_path = public, pg_temp");
+    expect(fn).toContain("(p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')) IS TRUE");
+    expect(fn).toMatch(/store_caller_owns\(\) OR store_caller_in\('cresavo_app'\)/);
+    // One table, one column, two action types.
+    expect(fn.match(/UPDATE \w+/g)).toEqual(["UPDATE tenant_action"]);
+    expect(fn).toMatch(/SET action = CASE/);
+    expect(fn).not.toMatch(/idempotency_key|redacted_at|subject_ids|DELETE|INSERT/);
+    expect([...fn.matchAll(/'(journal\/\w+)'/g)].map((m) => m[1]).sort()).toEqual(["journal/add", "journal/add", "journal/add", "journal/edit", "journal/edit"].sort());
+    expect(journals).not.toMatch(/GRANT |CREATE ROLE|CREATE POLICY/);
+  });
 });

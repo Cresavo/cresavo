@@ -16,7 +16,7 @@ import {
   versionsOf,
   withoutJournalText,
 } from "../journals/sealed";
-import { decryptJournal, encryptJournal, JournalUnreadable, type JournalKey } from "./journal-crypto";
+import { decryptJournal, encryptJournal, JournalUnreadable, keyVerifier, verifiesKey, type JournalKey } from "./journal-crypto";
 
 // The `journal_entry` table behind sealed journal entries (JOURNALS_ON_SERVER;
 // migration 20261123090000_server_journals). Only PostgresStudioStore uses it,
@@ -26,8 +26,9 @@ import { decryptJournal, encryptJournal, JournalUnreadable, type JournalKey } fr
 // Versions are append-only: an edit, and the first save of an entry that still
 // carried its text in the document, add rows; nothing rewrites one. The
 // application may only mark rows trashed (`deleted_at`). Erasure deletes a
-// customer's rows, and the rows an erasure replaced by a scrubbed copy
-// (`replaces`), through erase_subject or the store's own statements.
+// customer's rows through erase_subject (or the store's own statements), and
+// replaces a version of another customer's entry that names them by a scrubbed
+// copy (`replaces`) through studio_erase_journal_mentions, in the same step.
 
 type Tx = Prisma.TransactionClient;
 
@@ -38,6 +39,20 @@ interface StoredRow {
   ciphertext: Uint8Array;
   iv: Uint8Array;
   key_version: number;
+  deleted_at?: Date | null;
+}
+
+/** A scrubbed copy of a version that names an erased customer, encrypted for the next version of its entry. */
+export interface MentionCopy {
+  id: string;
+  customerId: string;
+  /** The version it replaces, which the erasure deletes. */
+  replaces: number;
+  version: number;
+  deletedAt: Date | null;
+  ciphertext: Buffer;
+  iv: Buffer;
+  keyVersion: number;
 }
 
 /** What tenant_idempotency keeps per key: the result of the first apply, a state copy included. */
@@ -52,7 +67,6 @@ interface PendingRow {
   id: string;
   version: number;
   content: JournalContent;
-  replaces: number | null;
 }
 
 /** Actions whose rules read journal text: the edited entry, or every entry (memory refuses notes that copy a journal). */
@@ -67,14 +81,68 @@ export const JOURNAL_TEXT_ACTIONS = new Set<DemoAction["type"]>(["journal/add", 
  * customer's rows, and every version an erasure replaced by a scrubbed copy. No key needed.
  */
 export function deleteErasedJournals(tx: Tx, tenantId: string, customerId: string): Promise<number> {
-  return tx.$executeRaw`
-    DELETE FROM journal_entry o WHERE o.tenant_id = ${tenantId}
-      AND (o.customer_id = ${customerId} OR EXISTS (
-        SELECT 1 FROM journal_entry n WHERE n.tenant_id = o.tenant_id AND n.id = o.id AND n.replaces = o.version))`;
+  return tx.$executeRaw`DELETE FROM journal_entry WHERE tenant_id = ${tenantId} AND customer_id = ${customerId}`;
+}
+
+/** The copies as studio_erase_journal_mentions takes them. */
+export const mentionCopiesJson = (copies: MentionCopy[]) => JSON.stringify(copies.map((copy) => ({
+  id: copy.id, replaces: copy.replaces, version: copy.version, ciphertext: copy.ciphertext.toString("base64"), iv: copy.iv.toString("base64"), keyVersion: copy.keyVersion,
+})));
+
+/** studio_erase_journal_mentions as the store's own statements (staging): each copy in, the version it replaces out. */
+export async function replaceMentions(tx: Tx, tenantId: string, copies: MentionCopy[]): Promise<number> {
+  for (const copy of copies) {
+    await tx.$executeRaw`
+      INSERT INTO journal_entry (tenant_id, customer_id, id, version, author, ciphertext, iv, key_version, replaces, deleted_at)
+      VALUES (${tenantId}, ${copy.customerId}, ${copy.id}, ${copy.version}, 'owner', ${copy.ciphertext}, ${copy.iv}, ${copy.keyVersion},
+              ${copy.replaces}, ${copy.deletedAt}::timestamptz)`;
+    await tx.$executeRaw`DELETE FROM journal_entry WHERE tenant_id = ${tenantId} AND id = ${copy.id} AND version = ${copy.replaces}`;
+  }
+  return copies.length;
+}
+
+const TEXT_FIELDS = ["treatment", "observations", "advice", "nextVisit", "photos", "versions"];
+
+/** True when an action as stored (audit row or replay) still carries journal text. */
+export function actionHoldsText(action: unknown): boolean {
+  const fields = action as { type?: unknown; entry?: unknown; [key: string]: unknown } | null;
+  if (!fields || typeof fields !== "object") return false;
+  if (fields.type === "journal/add") return !!fields.entry && typeof fields.entry === "object" && TEXT_FIELDS.some((key) => key in (fields.entry as object));
+  if (fields.type === "journal/edit") return Object.keys(fields).some((key) => !["type", "id", "on"].includes(key));
+  return false;
+}
+
+/** True when a stored replay result still carries journal text, in its state copy or its entry's action. */
+export function replayHoldsText(result: StoredReplay | null | undefined): boolean {
+  const state = result?.state;
+  const inState = !!state && typeof state === "object" && Array.isArray(state.journals) && holdsJournalText(state);
+  return inState || actionHoldsText(result?.entry?.action);
 }
 
 export class JournalVault {
+  private verified = false;
+
   constructor(private readonly key: JournalKey) {}
+
+  /**
+   * True when the configured key is the key its version was first used with: it decrypts the verifier stored for
+   * that version in `journal_key`, which the first use stores. A wrong key of the same version is refused before it
+   * reads or writes anything. Remembered once true.
+   */
+  async verify(tx: Tx): Promise<boolean> {
+    if (this.verified) return true;
+    const read = () => tx.$queryRaw<Array<{ verifier: Uint8Array; iv: Uint8Array }>>`
+      SELECT verifier, iv FROM journal_key WHERE key_version = ${this.key.version}`;
+    let [stored] = await read();
+    if (!stored) {
+      const fresh = keyVerifier(this.key);
+      await tx.$executeRaw`
+        INSERT INTO journal_key (key_version, verifier, iv) VALUES (${this.key.version}, ${fresh.verifier}, ${fresh.iv}) ON CONFLICT (key_version) DO NOTHING`;
+      [stored] = await read();
+    }
+    this.verified = !!stored && verifiesKey({ verifier: Buffer.from(stored.verifier), iv: Buffer.from(stored.iv) }, this.key);
+    return this.verified;
+  }
 
   /** Work on one tenant's rows inside a store transaction. `clock` stamps new and trashed rows. */
   open(tx: Tx, tenantId: string, clock: number): JournalSession {
@@ -150,13 +218,13 @@ export class JournalSession {
     return out;
   }
 
-  private queue(customerId: string, id: string, content: JournalContent, replaces: number | null = null): number {
+  private queue(customerId: string, id: string, content: JournalContent): number {
     const version = (this.top.get(id) ?? 0) + 1;
     this.top.set(id, version);
     const versions = this.contents.get(id) ?? this.contents.set(id, new Map()).get(id)!;
     versions.set(version, content);
     this.owners.set(id, customerId);
-    this.pending.push({ customerId, id, version, content, replaces });
+    this.pending.push({ customerId, id, version, content });
     return version;
   }
 
@@ -210,15 +278,14 @@ export class JournalSession {
     if (back.length) this.places.push({ ids: back, trashed: false });
   }
 
-  /** Writes what `seal`, `recordPlaces` and `scrubMentions` queued, in this transaction. */
+  /** Writes what `seal` and `recordPlaces` queued, in this transaction. */
   async flush() {
     for (const row of this.pending.splice(0)) {
       const sealed = encryptJournal(row.content, { tenantId: this.tenantId, customerId: row.customerId, id: row.id, version: row.version }, this.key);
       await this.tx.$executeRaw`
-        INSERT INTO journal_entry (tenant_id, customer_id, id, version, created_at, author, ciphertext, iv, key_version, replaces, deleted_at)
+        INSERT INTO journal_entry (tenant_id, customer_id, id, version, created_at, author, ciphertext, iv, key_version, deleted_at)
         VALUES (${this.tenantId}, ${row.customerId}, ${row.id}, ${row.version}, to_timestamp(${this.clock}::float8 / 1000), 'owner',
-                ${sealed.ciphertext}, ${sealed.iv}, ${sealed.keyVersion}, ${row.replaces},
-                ${this.trashedNow.has(row.id) ? new Date(this.clock) : null}::timestamptz)`;
+                ${sealed.ciphertext}, ${sealed.iv}, ${sealed.keyVersion}, ${this.trashedNow.has(row.id) ? new Date(this.clock) : null}::timestamptz)`;
     }
     for (const { ids, trashed } of this.places.splice(0)) {
       if (trashed) {
@@ -233,15 +300,17 @@ export class JournalSession {
   }
 
   /**
-   * Before an erasure: every stored version of another customer's entry that names the erased customer gets a
-   * scrubbed copy (a new version that `replaces` it); the erasure then deletes the version it replaced. Returns the
-   * renumbering for the document's stubs.
+   * Before an erasure: a scrubbed copy, encrypted for the next version of its entry, of every stored version of
+   * another customer's entry that names the erased customer. The erasure stores each copy and deletes the version it
+   * replaces (studio_erase_journal_mentions), keeping its trash mark. Returns the copies and the renumbering for the
+   * document's stubs. The application never writes `replaces` itself.
    */
-  async scrubMentions(customerId: string, identifiers: readonly string[], marker: string): Promise<Map<string, Map<number, number>>> {
+  async scrubMentions(customerId: string, identifiers: readonly string[], marker: string): Promise<{ copies: MentionCopy[]; remap: Map<string, Map<number, number>> }> {
     const remap = new Map<string, Map<number, number>>();
-    if (!identifiers.length) return remap;
+    const copies: MentionCopy[] = [];
+    if (!identifiers.length) return { copies, remap };
     const rows = await this.tx.$queryRaw<StoredRow[]>`
-      SELECT id, customer_id, version, ciphertext, iv, key_version FROM journal_entry
+      SELECT id, customer_id, version, ciphertext, iv, key_version, deleted_at FROM journal_entry
       WHERE tenant_id = ${this.tenantId} AND customer_id <> ${customerId} ORDER BY id, version`;
     for (const row of rows) if (!this.loaded.has(row.id)) this.remember(row);
     for (const row of rows) this.loaded.add(row.id);
@@ -249,10 +318,14 @@ export class JournalSession {
       const content = this.contents.get(row.id)!.get(row.version)!;
       const scrubbed = scrubDeep(content, identifiers, marker);
       if (jsonEqual(scrubbed, content)) continue;
-      const version = this.queue(row.customer_id, row.id, scrubbed, row.version);
+      const version = (this.top.get(row.id) ?? 0) + 1;
+      this.top.set(row.id, version);
+      this.contents.get(row.id)!.set(version, scrubbed);
+      const sealed = encryptJournal(scrubbed, { tenantId: this.tenantId, customerId: row.customer_id, id: row.id, version }, this.key);
+      copies.push({ id: row.id, customerId: row.customer_id, replaces: row.version, version, deletedAt: row.deleted_at ?? null, ...sealed });
       (remap.get(row.id) ?? remap.set(row.id, new Map()).get(row.id)!).set(row.version, version);
     }
-    return remap;
+    return { copies, remap };
   }
 
   /**
@@ -264,8 +337,7 @@ export class JournalSession {
     const state = result?.state;
     const action = result?.entry?.action;
     const textInState = !!state && typeof state === "object" && Array.isArray(state.journals) && holdsJournalText(state);
-    const fields = action as { type?: string; entry?: object; content?: unknown } | undefined;
-    const textInAction = (fields?.type === "journal/add" && !!fields.entry && "treatment" in fields.entry) || (fields?.type === "journal/edit" && "content" in fields);
+    const textInAction = actionHoldsText(action);
     if (!textInState && !textInAction) return null;
     const entry = textInAction ? { ...result.entry, action: auditAction(action as DemoAction) } : result.entry;
     if (!textInState) return { ...result, entry };

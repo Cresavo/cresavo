@@ -867,7 +867,7 @@ describe("the store: load, apply, history and erase stay inside one tenant", () 
       await expect(db.$queryRaw`SELECT erase_subject(${`${PREFIX}-nobody`}, ${customer.id}) AS counts`).rejects.toThrow(/unknown tenant/);
       expect(await snapshot(y)).toEqual(untouched);
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
         studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]), studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   }, 30_000);

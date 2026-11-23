@@ -26,7 +26,9 @@ const A = `${PREFIX}-a`;
 const B = `${PREFIX}-b`;
 const today = "2026-11-23";
 const hmacSecret = randomBytes(32).toString("hex");
-const key = journalKey(`v1:${randomBytes(32).toString("base64")}`)!;
+// A key version of its own: journal_key keeps one verifier per version for the whole database.
+const KEY_VERSION = 100_000 + Math.floor(Math.random() * 800_000);
+const key = journalKey(`v${KEY_VERSION}:${randomBytes(32).toString("base64")}`)!;
 const SECRET = `Fictional private observation ${run}`;
 const password = randomBytes(24).toString("hex");
 const LOGINS = { app: `cresavo_rlsj_app_${run}`, sweeper: `cresavo_rlsj_sweeper_${run}`, support: `cresavo_rlsj_support_${run}`, outbox: `cresavo_rlsj_outbox_${run}` };
@@ -126,10 +128,11 @@ describe.skipIf(!able?.ok)("server-side journals under least privilege and row-l
     for (const table of ["journal_entry", "tenant_effect", "tenant_idempotency", "tenant_action", "tenant_state"]) {
       await admin.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id LIKE $1`, `${PREFIX}-%`);
     }
+    await admin.$executeRaw`DELETE FROM journal_key WHERE key_version = ${KEY_VERSION}`;
     await Promise.all(clients.filter((c) => c !== admin).map((c) => c.$disconnect()));
     await runSql(Object.values(LOGINS).map((login) => `DROP ROLE IF EXISTS ${login}`).join(";"));
     if (eraseSubjectInstalled) {
-      await runSql(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay(jsonb, text, text[], text[]),
+      await runSql(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay(jsonb, text, text[], text[]),
         studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
@@ -177,6 +180,16 @@ describe.skipIf(!able?.ok)("server-side journals under least privilege and row-l
     expect(await attempt(app, { tenant: A }, `UPDATE journal_entry SET deleted_at = deleted_at WHERE tenant_id = '${A}'`)).toBe(inA);
     expect(await attempt(app, { tenant: A }, `INSERT INTO journal_entry (tenant_id, customer_id, id, version, ciphertext, iv, key_version)
       VALUES ('${B}', 'k-1', 'j-x', 1, '\\x00000000000000000000000000000000', '\\x000000000000000000000000', 1)`)).toBe("rls");
+    // The app may not link a version to one it replaces, nor call the erasure's replacement outside an erasure's checks.
+    expect(await attempt(app, { tenant: A }, `INSERT INTO journal_entry (tenant_id, customer_id, id, version, ciphertext, iv, key_version, replaces)
+      VALUES ('${A}', 'k-1', 'j-x', 2, '\\x00000000000000000000000000000000', '\\x000000000000000000000000', 1, 1)`)).toBe("denied");
+    await expect(scoped(app, { tenant: A }, (tx) => tx.$queryRawUnsafe(`SELECT studio_erase_journal_mentions('${A}', 'k-unknown', '[]'::jsonb)`)))
+      .rejects.toThrow(/unknown customer/);
+    // The audit rows from before the move hold no journal text, and the salon is marked.
+    const [audit] = await admin.$queryRaw<Array<{ text: number; sealed: boolean }>>`
+      SELECT (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${A} AND action::text LIKE ${`%${SECRET}%`}) AS text,
+        (SELECT journals_sealed_at IS NOT NULL FROM tenant_state WHERE tenant_id = ${A}) AS sealed`;
+    expect(audit).toEqual({ text: 0, sealed: true });
     // Support sees no journal row at all, not even its columns.
     expect(await attempt(support, null, "SELECT count(*) FROM journal_entry")).toBe("denied");
   });
@@ -190,8 +203,14 @@ describe.skipIf(!able?.ok)("server-side journals under least privilege and row-l
     expect(mention.ok).toBe(true);
     const theirs = await visible(admin, null, `tenant_id = '${A}' AND customer_id = '${vera.id}'`);
     expect(theirs).toBeGreaterThan(0);
+    // Olle's entry is in the trash meanwhile: the scrubbed copy keeps the trash mark.
+    const deleted = await store.apply(A, { type: "customer/delete", id: olle.id }, { actor: "owner", source: "button" });
+    expect(deleted.ok).toBe(true);
     const erased = await store.eraseSubject(A, vera.id, { actor: "owner", source: "button" });
-    expect(erased).toMatchObject({ ok: true, redacted: { journalEntries: theirs + 1 } });
+    expect(erased).toMatchObject({ ok: true, redacted: { journalEntries: theirs } });
+    expect(await visible(admin, null, `tenant_id = '${A}' AND replaces IS NOT NULL AND deleted_at IS NOT NULL`)).toBe(1);
+    const trashId = (await store.load(A))!.state.trash.find((t) => t.kind === "customer" && t.customer.id === olle.id)!.id;
+    expect((await store.apply(A, { type: "trash/restore", id: trashId }, { actor: "owner", source: "button" })).ok).toBe(true);
     expect(await visible(admin, null, `tenant_id = '${A}' AND customer_id = '${vera.id}'`)).toBe(0);
     expect(await visible(admin, null, `tenant_id = '${A}' AND replaces IS NOT NULL`)).toBe(1);
     const olles = await store.readJournals(A, olle.id, { actor: "owner" });

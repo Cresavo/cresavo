@@ -529,6 +529,8 @@ model TenantState {
   /// Sandbox tenants only; past it, load returns null.
   expiresAt DateTime?  @map("expires_at") @db.Timestamptz(3)
   updatedAt DateTime   @default(now()) @map("updated_at") @db.Timestamptz(3)
+  /// Set once the salon's journals live only in journal_entry (document, replays and audit log free of their text).
+  journalsSealedAt DateTime? @map("journals_sealed_at") @db.Timestamptz(3)
   @@map("tenant_state")
 }
 
@@ -715,4 +717,14 @@ model JournalEntryVersion {
   @@id([tenantId, id, version])
   @@index([tenantId, customerId], map: "journal_entry_customer_idx")
   @@map("journal_entry")
+}
+
+/// One known value per journal key version, encrypted under that key: a configured key is checked against it
+/// before it may write a journal entry. No personal data.
+model JournalKeyVerifier {
+  keyVersion Int      @id @map("key_version")
+  verifier   Bytes
+  iv         Bytes
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  @@map("journal_key")
 }

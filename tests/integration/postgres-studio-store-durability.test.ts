@@ -576,7 +576,7 @@ describe("erasure (item 7)", () => {
       expect(calls).toBe(1);
     } finally {
       if (erasure === "function") {
-        await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+        await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
           studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
       }
     }
@@ -700,7 +700,7 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
       expect(stored.every((row) => row.result.entry.action.note === undefined || row.result.entry.action.note === "[redacted]")).toBe(true);
       expect(JSON.stringify(await db.$queryRaw`SELECT result FROM tenant_idempotency WHERE tenant_id = ${id}`)).not.toContain("names nobody");
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
         studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]), studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   }, 30_000);
@@ -721,7 +721,7 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
       expect(erased).toMatchObject({ ok: true, redacted: { idempotencyKeys: 1 } });
       expect(await personalDataHits(id, ERASURE_NEEDLES)).toEqual([]);
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   });

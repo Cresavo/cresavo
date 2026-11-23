@@ -6,6 +6,7 @@ import {
   versionCount, versionsOf, withoutJournalText,
 } from "@/concept/journals/sealed";
 import { applyAction } from "@/concept/log/capture";
+import { recordJournalView } from "@/concept/privacy/journal-access";
 
 // The document side of server-side journals: every journal entry the document holds is found (the list, trash
 // bundles and the undo data of the activity log), a stub carries no text, and what a browser or the audit log
@@ -115,5 +116,17 @@ describe("sealed journal documents", () => {
     expect(live.size).toBe(state.journals.length);
     expect(trashed.size).toBeGreaterThan(0);
     for (const id of trashed) expect(live.has(id)).toBe(false);
+  });
+
+  it("never counts a read the studio reported as the read the server handed out", () => {
+    const { state } = salon();
+    const customerId = state.customers[0].id;
+    const at = meta.at;
+    const reported = recordJournalView(state, { customerId, actor: "owner" }, at);
+    const served = recordJournalView(reported, { customerId, actor: "owner", served: true }, at + 1000);
+    expect(served.journalAccess!.slice(0, 2).map((row) => row.served)).toEqual([true, undefined]);
+    // A second server read within the minute is the same read; a later one is a new read.
+    expect(recordJournalView(served, { customerId, actor: "owner", served: true }, at + 2000)).toBe(served);
+    expect(recordJournalView(served, { customerId, actor: "owner", served: true }, at + 120_000).journalAccess).toHaveLength(served.journalAccess!.length + 1);
   });
 });
