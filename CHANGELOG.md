@@ -44,7 +44,7 @@ All notable changes to this project are documented here. Format follows
 - **Share and Download always export the poster on screen.** Right after an edit, or after a render that failed, they could export the previous poster. They now stay off until the current poster is drawn, in the campaign flow and on a campaign's page.
 - **The poster renderer checks the photo itself.** A photo whose bytes are not the JPEG or PNG its label names, has no readable size or is cut off is refused with 400 instead of failing the render.
 - **Calendar subscriptions keep the right time on clock-change days.** On the last Sunday of March and of October, a staff member's calendar feed showed bookings an hour early or late, because the booking time was added to midnight as elapsed time. The feed now uses the salon's wall-clock hour and minute.
-- **The simulated SMS sign-in lab accepts only fictional numbers.** It used to accept `+46700…`, which is not a reserved range, and refused the numbers PTS sets aside for fiction. It now accepts exactly `+46701740605` to `+46701740699` and masks them as `+46701740***`. Texts stay simulated.
+- **The simulated SMS sign-in lab accepts only fictional numbers.** It used to accept `+46700…`, which is not a reserved range, and refused the numbers PTS sets aside for fiction. It now accepts exactly `+46701740605` to `+46701740699` and masks them as `+46701740***`. Texts stay simulated. New migration `20261124090000_sms_lab_fictional_mask` lets the database store the new mask; rows with the old lab mask stay valid.
 - **A routine's run stamp is never later than the server's clock.** Switching a routine on or adding one with a time ahead of the server no longer silences its next runs.
 
 ## [0.8.0] - 2026-11-22
