@@ -10,6 +10,9 @@ const config: NextConfig = {
   },
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
+  // Only the demo photos go through the image optimiser. Library pictures and logos are served by the app
+  // after its own checks; an optimised copy would outlive a removed logo (src/lib/media/respond.ts).
+  images: { localPatterns: [{ pathname: "/demo/**", search: "" }] },
   devIndicators: false,
   async headers() {
     return [

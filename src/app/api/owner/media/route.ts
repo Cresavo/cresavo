@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { readBoundedBytes } from "@/lib/bounded-json";
 import { listMedia, uploadMedia } from "@/lib/media/library";
-import { MAX_MEDIA_BYTES, MEDIA_KINDS, type MediaKind } from "@/lib/media/limits";
+import { MAX_MEDIA_BYTES, MEDIA_KINDS, UPLOAD_SESSION_HEADER, type MediaKind } from "@/lib/media/limits";
 import { ownerError, ownerOk, ownerRoute, sessionKey, fullOwner, refusedOwner, sessionOwner } from "@/lib/owner-http";
 import { checkRateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
@@ -20,7 +20,8 @@ export function GET(request: NextRequest) {
 }
 
 /**
- * Stores one picture sent as the raw request body (`?kind=photo` or `?kind=logo`). The body is capped while it
+ * Stores one picture sent as the raw request body (`?kind=photo` or `?kind=logo`), for the session named in
+ * `x-cresavo-session` only. The body is capped while it
  * streams (and before, by `src/proxy.ts` and the HTTP entry point, from its declared length). Its real type is
  * read from its bytes and its metadata is removed before it is stored.
  */
@@ -28,6 +29,9 @@ export function POST(request: NextRequest) {
   return ownerRoute(request, async () => {
     const owner = await sessionOwner(request);
     if (!fullOwner(owner)) return refusedOwner(owner);
+    // The studio binds a batch of files to the session they were picked in; a batch that outlived a sign-out
+    // or an account switch is refused here, before any byte is read or stored.
+    if (request.headers.get(UPLOAD_SESSION_HEADER) !== sessionKey(owner)) return ownerError("session_changed", 409);
     const kind = request.nextUrl.searchParams.get("kind") ?? "photo";
     if (!MEDIA_KINDS.includes(kind as MediaKind)) return ownerError("invalid", 400);
     await checkRateLimit("media-upload", owner.tenantId);

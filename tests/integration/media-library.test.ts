@@ -35,13 +35,13 @@ const clients: PrismaClient[] = [];
 const admin = createDatabaseClient(process.env.TEST_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL, 3) as PrismaClient;
 clients.push(admin);
 
-interface Owner { tenantId: string; cookie: string }
+interface Owner { tenantId: string; accountId: string; cookie: string; session: string }
 
 async function owner(label: string): Promise<Owner> {
   const result = await createOwnerAccount({ email: `${label}-${run}@example.test`, password: "a long fictional passphrase", salonName: `Salong ${label} ${run}`, language: "en" });
   if (!result.ok) throw new Error("sign-up failed");
   const session = await openOwnerSession(result.identity);
-  return { tenantId: result.tenantId, cookie: `${OWNER_COOKIE}=${session!.value}` };
+  return { tenantId: result.tenantId, accountId: result.identity.id, cookie: `${OWNER_COOKIE}=${session!.value}`, session: `${result.identity.id}.${result.identity.credentialVersion}` };
 }
 
 const request = (path: string, { cookie, method = "GET", body, headers = {} }: { cookie?: string; method?: string; body?: BodyInit; headers?: Record<string, string> } = {}) =>
@@ -50,7 +50,8 @@ const request = (path: string, { cookie, method = "GET", body, headers = {} }: {
     headers: { ...(cookie && { cookie }), ...(method !== "GET" && { origin, host: "localhost" }), ...headers },
   });
 const params = <T>(value: T) => ({ params: Promise.resolve(value) });
-const upload = (who: Owner, bytes: Buffer, kind = "photo") => uploadRoute(request(`/api/owner/media?kind=${kind}`, { cookie: who.cookie, method: "POST", body: new Uint8Array(bytes) }));
+const upload = (who: Owner, bytes: Buffer, kind = "photo", session: string | null = who.session) =>
+  uploadRoute(request(`/api/owner/media?kind=${kind}`, { cookie: who.cookie, method: "POST", body: new Uint8Array(bytes), headers: session === null ? {} : { "x-cresavo-session": session } }));
 const read = (who: Owner, id: string, headers: Record<string, string> = {}) => readRoute(request(`/api/owner/media/${id}`, { cookie: who.cookie, headers }), params({ id }));
 const patch = (who: Owner, id: string, altText: string | null) =>
   patchRoute(request(`/api/owner/media/${id}`, { cookie: who.cookie, method: "PATCH", body: JSON.stringify({ altText }), headers: { "content-type": "application/json" } }), params({ id }));
@@ -151,6 +152,14 @@ describe("upload", () => {
     expect((await upload(a, realPng(), "banner")).status).toBe(400);
   });
 
+  it("stores nothing for a batch picked in another session", async () => {
+    const before = await admin.mediaAsset.count({ where: { tenantId: a.tenantId } });
+    expect(await (await upload(a, realPng(24, 16, 30), "photo", b.session)).json()).toEqual({ error: "session_changed" });
+    expect((await upload(a, realPng(24, 16, 30), "photo", null)).status).toBe(409);
+    expect((await upload(a, realPng(24, 16, 30), "photo", `${a.accountId}.0`)).status).toBe(409);
+    expect(await admin.mediaAsset.count({ where: { tenantId: a.tenantId } })).toBe(before);
+  });
+
   it("is refused signed out and from another site", async () => {
     expect((await uploadRoute(request("/api/owner/media", { method: "POST", body: new Uint8Array(realPng()) }))).status).toBe(401);
     const foreign = new NextRequest(`${origin}/api/owner/media`, { method: "POST", body: new Uint8Array(realPng()), headers: { cookie: a.cookie, origin: "https://attacker.example", host: "localhost" } });
@@ -210,6 +219,45 @@ describe("an object store", () => {
     expect(objects.has(mediaKey(who.tenantId, abandoned))).toBe(false);
   });
 
+  it("fails an upload whose row was taken away before it was confirmed, and drops its object", async () => {
+    const who = await owner("media-final");
+    const objects = new Map<string, Buffer>();
+    const store: MediaStore = {
+      name: "s3",
+      put: async (key, bytes) => {
+        objects.set(key, bytes);
+        // The sweep (or a delete) took the pending row while the bytes were on their way.
+        await admin.mediaAsset.deleteMany({ where: { storageKey: key } });
+        return null;
+      },
+      get: async () => null,
+      delete: async (key) => { objects.delete(key); },
+    };
+    await expect(uploadMedia(who.tenantId, "photo", realPng(24, 16, 31), { store })).rejects.toThrow();
+    expect(objects.size).toBe(0);
+  });
+
+  it("leaves a row another transaction holds, object included", async () => {
+    const id = randomUUID();
+    await admin.mediaAsset.create({ data: { ...filler(b.tenantId, 5150), id, storage: "s3", storageKey: mediaKey(b.tenantId, id), bytes: null, deletedAt: new Date(Date.now() - (PURGE_AFTER_DAYS + 1) * DAY) } });
+    const holder = new pg.Client({ connectionString: process.env.TEST_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL });
+    await holder.connect();
+    const deleted: string[] = [];
+    const store: MediaStore = { name: "s3", put: async () => null, get: async () => null, delete: async (key) => { deleted.push(key); } };
+    try {
+      await holder.query("BEGIN");
+      await holder.query("SELECT id FROM media_asset WHERE id = $1 FOR UPDATE", [id]);
+      await sweepDeletedMedia({ prisma: admin, storeOf: () => store });
+      expect(deleted).not.toContain(mediaKey(b.tenantId, id));
+      expect(await admin.mediaAsset.count({ where: { id } })).toBe(1);
+      await holder.query("COMMIT");
+    } finally {
+      await holder.end();
+    }
+    await sweepDeletedMedia({ prisma: admin, storeOf: () => store });
+    expect(deleted).toContain(mediaKey(b.tenantId, id));
+  });
+
   it("retries a purge the store refuses without holding up the others", async () => {
     const ids = [randomUUID(), randomUUID(), randomUUID()].sort();
     const old = new Date(Date.now() - (PURGE_AFTER_DAYS + 1) * DAY);
@@ -267,6 +315,24 @@ describe("the logo", () => {
     // Saving the page without a logo takes it off at once.
     expect((await savePage(a, null)).status).toBe(200);
     expect((await publicLogo(second.publicUrl)).status).toBe(404);
+  });
+
+  it("shows an unsaved logo only to a full session, and a published one only while the booking page is served", async () => {
+    const who = await owner("media-gate");
+    const logo = (await (await upload(who, realPng(64, 32, 40), "logo")).json()).asset;
+    expect((await publicLogo(logo.publicUrl, who.cookie)).status).toBe(200);
+    // An enrolment-only session (two-step sign-in required but not set up) sees the anonymous answer.
+    vi.stubEnv("OWNER_MFA_REQUIRED", "1");
+    expect((await publicLogo(logo.publicUrl, who.cookie)).status).toBe(404);
+    vi.stubEnv("OWNER_MFA_REQUIRED", "");
+    expect((await savePage(who, logo.publicUrl)).status).toBe(200);
+    expect((await publicLogo(logo.publicUrl)).status).toBe(200);
+    await admin.ownerAccount.update({ where: { id: who.accountId }, data: { active: false } });
+    expect((await publicLogo(logo.publicUrl)).status).toBe(404);
+    await admin.ownerAccount.update({ where: { id: who.accountId }, data: { active: true } });
+    expect((await publicLogo(logo.publicUrl)).status).toBe(200);
+    await admin.tenantState.update({ where: { tenantId: who.tenantId }, data: { expiresAt: new Date(Date.now() - DAY) } });
+    expect((await publicLogo(logo.publicUrl)).status).toBe(404);
   });
 
   it("refuses a page with a new inline logo or with another salon's logo", async () => {

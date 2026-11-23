@@ -147,7 +147,8 @@ describe("prisma/grants/roles.sql", () => {
     for (const column of ["bytes", "alt_text", "sha256"]) expect(can("cresavo_sweeper", "media_asset", "SELECT", column), column).toBe(false);
     expect(sweep).toContain('DELETE FROM "media_asset"');
     expect(can("cresavo_sweeper", "media_asset", "DELETE")).toBe(true);
-    expect(sweep).not.toMatch(/FOR UPDATE/);
+    expect(sweep.match(/FOR UPDATE/g)?.length, "a new row lock needs a grant").toBe(1);
+    expect([...(grants.get("cresavo_sweeper")?.get("media_asset")?.get("UPDATE") ?? [])]).toEqual(["status"]);
     for (const column of ["bytes", "alt_text", "sha256"]) expect(can("cresavo_support", "media_asset", "SELECT", column), column).toBe(false);
   });
 

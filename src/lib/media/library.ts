@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { db } from "../db";
-import { checkedKey, mediaKey, mediaStore, storeFor, type MediaStore } from "../media-store";
+import { checkedKey, mediaKey, mediaStore, MediaStoreError, storeFor, type MediaStore } from "../media-store";
 import { MAX_PHOTOS, MAX_TENANT_MEDIA_BYTES, ownerMediaUrl, PUBLIC_LOGO_URL, publicLogoUrl, RESTORE_WINDOW_MS, type MediaKind } from "./limits";
 import { sniffImage, type MediaType } from "./sniff";
 import { AnimatedImageError, CorruptImageError, stripMetadata } from "./strip";
@@ -126,7 +126,12 @@ export async function uploadMedia(tenantId: string, kind: MediaKind, raw: Uint8A
     await client.mediaAsset.updateMany({ where: { id, tenantId, status: "pending" }, data: { deletedAt: new Date() } }).catch(() => {});
     throw error;
   }
-  await client.mediaAsset.updateMany({ where: { id, tenantId, status: "pending", deletedAt: null }, data: { status: "ready" } });
+  const { count } = await client.mediaAsset.updateMany({ where: { id, tenantId, status: "pending", deletedAt: null }, data: { status: "ready" } });
+  if (count !== 1) {
+    // The row is gone or no longer pending (the sweep removed it after a very slow upload): the bytes must go too.
+    await store.delete(storageKey).catch(() => {});
+    throw new MediaStoreError("put");
+  }
   return { ok: true, asset: outcome.asset, deduped: false };
 }
 
@@ -173,15 +178,18 @@ export async function findMedia(tenantId: string, id: string, options: MediaOpti
 }
 
 /**
- * The logo with this id and hash, and whether anyone may see it: only when it is published and its business's
- * saved booking page uses it. Otherwise only its own owner may (`tenantId`), for the editor's preview.
+ * The logo with this id and hash, and whether anyone may see it: only when it is published, its business's
+ * saved booking page uses it, and that page is served (active account, salon not expired). Otherwise only its own owner may (`tenantId`), for the editor's preview.
  */
 export async function findLogo(id: string, sha256: string, options: MediaOptions = {}): Promise<{ media: StoredMedia; published: boolean } | null> {
   const client = clientOf(options);
   const row = await client.mediaAsset.findFirst({ where: { id, sha256, kind: "logo", ...READY }, select: { ...STORED, publishedAt: true } });
   if (!row) return null;
+  // The booking page's own conditions (loadPublicTenant): an active owner account and a salon that has not expired.
   const used = row.publishedAt ? await client.$queryRaw<{ used: boolean }[]>`
-    SELECT true AS used FROM tenant_state WHERE tenant_id = ${row.tenantId} AND kind = 'salon' AND doc #>> '{page,theme,logo}' = ${publicLogoUrl(id, sha256)}` : [];
+    SELECT true AS used FROM tenant_state t JOIN owner_account a ON a.tenant_id = t.tenant_id
+    WHERE t.tenant_id = ${row.tenantId} AND t.kind = 'salon' AND a.active AND (t.expires_at IS NULL OR t.expires_at > ${options.now ?? new Date()})
+      AND t.doc #>> '{page,theme,logo}' = ${publicLogoUrl(id, sha256)}` : [];
   return { media: stored(client, row), published: used.length > 0 };
 }
 

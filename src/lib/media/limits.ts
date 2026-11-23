@@ -13,6 +13,9 @@ export const MAX_ALT_TEXT = 300;
 export const RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const PURGE_AFTER_DAYS = 30;
 
+/** The session (account id and credential version) an upload was picked in; the server refuses it for any other. */
+export const UPLOAD_SESSION_HEADER = "x-cresavo-session";
+
 export const MEDIA_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 /** Where the signed-in owner reads one of their pictures. */

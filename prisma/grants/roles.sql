@@ -199,8 +199,10 @@ GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_a
 GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
 -- sweepDeletedMedia (src/lib/media/sweep.ts): which pictures are due (deleted long enough, a replaced logo never
 -- published, an upload left pending) and where their bytes are, checked against tenant and id; the rows are
--- deleted. Never the bytes, the description or the hash.
-GRANT SELECT ("id", "tenant_id", "kind", "storage", "storage_key", "status", "created_at", "published_at", "deleted_at"), DELETE ON "media_asset" TO cresavo_sweeper;
+-- deleted under a row lock (FOR UPDATE needs one UPDATE column: status, which serves nothing deleted). Never the
+-- bytes, the description or the hash.
+GRANT SELECT ("id", "tenant_id", "kind", "storage", "storage_key", "status", "created_at", "published_at", "deleted_at"),
+      UPDATE ("status"), DELETE ON "media_asset" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
 -- checks the effective privilege; the function is owned by cresavo_eraser, so this file cannot touch it).
 
