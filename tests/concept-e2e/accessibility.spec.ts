@@ -71,7 +71,8 @@ for (const theme of themes) {
       const manage = page.locator('a[href*="/boka/salong-eko/booking/"]').first();
       await manage.click();
       await expect(page).toHaveURL(/\/booking\/[^/]+$/);
-      await expect(page.getByRole("button", { name: "Cancel booking", exact: true })).toBeVisible();
+      // A visit within 24 hours offers no online change, so wait for the page itself rather than its cancel button.
+      await expect(page.getByRole("link", { name: "Book again" })).toBeVisible();
       await audit(page, "booking: manage page");
     });
 

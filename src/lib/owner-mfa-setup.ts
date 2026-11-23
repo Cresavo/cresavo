@@ -2,8 +2,8 @@ import { z } from "zod";
 import { db } from "./db";
 import type { OwnerIdentity } from "./owner-accounts";
 import { loginGuard } from "./owner-guard-store";
-import { decryptSecret, encryptSecret, mfaKey, newRecoveryCodes } from "./owner-mfa-crypto";
-import { readingSecret, recoveryFactor, replaceRecoveryCodes, spendFactor, spendTotp, totpFactor } from "./owner-mfa";
+import { decryptSecret, encryptSecret, hashRecoveryCodes, mfaKey, newRecoveryCodes } from "./owner-mfa-crypto";
+import { prepareFactor, readingSecret, recoveryFactor, replaceRecoveryCodes, spendFactor, spendTotp, totpFactor, type SecondFactor } from "./owner-mfa";
 import { closeAllOwnerSessions, openOwnerSession, type OwnerCookie } from "./owner-session";
 import { base32, matchTotp, newTotpSecret, normalizeTotp, otpauthUri } from "./owner-totp";
 import { verifyPasswordHash } from "./password";
@@ -35,7 +35,7 @@ const accountFields = {
 } as const;
 
 /** The account when the password is right and the address is not locked; null otherwise. */
-async function confirmPassword(accountId: string, typed: string) {
+async function confirmOwner(accountId: string, typed: string) {
   const account = await db.ownerAccount.findUnique({ where: { id: accountId }, select: accountFields });
   if (!account?.active) return null;
   const guard = loginGuard();
@@ -45,7 +45,7 @@ async function confirmPassword(accountId: string, typed: string) {
   return valid && !locked && !(await guard.locked(account.email)) ? account : null;
 }
 
-type Account = NonNullable<Awaited<ReturnType<typeof confirmPassword>>>;
+type Account = NonNullable<Awaited<ReturnType<typeof confirmOwner>>>;
 
 /** Parses the body, checks the key and the password; the account and key, or why not. */
 async function authorize<T extends { password: string }>(accountId: string, schema: z.ZodType<T>, input: unknown) {
@@ -53,8 +53,8 @@ async function authorize<T extends { password: string }>(accountId: string, sche
   if (!key) return fail("not_configured");
   const parsed = schema.safeParse(input);
   if (!parsed.success) return fail("invalid");
-  const account = await confirmPassword(accountId, parsed.data.password);
-  return account ? { ok: true as const, account, key, body: parsed.data } : fail("wrong_password");
+  const account = await confirmOwner(accountId, parsed.data.password);
+  return account ? { ok: true as const, account, key, body: parsed.data } : { ok: false as const, reason: "wrong_password" as const };
 }
 
 /**
@@ -67,8 +67,9 @@ async function restartSessions(identity: OwnerIdentity, now: number, mfaVerified
 }
 
 /** A wrong second factor from a signed-in owner counts like one at sign-in. */
-async function spendOrCount(account: Account, factor: Parameters<typeof spendFactor>[1], key: Buffer, now: number) {
-  const used = await readingSecret(() => spendFactor(account, factor, key, now));
+async function spendOrCount(account: Account, factor: SecondFactor, key: Buffer, now: number) {
+  const prepared = await prepareFactor(account.id, factor, key);
+  const used = await readingSecret(() => spendFactor(account, prepared, key, now));
   if (used === false) await loginGuard().failed(account.email);
   return used;
 }
@@ -110,6 +111,7 @@ export async function enableMfa(accountId: string, input: unknown, now = Date.no
   }
   if (await guard.locked(account.email)) return fail("invalid_code");
   const recoveryCodes = newRecoveryCodes();
+  const hashes = await hashRecoveryCodes(recoveryCodes, account.id, key);
   const enabled = await db.$transaction(async (tx) => {
     const { count } = await tx.ownerAccount.updateMany({
       where: { id: account.id, active: true, credentialVersion: account.credentialVersion, totpSecretEnc: null, totpPendingEnc: pending },
@@ -119,7 +121,7 @@ export async function enableMfa(accountId: string, input: unknown, now = Date.no
       },
     });
     if (count !== 1) return false;
-    await replaceRecoveryCodes(tx, account.id, recoveryCodes, key, now);
+    await replaceRecoveryCodes(tx, account.id, hashes, now);
     return true;
   });
   if (!enabled) return fail("setup_expired");
@@ -162,6 +164,7 @@ export async function regenerateRecoveryCodes(accountId: string, input: unknown,
   const { account, key, body } = auth;
   if (!account.totpSecretEnc) return fail("not_enabled");
   const recoveryCodes = newRecoveryCodes();
+  const hashes = await hashRecoveryCodes(recoveryCodes, account.id, key);
   // Under the account's row lock: still active, still the credential version whose password was confirmed (a
   // password reset in between keeps the secret but raises the version), the code spent and the codes replaced
   // in one transaction.
@@ -171,7 +174,7 @@ export async function regenerateRecoveryCodes(accountId: string, input: unknown,
     if (!row?.active || row.credential_version !== account.credentialVersion || !row.totp_secret_enc) return "changed";
     const current = { id: account.id, totpSecretEnc: row.totp_secret_enc, totpLastStep: row.totp_last_step };
     if (!(await spendTotp(current, body.code, key, now, tx))) return "wrong_code";
-    await replaceRecoveryCodes(tx, account.id, recoveryCodes, key, now);
+    await replaceRecoveryCodes(tx, account.id, hashes, now);
     return "replaced";
   }));
   if (outcome === "not_configured") return fail(outcome);

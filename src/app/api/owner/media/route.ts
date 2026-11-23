@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { readBoundedBytes } from "@/lib/bounded-json";
 import { listMedia, uploadMedia } from "@/lib/media/library";
 import { MAX_MEDIA_BYTES, MEDIA_KINDS, type MediaKind } from "@/lib/media/limits";
-import { ownerError, ownerOk, ownerRoute, sessionKey, signedInOwner } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, sessionKey, fullOwner, refusedOwner, sessionOwner } from "@/lib/owner-http";
 import { checkRateLimit } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 
@@ -13,8 +13,8 @@ const STATUS = { heic: 415, unsupported: 415, animated: 415, corrupt: 422, too_m
 /** The business's active photos and its logo, newest first. */
 export function GET(request: NextRequest) {
   return ownerRoute(request, async () => {
-    const owner = await signedInOwner(request);
-    if (owner instanceof NextResponse) return owner;
+    const owner = await sessionOwner(request);
+    if (!fullOwner(owner)) return refusedOwner(owner);
     return ownerOk({ media: await listMedia(owner.tenantId), session: sessionKey(owner) });
   }, { write: false });
 }
@@ -26,8 +26,8 @@ export function GET(request: NextRequest) {
  */
 export function POST(request: NextRequest) {
   return ownerRoute(request, async () => {
-    const owner = await signedInOwner(request);
-    if (owner instanceof NextResponse) return owner;
+    const owner = await sessionOwner(request);
+    if (!fullOwner(owner)) return refusedOwner(owner);
     const kind = request.nextUrl.searchParams.get("kind") ?? "photo";
     if (!MEDIA_KINDS.includes(kind as MediaKind)) return ownerError("invalid", 400);
     await checkRateLimit("media-upload", owner.tenantId);

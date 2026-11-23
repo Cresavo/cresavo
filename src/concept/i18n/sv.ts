@@ -863,6 +863,8 @@ const messages = {
   "newBooking.noTreatments": "Lägg till en behandling innan du bokar en tid.",
   "newBooking.noStaffTreatments": "Det finns inga behandlingar att boka hos {name} ännu.",
   "newBooking.doesNotFit": "Behandlingen ryms inte på den valda tiden. Välj en annan behandling eller tid.",
+  "newBooking.needsCustomer": "Välj eller lägg till en kund för att boka.",
+  "newBooking.changeTreatment": "Byt behandling",
   "newBooking.noMatch": "Ingen kund matchar sökningen.",
   "newBooking.treatment": "Behandling",
   "newBooking.time": "Tid",

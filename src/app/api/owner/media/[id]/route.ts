@@ -3,7 +3,7 @@ import { z } from "zod";
 import { deleteMedia, findMedia, setAltText } from "@/lib/media/library";
 import { MAX_ALT_TEXT, MEDIA_ID } from "@/lib/media/limits";
 import { imageResponse } from "@/lib/media/respond";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson, sessionKey, signedInOwner } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, sessionKey, fullOwner, refusedOwner, sessionOwner } from "@/lib/owner-http";
 export const runtime = "nodejs";
 
 // One picture of the signed-in owner's business. Another business's picture answers exactly like one that
@@ -14,8 +14,8 @@ type Context = { params: Promise<{ id: string }> };
 const altSchema = z.object({ altText: z.string().trim().max(MAX_ALT_TEXT).nullable() }).strict();
 
 async function own(request: NextRequest, context: Context) {
-  const owner = await signedInOwner(request);
-  if (owner instanceof NextResponse) return owner;
+  const owner = await sessionOwner(request);
+  if (!fullOwner(owner)) return refusedOwner(owner);
   const { id } = await context.params;
   return MEDIA_ID.test(id) ? { tenantId: owner.tenantId, id, session: sessionKey(owner) } : ownerError("not_found", 404);
 }

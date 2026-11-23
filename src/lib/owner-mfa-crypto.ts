@@ -1,12 +1,15 @@
-import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 
 // Keys and stored values for owner two-step sign-in. node:crypto only.
 //
 // OWNER_MFA_KEY is 32 random bytes in base64 (`openssl rand -base64 32`). It encrypts the authenticator secret
 // with AES-256-GCM, stored as `v1:<iv>:<tag>:<ciphertext>` (base64url), so a later key can use another version.
 // The account id is authenticated with it, so a secret copied onto another account's row does not decrypt.
-// Recovery codes are stored as HMAC-SHA-256 under a key derived from OWNER_MFA_KEY with HKDF and a label of
-// its own: a database copy alone reveals no code. The codes carry 50 random bits, so no slow hash is needed.
+// Recovery codes are typed by people, so they are stored as scrypt (N=2^14, r=8, p=1, 32 bytes) with a salt
+// derived per account from OWNER_MFA_KEY by HKDF under a label of its own: a database copy alone reveals no code,
+// and one account's hashes say nothing about another's. One sign-in try costs one scrypt, whatever the number
+// of codes, because every code of an account shares that salt.
 // Nothing here logs a secret, a code or a key.
 
 const KEY_PATTERN = /^[A-Za-z0-9+/]{43}=?$/;
@@ -66,14 +69,21 @@ export function normalizeRecoveryCode(input: unknown): string | null {
   return code.length === RECOVERY_LENGTH && [...code].every((c) => RECOVERY_ALPHABET.includes(c)) ? code : null;
 }
 
-const recoveryKey = (key: Buffer) => Buffer.from(hkdfSync("sha256", key, Buffer.alloc(0), RECOVERY_LABEL, 32));
+/** scrypt cost for recovery codes. maxmem leaves room above the 16 MiB these parameters use. */
+export const RECOVERY_SCRYPT = { N: 2 ** 14, r: 8, p: 1, maxmem: 64 * 1024 * 1024 } as const;
+const scryptAsync = promisify(scrypt) as (secret: string, salt: Buffer, length: number, options: typeof RECOVERY_SCRYPT) => Promise<Buffer>;
 
-/** The stored form of a code, bound to its account so it cannot open another. */
-export function hashRecoveryCode(code: string, accountId: string, key: Buffer): string {
+const recoverySalt = (accountId: string, key: Buffer) => Buffer.from(hkdfSync("sha256", key, Buffer.from(accountId, "utf8"), RECOVERY_LABEL, 16));
+
+/** The stored form of a code (hex), bound to its account so it cannot open another. Runs off the main thread. */
+export async function hashRecoveryCode(code: string, accountId: string, key: Buffer): Promise<string> {
   const normalized = normalizeRecoveryCode(code);
   if (!normalized) throw new Error("invalid recovery code");
-  return createHmac("sha256", recoveryKey(key)).update(`${accountId}:${normalized}`).digest("hex");
+  return (await scryptAsync(normalized, recoverySalt(accountId, key), 32, RECOVERY_SCRYPT)).toString("hex");
 }
+
+/** The stored forms of several codes of one account. */
+export const hashRecoveryCodes = (codes: string[], accountId: string, key: Buffer) => Promise.all(codes.map((code) => hashRecoveryCode(code, accountId, key)));
 
 /** Compares two stored hashes in constant time. */
 export function sameHash(a: string, b: string) {

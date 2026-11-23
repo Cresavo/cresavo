@@ -5,7 +5,7 @@ import { ok } from "../../src/concept/connections/core";
 import type { EmailMessage } from "../../src/concept/connections/ports/email";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount, verifyOwnerCredentials } from "../../src/lib/owner-accounts";
-import { OWNER_MFA_PENDING_COOKIE } from "../../src/lib/owner-mfa-pending";
+import { SECOND_STEP_COOKIE } from "../../src/lib/owner-mfa-pending";
 import { requestPasswordReset, resetPassword, type ResetRegistry } from "../../src/lib/owner-password-reset";
 import { openOwnerSession, OWNER_COOKIE, ownerFromCookie } from "../../src/lib/owner-session";
 import { hotp, totpStep } from "../../src/lib/owner-totp";
@@ -100,11 +100,13 @@ async function enrolled(name: string) {
 /** The password step: the response and the pending cookie it set. */
 async function passwordStep(name: string, ip = freshIp()) {
   const response = await loginRoute(post("/api/owner/login", { email: email(name), password }, { ip }));
-  return { response, pending: cookieValue(response, OWNER_MFA_PENDING_COOKIE) };
+  return { response, pending: cookieValue(response, SECOND_STEP_COOKIE) };
 }
 
 const secondStep = (pending: string | undefined, body: unknown, ip = freshIp()) =>
-  mfaLoginRoute(post("/api/owner/login/mfa", body, { ip, cookies: { [OWNER_MFA_PENDING_COOKIE]: pending } }));
+  mfaLoginRoute(post("/api/owner/login/mfa", body, { ip, cookies: { [SECOND_STEP_COOKIE]: pending } }));
+
+const STORE_HMAC_SECRET = randomBytes(32).toString("hex");
 
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -114,6 +116,7 @@ beforeEach(() => {
   vi.unstubAllEnvs();
   vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
   vi.stubEnv("OWNER_MFA_KEY", MFA_KEY);
+  vi.stubEnv("STUDIO_STORE_HMAC_SECRET", STORE_HMAC_SECRET);
   vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "book.example");
   vi.setSystemTime(START + ++testIndex * 3_600_000);
 });
@@ -136,7 +139,7 @@ describe("setting up two-step sign-in", () => {
     const { response, pending } = await passwordStep("happy");
     expect(await answer(response)).toEqual({ status: 200, body: { next: "mfa" } });
     expect(setCookie(response, OWNER_COOKIE)).toBeUndefined();
-    const attributes = setCookie(response, OWNER_MFA_PENDING_COOKIE)!;
+    const attributes = setCookie(response, SECOND_STEP_COOKIE)!;
     for (const part of [/HttpOnly/i, /SameSite=strict/i, /Path=\/api\/owner\/login(;|$)/, /Max-Age=300/]) expect(attributes).toMatch(part);
     expect(attributes).not.toMatch(/Secure/i);
 
@@ -144,7 +147,7 @@ describe("setting up two-step sign-in", () => {
     expect(signedIn.status).toBe(200);
     const session = cookieValue(signedIn, OWNER_COOKIE);
     expect((await ownerFromCookie(session))?.tenantId).toBe(a.tenantId);
-    expect(setCookie(signedIn, OWNER_MFA_PENDING_COOKIE)).toMatch(/Max-Age=0/);
+    expect(setCookie(signedIn, SECOND_STEP_COOKIE)).toMatch(/Max-Age=0/);
   });
 
   it("stores the secret encrypted and the recovery codes hashed", async () => {
@@ -242,7 +245,7 @@ describe("the second step", () => {
     await db.ownerAccount.update({ where: { id: a.identity.id }, data: { credentialVersion: { increment: 1 } } });
     const stale = await secondStep(pending, { code: codeNow(a.key) });
     expect(await answer(stale)).toEqual({ status: 401, body: { error: "mfa_expired" } });
-    expect(setCookie(stale, OWNER_MFA_PENDING_COOKIE)).toMatch(/Max-Age=0/);
+    expect(setCookie(stale, SECOND_STEP_COOKIE)).toMatch(/Max-Age=0/);
     expect((await secondStep(undefined, { code: codeNow(a.key) })).status).toBe(401);
     const forged = `${pending!.slice(0, -1)}${pending!.endsWith("0") ? "1" : "0"}`;
     expect((await secondStep(forged, { code: codeNow(a.key) })).status).toBe(401);
@@ -373,7 +376,7 @@ describe("managing two-step sign-in", () => {
     expect(await ownerFromCookie(a.session)).toBeNull();
     const response = await loginRoute(post("/api/owner/login", { email: email("reset"), password: newPassword }));
     expect(await answer(response)).toEqual({ status: 200, body: { next: "mfa" } });
-    expect((await secondStep(cookieValue(response, OWNER_MFA_PENDING_COOKIE), { code: codeNow(a.key) })).status).toBe(200);
+    expect((await secondStep(cookieValue(response, SECOND_STEP_COOKIE), { code: codeNow(a.key) })).status).toBe(200);
   });
 });
 
@@ -451,7 +454,7 @@ describe("review fixes", () => {
     await db.ownerAccount.update({ where: { id: a.identity.id }, data: { active: false, credentialVersion: { increment: 1 } } });
     const refused = await secondStep(pending, { code: codeNow(a.key) });
     expect(await answer(refused)).toEqual({ status: 401, body: { error: "invalid_code" } });
-    expect(setCookie(refused, OWNER_MFA_PENDING_COOKIE)).toBeUndefined();
+    expect(setCookie(refused, SECOND_STEP_COOKIE)).toBeUndefined();
   });
 
   it("answers 503 for a recovery code under another key, without counting a failure", async () => {
@@ -484,7 +487,7 @@ describe("review fixes", () => {
     const guard = loginGuard();
     const real = guard.locked.bind(guard);
     let calls = 0;
-    // The second lock check in confirmPassword runs after the password was judged: a reset lands right there.
+    // The second lock check in confirmOwner runs after the password was judged: a reset lands right there.
     const spy = vi.spyOn(guard, "locked").mockImplementation(async (who, at) => {
       if (++calls === 2) await db.ownerAccount.update({ where: { id: a.identity.id }, data: { credentialVersion: { increment: 1 } } });
       return real(who, at);

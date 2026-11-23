@@ -875,6 +875,8 @@ const messages = {
   "newBooking.noTreatments": "Add a treatment before booking a time.",
   "newBooking.noStaffTreatments": "No treatments are assigned to {name} yet.",
   "newBooking.doesNotFit": "This treatment does not fit at the selected time. Choose another treatment or time.",
+  "newBooking.needsCustomer": "Choose or add a customer to book.",
+  "newBooking.changeTreatment": "Change treatment",
   "newBooking.noMatch": "No customer matches.",
   "newBooking.treatment": "Treatment",
   "newBooking.time": "Time",

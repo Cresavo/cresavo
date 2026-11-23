@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { ownerDeploymentRefusal, signedInOwner } from "../owner-http";
+import { fullOwner, ownerDeploymentRefusal, sessionOwner } from "../owner-http";
 import { findMedia } from "./library";
 import { MEDIA_ID, POSTER_PHOTO_FIELDS, posterPhotoRefId } from "./limits";
 
@@ -18,8 +18,8 @@ export type PosterPhotoRefusal = "signed_out" | "photo_unsuitable" | "unavailabl
 /** The request with each library photo replaced by its data URL, or why it cannot be drawn. */
 export async function withLibraryPhotos(request: Request, body: { data: Record<string, unknown> }): Promise<{ ok: true } | { ok: false; reason: PosterPhotoRefusal }> {
   if (ownerDeploymentRefusal()) return { ok: false, reason: "unavailable" };
-  const owner = await signedInOwner(new NextRequest(request.url, { headers: request.headers }));
-  if (owner instanceof Response) return { ok: false, reason: "signed_out" };
+  const owner = await sessionOwner(new NextRequest(request.url, { headers: request.headers }));
+  if (!fullOwner(owner)) return { ok: false, reason: "signed_out" };
   for (const field of POSTER_PHOTO_FIELDS) {
     const id = posterPhotoRefId(body.data[field]);
     if (id === null) continue;
