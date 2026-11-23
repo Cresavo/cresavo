@@ -103,7 +103,7 @@ The foundation baseline is 314 warnings across application TSX: 185 raw controls
 
 ## Plum and paper (studio direction, November 2026)
 
-- The sidebar and the phone masthead are a plum surface (`.studio-chrome` in `studio.css`), the deepest ground in dark. The scope re-declares the tokens its contents read, so shared controls inside it need no variants. The phone status bar follows it (`studioChrome` in `ui/theme.ts`).
+- The sidebar and the phone masthead are a plum surface (`.studio-chrome` in `studio.css`), the deepest ground in dark. The scope re-declares the tokens its contents read, so shared controls inside it need no variants. The phone status bar follows it (`studioChrome` in `ui/theme.ts`). The selected sidebar row is a faint white wash (`--studio-nav-selected`) with white text and a 6 px radius; hover is the same wash, weaker. Apricot in the sidebar is for the Inbox count only, never the selection.
 - The canvas is paper. Content sits on it without frames or rules; rows inside one list keep a hairline only where the rows vary enough to need it (Customers, Inbox).
 - Page titles are larger in the studio than the kit's app scale (about 30 px on a phone, 36 px wide), set on `.studio-root`; the kit token is unchanged.
 - Apricot is a highlight fill with dark ink (`.studio-highlight`), used for counts. Never apricot text on a light ground, and not on passive facts such as a time.

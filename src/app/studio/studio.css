@@ -40,8 +40,13 @@
   --ui-action-text: #211820;
   --ui-action-bg: light-dark(#66445e, #3a2f33);
   --ui-focus: #f5bd97;
+  /* The selected menu row is a faint white wash with white text; hover is the same wash, weaker. No accent colour. */
+  --studio-nav-selected: rgb(255 255 255 / 0.07);
+  --studio-nav-hover: rgb(255 255 255 / 0.04);
+  --studio-nav-selected-text: #fff;
 }
-.studio-nav-active { box-shadow: inset 3px 0 0 var(--ui-action); }
+.studio-nav-link:hover { background: var(--studio-nav-hover); }
+.studio-nav-link.studio-nav-active { background: var(--studio-nav-selected); color: var(--studio-nav-selected-text); }
 
 body:has(.studio-root) {
   background: var(--ui-bg);
