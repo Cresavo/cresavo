@@ -71,7 +71,10 @@ for (const theme of themes) {
       const manage = page.locator('a[href*="/boka/salong-eko/booking/"]').first();
       await manage.click();
       await expect(page).toHaveURL(/\/booking\/[^/]+$/);
-      await expect(page.getByRole("button", { name: "Cancel booking", exact: true })).toBeVisible();
+      // The next free time is usually the same day, inside the free-change window, so the page then
+      // shows the call-us notice instead of the Cancel button. Either one means the page has settled.
+      await expect(page.getByRole("button", { name: "Cancel booking", exact: true })
+        .or(page.getByText(/online changes (and cancellations )?are closed/i))).toBeVisible();
       await audit(page, "booking: manage page");
     });
 
