@@ -75,7 +75,7 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
                 meta={<span className="flex items-center gap-2">
                   <StaffDot staffId={b.staffId} />
                   <span>
-                    {b.visitFor && customer && `${t("booking.bookedByName", { name: fullName(customer) })} · `}
+                    {b.visitFor && customer && <span className="block">{t("booking.bookedByName", { name: fullName(customer) })}</span>}
                     {person && `${person} · `}
                     {service?.name}
                     {!(service && /\d+ min/.test(service.name)) && <> · <span className="whitespace-nowrap">{formatDuration(b.duration)}</span></>}
