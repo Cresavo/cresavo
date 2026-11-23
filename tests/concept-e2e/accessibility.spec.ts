@@ -98,6 +98,9 @@ for (const theme of themes) {
       await page.goto("/studio/more/settings?lang=en");
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await audit(page, "studio settings");
+      await page.goto("/studio/more/photos?lang=en");
+      await expect(page.getByRole("heading", { level: 1, name: "Photos" })).toBeVisible();
+      await audit(page, "studio photos (demo)");
 
       await page.goto("/studio?lang=en");
       await page.locator('[data-help="help-button"]:visible').first().click();

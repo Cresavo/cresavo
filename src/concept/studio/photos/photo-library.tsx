@@ -32,11 +32,12 @@ function DemoLibrary() {
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label={t("photos.demo.samples")}>
         {(Object.keys(PHOTOS) as PhotoId[]).map((id) => (
           <li key={id}>
-            <Card className="overflow-hidden">
+            <figure className="overflow-hidden rounded-lg bg-surface ring-1 ring-hairline">
+              {/* The caption names the photo. */}
               {/* eslint-disable-next-line @next/next/no-img-element -- a sample photo from /public/demo */}
-              <img src={PHOTOS[id]} alt={t(`page.photo.${id}`)} className="aspect-square w-full object-cover" />
-              <p className="px-3 py-2 text-meta text-text-secondary">{t(`page.photo.${id}`)}</p>
-            </Card>
+              <img src={PHOTOS[id]} alt="" className="aspect-square w-full object-cover" />
+              <figcaption className="px-3 py-2 text-meta text-text-secondary">{t(`page.photo.${id}`)}</figcaption>
+            </figure>
           </li>
         ))}
       </ul>
