@@ -886,7 +886,7 @@ describe("the sweeps leave other tenants' rows and kinds alone", () => {
   const DAY = 86_400_000;
   const now = async () => NOW;
   const at = (offset: number) => new Date(NOW + offset).toISOString();
-  const tables = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", `"RateLimitBucket"`];
+  const tables = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", "journal_entry", `"RateLimitBucket"`];
 
   beforeAll(async () => {
     await setup.$transaction(async (tx) => {
