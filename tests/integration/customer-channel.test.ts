@@ -115,7 +115,7 @@ it("contact binding survives configuration changes and refuses cross-client auth
 
 it("concurrent customer decisions create one mandate; unknown DB profiles and recipient JSON are rejected", async () => {
   const a = await actor(), args = input();
-  for (const patch of [{ customerPhone: "+46700" + "0".repeat(6) }, { customerSubject: "other" }, { approvalUrl: "https://invalid.example" }])
+  for (const patch of [{ customerPhone: "+46701740605" }, { customerSubject: "other" }, { approvalUrl: "https://invalid.example" }])
     await expect(createProposal(a.principal, { ...args, ...patch })).rejects.toBeDefined();
   const p = await createProposal(a.principal, args), id = p.proposal.id, token = receipt(id);
   const view = await customerDecision(id, { token, decision: "view" });

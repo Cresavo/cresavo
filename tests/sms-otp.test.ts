@@ -41,7 +41,7 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 import { simulatedSmsSender, syntheticPhone, smsOtpRequired, otpHash } from "../src/lib/agent-api/sms-otp";
-const phone = "+46700" + "0".repeat(6);
+const phone = "+46701740605";
 async function pending(enabled = true) {
   if (!enabled) vi.stubEnv("BOOKING_SMS_OTP_LAB", "0");
   const result = await createProposal(principal, { ...input, ...(enabled ? { customerPhone: phone } : {}) }, now);
@@ -72,7 +72,10 @@ it("requires phone when enabled, rejects supplied phone when disabled", async ()
   vi.stubEnv("BOOKING_SMS_OTP_LAB", "0");
   await expect(createProposal(principal, { ...input, customerPhone: phone }, now)).rejects.toMatchObject({ code: "invalid_request" });
 });
-it.each([undefined, "123", "+46701" + "0".repeat(6), "+46700" + "0".repeat(7), "+46700abcdef"])("rejects non synthetic E.164 input", value => {
+it.each(["+46701740605", "+46701740650", "+46701740699"])("accepts the PTS fictional mobile number %s", value => {
+  expect(syntheticPhone(value).phoneMask).toBe("+46701740***");
+});
+it.each([undefined, "123", "+46701740604", "+46701740600", "+46701740700", "+46701740599", "+4670174060", "+467017406050", "+46700000000", "0701740605", "070-174 06 05", "+46 70 174 06 05", "+4670174060a"])("rejects %s, which is not a PTS fictional mobile number in E.164", value => {
   expect(() => syntheticPhone(value)).toThrow();
 });
 it("stores only purpose hashes; SMS inbox alone contains code", async () => {
@@ -83,7 +86,7 @@ it("stores only purpose hashes; SMS inbox alone contains code", async () => {
   const output = JSON.stringify({ row: row(), result: r.result.proposal, seen: r.seen, logs: logs.mock.calls, audit: audit.mock.calls });
   for (const secret of [phone, otp, r.token]) expect(output).not.toContain(secret);
   expect(JSON.stringify(r.result)).not.toContain(otp);
-  expect(simulatedSmsSender.read()[0].phoneMask).toBe("+46700*****");
+  expect(simulatedSmsSender.read()[0].phoneMask).toBe("+46701740***");
 });
 it("missing and wrong codes persist attempts without authority; correct code verifies", async () => {
   const r = await pending(); const otp = code();

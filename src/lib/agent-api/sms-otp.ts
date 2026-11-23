@@ -8,10 +8,12 @@ export function smsOtpRequired(businessId: string) {
   requireConsentLab();
   return (process.env.BOOKING_SMS_OTP_BUSINESSES ?? "").split(",").map(s => s.trim()).includes(businessId);
 }
+// PTS reserves 070-174 06 05 to 070-174 06 99 for fiction, so the lab can never text a real person.
+// https://www.pts.se/internet-och-telefoni/telefonnummer-och-adressering/telefonnummer-till-bocker-och-filmer/
+const FICTIONAL_MOBILE = /^\+4670174060[5-9]$|^\+467017406[1-9][0-9]$/;
 export function syntheticPhone(phone: unknown) {
-  // Lab convention only: this prefix is NOT a reserved real-world number range.
-  if (typeof phone !== "string" || !/^\+46700[0-9]{6}$/.test(phone)) throw new AgentApiError("invalid_request");
-  return { phoneHash: digest(`sms-phone-v1:${phone}`), phoneMask: "+46700*****" };
+  if (typeof phone !== "string" || !FICTIONAL_MOBILE.test(phone)) throw new AgentApiError("invalid_request");
+  return { phoneHash: digest(`sms-phone-v1:${phone}`), phoneMask: "+46701740***" };
 }
 function seconds(name: string, fallback: number, max: number) {
   const n = Number(process.env[name] ?? fallback);

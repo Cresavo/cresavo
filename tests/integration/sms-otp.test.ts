@@ -14,7 +14,7 @@ import { labRequest, origin, rpcBody } from "../helpers/oauth";
 
 const clients: string[] = [];
 const staffId = `sms-staff-${randomUUID()}`, serviceId = `sms-service-${randomUUID()}`;
-const phone = "+46700" + "0".repeat(6);
+const phone = "+46701740605";
 let slot = 0;
 beforeAll(async () => {
   await db.service.create({ data: { id: serviceId, businessId: "demo", name: "Syntetisk SMS-behandling", duration: 30, priceOre: 45000 } });
@@ -75,7 +75,7 @@ it("disabled path creates unmarked customer mandate without phone or code", asyn
 it("REST rejects missing and non synthetic phone; sends simulated OTP with no agent leak", async () => {
   const { key } = await actor(); const payload = await input();
   const call = (body: unknown) => propose(new Request(`${origin}/api/v1/proposals`, { method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify(body) }));
-  for (const customerPhone of [undefined, "invalid", "+46701" + "0".repeat(6)]) {
+  for (const customerPhone of [undefined, "invalid", "+46700" + "0".repeat(6), "+46701740700"]) {
     const response = await call({ ...payload, customerPhone }); expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe("invalid_request");
   }
