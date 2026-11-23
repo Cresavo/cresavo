@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { ownerError, ownerOk, ownerRoute, signedInOwner, withRenewedSession } from "@/lib/owner-http";
+import type { NextRequest } from "next/server";
+import { ownerError, ownerOk, ownerRoute, fullOwner, refusedOwner, sessionOwner, withRenewedSession } from "@/lib/owner-http";
 import { ownerStore } from "@/lib/owner-store";
 
 /**
@@ -10,8 +10,8 @@ import { ownerStore } from "@/lib/owner-store";
  */
 export function GET(request: NextRequest) {
   return ownerRoute(request, async () => {
-    const owner = await signedInOwner(request);
-    if (owner instanceof NextResponse) return owner;
+    const owner = await sessionOwner(request);
+    if (!fullOwner(owner)) return refusedOwner(owner);
     const store = ownerStore();
     const loaded = await store.load(owner.tenantId);
     if (!loaded) return ownerError("not_found", 404);
