@@ -1,7 +1,10 @@
 -- Least-privilege Postgres roles for a Cresavo installation (pilot operations
 -- groundwork, docs/QUALITY_SECURITY.md "Operations"). Documentation for
--- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner
--- and the repository's migrations do not create roles. Safe to run again; the
+-- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner.
+-- The one migration that touches roles (store_rls_policies) only creates a
+-- missing group role with every attribute off, as below, so its row-level
+-- security policies can name it; logins are never created by a migration and
+-- this file still checks every group role. Safe to run again; the
 -- whole file is one transaction, so a failed run changes nothing and never
 -- leaves the live application without grants.
 --
@@ -31,10 +34,10 @@
 --          -c 'REVOKE CREATE ON SCHEMA public FROM cresavo_eraser' \
 --          -c 'REVOKE cresavo_eraser FROM CURRENT_USER'
 --      (Run the last command even when the second fails.)
---   5. Create the logins (below), then check what they can really do:
+--   5. Create the logins (below, one per group role), then check what they can really do:
 --        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-studio-store.sql -v app_role=<app login>
 --        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-roles.sql \
---          -v app_login=<..> -v sweeper_login=<..> -v support_login=<..>
+--          -v app_login=<..> -v sweeper_login=<..> -v support_login=<..> -v outbox_login=<..>
 --      Both must return no rows.
 --   6. Row-level security on the store tables (docs/design/STUDIO_STORE.md,
 --      "Row-level security"), once the deployed application sets its scopes,
@@ -44,7 +47,7 @@
 --      Rollback: prisma/grants/rls-disable.sql. The migration has the policies;
 --      until this step they have no effect.
 --
--- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The four roles below are NOLOGIN
+-- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The five roles below are NOLOGIN
 -- group roles. The operator creates one login per use without a password and
 -- sets the password interactively, so it never enters a script, a shell history
 -- or the server log (psql hashes it client-side):
@@ -52,10 +55,15 @@
 --   CREATE ROLE cresavo_app_login     LOGIN IN ROLE cresavo_app;
 --   CREATE ROLE cresavo_sweeper_login LOGIN IN ROLE cresavo_sweeper;
 --   CREATE ROLE cresavo_support_login LOGIN IN ROLE cresavo_support;
---   \password cresavo_app_login        (and the same for the other two)
+--   CREATE ROLE cresavo_outbox_login  LOGIN IN ROLE cresavo_outbox;
+--   \password cresavo_app_login        (and the same for the other three)
 --
+-- Each login is a member of exactly one of these roles and of nothing else:
+-- never of the table owner, another group role or a BYPASSRLS role
+-- (verify-roles.sql and verify-rls.sql check what each login can SET ROLE to).
 -- DATABASE_URL of the web app uses the app login; the cron job of
--- `npm run store:sweep` the sweeper login; support staff the support login.
+-- `npm run store:sweep` the sweeper login; the cron job or worker of
+-- `npm run effects:drain` the outbox login; support staff the support login.
 -- The app's pairing tables may live in a separate database
 -- (PAIRING_DATABASE_URL): run this file there too, for its own app login.
 -- Support access ends by `REVOKE cresavo_support FROM <login>` plus
@@ -74,7 +82,7 @@ DECLARE
   r text;
   bad text;
 BEGIN
-  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support'] LOOP
+  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
       EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', r);
     END IF;
@@ -94,7 +102,7 @@ DO $connect$
 DECLARE
   r text;
 BEGIN
-  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_sweeper', 'cresavo_support'] LOOP
+  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox'] LOOP
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), r);
   END LOOP;
 END
@@ -102,8 +110,8 @@ $connect$;
 
 -- Nobody but the schema owner creates objects (PostgreSQL before 15 lets PUBLIC), and no table is open to PUBLIC.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-REVOKE CREATE ON SCHEMA public FROM cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support;
-GRANT USAGE ON SCHEMA public TO cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support;
+REVOKE CREATE ON SCHEMA public FROM cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support, cresavo_outbox;
+GRANT USAGE ON SCHEMA public TO cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support, cresavo_outbox;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 
 -- ---------------------------------------------------------------------------
@@ -200,6 +208,24 @@ GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_a
 GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
 -- checks the effective privilege; the function is owned by cresavo_eraser, so this file cannot touch it).
+
+-- ---------------------------------------------------------------------------
+-- cresavo_outbox: the effect poller, `npm run effects:drain` (drainPendingEffects
+-- in src/concept/store/effect-outbox.ts and the message sink, src/lib/message-sink.ts).
+-- Column-level grants from its queries: it claims, retries, fails and
+-- acknowledges effects and reads the document of the salon a message is for. It
+-- never inserts or deletes, never reads the log, the replay results or a
+-- fingerprint, and cannot change an effect's identity, tenant, kind or erasure
+-- mark. Row-level security limits its updates to effects that are not yet
+-- delivered and its tenant_state lock to one that changes nothing.
+-- ---------------------------------------------------------------------------
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_outbox;
+-- The claim joins kind and expiry; the sink reads the salon's document under a share lock (FOR SHARE needs one
+-- UPDATE column; the policy's WITH CHECK (false) refuses any real update).
+GRANT SELECT ("tenant_id", "kind", "expires_at", "doc"), UPDATE ("updated_at") ON "tenant_state" TO cresavo_outbox;
+GRANT SELECT ("id", "tenant_id", "seq", "n", "kind", "payload", "status", "attempts", "next_attempt_at", "leased_until",
+              "erased_at", "delivered_at"),
+      UPDATE ("payload", "status", "attempts", "next_attempt_at", "leased_until", "delivered_at") ON "tenant_effect" TO cresavo_outbox;
 
 -- ---------------------------------------------------------------------------
 -- cresavo_support: read-only diagnostics. No salon document (journal entries

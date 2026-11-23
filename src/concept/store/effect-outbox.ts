@@ -142,8 +142,11 @@ export interface DeliveryContext {
   budgetMs?: number;
   /** Only these tenants' effects (the in-apply drain passes its own). */
   tenants?: readonly TenantId[];
-  /** The row-level security scope of every statement: the in-apply drain's own tenant. Default: the outbox scope. */
-  scope?: StoreScope;
+  /**
+   * The row-level security scope of every statement, always named: a web worker's drain after a commit runs in the
+   * one tenant it wrote (with `tenants` set to it); only the effects:drain poller uses the outbox scope.
+   */
+  scope: StoreScope;
 }
 
 /** Claims the next due effect by the shared rule, or returns undefined when there is none. */
@@ -155,7 +158,7 @@ async function claimNext(ctx: DeliveryContext): Promise<ClaimedRow | undefined> 
   const kinds = ctx.sinks ? null : ["demo", "sandbox"];
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
   const paused = emailDeliveryPaused();
-  const [row] = await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$queryRaw<ClaimedRow[]>`
+  const [row] = await scoped(ctx.db, ctx.scope, (db) => db.$queryRaw<ClaimedRow[]>`
     WITH next AS (
       SELECT e.tenant_id, e.seq, e.n
       FROM tenant_effect e
@@ -231,7 +234,7 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
   const patch = { ...(deferred ? { attemptBase: base + 1 } : {}), ...(lastError ? { lastError } : {}) };
   // A held send never left: the marker this claim set goes. A first-submission time from an earlier claim stays.
   const drop = held ? ["dispatched", "provider", "account", ...(row.payload?.delivery?.submittedAt === undefined ? ["submittedAt"] : [])] : [];
-  const [outcome] = await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$queryRaw<Array<{ status: string }>>`
+  const [outcome] = await scoped(ctx.db, ctx.scope, (db) => db.$queryRaw<Array<{ status: string }>>`
     UPDATE tenant_effect SET
       payload = CASE WHEN ${Object.keys(patch).length === 0 && drop.length === 0}::boolean THEN payload
         ELSE jsonb_set(payload, '{delivery}', (coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb) - ${drop}::text[]) END,
@@ -269,7 +272,7 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "skipped") {
     const skippedAt = await ctx.clock();
-    const changed = await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$executeRaw`
+    const changed = await scoped(ctx.db, ctx.scope, (db) => db.$executeRaw`
       UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${skippedAt}::float8 / 1000)
       WHERE id = ${row.id} AND status = 'pending' AND attempts = ${row.attempts}`);
     // Nothing was sent, and a row that was cancelled meanwhile (an erasure) stays so.
@@ -278,7 +281,7 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   // The send happened, so it is recorded as delivered whatever happened to the
   // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
   const at = await ctx.clock();
-  await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$executeRaw`
+  await scoped(ctx.db, ctx.scope, (db) => db.$executeRaw`
     UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = to_timestamp(${at}::float8 / 1000)
     WHERE id = ${row.id} AND status <> 'delivered'`);
   return "delivered";
@@ -299,7 +302,7 @@ export async function deliverDue(ctx: DeliveryContext, limit: number): Promise<D
   // with no outcome (the deliverer died), they are cancelled, never sent again.
   const now = await ctx.clock();
   const tenants = ctx.tenants ? [...ctx.tenants] : null;
-  await scoped(ctx.db, ctx.scope ?? OUTBOX_SCOPE, (db) => db.$executeRaw`
+  await scoped(ctx.db, ctx.scope, (db) => db.$executeRaw`
     UPDATE tenant_effect SET status = 'cancelled', leased_until = NULL
     WHERE status = 'pending' AND erased_at IS NOT NULL
       AND (leased_until IS NULL OR leased_until <= to_timestamp(${now}::float8 / 1000))

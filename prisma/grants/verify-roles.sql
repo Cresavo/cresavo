@@ -5,12 +5,19 @@
 -- catalogs, after studio-store.sql and erase-subject.sql:
 --
 --   psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-roles.sql \
---     -v app_login=cresavo_app_login -v sweeper_login=cresavo_sweeper_login -v support_login=cresavo_support_login
+--     -v app_login=cresavo_app_login -v sweeper_login=cresavo_sweeper_login -v support_login=cresavo_support_login \
+--     -v outbox_login=cresavo_outbox_login
 --
 -- Every row is a problem; no rows means the logins can do what they need and
 -- nothing the least-privilege design forbids. verify-studio-store.sql checks
 -- the audit log for the app login in more detail.
-WITH logins(kind, login) AS (VALUES ('app', :'app_login'::text), ('sweeper', :'sweeper_login'::text), ('support', :'support_login'::text)),
+WITH logins(kind, login) AS (VALUES ('app', :'app_login'::text), ('sweeper', :'sweeper_login'::text), ('support', :'support_login'::text),
+  ('outbox', :'outbox_login'::text)),
+-- Every role a login is or can SET ROLE to (MEMBER, with or without INHERIT): what it can become is what it can do.
+reachable AS (
+  SELECT l.kind, l.login, r.oid, r.rolname, r.rolsuper, r.rolbypassrls, r.rolcreaterole
+  FROM logins l JOIN pg_roles r ON pg_has_role(l.login, r.oid, 'MEMBER')
+),
 tables AS (
   SELECT c.relname AS tbl FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p')
@@ -23,7 +30,25 @@ WHERE r.oid IS NULL OR r.rolsuper OR r.rolcreaterole OR r.rolbypassrls OR r.rolr
 UNION ALL
 SELECT l.kind || ' owns or can become the owner of ' || c.relname
 FROM logins l, pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND pg_has_role(l.login, c.relowner, 'USAGE')
+WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND pg_has_role(l.login, c.relowner, 'MEMBER')
+UNION ALL
+SELECT r.kind || ' can become ' || r.rolname || ', which is superuser, createrole or bypasses row-level security'
+FROM reachable r WHERE r.rolsuper OR r.rolbypassrls OR r.rolcreaterole
+UNION ALL
+-- Each login belongs to its own group role only: a second one would join two scopes (row-level security).
+SELECT r.kind || ' can become ' || r.rolname || ', a group role that is not its own'
+FROM reachable r
+WHERE r.rolname IN ('cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox')
+  AND r.rolname <> 'cresavo_' || r.kind
+UNION ALL
+-- The erase function's definer runs with its own rights: it must not bypass row-level security or own the tables.
+SELECT 'erase_subject runs as ' || o.rolname || ', which is superuser, bypasses row-level security or owns ' || c.relname
+FROM pg_proc f JOIN pg_namespace fn ON fn.oid = f.pronamespace JOIN pg_roles o ON o.oid = f.proowner,
+  pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE fn.nspname = current_schema() AND f.proname = 'erase_subject' AND n.nspname = current_schema()
+  AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+  AND (o.rolsuper OR o.rolbypassrls OR pg_has_role(o.oid, c.relowner, 'MEMBER')
+    OR EXISTS (SELECT 1 FROM pg_roles x WHERE pg_has_role(o.oid, x.oid, 'MEMBER') AND (x.rolsuper OR x.rolbypassrls)))
 UNION ALL
 SELECT l.kind || ' can create objects in schema ' || current_schema()
 FROM logins l WHERE has_schema_privilege(l.login, current_schema(), 'CREATE')
@@ -80,6 +105,31 @@ WHERE l.kind = 'sweeper' AND NOT has_table_privilege(l.login, quote_ident(t.tbl)
 UNION ALL
 SELECT 'sweeper or support can execute erase_subject' FROM logins l
 WHERE l.kind IN ('sweeper', 'support') AND to_regprocedure('erase_subject(text, text)') IS NOT NULL
+  AND has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
+UNION ALL
+-- Outbox: claims and acknowledges effects and reads a salon's document; nothing else.
+SELECT 'outbox can ' || p.p || ' ' || t.tbl
+FROM logins l, privs p, (VALUES ('tenant_state'), ('tenant_effect')) AS t(tbl)
+WHERE l.kind = 'outbox' AND p.p IN ('INSERT', 'DELETE') AND has_table_privilege(l.login, quote_ident(t.tbl), p.p)
+UNION ALL
+SELECT 'outbox can touch ' || t.tbl
+FROM logins l, tables t
+WHERE l.kind = 'outbox' AND t.tbl NOT IN ('tenant_state', 'tenant_effect')
+  AND has_any_column_privilege(l.login, quote_ident(t.tbl), 'SELECT, INSERT, UPDATE, REFERENCES')
+UNION ALL
+SELECT 'outbox can ' || c.p || ' ' || c.tbl || '.' || c.col
+FROM logins l, (VALUES ('tenant_effect', 'fingerprint', 'SELECT'), ('tenant_effect', 'tenant_id', 'UPDATE'), ('tenant_effect', 'id', 'UPDATE'),
+  ('tenant_effect', 'kind', 'UPDATE'), ('tenant_effect', 'erased_at', 'UPDATE'), ('tenant_state', 'doc', 'UPDATE'),
+  ('tenant_state', 'version', 'SELECT')) AS c(tbl, col, p)
+WHERE l.kind = 'outbox' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, c.p)
+UNION ALL
+SELECT 'outbox cannot ' || c.p || ' ' || c.tbl || '.' || c.col
+FROM logins l, (VALUES ('tenant_effect', 'payload', 'UPDATE'), ('tenant_effect', 'status', 'UPDATE'), ('tenant_effect', 'attempts', 'UPDATE'),
+  ('tenant_state', 'doc', 'SELECT'), ('tenant_state', 'kind', 'SELECT')) AS c(tbl, col, p)
+WHERE l.kind = 'outbox' AND NOT has_column_privilege(l.login, quote_ident(c.tbl), c.col, c.p)
+UNION ALL
+SELECT 'outbox can execute erase_subject' FROM logins l
+WHERE l.kind = 'outbox' AND to_regprocedure('erase_subject(text, text)') IS NOT NULL
   AND has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
 UNION ALL
 -- Support: read only, and only the diagnostic columns.

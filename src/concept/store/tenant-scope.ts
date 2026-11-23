@@ -12,7 +12,7 @@ import type { TenantId } from "./studio-store";
 export type StoreScope =
   /** One tenant: everything on its own rows. */
   | { tenant: TenantId }
-  /** The outbox poller (members of cresavo_app) or the retention sweeps (members of cresavo_sweeper). */
+  /** The effects:drain poller (policies for cresavo_outbox only) or the retention sweeps (cresavo_sweeper only). */
   | { crossTenant: "outbox" | "sweep" }
   /** Resolving a sandbox token: that sandbox's tenant_state row only, read only. */
   | { sandboxKey: string }

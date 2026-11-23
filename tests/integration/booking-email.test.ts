@@ -176,7 +176,7 @@ describe("the booking confirmation e-mail", () => {
     const at = CLOCK + 3_600_000;
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => at, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
+      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 2 }]);
@@ -195,7 +195,7 @@ describe("the booking confirmation e-mail", () => {
     const hang = { ...sinks, payment: () => new Promise<never>(() => {}) };
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => at, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
+      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     const [row] = await db.$queryRaw<Array<{ due: number; leased: boolean }>>`
@@ -214,7 +214,7 @@ describe("the booking confirmation e-mail", () => {
     const began = performance.now();
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => CLOCK + 10 * 3_600_000, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 10_000, budgetMs: 300, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 10_000, budgetMs: 300, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(performance.now() - began).toBeLessThan(3_000);
@@ -242,7 +242,7 @@ describe("the booking confirmation e-mail", () => {
     expect((await book(900)).status).toBe(201);
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => CLOCK + 10 * 3_600_000, sinks, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, budgetMs: 0, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, budgetMs: 0, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 0, failed: 0 });
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
@@ -283,7 +283,7 @@ describe("a delivery racing an erasure or another claim", () => {
     SELECT id FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`)[0].id;
   const drainWith = (message: EffectSink, at = CLOCK + 3_600_000) => deliverDue({
     db: db as unknown as PrismaClient, clock: async () => at, sinks: { ...SIMULATED_SINKS, message }, simulatedSinks: SIMULATED_SINKS,
-    leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, tenants: [tenantId],
+    leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, tenants: [tenantId], scope: { tenant: tenantId },
   }, 10);
   /** A booking whose e-mail the first attempt left pending, frozen. */
   const pendingBooking = async (start: number, phone: string) => {
