@@ -110,5 +110,5 @@ description = "Fictional token string in the log redaction test"
 condition = "AND"
 commits = ["97b53cb0c2d61344c533f25a172b3f6603f09e67"]
 paths = ['''^tests/log\.test\.ts$''']
-regexTarget = "match"
+regexTarget = "line"
 regexes = ['''task: "token=sk-secret-123456"''']
