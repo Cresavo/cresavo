@@ -107,12 +107,16 @@ describe("prisma/grants/roles.sql", () => {
     expect(app.has("CardBookingAttempt")).toBe(false);
     expect(app.has("_prisma_migrations")).toBe(false);
     // Deleted by the code: sessions, rate-limit rows, pairing state, a failed partner attempt.
-    for (const table of ["RateLimitBucket", "AdminSession", "owner_session", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairBudget", "PairGrantToken"]) {
+    for (const table of ["RateLimitBucket", "AdminSession", "owner_session", "owner_recovery_code", "owner_mfa_challenge", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairBudget", "PairGrantToken"]) {
       expect(can("cresavo_app", table, "DELETE"), `DELETE ${table}`).toBe(true);
     }
     for (const table of ["Booking", "Customer", "Service", "Staff", "Campaign", "owner_account", "AgentApiKey", "AgentProposal"]) {
       expect(can("cresavo_app", table, "DELETE"), `no DELETE on ${table}`).toBe(false);
     }
+    // A recovery code only changes when it is used; a password challenge never changes.
+    expect(can("cresavo_app", "owner_recovery_code", "UPDATE", "used_at")).toBe(true);
+    expect(can("cresavo_app", "owner_recovery_code", "UPDATE", "code_hash")).toBe(false);
+    expect(anyColumn("cresavo_app", "owner_mfa_challenge", "UPDATE")).toBe(false);
     // Booking is read, inserted with RETURNING *, changed and row-locked.
     for (const privilege of ["SELECT", "INSERT", "UPDATE"]) expect(can("cresavo_app", "Booking", privilege), privilege).toBe(true);
     // Tables that are only row-locked get one column, not a free UPDATE.
@@ -128,6 +132,7 @@ describe("prisma/grants/roles.sql", () => {
     for (const [table, privileges] of support) expect([...privileges.keys()], table).toEqual(["SELECT"]);
     for (const [table, column] of [["tenant_state", "doc"], ["tenant_action", "action"], ["tenant_action", "idempotency_key"], ["tenant_effect", "payload"],
       ["tenant_idempotency", "result"], ["owner_account", "password_hash"], ["owner_account", "email"], ["owner_session", "id"],
+      ["owner_account", "totp_secret_enc"], ["owner_account", "totp_pending_enc"], ["owner_account", "totp_last_step"], ["owner_recovery_code", "code_hash"], ["owner_mfa_challenge", "id"],
       ["_prisma_migrations", "logs"], ["_prisma_migrations", "checksum"]]) {
       expect(can("cresavo_support", table, "SELECT", column), `${table}.${column}`).toBe(false);
     }

@@ -47,6 +47,8 @@ const ROUTE_CLASSES = [
   { name: "owner API", path: "/api/owner/login", frame: "DENY", ancestors: "'none'" },
   { name: "owner session API", path: "/api/owner/me", frame: "DENY", ancestors: "'none'" },
   { name: "owner password reset API", path: "/api/owner/password/reset-request", frame: "DENY", ancestors: "'none'" },
+  { name: "owner second-step API", path: "/api/owner/login/mfa", frame: "DENY", ancestors: "'none'" },
+  { name: "owner two-step setup API", path: "/api/owner/mfa/setup", frame: "DENY", ancestors: "'none'" },
   { name: "public API", path: "/api/public/salons/salong-eko", frame: "DENY", ancestors: "'none'" },
   { name: "concept API", path: "/api/concept/ai/reply-customer", frame: "DENY", ancestors: "'none'" },
   { name: "booking page", path: "/boka/salong-eko", frame: "SAMEORIGIN", ancestors: "'self'" },
