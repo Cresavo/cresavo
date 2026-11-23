@@ -83,11 +83,21 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
 }
 
 /**
+ * What a correct password leads to: a session, or, for an account with two-step sign-in, the second step
+ * (owner-mfa.ts). The second-step result carries no session and cannot open one.
+ */
+export type VerifiedOwner =
+  | { next: "session"; identity: OwnerIdentity }
+  | { next: "mfa"; identity: OwnerIdentity };
+
+/**
  * Unknown emails pay the same password cost as known ones, so timing does not reveal accounts. A locked account
  * is checked like any other (the password is verified and thrown away) and answers exactly like a wrong password.
  * Failures are counted per typed address, known or not, so a lock never says whether the account exists.
+ * With two-step sign-in a correct password does not clear the failures: only a correct second step does, so wrong
+ * codes and wrong passwords add up to one lock-out and signing in with the password again does not reset it.
  */
-export async function verifyOwnerCredentials(input: unknown): Promise<OwnerIdentity | null> {
+export async function verifyOwnerCredentials(input: unknown): Promise<VerifiedOwner | null> {
   assertWritable();
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return null;
@@ -98,9 +108,12 @@ export async function verifyOwnerCredentials(input: unknown): Promise<OwnerIdent
   // A capacity error here propagates: no password was judged, so nothing is counted.
   const valid = await verifyPasswordHash(account?.active ? account.passwordHash : undefined, password);
   if (account?.active && valid) {
+    const identity = { id: account.id, credentialVersion: account.credentialVersion };
+    // Checked again after the hash, so a lock set while it ran still refuses this request.
+    if (account.totpEnabledAt) return !locked && !(await guard.locked(email)) ? { next: "mfa", identity } : null;
     // A correct password never reaches the failure counter, whatever the lock did meanwhile. The lock is checked and
     // the failures cleared in one step, so a lock set while the hash ran still refuses this request.
-    return !locked && await guard.succeeded(email) ? { id: account.id, credentialVersion: account.credentialVersion } : null;
+    return !locked && await guard.succeeded(email) ? { next: "session", identity } : null;
   }
   // One counted failure per judged wrong password (a no-op while locked); the fifth locks, atomically.
   await guard.failed(email);

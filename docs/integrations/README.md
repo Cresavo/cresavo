@@ -258,6 +258,11 @@ conditions hold; SMS and payments are acknowledged without sending.
   the key is fixed. A permanent error (bad address, unverified domain, other
   4xx) marks the effect `failed` at once, with the reason in the effect's
   `delivery.reason`. `store_metrics()` counts `failedEffects` per process.
+- **Pause and reconcile.** `CONCEPT_EMAIL_PAUSED=1` (on the web app and the
+  cron) holds every booking e-mail in the outbox without using an attempt, so a
+  long provider outage never turns into `failed` rows. `npm run
+  effects:reconcile` lists `failed` and `uncertain` rows and, with `--apply`,
+  retries or settles them (docs/operations/INCIDENT_RUNBOOK.md).
 - **Sending twice.** The first attempt freezes the message, its link (address
   and token expiry, never the token), the sender and the reply-to on the
   effect, and every retry resends exactly that under the same idempotency key

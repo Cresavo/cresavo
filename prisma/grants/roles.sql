@@ -115,7 +115,8 @@ REVOKE ALL ON
   "CardBookingAttempt", "Campaign", "CapacityDecision", "AdminSession", "AdminUser", "RateLimitBucket",
   "AgentApiKey", "AgentBooking", "AgentClient", "AgentMandate", "AgentApiEvent", "AgentProposal",
   "AgentAuditEvent", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairToken",
-  "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session"
+  "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session", "owner_recovery_code",
+  "owner_mfa_challenge"
   FROM cresavo_app;
 REVOKE ALL ON "_prisma_migrations" FROM cresavo_app;
 
@@ -141,9 +142,14 @@ GRANT SELECT, INSERT ON "AgentBooking" TO cresavo_app;
 GRANT SELECT, UPDATE ("active") ON "AdminUser" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON "AdminSession" TO cresavo_app;
 
--- Owner accounts and sessions (owner-accounts.ts, owner-password-reset.ts, owner-session.ts).
+-- Owner accounts and sessions (owner-accounts.ts, owner-password-reset.ts, owner-session.ts). The two-step
+-- columns of owner_account are covered by its table-wide grant (owner-mfa.ts, owner-mfa-setup.ts: conditional
+-- updates and a FOR UPDATE lock). Recovery codes are created, marked used (only used_at changes) and replaced
+-- (deleted). Password challenges are created, counted and consumed (deleted), never changed.
 GRANT SELECT, INSERT, UPDATE ON "owner_account" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON "owner_session" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ("used_at"), DELETE ON "owner_recovery_code" TO cresavo_app;
+GRANT SELECT, INSERT, DELETE ON "owner_mfa_challenge" TO cresavo_app;
 
 -- Shared rate-limit and owner-guard rows (postgres-rate-limit.ts, owner-guard-store.ts).
 GRANT SELECT, INSERT, UPDATE, DELETE ON "RateLimitBucket" TO cresavo_app;
@@ -201,8 +207,9 @@ GRANT SELECT ("tenant_id", "seq", "expires_at") ON "tenant_idempotency" TO cresa
 -- Outbox state: enough to see a stuck or uncertain message (docs/operations/INCIDENT_RUNBOOK.md), not its content.
 GRANT SELECT ("tenant_id", "seq", "n", "id", "kind", "status", "attempts", "next_attempt_at", "delivered_at",
               "leased_until", "erased_at") ON "tenant_effect" TO cresavo_support;
-GRANT SELECT ("id", "tenant_id", "active", "credential_version", "created_at") ON "owner_account" TO cresavo_support;
-GRANT SELECT ("account_id", "credential_version", "created_at", "expires_at", "revoked_at") ON "owner_session" TO cresavo_support;
+-- Whether two-step sign-in is on (totp_enabled_at), never the secret, the pending secret or a recovery code hash.
+GRANT SELECT ("id", "tenant_id", "active", "credential_version", "created_at", "totp_enabled_at") ON "owner_account" TO cresavo_support;
+GRANT SELECT ("account_id", "credential_version", "created_at", "expires_at", "revoked_at", "mfa_verified_at") ON "owner_session" TO cresavo_support;
 GRANT SELECT ("expiresAt", "count") ON "RateLimitBucket" TO cresavo_support;
 -- Migration status only: not `logs` (free text of a failure) or `checksum`.
 GRANT SELECT ("id", "migration_name", "started_at", "finished_at", "rolled_back_at", "applied_steps_count") ON "_prisma_migrations" TO cresavo_support;

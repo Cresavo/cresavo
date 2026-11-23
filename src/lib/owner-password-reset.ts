@@ -6,6 +6,7 @@ import { translate } from "@/concept/i18n";
 import { createRegistry, type ResolutionReason } from "@/concept/connections/server/registry";
 import type { EmailPort } from "@/concept/connections/ports/email";
 import { productDomain } from "@/concept/page/address";
+import { log } from "./log";
 import { db } from "./db";
 import { ownerEmailSchema } from "./owner-accounts";
 import { hashPassword, newPasswordSchema } from "./password";
@@ -95,7 +96,7 @@ export async function requestPasswordReset(input: unknown, registry: ResetRegist
     const language = (tenant?.doc as { localization?: { language?: unknown } } | null)?.localization?.language === "sv" ? "sv" : "en";
     const resolution = await registry.resolve("email", account.tenantId);
     if (resolution.live && !trackingOff(resolution.adapter.info.provider)) {
-      console.warn(`[owner-password-reset] the e-mail was not sent: provider "${resolution.adapter.info.provider}" cannot turn link tracking off per message`);
+      log.warn("OWNER_RESET_EMAIL_NOT_SENT", { reason: "tracking-not-off", provider: resolution.adapter.info.provider });
       return;
     }
     const mail = resetEmail(language, resolution.live ? resetPage(mintToken(account, now)) : undefined);
@@ -106,9 +107,9 @@ export async function requestPasswordReset(input: unknown, registry: ResetRegist
       ...mail, language, idempotencyKey: `owner-reset:${account.id}:${now}`, tracking: false,
     });
     if (result.ok) await quota.spend(account.email);
-    else console.warn(`[owner-password-reset] the e-mail was not sent: ${result.error.code}`);
+    else log.warn("OWNER_RESET_EMAIL_NOT_SENT", { reason: "provider-error", code: result.error.code });
   } catch {
-    console.warn("[owner-password-reset] the e-mail was not sent");
+    log.warn("OWNER_RESET_EMAIL_NOT_SENT", { reason: "failed" });
   }
 }
 

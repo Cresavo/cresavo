@@ -5,6 +5,7 @@ import { createRateLimiter } from "@/concept/server/rate-limit";
 import { fromSameOrigin } from "@/concept/server/same-origin";
 import { checkBearer, tokenSource } from "@/concept/server/token";
 import { UNVERIFIED_CLIENT, waitlistClientKey } from "@/concept/site/waitlist-server";
+import { reportError } from "@/lib/error-report";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
 export const runtime = "nodejs";
 
@@ -32,6 +33,7 @@ export const POST = withRequestLog("/api/concept/ai/[task]", async (request: Req
     return Response.json(result);
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof InvalidTaskInput) return Response.json({ error: "Invalid task input" }, { status: 400 });
+    reportError(error, { code: "CONCEPT_AI_TASK_FAILED", route: "/api/concept/ai/[task]" });
     return Response.json({ error: "Unable to run task" }, { status: 500 });
   }
 });
