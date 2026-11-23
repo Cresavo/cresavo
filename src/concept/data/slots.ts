@@ -1,6 +1,8 @@
 import type { CheckoutHold } from "../booking/protection";
+import { DateTime } from "luxon";
+import { SALON_TIMEZONE } from "../tools/clock";
 import { weekday } from "./dates";
-import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId } from "./types";
+import type { Booking, DateKey, Interval, Resource, Salon, Service, Staff, StaffBlock, StaffException, StaffId, VisitTiming } from "./types";
 
 // The one place that knows when something can be booked: opening hours,
 // closed days, lunch, each person's weekly template and exceptions, existing
@@ -22,16 +24,23 @@ export interface SlotContext {
 }
 
 /** What a booking needs: a treatment (for its room or chair) and how long it takes. */
-export interface Need {
+export interface Need extends VisitTiming {
   serviceId: string;
   duration: number;
 }
 
-export const needOf = (service: Pick<Service, "id" | "duration">): Need => ({ serviceId: service.id, duration: service.duration });
+/** The timing worth keeping on a booking or hold: zero and unset values are left out. */
+export const timingOf = ({ bufferBefore, bufferAfter, processing }: VisitTiming): VisitTiming => ({
+  ...(bufferBefore ? { bufferBefore } : {}),
+  ...(bufferAfter ? { bufferAfter } : {}),
+  ...(processing ? { processing: { after: processing.after, duration: processing.duration } } : {}),
+});
+
+export const needOf = (service: Pick<Service, "id" | "duration"> & VisitTiming): Need => ({ serviceId: service.id, duration: service.duration, ...timingOf(service) });
 
 /** Opening hours of a day; null when the weekday is closed or the day is a closure. */
 export function openingFor(salon: Salon, date: DateKey) {
-  if (salon.closures.some((c) => c.date === date)) return null;
+  if (salon.closures.some((c) => c.date === date) || (salon.bookableUntil && date > salon.bookableUntil)) return null;
   return salon.hours[weekday(date)] ?? null;
 }
 
@@ -64,13 +73,18 @@ export function staffWorks(ctx: Pick<SlotContext, "salon" | "staff" | "exception
   return workWindow(ctx, staffId, date) !== null;
 }
 
-/** Bookable minutes in a person's day: their working hours minus lunch. */
-export function workMinutes(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): number {
+/** The stretches of a person's day that can be booked: their working hours minus lunch. */
+export function bookableIntervals(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): Interval[] {
   const window = workWindow(ctx, staffId, date);
-  if (!window) return 0;
+  if (!window) return [];
   const lunch = lunchFor(ctx.salon, date);
-  const lunchMinutes = lunch ? Math.max(0, Math.min(lunch.end, window.end) - Math.max(lunch.start, window.start)) : 0;
-  return window.end - window.start - lunchMinutes;
+  if (!lunch || lunch.end <= window.start || lunch.start >= window.end) return [window];
+  return [{ start: window.start, end: lunch.start }, { start: lunch.end, end: window.end }].filter((part) => part.end > part.start);
+}
+
+/** Bookable minutes in a person's day. */
+export function workMinutes(ctx: Pick<SlotContext, "salon" | "staff" | "exceptions">, staffId: StaffId, date: DateKey): number {
+  return bookableIntervals(ctx, staffId, date).reduce((sum, part) => sum + part.end - part.start, 0);
 }
 
 export function isActive(b: Booking) {
@@ -95,33 +109,129 @@ export function withSlotClock<T>(now: number, run: () => T): T {
 
 function activeHolds(ctx: SlotContext, date: DateKey) {
   if (!ctx.checkoutHolds?.length) return [];
+  // eslint-disable-next-line no-restricted-syntax -- Direct browser slot reads use the wall clock outside a store operation.
   const now = fixedNow ?? Date.now();
   return ctx.checkoutHolds.filter(h => h.date === date && h.expiresAt > now);
 }
 
-export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
+const intersects = (a: Interval, b: Interval) => a.start < b.end && b.start < a.end;
+
+/** A day's two clocks: the wall clock its times are written on, and the elapsed clock its real time runs on (minutes since midnight). */
+interface Elapsed {
+  /** The elapsed minute of a wall-clock minute. */
+  at(wall: number): number;
+  /** The elapsed minute where an interval that ends at this wall-clock minute ends: the end of the minute before it, so a block that ends at 03:00 in the autumn ends with the first pass of the repeated hour. */
+  end(wall: number): number;
+  /** The first wall-clock minute at or after an elapsed minute. */
+  wall(elapsed: number): number;
+}
+const IDENTITY: Elapsed = { at: (wall) => wall, end: (wall) => wall, wall: (elapsed) => elapsed };
+const elapsedClocks = new Map<DateKey, Elapsed>();
+
+/**
+ * The elapsed clock of a day. A visit and its buffers last elapsed minutes, so overlap is judged here: on
+ * 2027-03-28 a 60-minute visit at 01:30 ends at 03:30 on the wall clock, and in the autumn the repeated hour
+ * counts twice. A wall time that happens twice means its first occurrence; one that never happens means the
+ * moment the clocks jumped (so a block that starts in the skipped hour starts there, not an hour later).
+ * Only the two days with a clock change differ from the wall clock.
+ */
+function elapsedClock(date: DateKey): Elapsed {
+  const known = elapsedClocks.get(date);
+  if (known) return known;
+  const midnight = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).startOf("day");
+  const length = (midnight.plus({ days: 1 }).startOf("day").toMillis() - midnight.toMillis()) / 60_000;
+  let clock = IDENTITY;
+  if (length !== 24 * 60) {
+    const table: number[] = [];
+    const exists: boolean[] = [];
+    for (let wall = 0; wall < 24 * 60; wall++) {
+      const time = midnight.set({ hour: Math.floor(wall / 60), minute: wall % 60 }).getPossibleOffsets()[0];
+      table[wall] = (time.toMillis() - midnight.toMillis()) / 60_000;
+      exists[wall] = time.hour * 60 + time.minute === wall;
+    }
+    table[24 * 60] = length;
+    exists[24 * 60] = true;
+    for (let wall = 24 * 60 - 1; wall >= 0; wall--) if (!exists[wall]) table[wall] = table[wall + 1];
+    clock = {
+      at: (wall) => wall < 0 ? wall : wall >= 24 * 60 ? length + wall - 24 * 60 : table[wall],
+      end: (wall) => wall <= 0 || wall >= 24 * 60 || !exists[wall - 1] ? clock.at(wall) : table[wall - 1] + 1,
+      wall: (elapsed) => {
+        if (elapsed <= 0) return elapsed;
+        if (elapsed > length) return 24 * 60 + elapsed - length;
+        return table.findIndex((value) => value >= elapsed);
+      },
+    };
+  }
+  if (elapsedClocks.size > 1000) elapsedClocks.clear();
+  elapsedClocks.set(date, clock);
+  return clock;
+}
+
+/** `staffIntervals` placed on the elapsed clock: the visit starts where its start time is, and its parts last elapsed minutes. */
+function elapsedIntervals(clock: Elapsed, timing: VisitTiming | undefined, start: number, duration: number): Interval[] {
+  const base = clock.at(start);
+  return staffIntervals(timing, 0, duration).map((part) => ({ start: base + part.start, end: base + part.end }));
+}
+
+/** The wait inside a visit where the customer stays and the staff member is free; null when there is none. */
+export function processingGap(timing: VisitTiming | undefined, start: number, duration: number): Interval | null {
+  if (!timing?.processing) return null;
+  const gap = { start: start + timing.processing.after, end: Math.min(start + timing.processing.after + timing.processing.duration, start + duration) };
+  return gap.end > gap.start ? gap : null;
+}
+
+/**
+ * When the staff member is busy for a visit: preparation, the active parts of the treatment and clean-up, but not the processing gap.
+ * The timing comes from the visit itself, never from its treatment: it is copied onto the booking
+ * or hold when it is made, and a visit without a copy has no buffers, so there is no fallback.
+ */
+export function staffIntervals(timing: VisitTiming | undefined, start: number, duration: number): Interval[] {
+  const end = start + duration;
+  const from = start - (timing?.bufferBefore ?? 0);
+  const to = end + (timing?.bufferAfter ?? 0);
+  const gap = processingGap(timing, start, duration);
+  const parts = gap ? [{ start: from, end: gap.start }, { start: gap.end, end: to }] : [{ start: from, end: to }];
+  return parts.filter((part) => part.end > part.start);
+}
+
+function serviceOf(ctx: SlotContext, serviceId: string): Service | undefined {
+  return [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId);
+}
+
+/**
+ * What keeps a person busy on a day, on the wall clock (`IDENTITY`) or on the day's elapsed clock. A completed
+ * visit holds only its own time: its preparation and clean-up are over, and a restore or undo that brings it
+ * back (never rechecked, since it already happened) cannot then overlap a visit booked in the meantime.
+ */
+function busyOn(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId: string | undefined, clock: Elapsed): Interval[] {
   const visits = ctx.bookings.filter(b => b.staffId === staffId && b.date === date && isActive(b) && b.id !== ignoreId);
   const holds = activeHolds(ctx, date).filter(h => h.staffId === staffId && h.id !== ignoreId);
-  const list = [...visits, ...holds].map(b => ({ start: b.start, end: b.start + b.duration }));
+  const list = [...visits, ...holds].flatMap(b => elapsedIntervals(clock, "status" in b && b.status === "completed" ? { processing: b.processing } : b, b.start, b.duration));
   const lunch = lunchFor(ctx.salon, date);
-  if (lunch) list.push(lunch);
-  for (const block of ctx.blocks ?? []) if (block.staffId === staffId && block.date === date) list.push(block);
+  const fixed = [...(lunch ? [lunch] : []), ...(ctx.blocks ?? []).filter((block) => block.staffId === staffId && block.date === date)];
+  for (const { start, end } of fixed) list.push({ start: clock.at(start), end: clock.end(end) });
   return list.sort((a, b) => a.start - b.start);
 }
 
-/** The room or chair a booking would use: the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
-export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string): string | undefined {
-  const end = start + need.duration;
+export function busyIntervals(ctx: SlotContext, staffId: StaffId, date: DateKey, ignoreId?: string): Interval[] {
+  return busyOn(ctx, staffId, date, ignoreId, IDENTITY);
+}
+
+/** The room or chair a booking would use: `preferred` if it is free, otherwise the first one of the treatment's resources that is free. Undefined when none is free or none is needed. */
+export function pickResource(ctx: SlotContext, need: Need, date: DateKey, start: number, ignoreId?: string, preferred?: string): string | undefined {
+  const clock = elapsedClock(date);
+  const from = clock.at(start);
+  const until = from + need.duration;
   const holds = activeHolds(ctx, date);
   const overlaps = (b: Booking | CheckoutHold, id: string) =>
-    b.resourceId === id && b.id !== ignoreId && start < b.start + b.duration && end > b.start;
-  return usableResources(ctx, need.serviceId).find(id =>
+    b.resourceId === id && b.id !== ignoreId && from < clock.at(b.start) + b.duration && until > clock.at(b.start);
+  return usableResources(ctx, need.serviceId).sort((a, b) => Number(b === preferred) - Number(a === preferred)).find(id =>
     !ctx.bookings.some(b => b.date === date && isActive(b) && overlaps(b, id)) && !holds.some(h => overlaps(h, id)),
   );
 }
 
 function usableResources(ctx: SlotContext, serviceId: string): string[] {
-  const wanted = [...ctx.services, ...(ctx.retiredServices ?? [])].find((s) => s.id === serviceId)?.resourceIds ?? [];
+  const wanted = serviceOf(ctx, serviceId)?.resourceIds ?? [];
   return wanted.filter((id) => ctx.resources.some((r) => r.id === id));
 }
 
@@ -129,12 +239,24 @@ function resourceFree(ctx: SlotContext, need: Need, date: DateKey, start: number
   return usableResources(ctx, need.serviceId).length === 0 || pickResource(ctx, need, date, start, ignoreId) !== undefined;
 }
 
+/** False for a wall-clock start that never happens: the hour skipped when the clocks go forward (02:30 on 2027-03-28 in Stockholm). Only that hour is looked up. */
+function startExists(date: DateKey, start: number): boolean {
+  if (start < 120 || start >= 180) return true;
+  const local = DateTime.fromISO(date, { zone: SALON_TIMEZONE }).set({ hour: Math.floor(start / 60), minute: start % 60 });
+  return local.hour * 60 + local.minute === start;
+}
+
 export function isFree(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, need: Need, ignoreId?: string): boolean {
+  if (!Number.isInteger(start) || !Number.isInteger(need.duration) || need.duration <= 0 || !startExists(date, start)) return false;
   const window = workWindow(ctx, staffId, date);
   if (!window) return false;
-  const end = start + need.duration;
-  if (start < window.start || end > window.end) return false;
-  if (!busyIntervals(ctx, staffId, date, ignoreId).every((i) => end <= i.start || start >= i.end)) return false;
+  // The shift and overlap are judged in elapsed time, so a visit across a clock change ends and blocks where it really does.
+  const clock = elapsedClock(date);
+  if (start < window.start || clock.at(start) + need.duration > clock.at(window.end)) return false;
+  // Preparation and clean-up stay within the day, so no check has to look at the neighbouring days.
+  if (staffIntervals(need, start, need.duration).some((part) => part.start < 0 || part.end > 24 * 60)) return false;
+  const mine = elapsedIntervals(clock, need, start, need.duration);
+  if (busyOn(ctx, staffId, date, ignoreId, clock).some((busy) => mine.some((part) => intersects(part, busy)))) return false;
   return resourceFree(ctx, need, date, start, ignoreId);
 }
 
@@ -151,7 +273,9 @@ export function freeStarts(
   const step = opts.step ?? 15;
   const out: number[] = [];
   const aligned = Math.ceil(Math.max(window.start, opts.after ?? 0) / step) * step;
-  for (let t = aligned; t + need.duration <= window.end; t += step) {
+  const clock = elapsedClock(date);
+  const closing = clock.at(window.end);
+  for (let t = aligned; clock.at(t) + need.duration <= closing; t += step) {
     if (isFree(ctx, staffId, date, t, need, opts.ignoreId)) out.push(t);
   }
   return out;
@@ -167,18 +291,40 @@ export function freeGaps(
   const window = workWindow(ctx, staffId, date);
   if (!window) return [];
   const min = opts.min ?? 30;
+  // Gaps are found on the elapsed clock and reported on the wall clock.
+  const clock = elapsedClock(date);
+  const opening = clock.at(window.start);
+  const closing = clock.at(window.end);
   const gaps: Interval[] = [];
-  let cursor = Math.max(window.start, Math.ceil((opts.after ?? 0) / 15) * 15);
-  for (const i of busyIntervals(ctx, staffId, date)) {
-    if (i.start > cursor) gaps.push({ start: cursor, end: Math.min(i.start, window.end) });
+  let cursor = Math.max(opening, clock.at(Math.ceil((opts.after ?? 0) / 15) * 15));
+  for (const i of busyOn(ctx, staffId, date, undefined, clock)) {
+    if (i.start > cursor) gaps.push({ start: cursor, end: Math.min(i.start, closing) });
     cursor = Math.max(cursor, i.end);
   }
-  if (cursor < window.end) gaps.push({ start: cursor, end: window.end });
-  return gaps.filter((g) => g.end - g.start >= min);
+  if (cursor < closing) gaps.push({ start: cursor, end: closing });
+  return gaps.filter((g) => g.end - g.start >= min).map((g) => ({ start: clock.wall(g.start), end: clock.wall(g.end) }));
 }
 
 /** An owner can block only a free interval entirely inside the staff member's workday. */
 export function canBlock(ctx: SlotContext, staffId: StaffId, date: DateKey, start: number, end: number) {
   return Number.isInteger(start) && Number.isInteger(end) && start < end &&
     freeGaps(ctx, staffId, date, { min: 1 }).some(gap => start >= gap.start && end <= gap.end);
+}
+
+/** Minutes of the bookable intervals that visits take, counting overlapping work once. */
+export function busyMinutes(bookings: Booking[], bookable: Interval[]): number {
+  const parts = bookings.flatMap((b) => staffIntervals(b, b.start, b.duration)).sort((a, b) => a.start - b.start);
+  const union: Interval[] = [];
+  for (const part of parts) {
+    const last = union.at(-1);
+    if (last && part.start <= last.end) last.end = Math.max(last.end, part.end);
+    else union.push({ ...part });
+  }
+  return bookable.reduce((sum, window) => sum + union.reduce((inside, part) => inside + Math.max(0, Math.min(part.end, window.end) - Math.max(part.start, window.start)), 0), 0);
+}
+
+/** What a booking being moved needs: its own length and timing, as the reducer checks the move. Anything else needs `fallback`. */
+export function moveNeed(ctx: Pick<SlotContext, "bookings">, bookingId: string | undefined, fallback: Need): Need {
+  const booking = bookingId ? ctx.bookings.find((b) => b.id === bookingId) : undefined;
+  return booking ? { serviceId: booking.serviceId, duration: booking.duration, ...timingOf(booking) } : fallback;
 }

@@ -97,6 +97,7 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
         bookings: state.bookings.map((b) => (b.resourceId === action.id ? { ...b, resourceId: undefined } : b)),
       };
     case "service/resources":
-      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, resourceIds: action.resourceIds.filter((id) => state.resources.some((r) => r.id === id)) } : s)) };
+      if (!action.resourceIds.every((id) => state.resources.some((r) => r.id === id))) return state;
+      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, resourceIds: action.resourceIds } : s)) };
   }
 }

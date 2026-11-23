@@ -42,12 +42,16 @@ export function postmarkEmail(options: { serverToken: string; webhookUser?: stri
           ...(message.html ? { HtmlBody: message.html } : {}),
           ...(message.replyTo ? { ReplyTo: message.replyTo } : {}),
           ...(tags.length ? { Tag: tags[0][1], Metadata: Object.fromEntries(tags) } : {}),
+          ...(message.tracking === false ? { TrackLinks: "None", TrackOpens: false } : {}),
           MessageStream: "outbound",
         }),
       }, codeOf, { idempotent: false });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "MessageID"));
-      return id && field(result.data, "ErrorCode") === 0 ? ok({ id, to: message.to }, "queued", null, id) : fail(connectionError("email", PROVIDER, "unknown"));
+      const code = field(result.data, "ErrorCode");
+      if (id && code === 0) return ok({ id, to: message.to }, "queued", null, id);
+      // A 200 without a readable receipt may still have queued the message: uncertain, not rejected. An error code is a refusal.
+      return fail(connectionError("email", PROVIDER, code === undefined || code === null || code === 0 ? "provider_unavailable" : "unknown"));
     },
     async verifyWebhook(webhook) {
       const expected = options.webhookUser && options.webhookPassword && options.webhookPassword.length >= 16 ? basicAuth(options.webhookUser, options.webhookPassword) : undefined;

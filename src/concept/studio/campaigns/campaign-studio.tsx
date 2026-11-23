@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { defaultPrefill, draftLink, newDraft, resolvePoster, type Draft } from "../../campaigns/draft";
+import { defaultPrefill, draftLink, latestPoster, latestSignOff, newDraft, posterToSave, selectedCopy, withLibraryPhoto, type Draft } from "../../campaigns/draft";
 import { prefillFromQuery } from "../../campaigns/prefill";
 import { addDays } from "../../data/dates";
 import type { DateKey } from "../../data/types";
@@ -29,10 +29,13 @@ export function CampaignStudio() {
   const { state, today } = useStudio();
   const router = useRouter();
   const query = useSearchParams();
-  const [draft, setDraft] = useState<Draft>(() => newDraft((query && prefillFromQuery(query, state, today)) ?? defaultPrefill(state, today)));
+  const [draft, setDraft] = useState<Draft>(() => withLibraryPhoto(
+    newDraft((query && prefillFromQuery(query, state, today)) ?? defaultPrefill(state, today), latestPoster(state), latestSignOff(state)), query?.get("photo")));
   const [step, setStep] = useState<Step>("offer");
   const index = STEPS.indexOf(step);
-  const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
+  // A patch can depend on the latest draft, so changes that finish late (a photo still decoding) never undo newer ones.
+  const change = (patch: Partial<Draft> | ((current: Draft) => Partial<Draft>)) =>
+    setDraft((current) => ({ ...current, ...(typeof patch === "function" ? patch(current) : patch) }));
 
   const publish = (publishOn: DateKey) => {
     const logId = dispatchWithLog({
@@ -47,8 +50,9 @@ export function CampaignStudio() {
         channels: draft.channels,
         holidayId: draft.holidayId,
         publishOn,
-        copy: draft.copy,
-        poster: resolvePoster(state, draft),
+        copy: selectedCopy(draft),
+        signOff: draft.signOff,
+        poster: posterToSave(state, draft),
         link: draftLink(state, draft),
       },
     });

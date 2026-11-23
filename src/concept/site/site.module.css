@@ -188,67 +188,10 @@
   text-wrap: balance;
 }
 .routes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-4); margin-top: var(--space-6); }
-
-.mini {
-  --ui-hairline: var(--ui-border);
-  --ui-input-border: color-mix(in srgb, var(--ui-text) 62%, var(--ui-surface));
-  --ui-focus: var(--ui-action);
-  overflow: hidden;
-  min-height: 249px;
-  border-radius: var(--radius-lg);
-  background: var(--ui-bg);
-  color: var(--ui-text);
-}
-.mini[data-scheme="light"] { color-scheme: light; }
-.miniPhoto {
-  height: 62px;
-  background: var(--ui-action) url("/site/salon-preview.webp") center / cover;
-}
-.miniBody { padding: var(--space-3); }
-.salonName { margin: 0 0 var(--space-1); color: var(--ui-action); font-size: var(--type-meta); font-weight: 600; }
-.mini .miniBody h2 { font-size: var(--type-h2); text-wrap: wrap; }
-.mini h2:focus { outline: none; }
-.miniChoices, .miniTimes { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
-.miniMeta, .miniSummary { margin-block: var(--space-2); font-size: var(--type-meta); }
-.miniSummary { display: flex; align-items: center; gap: var(--space-2); }
-.miniTimes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-
-.clip {
-  margin: 0;
-  width: 100%;
-  max-width: 452px;
-  border: 1px solid var(--ui-hairline);
-  border-radius: var(--radius-md);
-  background: var(--ui-surface);
-}
-.clip video { display: block; width: 100%; height: auto; aspect-ratio: 928 / 760; border-radius: inherit; }
 .block { display: grid; gap: 20px; padding: clamp(40px, 5vw, 72px) 0; }
 @media (min-width: 740px) {
   .block { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
 }
-
-.tourFrame {
-  margin: 0;
-  padding: 5px 5px 0;
-  border: 1px solid var(--ui-hairline);
-  border-radius: var(--radius-lg);
-  background: var(--ui-surface-2);
-}
-
-.tourFrame video {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--ui-hairline);
-  border-radius: var(--radius-md);
-  aspect-ratio: 16 / 9;
-  background: var(--ui-surface-2);
-}
-
-.clipBar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); padding: var(--space-1); }
-.clipBar button:last-child { margin-left: auto; }
-.tourFrame .clipBar button:last-child { margin-left: 0; }
-.tourDuration { margin-left: auto; color: var(--ui-text-secondary); font-variant-numeric: tabular-nums; font-size: .8125rem; }
 
 .soonFooter { border-color: var(--ui-hairline); }
 .soonFooter span { flex-basis: 100%; }
@@ -285,23 +228,12 @@
 .platforms thead tr > :last-child { padding-top: 10px; border-radius: 6px 6px 0 0; }
 .platforms td { color: var(--ui-text-secondary); }
 .platforms tr > :last-child { color: var(--ui-text); }
-.clip .videoTrigger, .tourFrame .videoTrigger {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  cursor: zoom-in;
-}
-.videoTrigger:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 @media (min-width: 960px) {
   .platforms { grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 6%; }
 }
 @media (max-width: 599px) {
   .page .routes { gap: 8px; }
   .page .routes a { font-size: .875rem; padding-inline: 10px; gap: 6px; }
-  .clipBar { gap: 0; }
   .platforms table { table-layout: fixed; font-size: .82rem; line-height: 1.4; }
   .platforms th, .platforms td { padding: 12px 6px; vertical-align: top; }
   .platforms thead th { font-size: .8rem; vertical-align: bottom; }

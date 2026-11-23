@@ -3,6 +3,7 @@
 import { ListRow } from "../../ui/list-row";
 import { customerDraft, isContactPhone, phoneMatches } from "../../booking/lookup";
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { preferredStaffOf } from "../../assistant/memory";
 import { GuestFields } from "../../booking/guest-fields";
 import { isFree, needOf } from "../../data/slots";
@@ -12,18 +13,19 @@ import { useRole } from "../../ops/role";
 import { t } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { findCustomer, fullName } from "../../selectors";
-import { dispatchWithLog, withBookingLock } from "../../store";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
+import { Card } from "../../ui/card";
 import { Field, SearchInput, Select, TextInput } from "../../ui/controls";
 import { cx } from "../../ui/cx";
 import { Notice } from "../../ui/notice";
 import { Sheet } from "../../ui/sheet";
 import { useStudio } from "../use-studio";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
-import { showUndoToast } from "../log/undo-toast";
+import { commitWithUndoToast } from "../log/commit-toast";
+import { useCommit } from "../../ui/use-commit";
 
 export interface NewBookingPreset {
   customerId?: string;
@@ -37,14 +39,14 @@ export interface NewBookingPreset {
 
 /** Book a customer: pick customer, treatment and a free time. */
 export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset; onClose: () => void }) {
-  const { state, today, minutes } = useStudio();
+  const { state, today, minutes, target } = useStudio();
   const [customerId, setCustomerId] = useState(preset.customerId);
   const [query, setQuery] = useState(preset.customerQuery ?? "");
   const [adding, setAdding] = useState(!!preset.newCustomer);
   const [guest, setGuest] = useState(preset.newCustomer ?? { name: "", phone: "" });
   const [email, setEmail] = useState("");
   const [failure, setFailure] = useState<ActionFailureInfo>();
-  const [pending, setPending] = useState(false);
+  const [run, pending] = useCommit();
   const presetCustomer = findCustomer(state, preset.customerId);
   const viewer = useRole() === "staff" ? staffViewer(state) : null;
   const services = viewer ? state.services.filter(service => service.staffIds.includes(viewer.id)) : state.services;
@@ -55,6 +57,8 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
     services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
     (preset.staffId && !viewer ? undefined : services[0]);
   const [serviceId, setServiceId] = useState(firstService?.id);
+  // The list folds to the chosen treatment, so the day and time follow right below it.
+  const [choosingService, setChoosingService] = useState(!firstService);
   const service = services.find((s) => s.id === serviceId) ?? firstService;
   const [chosenStaff, setChosenStaff] = useState<string | undefined>(preset.staffId);
   const staffId = viewer?.id ?? service?.staffIds.find(id => id === chosenStaff) ?? service?.staffIds[0];
@@ -81,22 +85,21 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const contactValid = guest.name.trim().length >= 2 && isContactPhone(guest.phone);
   const emailValid = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const guestValid = contactValid && emailValid;
-  const reason = slot && !fits ? t("newBooking.doesNotFit") : undefined;
+  const needsCustomer = !customer && (!adding || !contactValid);
+  const reason = slot && !fits ? t("newBooking.doesNotFit") : slot && needsCustomer ? t("newBooking.needsCustomer") : undefined;
 
-  const book = async () => {
-    if (pending || !slot || !fits || (!customer && (!adding || !guestValid))) return;
+  const book = () => run(async () => {
+    if (!slot || !fits || (!customer && (!adding || !guestValid))) return;
     const contact = customer ? { customerId: customer.id } : { newCustomer: { ...guest, email, since: today } };
     const requestId = newActionRequestId();
-    setPending(true);
-    const logId = await withBookingLock(() => dispatchWithLog({ type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" })).catch(() => false as const);
-    setPending(false);
-    if (logId === false) {
+    const message = t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
+    const result = target && await commitWithUndoToast(target, { type: "booking/create", ...contact, serviceId: service.id, staffId, date: slot.date, start: slot.start, source: "phone" }, message).catch(() => null);
+    if (!result?.ok) {
       setFailure({ requestId, reason: "newBooking.slotTaken" });
       return;
     }
-    showUndoToast(t("newBooking.bookedToast", { name: customer?.firstName ?? guest.name.trim().split(/\s+/)[0], when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` }), logId);
     onClose();
-  };
+  });
 
   return (
     <Sheet
@@ -166,29 +169,34 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.treatment")}</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {services.map((s) => (
-              <Button
-                key={s.id}
-                variant="secondary"
-                align="between"
-                aria-pressed={s.id === service.id}
-                onClick={() => { setServiceId(s.id); setFailure(undefined); }}
-                className={cx(
-                  "min-h-12",
-                  s.id === service.id && "aria-pressed:bg-action-bg aria-pressed:ring-action",
-                )}
-              >
-                <span className="min-w-0">
-                  <span className="block font-medium leading-snug">{s.name}</span>
-                  <span className="block text-xs text-text-secondary">
-                    {formatDuration(s.duration)} · {state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}
-                  </span>
-                </span>
-                <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
-              </Button>
-            ))}
-          </div>
+          {!choosingService ? (
+            <div className="flex items-center gap-3 rounded-lg bg-surface-2 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{service.name}</p>
+                <p className="text-sm text-text-secondary">{formatDuration(service.duration)} · {formatMoney(service.price)}</p>
+              </div>
+              <Button variant="ghost" size="sm" aria-label={t("newBooking.changeTreatment")} onClick={() => setChoosingService(true)}>{t("common.change")}</Button>
+            </div>
+          ) : <Card className="grid gap-px overflow-hidden bg-hairline sm:grid-cols-2">
+            {services.map((s) => {
+              const chosen = s.id === service.id;
+              return (
+                <ListRow
+                  key={s.id}
+                  aria-pressed={chosen}
+                  onClick={() => { setServiceId(s.id); setChoosingService(false); setFailure(undefined); }}
+                  className={cx("rounded-none", chosen ? "bg-action-bg hover:bg-action-bg" : "bg-surface")}
+                  title={<span className={cx("block leading-snug", chosen && "font-semibold")}>{s.name}</span>}
+                  meta={`${formatDuration(s.duration)} · ${state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}`}
+                  trailing={<>
+                    {chosen && <Check size={18} aria-hidden className="shrink-0" />}
+                    <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
+                  </>}
+                />
+              );
+            })}
+            {services.length % 2 === 1 && <div aria-hidden className="hidden bg-surface sm:block" />}
+          </Card>}
         </section>
 
         {!viewer && service.staffIds.length > 1 && <Field width="short" label={t("calendar.staff")}>

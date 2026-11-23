@@ -6,8 +6,10 @@ import { defaultBusinessLocalization, type BusinessLocalization } from "../i18n/
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { makeMonthHistory } from "../finance/history";
-import { DEFAULT_PAGE } from "../page/config";
+import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { applyTemplate } from "../page/templates";
+import { addSectionAfter } from "../page/sections";
+import { PALETTES } from "../page/theme";
 import { DEFAULT_PACK, getPack } from "../packs";
 import { ROOMS } from "../packs/base";
 import { startCategories } from "../services/categories";
@@ -33,7 +35,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 24;
+export const DEMO_VERSION = 25;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -274,6 +276,39 @@ function makeBookings(rng: Rng, today: DateKey, profiles: CustomerProfile[], bui
   return assignResources(build, bookings);
 }
 
+/**
+ * Today's last half hour is never empty in the demo: a person whose visits end early gets one more, placed by the
+ * same free-time rules as any booking, so there is someone still to come all through the working day.
+ */
+function keepEveningBooked(build: Build, today: DateKey, profiles: CustomerProfile[], bookings: Booking[]) {
+  for (const staff of build.staff) {
+    const window = workWindow(ctxOf(build, []), staff.id, today);
+    if (!window) continue;
+    const day = () => bookings.filter((b) => b.date === today && b.status !== "cancelled");
+    if (day().some((b) => b.staffId === staff.id && b.start + b.duration >= window.end - 30)) continue;
+    const service = build.services.filter((s) => s.staffIds.includes(staff.id) && s.duration <= 60).sort((a, b) => b.duration - a.duration)[0];
+    if (!service) continue;
+    const start = freeStarts(ctxOf(build, day()), staff.id, today, needOf(service), { after: window.end - 90, step: 15 }).at(-1);
+    const taken = new Set(day().map((b) => b.customerId));
+    const profile = profiles.find((p) => servesStaff(p.customer.category, staff.id, build) && !taken.has(p.customer.id)
+      && p.activeFrom <= today && (!p.activeUntil || today <= p.activeUntil));
+    if (start === undefined || !profile) continue;
+    bookings.push({
+      id: `b-evening-${staff.id}`,
+      customerId: profile.customer.id,
+      staffId: staff.id,
+      serviceId: service.id,
+      date: today,
+      start,
+      duration: service.duration,
+      price: service.price,
+      status: "booked",
+      source: "online",
+      resourceId: pickResource(ctxOf(build, day()), needOf(service), today, start),
+    });
+  }
+}
+
 /** Gives every visit the first free room, so the generated week never double-books one. */
 function assignResources(build: Build, bookings: Booking[]): Booking[] {
   const placed: Booking[] = [];
@@ -393,8 +428,39 @@ function buildFor(pack: Pack, solo: boolean): Build {
   };
 }
 
+/** The demo's shortest working day: nine to six. */
+const FULL_DAY = { open: 9 * 60, close: 18 * 60 };
+
+/**
+ * The demo always shows a full, lively day. Whatever weekday it is generated for, the fixture salon is open at
+ * least nine to six that weekday and the whole team works it, so Today is never closed on a weekend. Only the
+ * fixture changes: the booking rules are the same, and a salon of one's own keeps its own hours.
+ */
+export function openOnDemoDay(pack: Pack, today: DateKey): Pack {
+  const day = weekday(today);
+  const usual = pack.salon.hours[day];
+  const open = Math.min(usual?.open ?? FULL_DAY.open, FULL_DAY.open);
+  const close = Math.max(usual?.close ?? FULL_DAY.close, FULL_DAY.close);
+  return {
+    ...pack,
+    salon: { ...pack.salon, hours: { ...pack.salon.hours, [day]: { open, close } }, closures: pack.salon.closures.filter((c) => c.date !== today) },
+    staff: [working(pack.staff[0]), working(pack.staff[1])],
+  };
+  function working(person: Staff): Staff {
+    return { ...person, week: { ...person.week, [day]: { start: open, end: close } } };
+  }
+}
+
+/** The demo business's booking page: its ready-made design or own colours, and its About text after the team. */
+function demoPage(pack: Pack): PageConfig {
+  const page = pack.template
+    ? applyTemplate(DEFAULT_PAGE, pack.template)
+    : { ...DEFAULT_PAGE, theme: pack.palette ? { ...DEFAULT_PAGE.theme, colors: PALETTES[pack.palette] } : DEFAULT_PAGE.theme };
+  return pack.about ? { ...page, sections: addSectionAfter(page.sections, "about", "staff"), about: { heading: "", text: pack.about } } : page;
+}
+
 export function createDemoState(today: DateKey, setup: BusinessSetup = {}): DemoState {
-  const pack = getPack(setup.pack ?? DEFAULT_PACK);
+  const pack = openOnDemoDay(getPack(setup.pack ?? DEFAULT_PACK), today);
   const build = buildFor(pack, setup.solo ?? false);
   const { staff: team, services } = build;
   const localization = setup.localization ?? defaultBusinessLocalization(pack.id);
@@ -405,14 +471,17 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
   const profiles = makeCustomers(rng, today, build);
   const customers = profiles.map((p) => p.customer);
   const bookings = makeBookings(rng, today, profiles, build);
+  keepEveningBooked(build, today, profiles, bookings);
   const name = (id: string) => {
     const c = customers.find((x) => x.id === id)!;
     return { first: c.firstName, full: `${c.firstName} ${c.lastName}` };
   };
 
-  // Make today feel alive: one cancellation and a few gaps this afternoon.
+  // Make today feel alive: one cancellation and a few gaps this afternoon. Each person's last visit stays, so
+  // there is still someone to come until the end of the day.
   const inbox: InboxItem[] = [];
   let cancelled: Booking | undefined;
+  const lastOfDay = (staffId: StaffId) => bookings.filter((b) => b.date === today && b.staffId === staffId).reduce<Booking | undefined>((last, b) => (!last || b.start > last.start ? b : last), undefined);
   if (staffWorks(schedule, team[0].id, today)) {
     const afternoon = bookings
       .filter((b) => b.date === today && b.staffId === "anna" && b.start >= 13 * 60)
@@ -422,11 +491,11 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
       cancelled.status = "cancelled";
       cancelled.cancelReason = "Ill";
     }
-    const drop = afternoon.find((b) => b !== cancelled && b.start >= 16 * 60);
+    const drop = afternoon.find((b) => b !== cancelled && b !== lastOfDay("anna") && b.start >= 16 * 60);
     if (drop) bookings.splice(bookings.indexOf(drop), 1);
   }
   if (team[1] && staffWorks(schedule, team[1].id, today)) {
-    const drop = bookings.find((b) => b.date === today && b.staffId === "erik" && b.start >= 14 * 60);
+    const drop = bookings.find((b) => b.date === today && b.staffId === "erik" && b !== lastOfDay("erik") && b.start >= 14 * 60);
     if (drop) bookings.splice(bookings.indexOf(drop), 1);
   }
 
@@ -638,7 +707,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     tickets: [],
     memory: [],
     routines: [],
-    page: pack.template ? applyTemplate(DEFAULT_PAGE, pack.template) : DEFAULT_PAGE,
+    page: demoPage(pack),
     domain: null,
   };
 }

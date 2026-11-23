@@ -25,28 +25,67 @@ Start with the [demo and product tour](../README.md) or see the
   domain ownership can be verified on the server.
 - Owners can now set up a separate browser-local salon from Today or Settings, try their own booking page and switch back to the sample business. A first-run checklist and a short demo tour guide the first visit.
 - The studio and booking flow support Swedish and English, with a separate business language for confirmations and customer messages. Salong Eko’s sample data and the studio help follow the selected language. The built-in assistant understands common Swedish commands for bookings, prices, stock, campaigns and booking-page design.
-- The separate booking engine uses Prisma and PostgreSQL. The web workspace,
-  provider API and local owner MCP share booking rules, including idempotency
-  and protection against double-booking. The public agent gateway lives in
-  the separate `booking-lab-gateway` repository.
+- The legacy booking engine uses Prisma and PostgreSQL. The web workspace,
+  provider API and local owner MCP share its booking rules, including
+  idempotency and protection against double-booking. It is being replaced by
+  the studio's rules behind `StudioStore` and gets no new booking rules
+  ([ADR 1](design/ARCHITECTURE_DECISIONS.md)). The public agent gateway lives
+  in the separate [`Cresavo/gateway`](https://github.com/Cresavo/gateway) repository.
 - The concept demo includes the November QA fixes for booking and caller
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon
   contacts when no days are open. The QA runner is available through `npm run qa`.
-- The product page includes the founder story, a looping request-to-booking example, and a diagram of available and planned connections. Its tour includes five workflow films and an offline booking sample.
+- The product page shows three everyday moments from the demo, a short founder note with a link to the full story, the status of each part, pricing and practical questions about switching. Its tour includes five workflow films (recorded in English) and an offline booking sample. While the waiting list stores nothing, the page shows no sign-up form.
 - The browser demo supports versioned cancellation rules, simulated deposit checkout and owner decisions on late cancellations and no-shows. Bookings and Finance show payments and refunds. [Feature design](design/NO_SHOW_DEPOSITS.md).
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
+- Campaign posters (roadmap stage 1, November 2026) are drawn on the server
+  from designed templates.
+  - **Templates:** Price, Price list, Season, Review, Free times, Before/after,
+    Portrait (with cut-out photos and drawn backgrounds), Full photo and
+    Type only. Four of them also have a mirrored layout.
+  - **Starting point:** a campaign starts from a goal (fill free times,
+    promote a treatment, wellness benefits, gift cards or a review), which
+    suggests three compositions.
+  - **Editing:** photo tone, a feed preview, wellness badges, a QR code to the
+    booking page and captions that follow the goal and the owner's own
+    sign-off.
+  - **Layout guard:** a test renders every template, format and text size and
+    checks the margins, Instagram's story bars and the face area of
+    portraits.
+  - **Photo library:** signed-in owners upload their own photos and logo
+    (metadata such as GPS removed, stored in Postgres or an S3-compatible
+    bucket) and use library photos on posters. The public demo shows sample
+    photos only. See [photo library storage](operations/MEDIA_STORAGE.md).
+- Owner accounts and a salon stored on the server (`StudioStore` on Postgres)
+  exist behind `OWNER_ACCOUNTS_ENABLED`; the public demo keeps them off.
+- Security step 1 is complete (November 2026). CodeQL analyses the code and
+  workflows, Dependency Review stops pull requests that add high or critical
+  vulnerabilities, and GitHub secret scanning with push protection runs
+  alongside Gitleaks. The `main` ruleset requires these checks and blocks new
+  serious CodeQL findings and force pushes. [Security checks](QUALITY_SECURITY.md#security-checks).
 
 ## Before a real pilot
 
-The studio still needs to connect to the booking engine. Real customer use
-requires verified tenant isolation, production authentication and access
-controls, backups and restore, monitoring, and a security and privacy review.
-The launch waiting list needs a storage provider and a current privacy policy
-before it can accept sign-ups. Use fictional data and simulated messages in
-the meantime. See the [pilot gate](QUALITY_SECURITY.md) and [roadmap](ROADMAP.md).
+Built and tested, but switched off in the public demo:
+- owner accounts with a salon stored on the server (`StudioStore` on Postgres), sessions, lock-out and password reset;
+- live public booking with cancel and move links, and booking e-mails through an outbox;
+- customer data rights (export, correction, erasure) and retention sweeps.
 
-Reminders by text and e-mail, payments and other providers have a connections
-foundation: simulated by default, live adapters behind a flag
-([connections guide](integrations/README.md)).
+Also in place:
+- cross-tenant tests for the owner and public APIs and the store;
+- rate limits on every public route that writes, sends mail or costs money;
+- an axe check of the main pages;
+- least-privilege database roles (`prisma/grants/roles.sql`);
+- a [backup and restore drill](operations/BACKUP_RESTORE.md) and an [incident runbook](operations/INCIDENT_RUNBOOK.md).
+
+Still open before real customer data:
+- staff authentication (owners have two-step sign-in; set `OWNER_MFA_REQUIRED=1` for the pilot);
+- database-level tenant enforcement (RLS): policies and scopes are prepared, enforcement is one operator step (`prisma/grants/rls-enable.sql`);
+- encryption and server-side access control for journals;
+- staff roles;
+- monitoring;
+- an external security review;
+- legal review of the DPA, the DPIA and the retention periods.
+
+The provider API and gateway still run on the legacy engine (the migration path is in [ADR 1](design/ARCHITECTURE_DECISIONS.md)). The open owner steps are tracked in issue #148. Until then, use fictional data and simulated messages. See the [pilot gate](QUALITY_SECURITY.md) and [roadmap](ROADMAP.md).

@@ -2,9 +2,21 @@ import type { Booking, Customer, DateKey, DemoState } from "../data/types";
 import { hasSettlement } from "./protection";
 import { changeRule } from "./policy";
 
-/** Digits only, without country code or trunk zero, so "070-174 06 50" equals "+46 70 174 06 50". */
+/** Country codes whose numbers are written with a national trunk zero that international dialling drops: "+44 (0)7700 900123" is "+44 7700 900123". */
+const TRUNK_ZERO_CODES = ["44", "49", "45", "47", "358", "31", "32", "33", "39", "41", "43", "353"];
+
+/**
+ * One identity for a number, whatever its format: digits only, without the "00" or "+" international
+ * prefix, the Swedish country code or trunk zero, so "070-174 06 50" equals "+46 70 174 06 50", and
+ * "0044 7700 900123", "+44 (0)7700 900123" and "+44 7700 900123" are one number. A zero is dropped only straight after a country code, never inside a national number.
+ */
 export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "").replace(/^(?:00)?46/, "").replace(/^0/, "");
+  let digits = phone.replace(/\D/g, "");
+  const international = phone.trim().startsWith("+") || digits.startsWith("00");
+  digits = digits.replace(/^00/, "");
+  const code = international ? TRUNK_ZERO_CODES.find((candidate) => digits.startsWith(candidate)) : undefined;
+  if (code && digits[code.length] === "0") digits = code + digits.slice(code.length + 1);
+  return digits.replace(/^46/, "").replace(/^0/, "");
 }
 
 const PHONE_INPUT = /^\+?[\d\s().-]+$/;
@@ -55,9 +67,12 @@ export function customerDraft(query: string) {
   return { name: isName ? value : "", phone: isName ? "" : value };
 }
 
+/** The customer with this number. When several stored numbers share one canonical key, the one written the same way wins. */
 export function findCustomerByPhone(state: Pick<DemoState, "customers">, phone: string): Customer | undefined {
   const wanted = normalizePhone(phone);
-  return wanted.length >= 7 ? state.customers.find((c) => normalizePhone(c.phone) === wanted) : undefined;
+  if (wanted.length < 7) return undefined;
+  const matches = state.customers.filter((c) => normalizePhone(c.phone) === wanted);
+  return matches.find((c) => digitsOnly(c.phone) === digitsOnly(phone)) ?? matches[0];
 }
 
 export interface CustomerBookings {

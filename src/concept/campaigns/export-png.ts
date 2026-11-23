@@ -21,7 +21,8 @@ async function standaloneSvg(svg: SVGSVGElement, width: number, height: number):
   await Promise.all(
     [...copy.querySelectorAll("image")].map(async (image) => {
       const href = image.getAttribute("href");
-      if (href) image.setAttribute("href", await dataUri(href));
+      // Engine posters arrive with their photos inlined already; fetching a data: URL is refused by the CSP.
+      if (href && !href.startsWith("data:")) image.setAttribute("href", await dataUri(href));
     }),
   );
   return new XMLSerializer().serializeToString(copy);
@@ -49,4 +50,20 @@ export function downloadBlob(blob: Blob, filename: string) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Opens the phone's share sheet with the poster (Instagram, Facebook, Messages…).
+ * Returns false where the browser cannot share files, so the caller can download instead.
+ */
+export async function sharePoster(blob: Blob, filename: string, text: string): Promise<boolean> {
+  const file = new File([blob], filename, { type: "image/png" });
+  if (typeof navigator === "undefined" || !navigator.canShare?.({ files: [file] })) return false;
+  try {
+    await navigator.share({ files: [file], text });
+  } catch (error) {
+    // Closing the share sheet is not a failure.
+    if ((error as DOMException)?.name !== "AbortError") throw error;
+  }
+  return true;
 }

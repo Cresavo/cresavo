@@ -6,7 +6,9 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { demoPaymentLedger } from "./connections/demo";
+import { forgetDemoSends, redactDemoSends, stageDemoSends, withDemoChannels } from "./connections/demo";
+import { customerIdentifiers, findErasable, scrubText } from "./customers/erase";
+import type { OutboxEntry } from "./connections/simulated/outbox";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
 import { publicView } from "./selectors";
@@ -17,6 +19,10 @@ import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onb
 import { setupOf } from "./onboarding/setup";
 import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
+import { newEpoch } from "./store/salon-tx";
+import { sameContent } from "./store/studio-store";
+import { useServerSalon } from "./server-salon";
+import { registerRecordSettledCheck } from "./account/settled";
 
 // Browser-side demo store: each workspace has its own shared snapshot.
 // Pages read it with `useDemo()`; on the server it is `null`, so the studio
@@ -24,14 +30,21 @@ import { getPack } from "./packs";
 
 const STORAGE_KEY = "salong-eko-demo";
 interface BookingReceipt { day: string; seq: number }
-export type Workspace = "demo" | "own";
+/** The sample business, the browser trial salon, and a signed-in owner's salon kept on the server (`account`). */
+export type Workspace = "demo" | "own" | "account";
 interface WorkspaceSnapshot {
   state?: DemoState | null;
   raw?: string | null;
+  /** True while `state` could not be saved: `raw` still holds the salon before it. */
+  unsaved?: boolean;
+  /** The lifetime saved with `raw` (or about to be). */
+  epoch?: string;
+  /** True while that lifetime still comes from the old separate key. */
+  epochFromKey?: boolean;
   version?: BookingReceipt;
   lastWrite?: BookingReceipt;
 }
-const snapshots: Record<Workspace, WorkspaceSnapshot> = { demo: {}, own: {} };
+const snapshots: Record<Workspace, WorkspaceSnapshot> = { demo: {}, own: {}, account: {} };
 const SELECTION_KEY = "salong-eko-workspace";
 let primary: Workspace | undefined;
 let active: Workspace = "demo";
@@ -63,6 +76,7 @@ const removalListeners = new Set<(workspace: Workspace) => void>();
 
 /** Tells `BrowserStudioStore` that a workspace's salon was deleted or replaced, so its records for it end. */
 function salonRemoved(workspace: Workspace) {
+  forgetDemoSends(workspace);
   removalListeners.forEach(listener => listener(workspace));
 }
 
@@ -75,10 +89,97 @@ export function onSalonRemoved(listener: (workspace: Workspace) => void): () => 
 // The own salon's last use is kept beside its snapshot, so reading it never touches the salon itself.
 const lastUseKey = () => `${storageKey("own")}-last-used`;
 
+// A salon's lifetime id (docs/design/BROWSER_STORE_IDB.md, "Targets and commit"):
+// new whenever a salon is created or replaced. It is saved in the same
+// localStorage value as the salon, as a top-level `epoch` field that loading
+// strips, so no tab can ever read a new salon with an old lifetime. The
+// sample business adds its day. A salon saved before this has the lifetime
+// from the `-epoch` key an earlier version wrote, or "legacy"; the next save
+// moves it into the value and removes that key.
+const epochKey = (workspace: Workspace) => `${storageKey(workspace)}-epoch`;
+
+/** The saved document and the lifetime saved with it, from a stored value. Throws for text that is not JSON. */
+function readSaved(raw: string, workspace: Workspace): { saved: unknown; epoch?: string; fromKey: boolean } {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && typeof (parsed as { epoch?: unknown }).epoch === "string") {
+    const { epoch, ...saved } = parsed as { epoch: string };
+    return { saved, epoch, fromKey: false };
+  }
+  let epoch: string | null = null;
+  try { epoch = window.localStorage.getItem(epochKey(workspace)); }
+  catch { /* Unreadable: the legacy lifetime. */ }
+  return { saved: parsed, epoch: epoch ?? undefined, fromKey: epoch !== null };
+}
+
+/** The text to save for a salon: the document with its lifetime. */
+const savedText = (state: DemoState, epoch: string | undefined) => JSON.stringify(epoch ? { ...state, epoch } : state);
+
+/** After a save that carries the lifetime, the separate key an earlier version wrote is no longer needed. */
+function dropEpochKey(workspace: Workspace) {
+  const snapshot = snapshots[workspace];
+  if (!snapshot.epochFromKey) return;
+  try { window.localStorage.removeItem(epochKey(workspace)); }
+  catch { /* Ignored once the value carries the lifetime. */ }
+  snapshot.epochFromKey = false;
+}
+
+/** The lifetime each state object was read or written with: a state and its lifetime never come apart. */
+const lifetimes = new WeakMap<DemoState, string | undefined>();
+
+function keep(state: DemoState | null | undefined, epoch: string | undefined) {
+  if (state) lifetimes.set(state, epoch);
+}
+
+/** A view derived from `source` (the public view, a translated copy) with the lifetime of `source`, so commands made from it are bound too. */
+export function withLifetimeOf<T extends DemoState>(view: T, source: DemoState): T {
+  if (lifetimes.has(source)) lifetimes.set(view, lifetimes.get(source));
+  return view;
+}
+
+/** A copy of a state this store read or wrote, with the same lifetime, so `targetOf(copy)` works too. */
+export function copyWithLifetime(state: DemoState): DemoState {
+  const copy = structuredClone(state);
+  if (lifetimes.has(state)) lifetimes.set(copy, lifetimes.get(state));
+  return copy;
+}
+
+/**
+ * The lifetime of `state`, a salon this store read or wrote. It never reads
+ * storage, so it can run inside a dispatch guard without moving the store's
+ * freshness check.
+ */
+export function epochOf(workspace: Workspace, state: DemoState): string {
+  const lifetime = (lifetimes.has(state) ? lifetimes.get(state) : snapshots[workspace].epoch) ?? "legacy";
+  return workspace === "demo" ? `${lifetime}:${state.generatedFor}` : lifetime;
+}
+
+/**
+ * The target of a command made from `state`: the salon it belongs to, with the
+ * lifetime it had when this state was read. Capture it with the state a page
+ * renders, never later, so a replacement read meanwhile cannot lend its
+ * lifetime to the old record. Null for a state this store did not read.
+ */
+export function targetOf(state: DemoState | null | undefined): { workspace: Workspace; epoch: string } | null {
+  if (!state || !lifetimes.has(state)) return null;
+  const workspace: Workspace = !state.industry ? "demo" : lifetimes.get(state)?.startsWith(ACCOUNT_EPOCH) ? "account" : "own";
+  return { workspace, epoch: epochOf(workspace, state) };
+}
+
+/** True when the open salon's last change is shown but could not be written to browser storage (for example, it is full). */
+export function hasUnsavedChanges(): boolean {
+  return !!snapshots[active].unsaved;
+}
+
+/** The target of the salon this tab shows now, from the same snapshot as `currentState()`; it does not read storage again. */
+export function currentTarget(): { workspace: Workspace; epoch: string } | null {
+  return targetOf(currentState());
+}
+
 function removeOwnSalon(announce: boolean) {
   try {
     window.localStorage.removeItem(storageKey("own"));
     window.localStorage.removeItem(lastUseKey());
+    window.localStorage.removeItem(epochKey("own"));
   } catch { /* Nothing more to remove. */ }
   snapshots.own = {};
   salonRemoved("own");
@@ -140,15 +241,28 @@ function today() {
   return toKey(new Date());
 }
 
-function load(raw: string | null, workspace: Workspace): DemoState | null {
+/** Set by `load` when a customer's 30 days in the trash were over and `purgeExpired` erased them. */
+let erasedOnLoad = false;
+/** Set by `load` when there was no usable document and it made a new sample business. */
+let createdOnLoad = false;
+
+const customerBundles = (state: DemoState) => state.trash.filter((entry) => entry.kind === "customer").length;
+
+function purge(state: DemoState): DemoState {
+  const next = purgeExpired(state, today());
+  if (customerBundles(next) < customerBundles(state)) erasedOnLoad = true;
+  return next;
+}
+
+function load(document: unknown, workspace: Workspace): DemoState | null {
   try {
-    let saved = raw && migrateState(JSON.parse(raw));
-    if (saved && Boolean(saved.industry) === (workspace === "own")) {
+    let saved = document ? migrateState(document) : null;
+    if (saved && Boolean(saved.industry) === (workspace !== "demo")) {
       const validHolds = saved.checkoutHolds.filter(hold => hold.expiresAt > Date.now());
       if (validHolds.length !== saved.checkoutHolds.length) saved = { ...saved, checkoutHolds: validHolds };
-      if (saved.industry) return purgeExpired({ ...saved, generatedFor: today() }, today());
+      if (saved.industry) return purge({ ...saved, generatedFor: today() });
       const demo = saved.generatedFor === today()
-        ? purgeExpired(saved, today())
+        ? purge(saved)
         : { ...createDemoState(today(), setupOf(saved)), reminderSettings: saved.reminderSettings };
       // An older setup could give both salons the same address. Keep the
       // published local link and restore the demo's fixture address in that case.
@@ -159,21 +273,69 @@ function load(raw: string | null, workspace: Workspace): DemoState | null {
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
-  return workspace === "demo" ? createDemoState(today()) : null;
+  if (workspace !== "demo") return null;
+  createdOnLoad = true;
+  return createDemoState(today());
 }
 
 function refresh(workspace: Workspace) {
+  // The account salon lives on the server; only `openAccountSalon` and its sync replace it.
+  if (workspace === "account") return false;
   const snapshot = snapshots[workspace];
   let raw = snapshot.raw ?? null;
   try { raw = window.localStorage.getItem(storageKey(workspace)); }
   catch { /* Use the snapshot in memory. */ }
-  if (raw === snapshot.raw) return false;
-  snapshot.raw = raw;
+  // A tab left open past midnight still holds yesterday's sample business: read it again as today's.
+  const staleDay = workspace === "demo" && !!snapshot.state && snapshot.state.generatedFor !== today();
+  if (raw === snapshot.raw && !staleDay) return false;
   const had = !!snapshot.state;
-  snapshot.state = load(raw, workspace);
-  if (had && !snapshot.state) salonRemoved(workspace);
+  const before = snapshot.state ? epochOf(workspace, snapshot.state) : undefined;
+  if (raw === snapshot.raw && snapshot.unsaved && snapshot.state) {
+    // Only the day changed, and the salon here was never saved: today's sample of that salon, same lifetime.
+    snapshot.state = load(snapshot.state, workspace);
+    keep(snapshot.state, snapshot.epoch);
+    salonRemoved(workspace);
+    return true;
+  }
+  snapshot.raw = raw;
+  snapshot.unsaved = false;
+  erasedOnLoad = false;
+  createdOnLoad = false;
+  let document: unknown = null;
+  snapshot.epoch = undefined;
+  snapshot.epochFromKey = false;
+  try {
+    if (raw) ({ saved: document, epoch: snapshot.epoch, fromKey: snapshot.epochFromKey } = readSaved(raw, workspace));
+  } catch {
+    // A corrupt snapshot falls back to fresh demo data.
+  }
+  snapshot.state = load(document, workspace);
+  // A sample business made because there was no document is a new salon, never the "legacy" one before it.
+  if (createdOnLoad) snapshot.epoch = newEpoch();
+  keep(snapshot.state, snapshot.epoch);
+  if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
+  // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
+  if (had && (!snapshot.state || epochOf(workspace, snapshot.state) !== before)) salonRemoved(workspace);
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
+}
+
+/**
+ * Writes back a load that erased an expired customer, so the saved text no
+ * longer holds them either. Only over the text just read: if another tab wrote
+ * meanwhile, its snapshot wins and is purged when this tab reads it.
+ */
+function persistErasure(workspace: Workspace, raw: string | null, state: DemoState) {
+  const snapshot = snapshots[workspace];
+  try {
+    if (window.localStorage.getItem(storageKey(workspace)) !== raw) return;
+    const text = savedText(state, snapshot.epoch);
+    window.localStorage.setItem(storageKey(workspace), text);
+    snapshot.raw = text;
+    dropEpochKey(workspace);
+  } catch {
+    // Storage unavailable: the next load erases again.
+  }
 }
 
 function notify() {
@@ -200,16 +362,29 @@ function onStorage(event: StorageEvent) {
 
 function setState(next: DemoState, recheckStorage = false, afterWrite?: () => void): boolean {
   const snapshot = snapshots[active];
+  if (active === "account") {
+    // Shown at once; the server applies the same action and its answer replaces this state (see account/sync.ts).
+    snapshot.state = next;
+    keep(next, snapshot.epoch);
+    afterWrite?.();
+    notify();
+    return true;
+  }
   try {
-    const raw = JSON.stringify(next);
+    // Serialize first, then check for another tab's save right before writing: a save made meanwhile is never overwritten.
+    const raw = savedText(next, snapshot.epoch);
     if (recheckStorage && refreshFromStorage()) return false;
     window.localStorage.setItem(storageKey(active), raw);
     snapshot.raw = raw;
+    snapshot.unsaved = false;
+    dropEpochKey(active);
     snapshot.version = snapshot.lastWrite = { day: next.generatedFor, seq: next.seq };
   } catch {
     // The demo still works in memory.
+    snapshot.unsaved = true;
   }
   snapshot.state = next;
+  keep(next, snapshot.epoch);
   afterWrite?.();
   notify();
   return true;
@@ -251,6 +426,16 @@ export function latestState(): DemoState | null {
   return getSnapshot();
 }
 
+/** A workspace's salon as saved now, open in this tab or not, or null. Used by `BrowserStudioStore` before serving that salon's records. */
+export function latestStateOf(workspace: Workspace): DemoState | null {
+  if (typeof window === "undefined") return null;
+  initialize();
+  // The open salon is read with notification, so pages never keep showing what this read replaced.
+  if (workspace === active) refreshFromStorage();
+  else refresh(workspace);
+  return snapshots[workspace].state ?? null;
+}
+
 /** The saved text behind the current state as last read or written, for freshness checks. */
 export function currentRaw(): string | null {
   return snapshots[active].raw ?? null;
@@ -270,35 +455,90 @@ export function dispatch(action: DemoAction, meta?: Partial<Omit<LogMeta, "at">>
   return dispatchWithLog(action, meta) !== false;
 }
 
+/** More for a change than its action: sends that belong to it, staged and published with it. */
+export interface DispatchOptions {
+  /**
+   * Simulated sends that belong to the change but not to its reducer (an offer
+   * text to the waiting list). Runs on the state the action is applied to,
+   * staged like the reducer's own sends; false refuses the whole change.
+   */
+  send?: (current: DemoState) => boolean;
+  /**
+   * Refuse a change whose result holds the same data as before (a reducer
+   * no-op that returned a fresh copy), before anything is sent or saved. The
+   * legacy helpers save such a copy; the commit API never does. Always the
+   * case for a change with `send`.
+   */
+  refuseNoOp?: boolean;
+  /** The ids the action names are the server's own (an Undo of a saved change): the provisional-id check does not apply to them. */
+  confirmedIds?: boolean;
+  /** Called after a successful save with the sends its destinations accepted (a repeated id is not a new send). */
+  committed?: (sent: OutboxEntry[]) => void;
+  /** An account salon only: the id the server keeps this change under (its idempotency key). */
+  requestId?: string;
+}
+
 /**
  * Returns the new log entry ID, null for an unlogged change, or false on refusal.
- * A caller's guard runs against the same refreshed state as the action.
+ * A caller's guard runs against the same refreshed state as the action. The
+ * action can be built from that state, so what it records (counts, names)
+ * matches what is saved and sent; it is built again if the save is retried.
+ * Everything the change sends (payments, SMS, email, posts) is staged and
+ * reaches the outbox only after the save; a refused or discarded attempt sends nothing.
  */
 export function dispatchWithLog(
-  action: DemoAction,
+  build: DemoAction | ((current: DemoState) => DemoAction),
   meta?: Partial<Omit<LogMeta, "at">>,
   canApply?: (current: DemoState) => boolean,
+  options: DispatchOptions = {},
 ): string | null | false {
   initialize();
   const workspace = active;
   refreshFromStorage();
   const now = Date.now();
-  const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
   while (true) {
     const current = getSnapshot();
     if (!current || active !== workspace || (canApply && !canApply(current))) return false;
-    const batch = demoPaymentLedger.stage();
-    const next = prepareAction(current, action, logMeta, batch);
+    const action = typeof build === "function" ? build(current) : build;
+    // An account change that names a record a pending change made would reach the server under an id it may give to another record.
+    if (workspace === "account" && !options.confirmedIds && namesProvisionalRecord(action)) return false;
+    const logMeta = { ...defaultMeta(action, now), ...meta, at: now };
+    const batch = stageDemoSends(workspace);
+    const next = withDemoChannels(batch, () => {
+      const prepared = prepareAction(current, action, logMeta, batch);
+      if (prepared === current) return current;
+      // A content-identical result is no change: nothing of it, its extra sends included, may go out.
+      if ((options.refuseNoOp || options.send) && sameContent(current, prepared)) return current;
+      return options.send && !options.send(current) ? current : prepared;
+    });
     if (next === current) return false;
     // Includes undo, which can restore a previously free address.
     if (next.salon.slug !== current.salon.slug && next.salon.slug === workspaceSlug(active === "demo" ? "own" : "demo")) return false;
     // Run the booking rules again if another tab wrote while we prepared the save.
     const recheck = !!canApply || action.type.startsWith("online/") || action.type === "salon/policy" ||
       action.type === "booking/fee" || action.type === "booking/cancel" || action.type === "trash/restore";
-    if (!setState(next, recheck, batch.publish)) continue;
-    if (workspace === "own") markTrialUsed(now);
+    let published: OutboxEntry[] = [];
+    // The server sends what an account salon's change sends; this tab only shows it.
+    if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
+    // The erased customer is out of the saved salon; the messages this tab keeps as sent must not name them either.
+    if (action.type === "customer/erase" && workspace !== "account") {
+      const erased = findErasable(current, action.id);
+      if (erased) redactDemoSends(workspace, action.id, customerIdentifiers(erased), scrubText);
+    }
     const logId = next.log[0]?.id;
-    return logId !== current.log[0]?.id ? logId ?? null : null;
+    const localLogId = logId !== current.log[0]?.id ? logId ?? null : null;
+    if (workspace === "account") {
+      accountBase ??= current;
+      const requestId = options.requestId ?? crypto.randomUUID().replaceAll("-", "");
+      if (localLogId) {
+        if (accountLogRequests.size > 200) accountLogRequests.delete(accountLogRequests.keys().next().value!);
+        accountLogRequests.set(localLogId, requestId);
+      }
+      accountChanged?.(action, { requestId, before: current, after: next, epoch: snapshots.account.epoch });
+    }
+    options.committed?.(published);
+    if (workspace === "own") markTrialUsed(now);
+    return localLogId;
   }
 }
 
@@ -317,7 +557,8 @@ async function withBookingReceipt<T>(write: (required?: BookingReceipt) => T, re
   initialize();
   const workspace = active;
   const snapshot = snapshots[workspace];
-  if (typeof window === "undefined" || !navigator.locks) return write();
+  // The server serializes an account salon's changes.
+  if (typeof window === "undefined" || !navigator.locks || workspace === "account") return write();
   return navigator.locks.request(storageKey(workspace), async () => {
     const receipts = await bookingReceipts();
     if (workspace !== active) return false;
@@ -378,6 +619,8 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
     const next = createDemoState(today(), setup);
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
     salonRemoved("demo");
+    // The new lifetime goes into the same write as the new salon, or stays with it in memory.
+    snapshots.demo.epoch = newEpoch();
     return setState(next);
   }, true);
 }
@@ -401,10 +644,12 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
       if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
       const now = new Date();
       const next = createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() });
-      const raw = JSON.stringify(next);
+      const epoch = newEpoch();
+      const raw = savedText(next, epoch);
       try { window.localStorage.setItem(storageKey(to), raw); }
       catch { return false; }
-      snapshots[to] = { raw, state: next, version: { day: next.generatedFor, seq: next.seq } };
+      snapshots[to] = { raw, state: next, epoch, version: { day: next.generatedFor, seq: next.seq } };
+      keep(next, epoch);
     }
     select(to);
     return true;
@@ -425,7 +670,123 @@ export function useDemo(): DemoState | null {
 
 /** The state for the booking pages: what customers may see and book (hidden treatments are not on offer). */
 export function usePublicDemo(): DemoState | null {
+  const server = useServerSalon();
   const state = useDemo();
   const language = getActiveLocale();
-  return useMemo(() => state && salonCopy(publicView(state), language), [state, language]);
+  return useMemo(() => server ?? (state && withLifetimeOf(salonCopy(publicView(state), language), state)), [server, state, language]);
+}
+
+const ACCOUNT_EPOCH = "account:";
+/** What the account salon's sync gets with each change: the id to send it under, the salon before and after it, and the snapshot's lifetime. */
+export interface AccountChange {
+  requestId?: string;
+  before: DemoState;
+  after: DemoState;
+  epoch?: string;
+}
+let accountChanged: ((action: DemoAction, change: AccountChange) => void) | undefined;
+/**
+ * The account salon as the server last confirmed it, kept only while changes wait for the server's answer.
+ * Ids of records made by those changes are allocated here from the local counter, so another writer may
+ * already hold the same ids on the server; ids that are in this state are the server's own.
+ */
+let accountBase: DemoState | undefined;
+
+/**
+ * False for a booking or log entry that a still-pending change of the open account salon made: its id is
+ * only provisional until the server answers, so Undo and move must not act on it yet.
+ */
+/** The request id an account change was sent under, by the log id the change was shown with here (provisional until the server answers). */
+const accountLogRequests = new Map<string, string>();
+export const accountRequestOfLog = (localLogId: string) => accountLogRequests.get(localLogId);
+
+/** True for an action on a booking or log entry that a pending change made: `booking/*` and `log/undo` ids. */
+function namesProvisionalRecord(action: DemoAction): boolean {
+  const id = (action as { id?: unknown }).id;
+  if (typeof id !== "string") return false;
+  if (action.type === "log/undo") return !accountRecordSettled("log", id);
+  return action.type.startsWith("booking/") && !accountRecordSettled("bookings", id);
+}
+
+export function accountRecordSettled(collection: "bookings" | "log", id: string): boolean {
+  return !accountBase || active !== "account" || accountBase[collection].some((record) => record.id === id);
+}
+
+registerRecordSettledCheck(accountRecordSettled);
+
+const accountListeners = new Set<() => void>();
+
+/** Called whenever the account salon is opened or closed (sign-in, sign-out, another account): caches tied to an account start over. */
+export function onAccountChange(listener: () => void): () => void {
+  accountListeners.add(listener);
+  return () => accountListeners.delete(listener);
+}
+const accountChange = () => accountListeners.forEach((listener) => listener());
+
+/**
+ * Shows a signed-in owner's salon from the server and selects it. `onChange`
+ * receives every action applied to it here, to send to the server.
+ */
+export function openAccountSalon(state: DemoState, onChange: (action: DemoAction, change: AccountChange) => void) {
+  initialize();
+  accountChange();
+  accountChanged = onChange;
+  accountBase = undefined;
+  const next = migrateState(state);
+  if (!next) return false;
+  snapshots.account = { state: next, epoch: `${ACCOUNT_EPOCH}${newEpoch()}` };
+  keep(next, snapshots.account.epoch);
+  active = "account";
+  notify();
+  return true;
+}
+
+/** Replaces the open account salon with the server's copy, keeping its lifetime. */
+export function replaceAccountSalon(state: DemoState) {
+  const snapshot = snapshots.account;
+  const next = migrateState(state);
+  if (!snapshot.state || !next) return;
+  accountBase = undefined;
+  snapshot.state = next;
+  keep(next, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/**
+ * Takes a change that was not saved back off the screen, but only while the screen still shows exactly the
+ * state that change produced, in the same snapshot lifetime. Anything newer (another change, the server's
+ * copy, a reopened salon) is left alone.
+ */
+export function restoreAccountSalon(change: AccountChange) {
+  const snapshot = snapshots.account;
+  if (snapshot.state !== change.after || snapshot.epoch !== change.epoch) return;
+  snapshot.state = change.before;
+  if (accountBase === change.before) accountBase = undefined;
+  keep(change.before, snapshot.epoch);
+  if (active === "account") notify();
+}
+
+/** Shows the account salon as the server last confirmed it before the pending changes, when none of them could be saved or read back. */
+export function restoreAccountBase() {
+  const snapshot = snapshots.account;
+  if (!accountBase || !snapshot.state) return;
+  snapshot.state = accountBase;
+  keep(accountBase, snapshot.epoch);
+  accountBase = undefined;
+  if (active === "account") notify();
+}
+
+/** Leaves the account salon (after signing out) for the sample business. */
+export function closeAccountSalon() {
+  accountChange();
+  snapshots.account = {};
+  accountChanged = undefined;
+  accountBase = undefined;
+  salonRemoved("account");
+  if (active === "account") active = "demo";
+  notify();
+}
+
+export function useActiveWorkspace(): Workspace {
+  return useSyncExternalStore(subscribe, () => { initialize(); return active; }, () => "demo");
 }

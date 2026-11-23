@@ -120,6 +120,10 @@
 .ui-press:active:not(:disabled) { transform: scale(.97); }
 .ui-press:active:not(:disabled)::after { opacity: .12; }
 
+/* A secondary button is a neutral tint of the text colour on whatever surface it sits on, so it reads on the canvas, a card and the sidebar alike. */
+.ui-button-tint { background: color-mix(in srgb, var(--ui-text) 10%, transparent); }
+.ui-button-tint:hover, .ui-button-tint:active { background: color-mix(in srgb, var(--ui-text) 16%, transparent); }
+
 .ui-media-dialog {
   width: fit-content;
   max-width: calc(100vw - 2 * var(--space-3));
@@ -159,12 +163,32 @@ body:has(.ui-media-dialog[open]) { overflow: hidden; }
   left: 0;
   width: calc(100% / var(--segment-count));
   border-radius: var(--radius-sm);
-  background: var(--ui-action);
+  background: var(--ui-surface);
+  box-shadow: inset 0 0 0 1px var(--ui-input-border);
   transform: translateX(calc(var(--segment-index) * 100%));
   transition: transform var(--dur-2) var(--ease-out);
 }
 .ui-segments[data-unselected]::before { display: none; }
 .ui-segments [role="radio"]:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
+/* Selection is a quiet outlined thumb with stronger text; the filled action
+   colour stays with the screen's one primary button. */
+.ui-segments [aria-checked="true"] { color: var(--ui-text); font-weight: 600; }
+/* Content-sized segments (collection filters): each option fits its label, so
+   the selected one carries the thumb itself. */
+.ui-segments[data-fit] { grid-auto-columns: max-content; min-width: 0; }
+.ui-segments[data-fit]::before { display: none; }
+.ui-segments[data-fit] [aria-checked="true"] { background: var(--ui-surface); box-shadow: inset 0 0 0 1px var(--ui-input-border); }
+/* Quiet segments (a utility such as the theme switch): bare icons, and a short
+   line under the selected one. */
+.ui-segments[data-quiet] { min-width: 0; }
+.ui-segments[data-quiet]::before {
+  background: linear-gradient(currentColor 0 0) center bottom var(--space-2) / var(--space-4) 2px no-repeat;
+  box-shadow: none;
+  color: var(--ui-text);
+}
+/* Tenant booking pages keep their filled selection. */
+.booking-theme .ui-segments::before { background: var(--ui-action); box-shadow: none; }
+.booking-theme .ui-segments [aria-checked="true"] { color: var(--ui-action-text); font-weight: inherit; }
 /* Clear the studio's existing bottom navigation at each breakpoint. */
 .ui-toaster { bottom: calc(8.75rem + env(safe-area-inset-bottom)); }
 @media (min-width: 640px) { .ui-toaster { bottom: calc(5.5rem + env(safe-area-inset-bottom)); } }

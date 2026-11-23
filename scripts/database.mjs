@@ -1,10 +1,23 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-/** @param {string | undefined} [connectionString] @param {number} [max] */
+/** @param {import("pg").ClientBase} client @param {"ordinary" | "sandbox"} [mode] */
+export async function assertDatabaseMode(client, mode = "ordinary") {
+  const { rows: [row] } = await client.query(
+    "SELECT to_regclass('cresavo_sandbox.installation') IS NOT NULL AS marked",
+  );
+  if (row?.marked !== (mode === "sandbox")) throw new Error("BOOKING_DATABASE_MODE_MISMATCH");
+}
+
+/**
+ * @param {string | undefined} [connectionString]
+ * @param {number} [max]
+ * @param {"ordinary" | "sandbox"} [mode]
+ */
 export function createDatabaseClient(
   connectionString = process.env.DATABASE_URL,
   max = 5,
+  mode = "ordinary",
 ) {
   if (process.env.PUBLIC_READONLY === "1") throw new Error("PUBLIC_READONLY_DATABASE_DISABLED");
   if (!connectionString) throw new Error("DATABASE_CONFIG_INVALID");
@@ -24,6 +37,7 @@ export function createDatabaseClient(
     max,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 10000,
+    onConnect: client => assertDatabaseMode(client, mode),
   });
   return new PrismaClient({ adapter });
 }

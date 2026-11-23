@@ -58,7 +58,7 @@ describe("model refinement (Codex #3)", () => {
     expect(JSON.parse(storage.get("salong-eko-assistant")!).context.date).toBe("2026-11-18");
 
     const approved = ask({ refining: true });
-    approve(approved);
+    await approve(approved);
     expect(thread.refineReply(approved, aiReading)).toBe(false);
     expect(reply(approved)).toMatchObject({ status: "approved", source: "rules" });
   });
@@ -77,9 +77,9 @@ describe("undo on a reply (Codex #4)", () => {
   it("reports Undone only when the store accepted it", async () => {
     const { actions, ask, reply, store, service, approve } = await setup();
     const id = ask();
-    approve(id);
+    await approve(id);
     expect(actions.replyUndoable(reply(id))).toBe(true);
-    expect(actions.undoReply(id, reply(id).undoId!)).toBe(true);
+    expect(await actions.undoReply(id, reply(id).undoId!)).toBe(true);
     expect(reply(id)).toMatchObject({ status: "undone", undoId: undefined });
     expect(store.currentState()!.services[0].price).toBe(service.price);
   });
@@ -87,11 +87,11 @@ describe("undo on a reply (Codex #4)", () => {
   it("withdraws Undo, without claiming success, after a later edit to the same record", async () => {
     const { actions, ask, reply, store, service, approve } = await setup();
     const id = ask();
-    approve(id);
+    await approve(id);
     const undoId = reply(id).undoId!;
     store.dispatch({ type: "service/price", id: service.id, price: service.price + 99 });
     expect(actions.replyUndoable(reply(id))).toBe(false);
-    expect(actions.undoReply(id, undoId)).toBe(false);
+    expect(await actions.undoReply(id, undoId)).toBe(false);
     expect(reply(id)).toMatchObject({ status: "approved", undoId: undefined });
     expect(store.currentState()!.services[0].price).toBe(service.price + 99);
   });
@@ -101,15 +101,17 @@ describe("undo on a reply (Codex #4)", () => {
     expect(actions.replyUndoable({ ...reply(ask()), undoId: "l-does-not-exist" })).toBe(false);
   });
 
-  it("attaches no Undo to an approved action that did not write a log entry", async () => {
+  it("refuses an approved action that would change nothing, and writes no log entry", async () => {
     const { actions, ask, reply, store, service } = await setup();
     const earlier = store.dispatchWithLog({ type: "customer/note", id: store.currentState()!.customers[0].id, note: "Earlier edit" });
     expect(earlier).toEqual(expect.any(String));
     const action = { type: "service/price", id: service.id, price: service.price } as const;
     const id = ask({ card: { kind: "change", title: "Same price", rows: [], toast: "", action } });
 
-    expect(actions.applyReply(id, action, { actor: "ai", source: "assistant" })).toBe(true);
-    expect(reply(id)).toMatchObject({ status: "approved", undoId: undefined });
+    // The commit API refuses a change that holds the same data as before (the legacy dispatch saved it).
+    expect(await actions.applyReply(id, action, { actor: "ai", source: "assistant" })).toBe(false);
+    expect(reply(id)).toMatchObject({ status: "failed" });
+    expect(reply(id).undoId).toBeUndefined();
     expect(store.currentState()!.log[0].id).toBe(earlier);
   });
 });
@@ -121,15 +123,15 @@ it("isolates owner replies from staff and rechecks permissions before dispatch",
   const ownerCard = ask({ text: "Owner-only answer" });
   setRole("staff");
   expect(thread.replyOf(ownerCard)).toBeUndefined();
-  expect(actions.applyReply(ownerCard, action, { actor: "ai" })).toBe(false);
+  expect(await actions.applyReply(ownerCard, action, { actor: "ai" })).toBe(false);
 
   const staffCard = ask();
-  expect(approve(staffCard)).toBe(false);
+  expect(await approve(staffCard)).toBe(false);
   expect(store.currentState()!.services[0].price).toBe(service.price);
   setRole("owner");
   expect(thread.replyOf(staffCard)).toBeUndefined();
   expect(thread.replyOf(ownerCard)?.text).toBe("Owner-only answer");
-  expect(approve(ownerCard)).toBe(true);
+  expect(await approve(ownerCard)).toBe(true);
 });
 
 it("blocks a staff approval when another tab reassigned the booking", async () => {
@@ -140,8 +142,90 @@ it("blocks a staff approval when another tab reassigned the booking", async () =
   const booking = state.bookings.find((item) => item.staffId === state.staff[1].id && item.status === "booked")!;
   const id = ask({ card: { kind: "change", title: "Cancel", rows: [], toast: "", action: { type: "booking/cancel", id: booking.id } } });
   storage.set("salong-eko-demo", JSON.stringify({ ...state, bookings: state.bookings.map((item) => item === booking ? { ...item, staffId: state.staff[0].id } : item) }));
-  expect(approve(id)).toBe(false);
+  expect(await approve(id)).toBe(false);
   expect(store.currentState()!.bookings.find((item) => item.id === booking.id)).toMatchObject({ status: "booked", staffId: state.staff[0].id });
+});
+
+describe("a reply while its change is being saved", () => {
+  const aiReading = { source: "ai" as const, text: "AI reading", card: { kind: "choose" as const, title: "AI", choices: [] } };
+
+  it("cannot be edited, declined or refined until the save has an outcome", async () => {
+    const { actions, thread, ask, reply, approve } = await setup();
+    const id = ask({ refining: true });
+    const saving = approve(id);
+    expect(reply(id).pending).toBe(true);
+    expect(actions.editReply(id)).toBeNull();
+    actions.declineReply(id);
+    expect(thread.refineReply(id, aiReading)).toBe(false);
+    expect(await saving).toBe(true);
+    expect(reply(id)).toMatchObject({ status: "approved", source: "rules", text: "New price" });
+    expect(reply(id).pending).toBeUndefined();
+  });
+
+  it("records the outcome in the conversation it was approved in, after a switch to another role", async () => {
+    const { ask, reply, approve, store, service } = await setup();
+    const { setRole } = await import("@/concept/ops/role");
+    // Web Locks, as in browsers and Node 24: the save waits for the lock, so the switch happens before it runs.
+    vi.stubGlobal("navigator", { locks: { request: (_name: string, run: () => unknown) => new Promise((resolve) => setTimeout(() => resolve(run()), 0)) } });
+    const id = ask();
+    const saving = approve(id);
+    setRole("staff");
+    // The owner approved it: the switch afterwards does not turn it into a staff approval.
+    expect(await saving).toBe(true);
+    setRole("owner");
+    expect(reply(id)).toMatchObject({ status: "approved", undoId: expect.any(String) });
+    expect(store.currentState()!.services[0].price).toBe(service.price + 50);
+  });
+
+  it("keeps Undo after an error the store did not explain, and undoes on the next try", async () => {
+    const { actions, ask, reply, store, service, approve } = await setup();
+    const id = ask();
+    await approve(id);
+    const undoId = reply(id).undoId!;
+    const navigator = globalThis.navigator;
+    vi.stubGlobal("navigator", { locks: { request: () => Promise.reject(new Error("lock lost")) } });
+    expect(await actions.undoReply(id, undoId)).toBe(false);
+    expect(reply(id)).toMatchObject({ status: "approved", undoId });
+    vi.stubGlobal("navigator", navigator);
+    expect(await actions.undoReply(id, undoId)).toBe(true);
+    expect(store.currentState()!.services[0].price).toBe(service.price);
+  });
+});
+
+describe("a reply in a salon that is not open right now", () => {
+  it("keeps Undo when the change's salon is only switched away from, and undoes after switching back", async () => {
+    const { actions, ask, reply, store, service, approve } = await setup();
+    const { createSalon, salonDraft } = await import("@/concept/onboarding/salon");
+    storage.set("salong-eko-demo-own", JSON.stringify(createSalon(store.currentState()!.generatedFor, { ...salonDraft("en"), name: "Studio Vide" })));
+    const id = ask();
+    await approve(id);
+    const undoId = reply(id).undoId!;
+    // Undo waits for the lock; meanwhile the owner opens the trial salon.
+    const navigator = globalThis.navigator;
+    vi.stubGlobal("navigator", { locks: { request: (_name: string, run: () => unknown) => new Promise((resolve) => setTimeout(() => resolve(run()), 0)) } });
+    const undoing = actions.undoReply(id, undoId);
+    expect(await store.switchSalon("own")).toBe(true);
+    expect(await undoing).toBe(false);
+    vi.stubGlobal("navigator", navigator);
+    expect(await store.switchSalon("demo")).toBe(true);
+    expect(reply(id)).toMatchObject({ status: "approved", undoId });
+    expect(await actions.undoReply(id, undoId)).toBe(true);
+    expect(store.currentState()!.services[0].price).toBe(service.price);
+  });
+});
+
+it("ignores Not now on a routine offer while it is being switched on", async () => {
+  const { actions, thread, reply, store } = await setup();
+  const routine = { id: "monday-reminders" as const, name: "Monday reminders", description: "", when: { weekdays: [1], time: "08:00" }, steps: [], tools: [], enabled: true, createdOn: store.currentState()!.generatedFor, lastRun: "" };
+  thread.addMessages([
+    { id: "q-routine", from: "owner", text: "remind on mondays", at: 1 },
+    { id: "r-routine", from: "assistant", text: "A routine", reply: { source: "rules", text: "A routine", card: { kind: "routine-offer", suggestion: { routine, reason: "" } } }, at: 1 },
+  ], { customerIds: [], date: store.currentState()!.generatedFor });
+  const keeping = actions.applyReply("r-routine", { type: "routine/add", routine }, { actor: "ai" });
+  actions.skipRoutineReply("r-routine", routine.id);
+  expect(await keeping).toBe(true);
+  expect(reply("r-routine")).toMatchObject({ status: "approved" });
+  expect(store.currentState()!.dismissedCards).not.toContain(`routine-${routine.id}`);
 });
 
 describe("edit and provenance (Codex #5)", () => {
@@ -155,10 +239,10 @@ describe("edit and provenance (Codex #5)", () => {
 
   it("logs an approved spoken command as voice and a typed one as the assistant", async () => {
     const { actions, ask, store, service, approve } = await setup();
-    approve(ask({ input: "voice" }));
+    await approve(ask({ input: "voice" }));
     expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", source: "voice", type: "service/price" });
     expect(store.dispatch({ type: "service/price", id: service.id, price: service.price })).toBe(true);
-    approve(ask({ input: "typed" }));
+    await approve(ask({ input: "typed" }));
     expect(store.currentState()!.log[0]).toMatchObject({ actor: "ai", source: "assistant", type: "service/price" });
     expect(actions.sourceFor(undefined)).toBe("assistant");
   });

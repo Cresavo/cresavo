@@ -1,18 +1,48 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { DemoAction } from "../actions";
 import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
+import { configFromEnv, meantLive } from "../connections/server/config";
 import type { OutboxEntry } from "../connections/simulated/outbox";
+import { createDemoState } from "../data/generate";
 import { withSlotClock } from "../data/slots";
-import type { DemoState } from "../data/types";
+import type { Customer, DateKey, DemoState } from "../data/types";
+import { customerIdentifiers, customerPhoneDigits, findErasable, mentionsCustomer, scrubDeep, scrubText } from "../customers/erase";
 import { withTenantPresentation } from "../i18n/presentation";
 import { defaultMeta, prepareAction } from "../log/capture";
-import type { LogActor, LogSource } from "../log/types";
+import { salonClock } from "../tools/clock";
+import {
+  databaseClock,
+  deliverDue,
+  EFFECT_LEASE_MS,
+  EFFECT_MAX_ATTEMPTS,
+  EFFECT_SINK_TIMEOUT_MS,
+  SIMULATED_SINKS,
+  type EffectSinks,
+  type TenantKind,
+} from "./effect-outbox";
+import {
+  addressedTo,
+  customerIdPatterns,
+  customerRecipient,
+  jsonTextPatterns,
+  plainTextPatterns,
+  redactAction,
+  redactEffectPayload,
+  erasedKey,
+  keyHoldsIdentifier,
+  redactReplay,
+} from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
+import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
+import { notifyTenantChange, PostgresNotifications, wakeTag } from "./postgres-notifications";
+import { DOCUMENT_SIZE_REFUSAL, MAX_DOCUMENT_BYTES, StoreMetrics } from "./store-metrics";
+import { enterScope, scoped, type StoreScope } from "./tenant-scope";
 import {
   actionFingerprint,
   detach,
   effectOf,
+  isErasure,
   HISTORY_MAX_LIMIT,
   migrateSaved,
   notifyAll,
@@ -27,6 +57,7 @@ import {
   type StoreEffect,
   type StoreSnapshot,
   type StudioStore,
+  type SystemAction,
   type TenantAction,
   type TenantId,
 } from "./studio-store";
@@ -45,37 +76,54 @@ import {
 //   6. write doc + version, append tenant_action, insert staged effects into
 //      tenant_effect, remember the key — then COMMIT
 //
-// After the commit the tenant's due effects are delivered one row at a time:
+// After the commit the tenant's due effects are delivered one row at a time
+// by the same code and claim rule as the outbox poller (effect-outbox.ts):
 // each is claimed with a short lease, sent, and acknowledged on its own. A
 // payment is never claimed while an earlier payment of the same tenant is
 // still pending, so a refund cannot overtake its checkout. Anything left is
-// for the outbox poller (step 2, item 4).
+// for the poller (`drainPendingEffects`).
+//
+// The row lock waits at most `lockTimeoutMs` (2 s); a lock timeout is
+// `conflict`, so the caller retries instead of piling up connections.
+//
+// Every statement runs in a transaction that first sets its row-level security
+// scope (tenant-scope.ts): the tenant it is for, or, to resolve a sandbox token,
+// that sandbox's key. The setting is transaction-local and RLS-ready; it is
+// enforced only once an operator has run prisma/grants/rls-enable.sql.
 
-/** Idempotency keys are forgotten this long after their commit (by the store clock). */
-export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
-/** Longest accepted idempotency key (the HTTP layer adds a caller prefix). */
-export const IDEMPOTENCY_KEY_MAX = 200;
-/** How long a claimed effect is reserved for one deliverer before another may retry it. */
-export const EFFECT_LEASE_MS = 60_000;
+export { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS };
+export const DEMO_TENANT_ID = "demo";
+const SANDBOX_TTL_MS = 24 * 60 * 60 * 1000;
+/** Default wait for the tenant's row lock before an apply gives up with `conflict`. */
+export const LOCK_TIMEOUT_MS = 2_000;
 /** Most effects one apply's drain delivers, its own and any earlier ones it unblocks. */
 const DRAIN_LIMIT = 100;
+/** Longest an apply's own drain keeps claiming after the commit; the poller takes what is left. */
+const DRAIN_BUDGET_MS = 5_000;
 const TRANSACTION = { maxWait: 5_000, timeout: 15_000 } as const;
 
-export type TenantKind = "salon" | "demo" | "sandbox";
+export { EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, type TenantKind };
+export type { EffectDelivery, EffectSink, EffectSinks } from "./effect-outbox";
 
-/** One committed effect handed to a sink. `id` is stable and unique: use it as the provider's idempotency key. */
-export interface EffectDelivery {
-  id: string;
-  tenantId: TenantId;
-  /** Sinks for live providers must refuse anything but `salon` (enforced fully in step 2, item 9). */
-  tenantKind: TenantKind;
-  seq: number;
-  n: number;
-  effect: StoreEffect;
+/** What `eraseSubject` changed. */
+export type EraseResult =
+  | {
+      ok: true;
+      /** The tenant's version afterwards; one higher when the document still held the customer. */
+      version: number;
+      /** The `customer/erase` log entry, when the document changed. */
+      entry?: TenantAction;
+    } & EraseCounts
+  | { ok: false; reason: "not-found" | "conflict" };
+
+interface EraseCounts {
+  /** `tenant_action` rows redacted, `tenant_effect` rows redacted or cancelled, idempotency keys deleted. */
+  redacted: { actions: number; effects: number; idempotencyKeys: number };
+  /** Payments still pending for the customer: they keep their payload until delivered (see STUDIO_STORE.md). */
+  pendingPayments: number;
+  /** Messages to the customer a deliverer was sending during the erasure: stopped for retries, outcome recorded by the deliverer. */
+  inFlightMessages: number;
 }
-
-/** Delivers one effect. Throwing leaves it pending for a retry; it may be called again for the same `id`. */
-export type EffectSink = (delivery: EffectDelivery) => void | Promise<void>;
 
 export interface PostgresStudioStoreOptions {
   prisma: PrismaClient;
@@ -83,9 +131,36 @@ export interface PostgresStudioStoreOptions {
   hmacSecret: string;
   /** Epoch milliseconds. Defaults to the database's `clock_timestamp()`, read after the row lock. Tests only. */
   now?: () => Promise<number>;
-  sinks: Record<StoreEffect["kind"], EffectSink>;
+  /** Live sinks, used for `salon` tenants only. */
+  sinks: EffectSinks;
+  /** Sinks for `demo` and `sandbox` tenants, which never reach `sinks`. Defaults to acknowledging without sending. */
+  simulatedSinks?: EffectSinks;
   /** Use `meta.at` and the action's own times when given instead of the clock. Tests and imports only. */
   trustCallerClock?: boolean;
+  /** Deliver the tenant's due effects right after each commit (default). With false only the poller delivers. */
+  deliverAfterCommit?: boolean;
+  /** Longest wait for the tenant's row lock, in milliseconds (default 2 s). A timeout is `conflict`. */
+  lockTimeoutMs?: number;
+  /** How `eraseSubject` redacts the tables: its own statements (default, staging) or the SECURITY DEFINER `erase_subject` (production grants). */
+  erasure?: "statements" | "function";
+  /**
+   * Whether a message the deployment stages is meant to be sent for real. Decided here, where effects are
+   * persisted, because the reducer cannot see the configuration; it is stored on the effect as `live`.
+   * Default: e-mail is live when the connection configuration says so (CONCEPT_CONNECTIONS_LIVE and a provider).
+   */
+  liveMessage?: (record: OutboxEntry, tenantId: TenantId) => boolean;
+  /** Delivery lease and attempts before `failed`, as for the poller. */
+  leaseMs?: number;
+  maxAttempts?: number;
+  /** Direct connection to Prisma's database for LISTEN. Defaults to DATABASE_URL. */
+  listenerConnectionString?: string;
+}
+
+interface LockedRow {
+  doc: unknown;
+  version: number;
+  kind: TenantKind;
+  expires_ms: number | null;
 }
 
 interface Replay {
@@ -95,12 +170,46 @@ interface Replay {
   effects: StoreEffect[];
 }
 
-type Committed = { done: ApplyResult } | { commit: Replay };
+type DocumentCommit = Replay & { documentBytes: number };
+type ApplyOutcome = { done: ApplyResult; commit?: never } | { commit: DocumentCommit };
+
+type ReplacementResult =
+  | { ok: true; version: number; changed: boolean }
+  | Extract<ApplyResult, { ok: false }>;
 
 type Tx = Prisma.TransactionClient;
+type TenantTarget = { tenantId: TenantId } | { sandboxKey: string };
+
+function exceedsDocumentLimit(bytes: number, previous: unknown): boolean {
+  return bytes > MAX_DOCUMENT_BYTES && bytes >= Buffer.byteLength(JSON.stringify(previous));
+}
 
 const isThenable = (value: unknown): boolean =>
   !!value && (typeof value === "object" || typeof value === "function") && typeof (value as { then?: unknown }).then === "function";
+
+/** The `detail` of a `rejected` result when another salon already has the slug. */
+export const SLUG_TAKEN = "slug_taken";
+
+/** Looks through an error and its causes for a record that `test` accepts, however the driver wraps it. */
+function findInError(error: unknown, test: (record: Record<string, unknown>) => boolean): boolean {
+  const seen = new Set<unknown>();
+  const walk = (value: unknown, depth: number): boolean => {
+    if (!value || typeof value !== "object" || seen.has(value) || depth > 6) return false;
+    seen.add(value);
+    const record = value as Record<string, unknown>;
+    return test(record) || walk(record.cause, depth + 1) || walk(record.meta, depth + 1) || walk(record.kind, depth + 1);
+  };
+  return walk(error, 0);
+}
+
+const messageMatches = (record: Record<string, unknown>, pattern: RegExp) => typeof record.message === "string" && pattern.test(record.message);
+
+/** True for Postgres' lock_not_available (55P03), however the driver wraps it. */
+const isLockTimeout = (error: unknown) =>
+  findInError(error, (record) => record.code === "55P03" || record.originalCode === "55P03" || messageMatches(record, /lock timeout/i));
+
+/** True when a write broke the unique index that gives each salon its own booking address (migration salon_slug_unique). */
+const isSlugTaken = (error: unknown) => findInError(error, (record) => messageMatches(record, /tenant_state_salon_slug_key/));
 
 /** Every `customerId` / `customerIds` value anywhere in a value. */
 function namedCustomers(value: unknown, into: Set<string>, depth = 0) {
@@ -156,9 +265,24 @@ export class PostgresStudioStore implements StudioStore {
   private readonly prisma: PrismaClient;
   private readonly hmacSecret: string;
   private readonly now?: () => Promise<number>;
-  private readonly sinks: PostgresStudioStoreOptions["sinks"];
+  private readonly sinks: EffectSinks;
+  private readonly simulatedSinks: EffectSinks;
   private readonly trustCallerClock: boolean;
+  private readonly deliverAfterCommit: boolean;
+  private readonly lockTimeoutMs: number;
+  private readonly leaseMs: number;
+  private readonly maxAttempts: number;
+  private readonly erasure: "statements" | "function";
+  private readonly liveMessage: (record: OutboxEntry, tenantId: TenantId) => boolean;
   private readonly listeners = new Map<TenantId, Set<(change: StoreChange) => void>>();
+  private readonly refreshListeners = new Set<() => void>();
+  /** Wake-up tag to tenant, for the tenants this store has subscribers for, and the last version handed to them. */
+  private readonly tags = new Map<string, TenantId>();
+  private readonly seen = new Map<TenantId, number>();
+  /** Per tenant: a version read in flight, and whether another wake-up arrived meanwhile (at most one more read). */
+  private readonly waking = new Map<TenantId, { queued: boolean }>();
+  private readonly notifications?: PostgresNotifications;
+  private readonly metrics = new StoreMetrics();
 
   constructor(options: PostgresStudioStoreOptions) {
     if (typeof options.hmacSecret !== "string" || options.hmacSecret.length < 32) throw new Error("STUDIO_STORE_SECRET_INVALID");
@@ -166,7 +290,64 @@ export class PostgresStudioStore implements StudioStore {
     this.hmacSecret = options.hmacSecret;
     this.now = options.now;
     this.sinks = options.sinks;
+    this.simulatedSinks = options.simulatedSinks ?? SIMULATED_SINKS;
     this.trustCallerClock = options.trustCallerClock === true;
+    this.deliverAfterCommit = options.deliverAfterCommit !== false;
+    const whole = (value: number | undefined, fallback: number) =>
+      value !== undefined && Number.isInteger(value) && value >= 1 ? value : fallback;
+    this.lockTimeoutMs = whole(options.lockTimeoutMs, LOCK_TIMEOUT_MS);
+    this.leaseMs = whole(options.leaseMs, EFFECT_LEASE_MS);
+    this.maxAttempts = whole(options.maxAttempts, EFFECT_MAX_ATTEMPTS);
+    this.erasure = options.erasure === "function" ? "function" : "statements";
+    this.liveMessage = options.liveMessage ?? ((record) => record.port === "email" && meantLive(configFromEnv(), "email"));
+    const listenerConnectionString = options.listenerConnectionString ?? process.env.DATABASE_URL;
+    if (listenerConnectionString) {
+      this.notifications = new PostgresNotifications(
+        listenerConnectionString,
+        (tag) => void this.woken(tag).catch(() => {}),
+        () => {
+          for (const refresh of [...this.refreshListeners]) refresh();
+        },
+      );
+    }
+  }
+
+  /**
+   * A change notification for one of this store's tenants: the version is read in the tenant's own scope, never
+   * taken from the notification, and handed on only when it is newer than the last one handed on. Wake-ups are
+   * coalesced per tenant, at most one read in flight and one queued behind it, so replayed tags cannot pile up
+   * reads on the pool.
+   */
+  private async woken(tag: string) {
+    const tenantId = this.tags.get(tag);
+    if (!tenantId || !this.listeners.has(tenantId)) return;
+    const running = this.waking.get(tenantId);
+    if (running) {
+      running.queued = true;
+      return;
+    }
+    const state = { queued: false };
+    this.waking.set(tenantId, state);
+    try {
+      do {
+        state.queued = false;
+        const version = await this.liveVersion(tenantId);
+        if (version === undefined || version <= (this.seen.get(tenantId) ?? 0)) continue;
+        this.seen.set(tenantId, version);
+        notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version, effects: [] });
+      } while (state.queued && this.listeners.has(tenantId));
+    } finally {
+      this.waking.delete(tenantId);
+    }
+  }
+
+  /** The tenant's version alone, while it exists and has not expired, in one statement of its own scope. */
+  private async liveVersion(tenantId: TenantId): Promise<number | undefined> {
+    const now = this.now ? Math.floor(await this.now()) : null;
+    const [row] = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ version: number }>>`
+      SELECT version FROM tenant_state WHERE tenant_id = ${tenantId}
+        AND (expires_at IS NULL OR expires_at > coalesce(to_timestamp(${now}::float8 / 1000), clock_timestamp()))`);
+    return row?.version;
   }
 
   private fingerprint(action: DemoAction): string {
@@ -176,15 +357,47 @@ export class PostgresStudioStore implements StudioStore {
   /** Epoch milliseconds: the injected clock, or the database clock at this point. */
   private async clock(db: Tx | PrismaClient): Promise<number> {
     if (this.now) return Math.floor(await this.now());
-    const [row] = await db.$queryRaw<Array<{ ms: number }>>`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`;
-    return Math.floor(row.ms);
+    return databaseClock(db);
+  }
+
+  /**
+   * Takes the tenant's row lock, waiting at most `lockTimeoutMs`. Undefined
+   * for an unknown tenant. Everything after it sees every earlier commit.
+   */
+  private async lock(tx: Tx, tenantId: TenantId): Promise<LockedRow | undefined> {
+    const [locked] = await tx.$queryRaw<LockedRow[]>`
+      SELECT doc, version, kind::text AS kind, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
+      FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
+    return locked;
+  }
+
+  /** Runs one transaction in `scope`; a lock timeout becomes `conflict`. */
+  private async transaction<T extends { commit?: DocumentCommit }>(
+    scope: StoreScope,
+    run: (tx: Tx) => Promise<T>,
+  ): Promise<T | { lockTimeout: true }> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await enterScope(tx, scope);
+        await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${this.lockTimeoutMs}ms`}, true)`;
+        const result = await run(tx);
+        if (result.commit) {
+          const { entry } = result.commit;
+          await notifyTenantChange(tx, wakeTag(this.hmacSecret, entry.tenantId), this.notifications?.sender);
+        }
+        return result;
+      }, TRANSACTION);
+    } catch (error) {
+      if (isLockTimeout(error)) return { lockTimeout: true };
+      throw error;
+    }
   }
 
   /** True while the tenant exists and has not expired, by the store clock. */
   private async live(tenantId: TenantId, now: number): Promise<{ doc: unknown; version: number } | undefined> {
-    const [row] = await this.prisma.$queryRaw<Array<{ doc: unknown; version: number }>>`
+    const [row] = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ doc: unknown; version: number }>>`
       SELECT doc, version FROM tenant_state
-      WHERE tenant_id = ${tenantId} AND (expires_at IS NULL OR expires_at > to_timestamp(${now}::float8 / 1000))`;
+      WHERE tenant_id = ${tenantId} AND (expires_at IS NULL OR expires_at > to_timestamp(${now}::float8 / 1000))`);
     return row;
   }
 
@@ -196,33 +409,187 @@ export class PostgresStudioStore implements StudioStore {
   }
 
   async apply(tenantId: TenantId, action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> {
+    return this.applyToTenant({ tenantId }, action, meta, options);
+  }
+
+  /** Resolves a sandbox token. Versioned edits use the tenant ID returned by load or the commit. */
+  openSandboxTenant(token: string) {
+    if (typeof token !== "string" || !token.trim() || token.length > 1024) throw new RangeError("Invalid sandbox token");
+    const sandboxKey = `sbx_${createHash("sha256").update(token).digest("hex").slice(0, 32)}`;
+    return {
+      load: async () => {
+        const tenantId = await this.prisma.$transaction((tx) => this.sandboxTenantId(tx, sandboxKey));
+        const snapshot = tenantId ? await this.load(tenantId) : null;
+        return tenantId && snapshot ? { tenantId, ...snapshot } : null;
+      },
+      apply: (action: DemoAction, meta: ApplyMeta = {}, options: ApplyOptions = {}): Promise<ApplyResult> => {
+        // A token and version alone cannot identify the snapshot across lifetimes.
+        if (options.expectedVersion !== undefined && options.expectedVersion !== 0) {
+          return Promise.resolve({ ok: false, reason: "conflict" });
+        }
+        return this.applyToTenant({ sandboxKey }, action, meta, options);
+      },
+    };
+  }
+
+  /** Resolves the key in the sandbox scope, which sees that sandbox's row only. The caller enters the tenant's scope next. */
+  private async sandboxTenantId(tx: Tx, sandboxKey: string): Promise<TenantId | undefined> {
+    await enterScope(tx, { sandboxKey });
+    // The exact match also resolves sandboxes created before IDs included a lifetime suffix.
+    const [row] = await tx.$queryRaw<Array<{ tenant_id: TenantId }>>`
+      SELECT tenant_id FROM tenant_state WHERE kind = 'sandbox'
+        AND (tenant_id = ${sandboxKey} OR starts_with(tenant_id, ${`${sandboxKey}_`}))`;
+    return row?.tenant_id;
+  }
+
+  private async applyToTenant(target: TenantTarget, action: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<ApplyResult> {
+    const start = performance.now();
     const key = options.idempotencyKey;
     if (key !== undefined && (key.length === 0 || key.length > IDEMPOTENCY_KEY_MAX)) return { ok: false, reason: "rejected" };
+    // Erasure also redacts the log and the outbox: only `eraseSubject` runs it.
+    if (isErasure(action)) return { ok: false, reason: "rejected" };
     const own = detach(action);
-    const result = await this.prisma.$transaction((tx) => this.applyInTransaction(tx, tenantId, own, meta, options), TRANSACTION);
-    if ("done" in result) return result.done;
-    const { commit } = result;
-    await this.drain(tenantId);
+    const scope: StoreScope = "sandboxKey" in target ? { sandboxKey: target.sandboxKey } : { tenant: target.tenantId };
+    const result = await this.transaction(scope, async (tx): Promise<ApplyOutcome> => {
+      // 1. The row lock.
+      let tenantId: TenantId;
+      let created = false;
+      if ("sandboxKey" in target) {
+        const { sandboxKey } = target;
+        // Serialize first writes for the same token even when there is no tenant row to lock.
+        await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${sandboxKey}, 0))`;
+        const existing = await this.sandboxTenantId(tx, sandboxKey);
+        tenantId = existing ?? `${sandboxKey}_${randomUUID()}`;
+        await enterScope(tx, { tenant: tenantId });
+        if (!existing) {
+          const now = await databaseClock(tx);
+          const fixture = createDemoState(salonClock(new Date(now)).today);
+          await tx.$executeRaw`
+            INSERT INTO tenant_state (tenant_id, kind, doc, expires_at)
+            VALUES (${tenantId}, 'sandbox', ${JSON.stringify(fixture)}::jsonb, to_timestamp(${now + SANDBOX_TTL_MS}::float8 / 1000))`;
+          created = true;
+        }
+      } else {
+        tenantId = target.tenantId;
+      }
+      const locked = await this.lock(tx, tenantId);
+      if (!locked || ("sandboxKey" in target && locked.kind !== "sandbox")) return { done: { ok: false, reason: "not-found" } };
+      const outcome = await this.applyLocked(tx, tenantId, locked, own, meta, options);
+      if (created && "done" in outcome) await tx.$executeRaw`DELETE FROM tenant_state WHERE tenant_id = ${tenantId}`;
+      return outcome;
+    }).catch((error) => {
+      if (isSlugTaken(error)) return { slugTaken: true } as const;
+      throw error;
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if ("slugTaken" in result) return { ok: false, reason: "rejected", detail: SLUG_TAKEN };
+    if ("done" in result) {
+      if (!result.done.ok && result.done.detail === DOCUMENT_SIZE_REFUSAL) this.metrics.refusedSize();
+      return result.done;
+    }
+    return this.published(result.commit.entry.tenantId, result.commit, start);
+  }
+
+  /** After a commit: deliver due effects, notify subscribers, return a detached result. */
+  private async published(tenantId: TenantId, { documentBytes, ...commit }: DocumentCommit, start: number): Promise<ApplyResult & { ok: true }> {
+    this.metrics.record({ documentBytes, bookings: commit.state.bookings.length, applyDurationMs: performance.now() - start });
+    if (this.deliverAfterCommit) await this.drain(tenantId);
+    this.seen.set(tenantId, Math.max(this.seen.get(tenantId) ?? 0, commit.version));
     notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: commit.version, entry: commit.entry, effects: commit.effects });
     return { ok: true, ...detach(commit), replayed: false };
   }
 
-  private async applyInTransaction(tx: Tx, tenantId: TenantId, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<Committed> {
-    // 1. The row lock. Everything below reads after it, so it sees every earlier commit.
-    const [locked] = await tx.$queryRaw<Array<{ doc: unknown; version: number; expires_ms: number | null }>>`
-      SELECT doc, version, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
-      FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
-    if (!locked) return { done: { ok: false, reason: "not-found" } };
+  store_metrics() {
+    return this.metrics.snapshot();
+  }
+
+  /** Privileged maintenance entry point. Callers must authorize the operator before invoking it. */
+  replaceState(tenantId: TenantId, state: DemoState, { actor, reason }: { actor: "system"; reason: string }): Promise<ReplacementResult> {
+    if (actor !== "system" || typeof reason !== "string" || !reason.trim()) {
+      throw new RangeError("State replacement requires a system actor and a reason");
+    }
+    const replacement = detach(state);
+    return this.replace(tenantId, { type: "system/replace", payload: { reason } }, replacement);
+  }
+
+  /** Regenerates the shared demo once for the requested salon-local date. */
+  resetDemoTenant({ generatedFor }: { generatedFor: DateKey }): Promise<ReplacementResult> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(generatedFor) ||
+        new Date(`${generatedFor}T00:00:00Z`).toJSON()?.slice(0, 10) !== generatedFor) {
+      throw new RangeError("Invalid demo fixture date");
+    }
+    return this.replace(DEMO_TENANT_ID, { type: "system/reset", payload: { generatedFor } });
+  }
+
+  private async replace(tenantId: TenantId, action: SystemAction, replacement?: DemoState): Promise<ReplacementResult> {
+    const start = performance.now();
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ replaced: ReplacementResult; commit?: DocumentCommit }> => {
+      const locked = await this.lock(tx, tenantId);
+      const clock = await this.clock(tx);
+      if (!locked || (locked.expires_ms !== null && locked.expires_ms <= clock) ||
+          (action.type === "system/reset" && locked.kind !== "demo")) {
+        return { replaced: { ok: false, reason: "not-found" } };
+      }
+      const before = migrateSaved(locked.doc);
+      if (action.type === "system/reset" && before && before.generatedFor >= action.payload.generatedFor) {
+        return { replaced: { ok: true, version: locked.version, changed: false } };
+      }
+      const fixture = action.type === "system/reset" ? createDemoState(action.payload.generatedFor) : migrateSaved(replacement);
+      if (!fixture) return { replaced: { ok: false, reason: "rejected", version: locked.version } };
+      const document = JSON.stringify({ ...fixture, seq: Math.max(fixture.seq, before?.seq ?? 0) });
+      const documentBytes = Buffer.byteLength(document);
+      if (exceedsDocumentLimit(documentBytes, locked.doc)) {
+        return { replaced: { ok: false, reason: "rejected", version: locked.version, detail: DOCUMENT_SIZE_REFUSAL } };
+      }
+      const version = locked.version + 1;
+      const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, clock);
+      const entry: TenantAction = { tenantId, seq, at, actor: "system", source: "system", action, resultingVersion: version };
+      const state = await this.writeDocumentAndAction(tx, document, entry, clock, []);
+      return { replaced: { ok: true, version, changed: true }, commit: { state, version, entry, effects: [], documentBytes } };
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if (result.commit) await this.published(tenantId, result.commit, start);
+    if (!result.replaced.ok && result.replaced.detail === DOCUMENT_SIZE_REFUSAL) this.metrics.refusedSize();
+    return result.replaced;
+  }
+
+  private async auditPosition(tx: Tx, tenantId: TenantId, currentVersion: number, stamp: number) {
+    const [last] = await tx.$queryRaw<Array<{ seq: bigint; at_ms: number }>>`
+      SELECT seq, (extract(epoch FROM at) * 1000)::float8 AS at_ms FROM tenant_action
+      WHERE tenant_id = ${tenantId} ORDER BY seq DESC LIMIT 1`;
+    // Version is the durable high-water mark even after demo retention removes the last row.
+    return {
+      seq: Math.max(currentVersion, last ? Number(last.seq) : 0) + 1,
+      at: last ? Math.max(stamp, Math.round(last.at_ms)) : stamp,
+    };
+  }
+
+  private async writeDocumentAndAction(tx: Tx, document: string, entry: TenantAction, clock: number, subjects: string[]) {
+    const { tenantId, resultingVersion, seq, action, actor, source, at, idempotencyKey } = entry;
+    const [written] = await tx.$queryRaw<Array<{ doc: DemoState }>>`
+      UPDATE tenant_state SET doc = ${document}::jsonb, version = ${resultingVersion}, updated_at = to_timestamp(${clock}::float8 / 1000)
+      WHERE tenant_id = ${tenantId} RETURNING doc`;
+    await tx.$executeRaw`
+      INSERT INTO tenant_action (tenant_id, seq, action, actor, source, at, idempotency_key, resulting_version, subject_ids)
+      VALUES (${tenantId}, ${seq}::bigint, ${JSON.stringify(action)}::jsonb, ${actor}, ${source},
+              to_timestamp(${at}::float8 / 1000), ${idempotencyKey ?? null}, ${resultingVersion}, ${subjects}::text[])`;
+    return written.doc;
+  }
+
+  /** Steps 2–6 of an apply, under the row lock. */
+  private async applyLocked(tx: Tx, tenantId: TenantId, locked: LockedRow, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<ApplyOutcome> {
 
     // 2. The clock, after the lock. `at` (the event stamp) never goes before the previous entry.
     const clock = await this.clock(tx);
     if (locked.expires_ms !== null && locked.expires_ms <= clock) return { done: { ok: false, reason: "not-found" } };
-    const [last] = await tx.$queryRaw<Array<{ seq: bigint; at_ms: number }>>`
-      SELECT seq, (extract(epoch FROM at) * 1000)::float8 AS at_ms FROM tenant_action
-      WHERE tenant_id = ${tenantId} ORDER BY seq DESC LIMIT 1`;
+    // Locked after the tenant row and held to the commit, so switching the account off waits for a booking that already checked it (an update to the account takes no tenant lock, so no order is reversed).
+    // FOR SHARE, taken after the tenant row and held to the commit: switching the account off waits for a booking that already checked it. Nothing that updates the account takes the tenant lock, so no order is reversed.
+    if (options.requireActiveAccount) {
+      const [account] = await tx.$queryRaw<Array<{ active: boolean }>>`SELECT active FROM owner_account WHERE tenant_id = ${tenantId} FOR SHARE`;
+      if (!account?.active) return { done: { ok: false, reason: "not-found" } };
+    }
     const stamp = this.trustCallerClock && meta.at !== undefined && Number.isFinite(meta.at) ? Math.floor(meta.at) : clock;
-    const at = Math.max(stamp, last ? Math.round(last.at_ms) : -Infinity);
-    const seq = last ? Number(last.seq) + 1 : 1;
+    const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, stamp);
 
     // 3. Idempotency, judged by the clock, not by the (possibly imported or clamped) event stamp.
     const key = options.idempotencyKey;
@@ -230,7 +597,7 @@ export class PostgresStudioStore implements StudioStore {
     if (key !== undefined) {
       const [known] = await tx.$queryRaw<Array<{ fingerprint_hmac: string; result: Replay }>>`
         SELECT fingerprint_hmac, result FROM tenant_idempotency
-        WHERE tenant_id = ${tenantId} AND key = ${key} AND expires_at > to_timestamp(${clock}::float8 / 1000)`;
+        WHERE tenant_id = ${tenantId} AND key IN (${key}, ${erasedKey(key)}) AND expires_at > to_timestamp(${clock}::float8 / 1000)`;
       if (known) {
         const a = Buffer.from(known.fingerprint_hmac, "hex");
         const b = Buffer.from(fingerprint, "hex");
@@ -260,6 +627,12 @@ export class PostgresStudioStore implements StudioStore {
     if (isThenable(next)) throw new Error("STUDIO_STORE_ASYNC_REDUCER");
     const reduced = next as DemoState;
     if (reduced === state || sameContent(reduced, state)) return { done: { ok: false, reason: "rejected", version: locked.version } };
+    const document = JSON.stringify(reduced);
+    const documentBytes = Buffer.byteLength(document);
+    // Erasure and access revocation must work even when their audit data grows the document.
+    if (!isErasure(action) && action.type !== "support/revoke" && exceedsDocumentLimit(documentBytes, locked.doc)) {
+      return { done: { ok: false, reason: "rejected", detail: DOCUMENT_SIZE_REFUSAL, version: locked.version } };
+    }
 
     // Effects: one row per distinct provider request. A request an earlier
     // apply already made is not a new effect; the same key with other content
@@ -282,10 +655,8 @@ export class PostgresStudioStore implements StudioStore {
     }
 
     // 6. Commit: state, log entry, effects and the key in one transaction.
+    await options.beforeCommit?.(tx);
     const version = locked.version + 1;
-    const [written] = await tx.$queryRaw<Array<{ doc: DemoState }>>`
-      UPDATE tenant_state SET doc = ${JSON.stringify(reduced)}::jsonb, version = ${version}, updated_at = to_timestamp(${clock}::float8 / 1000)
-      WHERE tenant_id = ${tenantId} RETURNING doc`;
     const entry: TenantAction = {
       seq,
       tenantId,
@@ -296,20 +667,19 @@ export class PostgresStudioStore implements StudioStore {
       ...(key === undefined ? {} : { idempotencyKey: key }),
       resultingVersion: version,
     };
-    await tx.$executeRaw`
-      INSERT INTO tenant_action (tenant_id, seq, action, actor, source, at, idempotency_key, resulting_version, subject_ids)
-      VALUES (${tenantId}, ${seq}::bigint, ${JSON.stringify(action)}::jsonb, ${entry.actor}, ${entry.source},
-              to_timestamp(${at}::float8 / 1000), ${key ?? null}, ${version}, ${subjectIds(action, state, reduced)}::text[])`;
+    const written = await this.writeDocumentAndAction(tx, document, entry, clock, subjectIds(action, state, reduced));
     const effects: StoreEffect[] = [];
     for (const [id, { fingerprint: print, record }] of staged) {
       const effect = effectOf(record);
+      // Fixed here, for good: a worker that cannot send for real never turns a live message into a simulated one.
+      if (effect.kind === "message") record.live = locked.kind === "salon" && this.liveMessage(record, tenantId);
       await tx.$executeRaw`
         INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, next_attempt_at)
         VALUES (${tenantId}, ${seq}::bigint, ${effects.length}, ${id}, ${print}, ${effect.kind}, ${JSON.stringify(record)}::jsonb,
                 to_timestamp(${clock}::float8 / 1000))`;
       effects.push(effect);
     }
-    const commit: Replay = { state: written.doc, version, entry, effects };
+    const commit: Replay = { state: written, version, entry, effects };
     if (key !== undefined) {
       await tx.$executeRaw`
         INSERT INTO tenant_idempotency (tenant_id, key, fingerprint_hmac, seq, result, expires_at)
@@ -317,7 +687,7 @@ export class PostgresStudioStore implements StudioStore {
         ON CONFLICT (tenant_id, key) DO UPDATE
         SET fingerprint_hmac = EXCLUDED.fingerprint_hmac, seq = EXCLUDED.seq, result = EXCLUDED.result, expires_at = EXCLUDED.expires_at`;
     }
-    return { commit };
+    return { commit: { ...commit, documentBytes } };
   }
 
   /**
@@ -328,81 +698,216 @@ export class PostgresStudioStore implements StudioStore {
    */
   private async drain(tenantId: TenantId) {
     try {
-      // Rows committed meanwhile (a refund another apply queued behind this
-      // apply's checkout) are picked up by another pass once this one made progress.
-      let budget = DRAIN_LIMIT;
-      for (let pass = 0; pass < 5 && budget > 0; pass++) {
-        const delivered = await this.drainPass(tenantId, budget);
-        if (delivered === 0) break;
-        budget -= delivered;
-      }
+      // Claims one row at a time, so a refund another apply queued behind this
+      // apply's checkout is claimed as soon as the checkout is acknowledged.
+      const report = await deliverDue({
+        db: this.prisma,
+        clock: () => this.clock(this.prisma),
+        sinks: this.sinks,
+        simulatedSinks: this.simulatedSinks,
+        leaseMs: this.leaseMs,
+        maxAttempts: this.maxAttempts,
+        sinkTimeoutMs: EFFECT_SINK_TIMEOUT_MS,
+        budgetMs: DRAIN_BUDGET_MS,
+        tenants: [tenantId],
+        scope: { tenant: tenantId },
+      }, DRAIN_LIMIT);
+      this.metrics.failedEffects(report.failed);
     } catch {
       // The change is committed and its effects are in the outbox; the poller delivers what is left.
     }
   }
 
-  /** One pass over the tenant's due effects in commit order; returns how many were delivered. */
-  private async drainPass(tenantId: TenantId, limit: number): Promise<number> {
-    const now = await this.clock(this.prisma);
-    const due = await this.prisma.$queryRaw<Array<{ id: string; seq: bigint; n: number; kind: StoreEffect["kind"]; payload: OutboxEntry; tenant_kind: TenantKind | null }>>`
-      SELECT e.id, e.seq, e.n, e.kind, e.payload, s.kind::text AS tenant_kind
-      FROM tenant_effect e LEFT JOIN tenant_state s ON s.tenant_id = e.tenant_id
-      WHERE e.tenant_id = ${tenantId} AND e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
-      ORDER BY e.seq, e.n LIMIT ${limit}`;
-    let delivered = 0;
-    let paymentsBlocked = false;
-    for (const row of due) {
-      if (row.kind === "payment" && paymentsBlocked) continue;
-      const claimed = await this.claim(row.id);
-      if (!claimed) {
-        if (row.kind === "payment") paymentsBlocked = true;
+  /**
+   * Erases one customer (GDPR art. 17) in one transaction under the row lock:
+   *
+   * - `tenant_action` rows that name the customer (by `subject_ids`, their
+   *   email, or a phone field with their number in any format) get their
+   *   personal fields redacted by PERSONAL_FIELDS and `redacted_at` set. Their
+   *   name, phone and email are also replaced in every other row of the
+   *   tenant, the informational `idempotency_key` column included.
+   * - `tenant_effect`: messages addressed to them are redacted. A pending one is
+   *   cancelled, a claimed one too: a deliverer rechecks that under its claim
+   *   before it dispatches. One a deliverer holds right now is reported in
+   *   `inFlightMessages`, and if it had already dispatched it still records
+   *   the true outcome. Other messages and delivered payments only lose the
+   *   identifiers. Pending payments are kept so a refund still goes out.
+   * - `tenant_idempotency` rows whose stored result mentions them stay, so a retry is answered and never applied twice: the customer is removed from the stored snapshot and their identifiers replaced, and a key that holds an identifier is replaced by its hash.
+   *   Other keys keep protecting their retries.
+   * - The document runs `customer/erase` like any apply (a new version and a
+   *   log entry without the name), when it still holds the customer, live or
+   *   in the trash.
+   *
+   * With `erasure: "function"` the table part is the SECURITY DEFINER
+   * `erase_subject` from prisma/grants/erase-subject.sql, called in the same
+   * transaction: the application role may only insert into and read
+   * `tenant_action`. The default runs the same statements itself.
+   */
+  async eraseSubject(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<EraseResult> {
+    const start = performance.now();
+    if (typeof customerId !== "string" || !customerId) return { ok: false, reason: "not-found" };
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ erased: EraseResult; commit?: DocumentCommit }> => {
+      const locked = await this.lock(tx, tenantId);
+      if (!locked) return { erased: { ok: false, reason: "not-found" } };
+      const clock = await this.clock(tx);
+      if (locked.expires_ms !== null && locked.expires_ms <= clock) return { erased: { ok: false, reason: "not-found" } };
+      const state = migrateSaved(locked.doc);
+      const customer = state ? findErasable(state, customerId) : undefined;
+      // Before the document changes: erase_subject reads the customer's identifiers from it.
+      const counts = this.erasure === "function"
+        ? await this.eraseWithFunction(tx, tenantId, customerId)
+        : await this.redactLog(tx, tenantId, customerId, customer, clock);
+      if (!customer) return { erased: { ok: true, version: locked.version, ...counts } };
+      const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {});
+      if ("done" in committed) throw new Error("STUDIO_STORE_ERASE_REFUSED");
+      const { commit } = committed;
+      return { erased: { ok: true, version: commit.version, entry: commit.entry, ...counts }, commit };
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if (result.commit) await this.published(tenantId, result.commit, start);
+    return detach(result.erased);
+  }
+
+  private async eraseWithFunction(tx: Tx, tenantId: TenantId, customerId: string): Promise<EraseCounts> {
+    const [{ counts }] = await tx.$queryRaw<Array<{ counts: { actions: number; effects: number; idempotencyKeys: number; pendingPayments: number; inFlightMessages: number } }>>`
+      SELECT erase_subject(${tenantId}, ${customerId}) AS counts`;
+    const { pendingPayments, inFlightMessages, ...redacted } = counts;
+    return { redacted, pendingPayments, inFlightMessages };
+  }
+
+  /** The table half of an erasure, inside its transaction. Mirrors erase_subject in prisma/grants/erase-subject.sql. */
+  private async redactLog(tx: Tx, tenantId: TenantId, customerId: string, customer: Customer | undefined, clock: number): Promise<EraseCounts> {
+    const identifiers = customer ? customerIdentifiers(customer) : [];
+    const contacts = customer ? customerIdentifiers({ ...customer, firstName: "", lastName: "" }) : [];
+    const phones = customer ? customerPhoneDigits(customer) : new Set<string>();
+    const digits = [...phones];
+    const patterns = jsonTextPatterns(identifiers);
+    const keyPatterns = plainTextPatterns(identifiers);
+    const at = new Date(clock).toISOString();
+    const actions = await tx.$queryRaw<Array<{ seq: bigint; action: DemoAction; key: string | null; subject: boolean }>>`
+      SELECT seq, action, idempotency_key AS key, subject_ids @> ARRAY[${customerId}]::text[] AS subject FROM tenant_action a
+      WHERE tenant_id = ${tenantId}
+        AND (subject_ids @> ARRAY[${customerId}]::text[] OR action::text ILIKE ANY(${patterns}::text[])
+          OR idempotency_key ILIKE ANY(${keyPatterns}::text[])
+          OR (cardinality(${digits}::text[]) > 0 AND EXISTS (
+            SELECT 1 FROM jsonb_path_query(a.action, 'lax $.**.phone') p
+            WHERE jsonb_typeof(p) = 'string'
+              AND regexp_replace(regexp_replace(regexp_replace(p #>> '{}', '\\D', '', 'g'), '^(00)?46', ''), '^0', '') = ANY(${digits}::text[]))))
+      ORDER BY seq`;
+    const named: bigint[] = [];
+    let redactedActions = 0;
+    for (const row of actions) {
+      // Named by id, email or phone: redact by the map. A name alone only has the name replaced.
+      const theirs = row.subject || mentionsCustomer(row.action, customerId, contacts, phones);
+      if (theirs) named.push(row.seq);
+      const action = scrubDeep(theirs ? redactAction(row.action) : row.action, identifiers);
+      const key = row.key === null ? null : scrubText(row.key, identifiers);
+      await tx.$executeRaw`
+        UPDATE tenant_action SET action = ${JSON.stringify(action)}::jsonb, idempotency_key = ${key},
+          redacted_at = coalesce(redacted_at, ${at}::timestamptz)
+        WHERE tenant_id = ${tenantId} AND seq = ${row.seq}`;
+      redactedActions++;
+    }
+    // Locked, so an acknowledgement waits for this transaction and a claim skips these rows.
+    const effects = await tx.$queryRaw<Array<{ id: string; kind: StoreEffect["kind"]; status: string; payload: OutboxEntry; leased: boolean }>>`
+      SELECT id, kind, status, payload, coalesce(leased_until > ${at}::timestamptz, false) AS leased FROM tenant_effect
+      WHERE tenant_id = ${tenantId}
+        AND ((kind = 'payment' AND seq = ANY(${named}::bigint[])) OR payload::text ILIKE ANY(${patterns}::text[])
+          OR (kind = 'message' AND strpos(coalesce(payload->>'to', ''), ${customerRecipient(customerId)}) > 0))
+      ORDER BY seq, n
+      FOR UPDATE`;
+    let redactedEffects = 0;
+    let pendingPayments = 0;
+    let inFlightMessages = 0;
+    for (const row of effects) {
+      if (row.kind === "payment" && row.status === "pending") {
+        pendingPayments++;
         continue;
       }
-      const delivery: EffectDelivery = {
-        id: row.id, tenantId, tenantKind: row.tenant_kind ?? "salon", seq: Number(row.seq), n: row.n, effect: effectOf(row.payload),
-      };
-      if (await this.send(delivery, claimed.attempts)) delivered++;
-      else if (row.kind === "payment") paymentsBlocked = true;
+      if (row.kind === "message" && addressedTo(row.payload, customerId)) {
+        const payload = JSON.stringify(redactEffectPayload(row.payload, identifiers));
+        if (row.status !== "pending") {
+          await tx.$executeRaw`UPDATE tenant_effect SET payload = ${payload}::jsonb WHERE id = ${row.id}`;
+        } else {
+          // Pending or claimed, it is cancelled in this transaction. A deliverer that has not yet dispatched finds it
+          // cancelled under its own claim and sends nothing; one that already has is reported and records its outcome.
+          if (row.leased) inFlightMessages++;
+          await tx.$executeRaw`
+            UPDATE tenant_effect SET payload = ${payload}::jsonb, status = 'cancelled', erased_at = ${at}::timestamptz WHERE id = ${row.id}`;
+        }
+        redactedEffects++;
+        continue;
+      }
+      // A payment, or a message to someone else that mentions them: only the identifiers go.
+      const scrubbed = scrubDeep(row.payload, identifiers);
+      if (scrubbed === row.payload) continue;
+      await tx.$executeRaw`UPDATE tenant_effect SET payload = ${JSON.stringify(scrubbed)}::jsonb WHERE id = ${row.id}`;
+      redactedEffects++;
     }
-    return delivered;
-  }
-
-  /** Reserves one pending, due effect. A payment waits while an earlier payment of its tenant is pending. */
-  private async claim(id: string): Promise<{ attempts: number } | undefined> {
-    const now = await this.clock(this.prisma);
-    const [row] = await this.prisma.$queryRaw<Array<{ attempts: number }>>`
-      UPDATE tenant_effect e SET attempts = e.attempts + 1, next_attempt_at = to_timestamp(${now + EFFECT_LEASE_MS}::float8 / 1000)
-      WHERE e.id = ${id} AND e.status = 'pending' AND e.next_attempt_at <= to_timestamp(${now}::float8 / 1000)
-        AND (e.kind <> 'payment' OR NOT EXISTS (
-          SELECT 1 FROM tenant_effect p
-          WHERE p.tenant_id = e.tenant_id AND p.kind = 'payment' AND p.status = 'pending' AND (p.seq, p.n) < (e.seq, e.n)))
-      RETURNING e.attempts`;
-    return row;
-  }
-
-  /** Calls the sink and records the outcome for this one row. */
-  private async send(delivery: EffectDelivery, attempts: number): Promise<boolean> {
-    try {
-      await this.sinks[delivery.effect.kind](detach(delivery));
-    } catch {
-      // Never log the payload: it holds personal data. The poller retries after the backoff.
-      const retry = (await this.clock(this.prisma)) + Math.min(3_600_000, 1000 * 2 ** attempts);
-      await this.prisma.$executeRaw`
-        UPDATE tenant_effect SET next_attempt_at = to_timestamp(${retry}::float8 / 1000) WHERE id = ${delivery.id} AND status = 'pending'`;
-      return false;
+    // Stored results are state copies. A row is never deleted (a retry would run again): the customer is removed from its snapshot and their
+    // identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
+    const replays = await tx.$queryRaw<Array<{ key: string; result: unknown }>>`
+      SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}
+        AND (key ILIKE ANY(${keyPatterns}::text[]) OR result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))
+      FOR UPDATE`;
+    let idempotencyKeys = 0;
+    for (const replay of replays) {
+      const key = keyHoldsIdentifier(replay.key, identifiers) ? erasedKey(replay.key) : replay.key;
+      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts));
+      // A row that is already redacted (a repeated erasure) is left alone and not counted.
+      if (key === replay.key && result === JSON.stringify(replay.result)) continue;
+      await tx.$executeRaw`
+        UPDATE tenant_idempotency SET key = ${key}, result = ${result}::jsonb
+        WHERE tenant_id = ${tenantId} AND key = ${replay.key}`;
+      idempotencyKeys++;
     }
-    const at = await this.clock(this.prisma);
-    await this.prisma.$executeRaw`
-      UPDATE tenant_effect SET status = 'delivered', delivered_at = to_timestamp(${at}::float8 / 1000) WHERE id = ${delivery.id} AND status = 'pending'`;
-    return true;
+    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
   }
 
-  subscribe(tenantId: TenantId, listener: (change: StoreChange) => void): () => void {
-    // In-process only for now; LISTEN/NOTIFY across instances is step 2, item 6.
+  subscribe(tenantId: TenantId, listener: (change: StoreChange) => void, { onRefresh }: { onRefresh?: () => void | Promise<void> } = {}): () => void {
     const listeners = this.listeners.get(tenantId) ?? new Set();
     this.listeners.set(tenantId, listeners);
-    listeners.add(listener);
-    return () => { listeners.delete(listener); };
+    this.tags.set(wakeTag(this.hmacSecret, tenantId), tenantId);
+    const subscription = (change: StoreChange) => listener(change);
+    listeners.add(subscription);
+    const refresh = onRefresh && (async () => {
+      if (!listeners.has(subscription) || !this.notifications?.ready) return;
+      try {
+        await onRefresh();
+      } catch {
+        // A subscriber's error cannot interrupt the other refresh callbacks.
+      }
+    });
+    if (refresh) {
+      this.refreshListeners.add(refresh);
+      if (this.notifications?.ready) queueMicrotask(refresh);
+    }
+    this.notifications?.start();
+    return () => {
+      listeners.delete(subscription);
+      if (refresh) this.refreshListeners.delete(refresh);
+      if (listeners.size) return;
+      if (this.listeners.get(tenantId) !== listeners) return;
+      this.listeners.delete(tenantId);
+      this.tags.delete(wakeTag(this.hmacSecret, tenantId));
+      this.seen.delete(tenantId);
+      if (!this.listeners.size) this.notifications?.stop();
+    };
+  }
+
+  /** Whether the dedicated connection has completed LISTEN for this store's subscribers. */
+  get notificationsReady() {
+    return this.notifications?.ready ?? false;
+  }
+
+  /** Releases the listener connection and all subscriptions. Prisma is owned by the caller. */
+  close() {
+    for (const listeners of this.listeners.values()) listeners.clear();
+    this.listeners.clear();
+    this.refreshListeners.clear();
+    this.tags.clear();
+    this.seen.clear();
+    this.notifications?.stop();
   }
 
   async history(tenantId: TenantId, query: HistoryQuery): Promise<HistoryPage> {
@@ -410,19 +915,20 @@ export class PostgresStudioStore implements StudioStore {
     if (!(await this.live(tenantId, await this.clock(this.prisma)))) return { entries: [], next: null };
     const limit = Math.max(1, Math.min(HISTORY_MAX_LIMIT, Math.floor(query.limit) || 1));
     const after = Math.max(0, Math.floor(query.after ?? 0));
-    const rows = await this.prisma.$queryRaw<Array<{
-      seq: bigint; action: DemoAction; actor: string; source: string; at_ms: number; idempotency_key: string | null; resulting_version: number;
+    const rows = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{
+      seq: bigint; action: TenantAction["action"]; actor: TenantAction["actor"]; source: TenantAction["source"];
+      at_ms: number; idempotency_key: string | null; resulting_version: number;
     }>>`
       SELECT a.seq, a.action, a.actor, a.source, (extract(epoch FROM a.at) * 1000)::float8 AS at_ms, a.idempotency_key, a.resulting_version
       FROM tenant_action a
       WHERE a.tenant_id = ${tenantId} AND a.seq > ${after}::bigint
-      ORDER BY a.seq LIMIT ${limit + 1}`;
+      ORDER BY a.seq LIMIT ${limit + 1}`);
     const entries = rows.slice(0, limit).map((row): TenantAction => ({
       seq: Number(row.seq),
       tenantId,
       action: row.action,
-      actor: row.actor as LogActor,
-      source: row.source as LogSource,
+      actor: row.actor,
+      source: row.source,
       at: Math.round(row.at_ms),
       ...(row.idempotency_key === null ? {} : { idempotencyKey: row.idempotency_key }),
       resultingVersion: row.resulting_version,

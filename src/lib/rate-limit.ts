@@ -6,8 +6,9 @@ import { DomainError, PasswordCapacityError } from "./errors";
 // One bounded map per process. No persistence or cross-worker guarantee.
 const buckets = new Map<string, { count: number; until: number }>();
 const windowMs = 15 * 60_000;
+// "public-tenant" is the writes one salon takes from the public, whoever sends them: 60 per hour, not per 15 minutes.
 
-function postgresStore() {
+export function postgresStore() {
   if (isPublicReadonly()) return false;
   const mode = process.env.RATE_LIMIT_STORE ?? "memory";
   if (!["memory", "postgres"].includes(mode) ||
@@ -21,7 +22,7 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "bookings" | "admin-bookings" | "agent-api",
+  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload",
   ip: string,
   consume = true,
   now = Date.now(),
@@ -33,8 +34,8 @@ export function checkRateLimit(
   for (const [key, bucket] of buckets)
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
-  const bucket = buckets.get(key) ?? { count: 0, until: now + windowMs };
-  const limit = route === "login" ? 5 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : 30;
+  const bucket = buckets.get(key) ?? { count: 0, until: now + (route === "public-tenant" ? 4 * windowMs : windowMs) };
+  const limit = route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "public-tenant" || route === "media-upload" ? 60 : 30;
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",
@@ -48,6 +49,19 @@ export function checkRateLimit(
     buckets.set(key, bucket);
   }
   return bucket.count;
+}
+
+/**
+ * One unit of a salon's public-write allowance (60 per hour). With the Postgres store it is taken inside
+ * the store's own transaction (`transaction`, from `ApplyOptions.beforeCommit`), so a commit that fails
+ * afterwards never uses it. Without one, or on the per-process memory store, it counts at once.
+ */
+export async function reserveTenantQuota(tenantId: string, transaction?: unknown) {
+  if (transaction && postgresStore()) {
+    const store = await import("./postgres-rate-limit");
+    return store.reserveRateLimitIn(transaction as Parameters<typeof store.reserveRateLimitIn>[0], "public-tenant", tenantId);
+  }
+  await checkRateLimit("public-tenant", tenantId);
 }
 
 export const LOGIN_FAILURE_DELAY_MS = 100;

@@ -240,6 +240,83 @@ exists. Variable names are in `.env.example`.
    JPEG/PNG. The adapter waits (bounded) for the media container to finish
    before publishing. Publishing is not idempotent.
 
+## Booking e-mails and the outbox cron
+
+A salon's booking confirmations (and reminders) are `tenant_effect` rows,
+delivered after each commit and, for anything left over, by the poller. E-mail
+goes through the e-mail port above, so it is simulated unless the four live
+conditions hold; SMS and payments are acknowledged without sending.
+
+- **Cron.** Run `npm run effects:drain` every minute (for example a Vercel
+  cron or `* * * * *` on a host) with `DATABASE_URL` (the outbox login of
+  `prisma/grants/roles.sql`, a member of `cresavo_outbox`, not the web login), `SESSION_SECRET` and the
+  **same** `PUBLIC_BOOKING_LIVE`, `OWNER_ACCOUNTS_ENABLED`, `CONCEPT_*` and
+  provider settings as the web app. It is safe to run several at once and
+  prints counts only. An apply delivers its own effects for at most about 5 s
+  and leaves the rest to the cron.
+- **Retries.** A rate limit, an outage or a rejected API key backs off (2 s,
+  4 s ... up to an hour) for 10 attempts, so queued confirmations go out once
+  the key is fixed. A permanent error (bad address, unverified domain, other
+  4xx) marks the effect `failed` at once, with the reason in the effect's
+  `delivery.reason`. `store_metrics()` counts `failedEffects` per process.
+- **Pause and reconcile.** `CONCEPT_EMAIL_PAUSED=1` (on the web app and the
+  cron) holds every booking e-mail in the outbox without using an attempt, so a
+  long provider outage never turns into `failed` rows. `npm run
+  effects:reconcile` lists `failed` and `uncertain` rows and, with `--apply`,
+  retries or settles them (docs/operations/INCIDENT_RUNBOOK.md).
+- **Sending twice.** The first attempt freezes the message, its link (address
+  and token expiry, never the token), the sender and the reply-to on the
+  effect, and every retry resends exactly that under the same idempotency key
+  (the effect id), even after the visit moved or the salon changed its name or
+  address. Right before the provider is called, the worker rechecks the booking
+  and its address and commits `dispatched` on the effect in its own
+  transaction, only while the effect is still pending, not erased and that
+  worker's claim is the latest one; a worker whose lease ran out while it was
+  stalled sends nothing. `dispatched` is cleared only when the provider
+  certainly did not take the message (a rate limit, a rejected key). A send
+  that may have left (timeout, dropped connection, a crash before the
+  acknowledgement, a Resend "request in progress" 409) keeps it, and a later
+  claim that finds `dispatched` without `sent` repeats the request
+  automatically **only on Resend, within 23 hours of the first attempt**
+  (Resend keeps keys for 24), and only if the first request went to Resend too: the provider is recorded with `dispatched`, so a request that went to Postmark, or was dispatched before that was recorded, is never repeated through Resend. A 200 reply without a readable receipt counts as a send that may have left. Postmark ignores the key, so there, and on Resend
+  after 23 hours, the effect is marked `failed` with reason `uncertain`: check
+  the provider's activity for that message and resend it by hand if it never
+  went out. A Resend 409 for a key with a different body fails with reason
+  `reconcile`. **Recommended: Resend.**
+- **Erasure.** Erasing a customer cancels their pending and claimed message
+  effects in the erasure's own transaction (`erase_subject` and the TypeScript
+  path alike) and drops the frozen message. A worker holds the tenant's lock
+  while it rechecks the booking and commits `dispatched`, so an erasure either
+  comes first and nothing is sent, or waits for that commit: then the send is
+  already under way, is reported as `inFlightMessages`, and its outcome is
+  recorded as it happened.
+- **Live or simulated.** The store decides when it stages a message effect and
+  stores it as `live` on the effect: true when the deployment's configuration
+  means e-mail to go out for real (`CONCEPT_CONNECTIONS_LIVE=1`, a provider
+  selected, not the public demo), false otherwise. A `live: false` row is only
+  ever simulated, by any worker. A worker that resolves to the simulator for a
+  `live: true` row (it lacks the credentials, or has `live-off` or
+  `not-selected`) leaves it pending as a retryable configuration error, logging
+  the resolution reason and never a value; give it the configuration and the
+  row goes out. Set the same `CONCEPT_*` settings on the web app and every
+  worker, and turn live connections on before the bookings you want sent, not
+  after: rows staged while it was off stay simulated.
+- **Public booking flags.** While `PUBLIC_BOOKING_LIVE` or
+  `OWNER_ACCOUNTS_ENABLED` is off, a public booking's e-mail waits unsent
+  without using an attempt, because the page its link opens is off too.
+- **Sender and tracking.** Mail is sent from `bookings@<product domain>`
+  (`NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN`), so that domain must be verified with
+  the provider. Replies go to the salon's own address. The link holds a bearer
+  token: Postmark messages turn link and open tracking off; on Resend, **turn
+  click tracking off for the sending domain**, or the provider sees and
+  rewrites the link.
+- **Link.** Each public booking's e-mail links to the booking page by its
+  public reference, with a signed token in the address fragment, valid until a
+  week after the visit as it stands. It is made when a real e-mail is sent and
+  never stored; a simulated send gets a link that opens nothing. The address is
+  the one typed on the booking: a profile address is used only for a visit the
+  owner made.
+
 ## Add a new provider
 
 Follow these steps to add one adapter. Use `providers/sms/twilio.ts` as the

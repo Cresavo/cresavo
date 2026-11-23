@@ -3,10 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { CalendarHeart, Clock, Megaphone, MessageSquare, Package, PackageCheck, UserRoundCheck, X } from "lucide-react";
 import { prefillForHoliday, studioHref } from "../../campaigns/prefill";
-import { textWaitlistAboutGaps } from "../../booking/waitlist-offer";
 import { quietDay } from "../../campaigns/quiet-day";
 import { diffDays } from "../../data/dates";
-import { freeGaps } from "../../data/slots";
 import { t, tc } from "../../i18n";
 import { dueBackList } from "../../customers/return-visits";
 import { formatAmount, formatDayMonth, weekdayName } from "../../i18n/format";
@@ -18,7 +16,7 @@ import { Button, ButtonLink, IconButton } from "../../ui/button";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useForecasts } from "../stock/use-forecasts";
 import { useStudio } from "../use-studio";
-import { dispatchWithUndoToast } from "../log/undo-toast";
+import { offerGapsToWaitlist, todayGaps } from "../booking/offer-waitlist";
 import { suggestionLimit } from "./limits";
 
 const QUIET_DISCOUNT = 10;
@@ -41,14 +39,10 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   const { state, today, minutes } = useStudio();
   const [showAll, setShowAll] = useState(false);
   const list: Suggestion[] = [];
-  const notify = (title: string, body: string, toast: string) => {
-    if (!textWaitlistAboutGaps(state, today)) return;
-    dispatchWithUndoToast({ type: "inbox/add", item: { kind: "system", waitlistOffer: true, date: today, time: minutes, title, body, read: false, handled: true } }, toast);
-  };
 
   const lowItems = cardVisible(state.modules, "stock-low") ? lowStock(state).slice(0, 2) : [];
   const forecasts = useForecasts(lowItems);
-  const gaps = state.staff.flatMap((s) => freeGaps(state, s.id, today, { after: minutes, min: 30 }));
+  const gaps = todayGaps(state, { today, minutes });
   const waitlist = state.customers.filter((c) => c.waitlist).length;
   if (gaps.length) {
     list.push({
@@ -59,10 +53,10 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       text: tc("suggest.gaps.text", waitlist),
       actions: (
         <>
-          <Button size="sm" variant="secondary" onClick={() => notify(t("suggest.gaps.sentTitle"), tc("suggest.gaps.sentBody", waitlist), tc("suggest.gaps.toast", waitlist))}>
+          <Button variant="link" onClick={() => { offerGapsToWaitlist({ today, minutes }); }}>
             {t("suggest.gaps.send")}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onOpen({ kind: "phone" })}>{t("suggest.gaps.show")}</Button>
+          <Button variant="link" className="text-text-secondary" onClick={() => onOpen({ kind: "phone" })}>{t("suggest.gaps.show")}</Button>
         </>
       ),
     });
@@ -75,7 +69,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       icon: <MessageSquare size={18} />,
       title: tc("suggest.inbox.title", unanswered),
       text: t("suggest.inbox.text"),
-      actions: <ButtonLink href="/studio/inbox" size="sm" variant="secondary">{t("suggest.inbox.open")}</ButtonLink>,
+      actions: <ButtonLink href="/studio/inbox" variant="link">{t("suggest.inbox.open")}</ButtonLink>,
     });
   }
 
@@ -87,7 +81,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       icon: <Package size={18} />,
       title: t("suggest.stock.title", { name: item.name }),
       text: tc("suggest.stock.text", item.inStock, { count: formatAmount(item.inStock), days: Math.max(1, days) }),
-      actions: <ButtonLink href="/studio/more/stock?order=1" size="sm" variant="secondary">{t("suggest.stock.order")}</ButtonLink>,
+      actions: <ButtonLink href="/studio/more/stock?order=1" variant="link">{t("suggest.stock.order")}</ButtonLink>,
     });
   });
   for (const order of overdueOrders(state, today).slice(0, 1)) {
@@ -97,7 +91,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       icon: <PackageCheck size={18} />,
       title: t("suggest.stock.delivery.title", { supplier: order.supplier }),
       text: t("suggest.stock.delivery.text", { date: formatDayMonth(order.date) }),
-      actions: <ButtonLink href={`/studio/more/stock?receive=${order.id}`} size="sm" variant="secondary">{t("suggest.stock.delivery.action")}</ButtonLink>,
+      actions: <ButtonLink href={`/studio/more/stock?receive=${order.id}`} variant="link">{t("suggest.stock.delivery.action")}</ButtonLink>,
     });
   }
 
@@ -108,7 +102,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       icon: <UserRoundCheck size={18} />,
       title: tc("suggest.recall.title", due.length),
       text: t("suggest.recall.text"),
-      actions: <ButtonLink href="/studio/customers/due-back" size="sm" variant="secondary">{t("suggest.recall.review")}</ButtonLink>,
+      actions: <ButtonLink href="/studio/customers/due-back" variant="link">{t("suggest.recall.review")}</ButtonLink>,
     });
   }
 
@@ -122,7 +116,7 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       icon: <CalendarHeart size={18} />,
       title: tc("suggest.holiday.title", diffDays(holiday.date, today), { name: holiday.name }),
       text: holiday.idea,
-      actions: <ButtonLink href={studioHref(prefillForHoliday(state, holiday, today), true)} size="sm" variant="secondary">{t("suggest.holiday.open")}</ButtonLink>,
+      actions: <ButtonLink href={studioHref(prefillForHoliday(state, holiday, today), true)} variant="link">{t("suggest.holiday.open")}</ButtonLink>,
     });
   }
 
@@ -141,12 +135,12 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
       icon: <Megaphone size={18} />,
       title: t("suggest.quiet.title", { day: weekdayName(quiet.date), hours: Math.round(quiet.freeMinutes / 60) }),
       text: t("suggest.quiet.text", { percent: QUIET_DISCOUNT, service: quiet.service.name }),
-      actions: <ButtonLink href={studioHref(prefill)} size="sm" variant="secondary">{t("suggest.quiet.open")}</ButtonLink>,
+      actions: <ButtonLink href={studioHref(prefill)} variant="link">{t("suggest.quiet.open")}</ButtonLink>,
     });
   }
 
   const visible = list.filter((s) => (!s.card || cardVisible(state.modules, s.card)) && !state.dismissedCards.includes(s.id));
-  if (!visible.length) return silent ? null : <p className="px-4 py-5 text-center text-sm text-text-secondary">{t("suggest.none")}</p>;
+  if (!visible.length) return silent ? null : <p className="py-4 text-sm text-text-secondary">{t("suggest.none")}</p>;
 
   // The most pressing first and the rest a tap away, so Today stays the schedule. A new salon gets one.
   const limit = suggestionLimit(state);
@@ -154,21 +148,21 @@ export function Suggestions({ onOpen, silent }: { onOpen: (sheet: OpenSheet) => 
   return (
     <>
       {shown.map((s) => (
-        <div key={s.id} className="flex gap-3 py-4 pl-4 pr-1">
-          <span aria-hidden className="mt-1 shrink-0 text-text-secondary">{s.icon}</span>
-          <div className="min-w-0 flex-1 space-y-1">
+        <div key={s.id} className="flex gap-3 py-4">
+          <span aria-hidden className="mt-0.5 shrink-0 text-text-secondary">{s.icon}</span>
+          <div className="min-w-0 flex-1">
             <p className="font-medium leading-snug">{s.title}</p>
-            <p className="text-sm text-text-secondary">{s.text}</p>
-            <div className="flex flex-wrap gap-2 pt-2">{s.actions}</div>
+            <p className="mt-1 text-sm text-text-secondary">{s.text}</p>
+            <div className="-mb-3 flex flex-wrap gap-x-4">{s.actions}</div>
           </div>
-          <IconButton label={t("suggest.dismiss")} onClick={() => dispatch({ type: "card/dismiss", id: s.id })} className="-mt-2 shrink-0">
+          <IconButton label={t("suggest.dismiss")} onClick={() => dispatch({ type: "card/dismiss", id: s.id })} className="-mr-3 -mt-3 text-text-secondary hover:text-text">
             <X size={16} />
           </IconButton>
         </div>
       ))}
       {limit.more && shown.length < visible.length && (
-        <div>
-          <Button variant="tertiary" width="responsive" className="rounded-none text-text-secondary" onClick={() => setShowAll(true)}>
+        <div className="py-1">
+          <Button variant="link" onClick={() => setShowAll(true)}>
             {tc("suggest.more", visible.length - shown.length)}
           </Button>
         </div>

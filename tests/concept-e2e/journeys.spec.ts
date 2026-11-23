@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays, formatTime } from "../../src/concept/data/dates";
-import { englishDemoState } from "./fixtures";
+import { englishDemoState, salonState } from "./fixtures";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
@@ -20,7 +20,7 @@ const tomorrow = addDays(today, 1);
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  return salonState(page) as Promise<DemoState>;
 }
 /** Quick commands go through the assistant panel: the button on phones, Ctrl+K (the keyboard shortcut) from tablet width. */
 async function command(page: Page, text: string) {
@@ -80,6 +80,80 @@ test("a customer books online and the booking appears in the studio", async ({ p
   expect(booking.status).toBe("booked");
   await page.goto("/studio/inbox");
   await expect(page.getByText(/Nova Demo/).first()).toBeVisible();
+});
+
+test("a customer books for someone else and the studio shows the guest and the contact", async ({ page }) => {
+  await page.goto("/boka/salong-eko");
+  const ask = page.getByRole("textbox", { name: /What would you like to book/ });
+  await ask.fill("Foot care day after tomorrow with Anna");
+  await ask.press("Enter");
+  await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+  const who = page.getByRole("radiogroup", { name: "Who is the visit for?" });
+  await expect(who.getByRole("radio", { name: "For me" })).toBeChecked();
+  await expect(page.getByLabel("Name of the person visiting")).toHaveCount(0);
+  await who.getByRole("radio", { name: "For someone else" }).click();
+  await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
+  await page.getByLabel("Mobile number").fill("070-000 99 13");
+  await expect(page.getByRole("button", { name: "Confirm booking", exact: true })).toBeDisabled();
+  await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
+  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
+  await expect(page.getByText(/The visit is for Elsa Demo\./)).toBeVisible();
+
+  const saved = await state(page);
+  const booking = saved.bookings.at(-1)!;
+  const contact = saved.customers.find(c => c.id === booking.customerId)!;
+  expect(booking.visitFor).toBe("Elsa Demo");
+  expect(fullName(contact)).toBe("Nova Demo");
+  expect(saved.customers.some(c => c.firstName === "Elsa" && c.lastName === "Demo")).toBe(false);
+
+  await page.goto(`/studio/customers/${contact.id}`);
+  await page.getByRole("button", { name: /Visit for Elsa Demo/ }).first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: "Elsa Demo" })).toBeVisible();
+  await expect(sheet.getByText("Booked by")).toBeVisible();
+  await expect(sheet.getByText("Nova Demo")).toBeVisible();
+  await expect(sheet.getByRole("link", { name: /070-000 99 13/ })).toBeVisible();
+});
+
+test("a visit for someone else names the visitor to the booker and keeps the booker's notes out of the visit", async ({ page }) => {
+  await page.goto("/boka/salong-eko");
+  const before = await state(page);
+  // A regular with a note and journal advice books for a child: neither describes the child.
+  const contact = before.customers.find(c => c.note && /^07/.test(c.phone) && before.journals.some(j => j.customerId === c.id && j.advice))!;
+  expect(contact).toBeTruthy();
+  const ask = page.getByRole("textbox", { name: /What would you like to book/ });
+  await ask.fill("Foot care day after tomorrow with Anna");
+  await ask.press("Enter");
+  await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+  await page.getByRole("radiogroup", { name: "Who is the visit for?" }).getByRole("radio", { name: "For someone else" }).click();
+  // The form holds no more than a public page accepts.
+  await expect(page.getByLabel("Your name", { exact: true })).toHaveAttribute("maxlength", "80");
+  await expect(page.getByLabel("Mobile number")).toHaveAttribute("maxlength", "20");
+  await page.getByLabel("Your name", { exact: true }).fill(fullName(contact));
+  await page.getByLabel("Mobile number").fill(contact.phone);
+  await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
+  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  const booking = (await state(page)).bookings.at(-1)!;
+  expect(booking).toMatchObject({ customerId: contact.id, visitFor: "Elsa Demo" });
+
+  await page.goto(`/boka/salong-eko/me?ref=${contact.id}`);
+  await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel booking", exact: true }).first().click();
+  const cancel = page.getByRole("dialog");
+  await expect(cancel.getByText(/Visit for Elsa Demo\./)).toBeVisible();
+  await cancel.getByRole("button", { name: "Keep booking" }).click();
+
+  await page.goto(`/studio/customers/${contact.id}`);
+  await page.getByRole("button", { name: /Visit for Elsa Demo/ }).first().click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: "Elsa Demo" })).toBeVisible();
+  await expect(sheet.getByText("Booked by")).toBeVisible();
+  await expect(sheet.getByText(fullName(contact))).toBeVisible();
+  await expect(sheet.getByText(contact.note!)).toHaveCount(0);
+  await expect(sheet.getByText("Advice last visit")).toHaveCount(0);
 });
 
 test("the owner moves a booking with a quick command and undoes it", async ({ page }) => {
@@ -150,9 +224,21 @@ test("a proposal from an outside AI waits in the Inbox until the owner approves 
   await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(start);
 });
 
-test("the owner marks Anna off on Friday and Today asks to move the affected bookings", async ({ page }) => {
+/** A weekday at least two days ahead on which Anna has bookings, so the journey never depends on today's date or time. */
+function annaBookedWeekday(initial: DemoState): string {
+  const anna = initial.staff.find(member => member.firstName === "Anna");
+  if (!anna) throw new Error("No Anna in the demo data");
+  for (let offset = 2; offset <= 6; offset++) {
+    const date = addDays(today, offset);
+    if (initial.bookings.some(b => b.staffId === anna.id && b.date === date && b.status === "booked"))
+      return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  }
+  throw new Error("Anna has no bookings in the coming week of the demo data");
+}
+
+test("the owner marks Anna off on a booked day and Today asks to move the affected bookings", async ({ page }) => {
   await page.goto("/studio");
-  await command(page, "Anna is off on Friday");
+  await command(page, `Anna is off on ${annaBookedWeekday(englishDemoState(today))}`);
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await page.goto("/studio");
   await expect(page.getByText(/\d+ bookings? needs? moving/)).toBeVisible();
@@ -242,11 +328,14 @@ test("finance charts mark the period before with an outline or dashes, not colou
 });
 
 test("Today names the staff member on every booking, not just a colour (#26)", async ({ page }) => {
-  const initial = createDemoState(today);
+  // A fixed weekday: the demo salon has no bookings at weekends.
+  const day = "2026-11-17";
+  await page.clock.install({ time: new Date(day + "T10:00:00+01:00") });
+  const initial = createDemoState(day);
   await page.goto("/studio");
   // Today shows the next few rows first; the whole day is one tap away.
   await page.getByRole("button", { name: /^Show all \(\d+\)$/ }).click();
-  for (const booking of initial.bookings.filter(b => b.date === today).slice(0, 6)) {
+  for (const booking of initial.bookings.filter(b => b.date === day).slice(0, 6)) {
     const customer = initial.customers.find(c => c.id === booking.customerId)!;
     const staff = initial.staff.find(s => s.id === booking.staffId)!;
     await expect(page.getByRole("button").filter({ hasText: fullName(customer) }).first()).toContainText(`${staff.firstName} · `);
@@ -265,7 +354,7 @@ test("switches, segmented options, assistant composer buttons and the booking he
   for (const h of await heights("[role=radiogroup] [role=radio]")) expect(h).toBeGreaterThanOrEqual(44);
   await page.keyboard.press("Control+K");
   await page.getByRole("textbox", { name: "Message" }).fill("hello");
-  for (const h of await heights("dialog form button, dialog header button")) expect(h).toBeGreaterThanOrEqual(44);
+  for (const h of await heights("dialog form button, dialog [data-sheet-header] button")) expect(h).toBeGreaterThanOrEqual(44);
   await page.goto("/boka/salong-eko");
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
   for (const h of await heights("header a")) expect(h).toBeGreaterThanOrEqual(44);

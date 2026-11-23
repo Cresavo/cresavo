@@ -14,11 +14,11 @@ import { staffViewer } from "../../ops/access";
 import { currentRole, useRole } from "../../ops/role";
 import type { IntentResult } from "../../intent";
 import { studioSalonCopy } from "../../i18n/salon-eko-copy";
-import { currentState, dispatch, dispatchWithLog } from "../../store";
+import { currentState, dispatchWithLog } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
-import { applyReply, approveReply, editReply, pickReply, sourceFor, undoReply } from "./reply-actions";
-import { addMessages, messageId, refineReply, replyOf, startNewThread, updateReply, useThread } from "./thread-store";
+import { applyReply, approveReply, declineReply, editReply, pickReply, skipRoutineReply, sourceFor, undoReply } from "./reply-actions";
+import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
@@ -36,7 +36,7 @@ export function useAiReady(localOnly: boolean): boolean {
 
 /** Everything the panel does: send a message, approve or decline a card, remember, switch on a routine. */
 export function useAssistant() {
-  const { state, today, minutes } = useStudio();
+  const { state, today, minutes, target } = useStudio();
   const role = useRole();
   const thread = useThread(role);
   const localOnly = !!state.industry;
@@ -64,7 +64,8 @@ export function useAssistant() {
       id: messageId(),
       from: "assistant",
       text: outcome.reply.text,
-      reply: { ...outcome.reply, undoId, request: text, input: via, refining: refining || undefined },
+      // The salon the reply was made for: its card is approved, and its change undone, only there.
+      reply: { ...outcome.reply, undoId, request: text, input: via, refining: refining || undefined, target: target ?? undefined },
       at: Date.now(),
     };
     const before = thread.messages;
@@ -106,7 +107,7 @@ export function useAssistant() {
 
   const approve = (id: string, proposal: Extract<Proposal, { kind: "change" }>) => approveReply(id, proposal.action);
 
-  const decline = (id: string) => updateReply(id, { status: "declined" });
+  const decline = (id: string) => declineReply(id);
 
   const pick = (id: string, choice: Choice) => {
     if ("proposal" in choice) pickReply(id, choice);
@@ -117,11 +118,7 @@ export function useAssistant() {
 
   const keepRoutine = (id: string, routine: Routine) => applyReply(id, { type: "routine/add", routine }, ASSISTANT);
 
-  const skipRoutine = (id: string, routine: Routine) => {
-    if (currentRole() !== "owner" || replyOf(id)?.card?.kind !== "routine-offer") return;
-    dispatch({ type: "card/dismiss", id: `routine-${routine.id}` });
-    updateReply(id, { status: "declined" });
-  };
+  const skipRoutine = (id: string, routine: Routine) => skipRoutineReply(id, routine.id);
 
   /** Ends the conversation. Nothing from it is kept: the assistant remembers only what the owner asks it to. */
   const newConversation = () => void startNewThread();

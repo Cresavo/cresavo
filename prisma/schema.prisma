@@ -239,7 +239,51 @@ model AgentClient {
   bookings AgentBooking[]
   mandates AgentMandate[]
   proposals AgentProposal[]
+  sandboxSession SandboxSession?
   @@unique([businessId, id])
+}
+
+model SandboxSession {
+  id String @id @db.Uuid
+  businessId String @unique
+  clientId String @unique
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  generation Int
+  expiresAt DateTime @db.Timestamptz(3)
+  apiRequests Int @default(0)
+  // HMAC of the pairing bucket; one live session per bucket.
+  pairDigest String?
+  audit SandboxAudit[]
+  phone SandboxPhone?
+  @@unique([businessId, clientId], map: "SandboxSession_client_scope_key")
+  @@index([generation, expiresAt])
+  @@index([generation, pairDigest])
+}
+
+model SandboxPhone {
+  sessionId String @id @db.Uuid
+  session SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  linkHash String @unique
+  browserHash String? @unique
+  redeemedAt DateTime? @db.Timestamptz(3)
+  requests Int @default(0)
+}
+
+model SandboxPairBudget {
+  day DateTime @db.Date
+  ipDigest String
+  count Int
+  @@id([day, ipDigest])
+}
+
+model SandboxAudit {
+  id String @id @default(cuid())
+  sessionId String @db.Uuid
+  session SandboxSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  event String
+  outcome String
+  @@index([sessionId])
 }
 
 // Bounded operator authority or synthetic lab customer consent. No real identity proof.
@@ -530,13 +574,121 @@ model TenantEffect {
   fingerprint   String
   kind          String
   payload       Json      @db.JsonB
-  /// pending | delivered. A pending row is due at next_attempt_at, which also serves as the delivery lease.
+  /// pending | delivered | failed (gave up after the maximum attempts) | cancelled (erasure stopped an unsent message).
+  /// A pending row is due at next_attempt_at, which also serves as the delivery lease.
   status        String    @default("pending")
   attempts      Int       @default(0)
   nextAttemptAt DateTime  @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
   deliveredAt   DateTime? @map("delivered_at") @db.Timestamptz(3)
+  /// Set by a claim, cleared by its outcome: the row is in flight with one deliverer until then.
+  leasedUntil   DateTime? @map("leased_until") @db.Timestamptz(3)
+  /// An erasure stopped this row: never claimed again.
+  erasedAt      DateTime? @map("erased_at") @db.Timestamptz(3)
+  /// The current claim's random token (store_outbox_claim); every read and write of a deliverer needs it. Cleared by the claim's outcome.
+  claimToken    String?   @map("claim_token") @db.Uuid
+  /// A provider's confirmation that arrived after the row was settled otherwise (cancelled by an erasure, or failed): kept apart, the status stays.
+  lateConfirmation Json?  @map("late_confirmation") @db.JsonB
   @@id([tenantId, seq, n])
   @@index([status, nextAttemptAt])
   @@index([tenantId, status, seq, n])
+  @@index([status, tenantId, seq, n])
   @@map("tenant_effect")
+}
+
+// Owner accounts for real salons. Each account owns one tenant_state row.
+// Behind OWNER_ACCOUNTS_ENABLED (src/lib/owner-accounts.ts).
+model OwnerAccount {
+  id                String         @id @default(cuid())
+  /// Lower-case, trimmed.
+  email             String         @unique
+  passwordHash      String         @map("password_hash")
+  tenantId          String         @unique @map("tenant_id")
+  active            Boolean        @default(true)
+  /// Incremented on password reset, disable and a change to two-step sign-in; older sessions stop working.
+  credentialVersion Int            @default(1) @map("credential_version")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Two-step sign-in: the authenticator secret, AES-256-GCM under OWNER_MFA_KEY (`v1:<iv>:<tag>:<ciphertext>`).
+  totpSecretEnc        String?   @map("totp_secret_enc")
+  /// A secret being set up, encrypted the same way, until the first code confirms it or it expires.
+  totpPendingEnc       String?   @map("totp_pending_enc")
+  totpPendingExpiresAt DateTime? @map("totp_pending_expires_at") @db.Timestamptz(3)
+  totpEnabledAt        DateTime? @map("totp_enabled_at") @db.Timestamptz(3)
+  /// The last 30-second step whose code was used; a code for this step or an earlier one is refused.
+  totpLastStep         BigInt?   @map("totp_last_step")
+  sessions          OwnerSession[]
+  recoveryCodes     OwnerRecoveryCode[]
+  mfaChallenges     OwnerMfaChallenge[]
+  @@map("owner_account")
+}
+
+/// Single-use recovery codes for two-step sign-in, stored as scrypt with a per-account salt derived from OWNER_MFA_KEY.
+model OwnerRecoveryCode {
+  id        String       @id @default(cuid())
+  accountId String       @map("account_id")
+  account   OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  codeHash  String       @map("code_hash")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  usedAt    DateTime?    @map("used_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@map("owner_recovery_code")
+}
+
+model OwnerSession {
+  /// SHA-256 of the session token; the token itself is only in the cookie.
+  id                String       @id
+  accountId         String       @map("account_id")
+  account           OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  credentialVersion Int          @map("credential_version")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
+  revokedAt         DateTime?    @map("revoked_at") @db.Timestamptz(3)
+  /// Set when the sign-in passed the second step. Required while the account has two-step sign-in on.
+  mfaVerifiedAt     DateTime?    @map("mfa_verified_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("owner_session")
+}
+
+/// A correct password still waiting for the second step. The id is the SHA-256 of the pending cookie's nonce.
+model OwnerMfaChallenge {
+  id                String       @id
+  accountId         String       @map("account_id")
+  account           OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  credentialVersion Int          @map("credential_version")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("owner_mfa_challenge")
+}
+
+/// The business's own photos and its logo (docs/operations/MEDIA_STORAGE.md). Written by src/lib/media/library.ts;
+/// the bytes live in `bytes` (the Postgres store) or in an S3-compatible bucket under `storage_key`. Metadata is
+/// stripped before a row is written. A deleted row keeps its bytes until the media sweep purges it.
+model MediaAsset {
+  id          String    @id
+  tenantId    String    @map("tenant_id")
+  /// photo | logo; at most one published and one unsaved logo per tenant (partial unique indexes in the migration).
+  kind        String
+  /// image/jpeg | image/png | image/webp, from the file's own bytes.
+  contentType String    @map("content_type")
+  byteSize    Int       @map("byte_size")
+  width       Int
+  height      Int
+  /// Hex SHA-256 of the stored bytes: deduplication within a tenant, the ETag and part of the logo's public address.
+  sha256      String
+  /// postgres | s3
+  storage     String
+  /// media/<tenant_id>/<id>, checked by the database and again before every read and delete.
+  storageKey  String    @map("storage_key")
+  /// pending (bytes on their way to an object store) | ready
+  status      String    @default("ready")
+  bytes       Bytes?
+  altText     String?   @map("alt_text")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// A logo is published when the booking page that uses it is saved; the logo published before is retired then.
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+  @@index([tenantId, kind, createdAt])
+  @@map("media_asset")
 }

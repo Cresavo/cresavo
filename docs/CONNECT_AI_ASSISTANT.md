@@ -227,7 +227,8 @@ authentication. See [the split contract](GATEWAY_SPLIT.md).
 
 ### Customer agent gateway
 
-The separate `booking-lab-gateway` repo is private. The split contract records
+The gateway lives in the separate public repository
+[`Cresavo/gateway`](https://github.com/Cresavo/gateway). The split contract records
 a local test with a separate REST/MCP gateway and booking engine, fictional
 bookings and a matching entry in the owner's calendar. The engine keeps the
 database and enforces the booking rules. A public connection for customers'

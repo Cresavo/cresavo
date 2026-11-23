@@ -5,21 +5,22 @@ import type { DragEvent, MouseEvent } from "react";
 import { lunchFor, openingFor, workWindow } from "../../data/slots";
 import type { DateKey, Interval, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
+import { accountRecordSettled } from "../../store";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
 import { Badge } from "../../ui/badge";
 import { showActionFailure, showToast } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
-import { dispatchWithUndoToast } from "../log/undo-toast";
+import { commitWithUndoToast } from "../log/commit-toast";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
-import { calendarScale, HourLines, TimeAxis } from "./time-axis";
+import { snapMinutes } from "./gap";
+import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
 
 const PX_PER_MIN = 1.25;
 const WARNING_BLOCK_HEIGHT = 64;
 
-const snap = (minutes: number) => Math.floor(minutes / 15) * 15;
 
 /** "3 bookings", or what is wrong when the person is not working but has bookings left. */
 function dayHeading(count: number, works: boolean) {
@@ -29,10 +30,10 @@ function dayHeading(count: number, works: boolean) {
 
 /** One column per staff member for a single day. Tap a free spot to book, drag a booking to move it. */
 export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
-  const { state, today, minutes } = useStudio();
+  const { state, today, minutes, target } = useStudio();
   const hours = openingFor(state.salon, date)!;
   const lunch = lunchFor(state.salon, date);
-  const { open: from, close: to } = hours;
+  const { open, close } = hours;
   const columns = staff.map(person => {
     const shift = workWindow(state, person.id, date);
     const entries = dayBookings(state, date, person.id, resourceId).map(booking => ({
@@ -42,6 +43,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     return { person, shift, entries };
   });
   const entries = columns.flatMap(column => column.entries);
+  const { from, to } = calendarRange(open, close, entries.map(({ booking }) => booking));
   const scale = calendarScale(
     calendarScale(PX_PER_MIN, entries.map(({ booking }) => booking)),
     entries.filter(({ misfit }) => misfit).map(({ booking }) => booking),
@@ -49,7 +51,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   );
   const height = (to - from) * scale;
   const minuteAt = (event: { clientY: number; currentTarget: Element }) =>
-    snap(from + (event.clientY - event.currentTarget.getBoundingClientRect().top) / scale);
+    snapMinutes(from + (event.clientY - event.currentTarget.getBoundingClientRect().top) / scale);
 
   // The shaded hours and lunch cannot be booked, so a tap there says why instead of opening a form that cannot be confirmed.
   const onColumnClick = (person: Staff, shift: Interval) => (event: MouseEvent<HTMLDivElement>) => {
@@ -68,20 +70,20 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     event.preventDefault();
     const id = event.dataTransfer.getData(DRAG_TYPE);
     const booking = state.bookings.find((b) => b.id === id);
-    if (!booking) return;
+    // A booking a pending change made has only a provisional id until the server answers.
+    if (!booking || !accountRecordSettled("bookings", id)) return;
     if (booking.staffId !== person.id) {
       const name = state.staff.find((s) => s.id === booking.staffId)!.firstName;
       showActionFailure("reference.sameStaffOnly", undefined, "studio", t("calendar.sameStaffOnly", { name }));
       return;
     }
     const start = minuteAt(event);
-    if (!dispatchWithUndoToast({ type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) }))) {
-      showActionFailure("calendar.slotTaken");
-    }
+    const moved = target ? commitWithUndoToast(target, { type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) })).then((result) => result.ok, () => false) : Promise.resolve(false);
+    void moved.then((ok) => { if (!ok) showActionFailure("calendar.slotTaken"); });
   };
 
   return (
-    <div className="overflow-x-auto rounded-lg bg-surface ring-1 ring-hairline">
+    <div className="studio-raised overflow-x-auto rounded-lg bg-surface">
       <div className="studio-calendar-grid studio-calendar-day" style={{ "--calendar-columns": columns.length } as React.CSSProperties}>
         <div className="flex border-b border-hairline">
           <div className="w-11 shrink-0" />
@@ -113,10 +115,10 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                 {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-surface-2/70" style={{ height: (to - shift.end) * scale }} />}
                 {lunch && works && (
                   <div
-                    className="pointer-events-none absolute inset-x-0 flex items-center justify-center bg-[repeating-linear-gradient(135deg,transparent_0_6px,var(--ui-border)_6px_7px)] text-minimum text-text-secondary"
+                    className="studio-calendar-lunch pointer-events-none absolute inset-x-0 flex items-center justify-center text-minimum text-text-secondary"
                     style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
                   >
-                    {t("calendar.lunch")}
+                    <span className="rounded-sm bg-surface px-2">{t("calendar.lunch")}</span>
                   </div>
                 )}
                 {entries.map(({ booking, misfit }) => (
@@ -126,7 +128,9 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                     misfit={misfit}
                     top={(booking.start - from) * scale + 1}
                     height={booking.duration * scale - 2}
+                    scale={scale}
                     onOpen={() => onOpen({ kind: "booking", id: booking.id })}
+                    onGapOpen={(start) => onOpen({ kind: "new", preset: { staffId: person.id, date, start } })}
                   />
                 ))}
                 {date === today && minutes > from && minutes < to && (

@@ -1,6 +1,7 @@
 import type { LogActor, LogEntry } from "../log/types";
 
 export const TICKET_ACTIVITY = 20;
+export const MAX_TICKET_QUESTION = 1000;
 
 /** The last few things that happened, as shown to support (no before/after, no undo data). */
 export interface TicketActivity {

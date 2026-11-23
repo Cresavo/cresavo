@@ -19,8 +19,9 @@ import { NoAccess } from "@/concept/studio/ops/no-access";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { BookingList } from "@/concept/studio/customers/booking-list";
 import { CustomerSummary } from "@/concept/studio/customers/customer-summary";
-import { DeleteCustomer } from "@/concept/studio/customers/delete-customer";
+import { CustomerRights } from "@/concept/studio/customers/customer-rights";
 import { Journal } from "@/concept/studio/customers/journal";
+import { JournalRead } from "@/concept/studio/customers/journal-read";
 import { NextVisitCard } from "@/concept/studio/customers/next-visit-card";
 import { Notes } from "@/concept/studio/customers/notes";
 import { CustomerProducts } from "@/concept/studio/stock/customer-products";
@@ -83,7 +84,7 @@ export default function CustomerPage() {
         </Button>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
-          <Card className="space-y-4 p-5">
+          <Card surface="raised" className="space-y-4 p-5">
             <div className="flex items-center gap-4">
               <Avatar name={fullName(customer)} size="xl" />
               <div className="min-w-0 space-y-2">
@@ -140,7 +141,7 @@ export default function CustomerPage() {
             <Fact label={t("customer.lastVisit")} value={s.lastVisit ? agoText(s.lastVisit, today) : "–"} />
             <Fact label={t("customer.usually")} value={favorite?.name ?? "–"} />
           </div>
-          {!viewer && <DeleteCustomer customer={customer} />}
+          {!viewer && <CustomerRights customer={customer} />}
         </div>
 
         <div className="min-w-0 space-y-5">
@@ -183,6 +184,7 @@ export default function CustomerPage() {
               {state.modules.journal && journalNotes.length > 0 && (
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
                   <Card className="divide-y divide-hairline overflow-hidden">
+                    <JournalRead customerId={customer.id} />
                     {journalNotes.slice(0, 5).map((j) => (
                       <ListRow key={j.id} onClick={() => setTab("journal")}
                         leading={<span className="text-meta text-text-secondary">{formatDate(j.date)}</span>}
@@ -193,7 +195,7 @@ export default function CustomerPage() {
               )}
             </>
           )}
-          {tab === "journal" && state.modules.journal && <Journal customer={customer} />}
+          {tab === "journal" && state.modules.journal && <><JournalRead customerId={customer.id} /><Journal customer={customer} /></>}
           {tab === "journal" && !state.modules.journal && (
             <ButtonLink href="/studio/more/features" variant="secondary">{t("customer.journalOff")}</ButtonLink>
           )}

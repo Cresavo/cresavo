@@ -57,8 +57,14 @@ optional AI task prompts still use English.
 
 ## Booking engine
 
+Booking rules live in the studio's [reducer](../src/concept/actions.ts) and
+[availability code](../src/concept/data/slots.ts), reached through
+`StudioStore`. The Prisma engine described below is the legacy engine: it
+gets fixes but no new rules, and is retired after the migration gate in
+[ADR 1](design/ARCHITECTURE_DECISIONS.md).
+
 The workspace (`/admin`), provider REST API (`/api/v1`) and local owner MCP
-share [booking domain code](../src/lib/domain.ts). The domain applies
+share the legacy [booking domain code](../src/lib/domain.ts). The domain applies
 availability, request validation, quotas and idempotency. PostgreSQL enforces
 non-overlap at the database boundary for active staff bookings. Prisma
 handles data access, and historical booking details such as price and

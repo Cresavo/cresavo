@@ -1,18 +1,18 @@
 "use client";
 
-import { ChevronRight, Download, MessageCircle, Upload } from "lucide-react";
+import { Check, ChevronRight, Download, MessageCircle, ShieldCheck, Upload } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/export";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { DEVELOPERS_PAGE } from "@/concept/studio/nav";
 import { ConnectCard } from "@/concept/studio/pairing/connect-card";
 import { usePairing } from "@/concept/studio/pairing/session";
-import { useDemo } from "@/concept/store";
+import { currentTarget, dispatch, useDemo } from "@/concept/store";
 import { useStudio } from "@/concept/studio/use-studio";
 import { dispatchWithUndoToast } from "@/concept/studio/log/undo-toast";
-import { Button, ButtonLink } from "@/concept/ui/button";
+import { Button, ButtonLink, buttonClass } from "@/concept/ui/button";
 import { Card } from "@/concept/ui/card";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 function PlainCard({ icon, title, text, children }: { icon: ReactNode; title: string; text: string; children: ReactNode }) {
   return (
@@ -29,15 +29,41 @@ function PlainCard({ icon, title, text, children }: { icon: ReactNode; title: st
   );
 }
 
+interface ExportFile { name: string; content: string; type: string }
+
+/**
+ * Downloads a file, then becomes "Open file": the same button shows what was just saved,
+ * so nobody has to hunt for it. The preview lives in this tab's memory until the page is left.
+ */
+function ExportButton({ label, primary, file, after }: { label: string; primary: boolean; file: () => ExportFile; after?: () => void }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  if (preview) {
+    return <a href={preview} target="_blank" rel="noreferrer" className={buttonClass("secondary", "sm")}><Check size={16} aria-hidden />{t("data.export.open")}</a>;
+  }
+  return (
+    <Button size="sm" variant={primary ? "primary" : "secondary"} icon={<Download size={16} />} onClick={() => {
+      const { name, content, type } = file();
+      download(name, content, type);
+      after?.();
+      setPreview(URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" })));
+    }}>{label}</Button>
+  );
+}
+
 /** Your data, in three plain cards. The developer details (assistants, models, keys, protocols) are under Advanced. */
 export default function DataPage() {
   const { state, today } = useStudio();
   const pairing = usePairing();
   const saved = useDemo() ?? state;
   const exports = [
-    { label: t("data.export.all"), run: () => download(`${state.salon.slug}-${today}.json`, JSON.stringify(saved, null, 2), "application/json") },
-    { label: t("data.export.customers"), run: () => download(`${state.salon.slug}-customers-${today}.csv`, customersCsv(saved), "text/csv") },
-    { label: t("data.export.bookings"), run: () => download(`${state.salon.slug}-bookings-${today}.csv`, bookingsCsv(saved), "text/csv") },
+    { label: t("data.export.all"), file: () => ({ name: `${state.salon.slug}-${today}.json`, content: JSON.stringify(saved, null, 2), type: "application/json" }), after: () => {
+      // The file holds every journal: that is a read of all of them.
+      // A signed-in salon's journals were logged by the server when it loaded.
+      if (saved.journals.length && currentTarget()?.workspace !== "account") dispatch({ type: "journal/view", actor: "owner" });
+    } },
+    { label: t("data.export.customers"), file: () => ({ name: `${state.salon.slug}-customers-${today}.csv`, content: customersCsv(saved), type: "text/csv" }) },
+    { label: t("data.export.bookings"), file: () => ({ name: `${state.salon.slug}-bookings-${today}.csv`, content: bookingsCsv(saved), type: "text/csv" }) },
   ];
 
   return (
@@ -47,8 +73,8 @@ export default function DataPage() {
         <div id="migration" className="contents">
           <PlainCard icon={<Download size={22} />} title={t("data.card.download")} text={t("data.card.downloadText")}>
             <div className="flex flex-wrap gap-2">
-              {exports.map(({ label, run }, index) => (
-                <Button key={label} size="sm" variant={!pairing && index === 0 ? "primary" : "secondary"} icon={<Download size={16} />} onClick={run}>{label}</Button>
+              {exports.map(({ label, file, after }, index) => (
+                <ExportButton key={label} label={label} primary={!pairing && index === 0} file={file} after={after} />
               ))}
             </div>
           </PlainCard>
@@ -56,6 +82,9 @@ export default function DataPage() {
             <ButtonLink href="/studio/customers/import" variant="secondary" size="sm" className="self-start">{t("import.title")}</ButtonLink>
           </PlainCard>
         </div>
+        <PlainCard icon={<ShieldCheck size={22} />} title={t("data.card.privacy")} text={t("data.card.privacyText")}>
+          <ButtonLink href="/studio/more/privacy" variant="secondary" size="sm" className="self-start">{t("data.card.privacyOpen")}</ButtonLink>
+        </PlainCard>
         <PlainCard icon={<MessageCircle size={22} />} title={t("data.card.assistant")} text={t("data.card.assistantText")}>
           <div className="flex flex-wrap gap-2">
             {state.industry && (

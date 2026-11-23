@@ -49,6 +49,10 @@ async function staffName(staffId: string, businessId = "demo") {
 
 // Agent-facing view. Never includes customer name/email.
 async function bookingView(b: ProviderBooking, businessId = "demo") {
+  return projectAgentBooking(b, await staffName(b.staffId, businessId));
+}
+
+export function projectAgentBooking(b: ProviderBooking, name: string | null) {
   return {
     id: b.id,
     status: b.status,
@@ -58,7 +62,7 @@ async function bookingView(b: ProviderBooking, businessId = "demo") {
     serviceId: b.serviceId,
     serviceName: b.serviceName,
     ...placeForStaff(b.staffId),
-    staff: { id: b.staffId, name: await staffName(b.staffId, businessId) },
+    staff: { id: b.staffId, name },
     version: b.version,
     createdAt: iso(b.createdAt),
   };
@@ -80,7 +84,7 @@ async function recordEvent(
 }
 
 /** Stable client namespace survives rotation; another client cannot replay it. */
-export function scopedIdempotencyKey(principal: AgentPrincipal, value: string | null | undefined) {
+export function scopedIdempotencyKey(principal: Pick<AgentPrincipal, "clientId">, value: string | null | undefined) {
   const raw = value?.trim();
   if (!raw || !/^[A-Za-z0-9_-]{1,64}$/.test(raw)) throw new AgentApiError("idempotency_key_required");
   return createHash("sha256").update(`agent-api:${principal.clientId}:${raw}`).digest("hex");

@@ -10,10 +10,11 @@ import { findCustomer, findService, fullName } from "../selectors";
 import { moduleById, moduleEnabled } from "../modules/registry";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
-export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" }>;
+export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" | "journal/view" }>;
 
+/** A read of a journal has its own log (`journalAccess`) that shows who read what; the activity log is for changes. */
 export function isLogged(action: DemoAction): action is LoggedAction {
-  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran";
+  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran" && action.type !== "journal/view";
 }
 
 export interface Description {
@@ -71,7 +72,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     }
     case "customers/message":
       return { summary: tc("log.customersMessage", next.inbox.length - prev.inbox.length) };
-    case "booking/move": {
+    case "booking/move":
+    case "online/move": {
       const old = bookingOf(prev, action.id)!;
       const now = bookingOf(next, action.id)!;
       return { summary: t("log.bookingMove", { customer: customerName(prev, old.customerId), service: serviceName(prev, old.serviceId) }), before: when(prev, old), after: when(next, now) };
@@ -79,6 +81,10 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     case "booking/cancel": {
       const old = bookingOf(prev, action.id)!;
       return { summary: t("log.bookingCancel", { customer: customerName(prev, old.customerId), service: serviceName(prev, old.serviceId) }), before: when(prev, old), after: action.reason ? t("log.cancelledWith", { reason: action.reason }) : t("log.cancelled") };
+    }
+    case "online/cancel": {
+      const old = bookingOf(prev, action.id)!;
+      return { summary: t("log.bookingCancel", { customer: customerName(prev, old.customerId), service: serviceName(prev, old.serviceId) }), before: when(prev, old), after: t("log.cancelled") };
     }
     case "booking/create": {
       const made = next.bookings[next.bookings.length - 1];
@@ -115,8 +121,19 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       return { summary: tc("log.customersImport", next.customers.length - prev.customers.length) };
     case "customer/note":
       return { summary: t("log.customerNote", { customer: customerName(next, action.id) }) };
+    case "customer/update":
+      return { summary: t("log.customerUpdate", { customer: customerName(next, action.id) }) };
+    case "booking/update":
+      return { summary: t("log.bookingUpdate", { customer: customerName(next, bookingOf(next, action.id)?.customerId) }) };
+    case "customer/keep":
+      return { summary: t("log.customerKeep", { customer: customerName(next, action.id) }) };
+    case "privacy/journal-retention":
+      return { summary: action.years === null ? t("log.journalRetentionOff") : tc("log.journalRetention", action.years) };
     case "customer/delete":
       return { summary: t("log.customerDelete", { customer: customerName(prev, action.id) }) };
+    case "customer/erase":
+      // Never names the customer: the entry outlives the erasure.
+      return { summary: t("log.customerErase") };
     case "stock/adjust": {
       const item = next.stock.find((s) => s.id === action.id)!;
       return { summary: t("log.stockAdjust", { product: item.name }), before: String(prev.stock.find((s) => s.id === action.id)!.inStock), after: String(item.inStock) };

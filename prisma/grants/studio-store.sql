@@ -28,18 +28,47 @@ GRANT SELECT, INSERT ON "tenant_action" TO cresavo_app;
 -- Idempotency: replace expired keys, sweep (item 8), forget on erasure.
 GRANT SELECT, INSERT, UPDATE, DELETE ON "tenant_idempotency" TO cresavo_app;
 
--- Outbox: insert in the apply transaction, mark delivered, poller retries (item 4).
+-- Outbox: insert in the apply transaction, mark delivered, poller retries,
+-- backoff and failed (item 4).
 GRANT SELECT, INSERT, UPDATE ON "tenant_effect" TO cresavo_app;
 
--- Item 7 (not created yet). Sketch of the only path that may change tenant_action:
---
--- CREATE ROLE cresavo_eraser NOLOGIN;
--- GRANT SELECT, UPDATE ("action", "subject_ids", "redacted_at") ON "tenant_action" TO cresavo_eraser;
--- CREATE FUNCTION erase_subject(p_tenant text, p_customer text) RETURNS integer
---   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$ ... $$;
--- ALTER FUNCTION erase_subject(text, text) OWNER TO cresavo_eraser;
--- REVOKE ALL ON FUNCTION erase_subject(text, text) FROM PUBLIC;
--- GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO cresavo_app;
+-- The functions of migration store_rls_policies the web app calls: the outbox
+-- functions (store_outbox_*), from its drain after a commit in its tenant's
+-- scope, and the booking address lookup (store_salon_by_slug). The
+-- migration creates every store function closed to PUBLIC; the revokes are
+-- repeated here so a restore from a dump taken with --no-privileges
+-- (docs/operations/BACKUP_RESTORE.md), which recreates the functions open to
+-- PUBLIC, closes them again. roles.sql grants the poller and the sweeper theirs.
+REVOKE ALL ON FUNCTION store_caller_owns(), store_caller_in(text), store_outbox_caller(text), store_effective_now(timestamptz),
+  store_clock(timestamptz), store_bounded_ms(float8), store_sweep_check(integer), store_redact_path(jsonb, text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
+  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
+  store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
+  store_outbox_skip(text, uuid), store_outbox_delivered(text, uuid, boolean), store_outbox_note(text, uuid, text, boolean, boolean),
+  store_outbox_release(text, uuid, boolean), store_outbox_open(text),
+  store_outbox_freeze(text, uuid, float8, text, text, text, text, text, text, float8),
+  store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean), store_salon_by_slug(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
+  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
+  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
+  store_sweep_journal_views(timestamptz, integer), store_sweep_rate_limits(timestamptz, integer),
+  store_sweep_owner_guard(timestamptz, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
+  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
+  store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
+  store_outbox_skip(text, uuid), store_outbox_delivered(text, uuid, boolean), store_outbox_note(text, uuid, text, boolean, boolean),
+  store_outbox_release(text, uuid, boolean), store_outbox_open(text),
+  store_outbox_freeze(text, uuid, float8, text, text, text, text, text, text, float8),
+  store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean),
+  store_salon_by_slug(text)
+  TO cresavo_app;
+
+-- Erasure (item 7): the only path that may change tenant_action is the
+-- SECURITY DEFINER function erase_subject(tenant, customerId), owned by a
+-- separate NOLOGIN role. Run prisma/grants/erase-subject.sql next: it grants
+-- that role its columns, creates the function without PUBLIC access and grants
+-- EXECUTE to the application role only. The store then needs
+-- `erasure: "function"`, since this role cannot UPDATE tenant_action.
 
 -- Finally verify the effective privileges, including inherited ones:
 --   psql "$DATABASE_URL" -v app_role=cresavo_app -f prisma/grants/verify-studio-store.sql

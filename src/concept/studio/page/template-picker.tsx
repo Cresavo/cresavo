@@ -27,7 +27,7 @@ export function TemplatePicker({ page, onPick }: Props) {
                 type="button"
                 aria-pressed={current === id}
                 onClick={() => onPick(id)}
-                className={cx("ui-press block h-full w-full overflow-hidden rounded-md bg-surface text-left ring-1 ring-inset", current === id ? "ring-2 ring-action" : "ring-hairline hover:bg-surface-2")}
+                className={cx("ui-press block h-full w-full overflow-hidden rounded-md bg-surface text-left ring-inset", current === id ? "ring-2 ring-action" : "hover:bg-surface-2")}
               >
                 <span {...theme} className={cx(className, "flex min-h-20 items-end justify-between gap-2 p-3")}>
                   <span className="studio-template-name text-h2 font-semibold leading-none">{name}</span>

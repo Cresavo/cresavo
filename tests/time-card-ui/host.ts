@@ -4,6 +4,20 @@ import type { Client } from "@modelcontextprotocol/client";
 type ToolCall = { name: string; arguments?: Record<string, unknown> };
 let mountSequence = 0;
 
+const HOST_PATH = "/__mcp-card-test-host";
+
+/**
+ * A blank page on the app's loopback origin (a secure context for crypto.randomUUID).
+ * Playwright serves it, so it carries none of the app's CSP: a srcdoc card inherits its
+ * parent's policy, while real MCP hosts sandbox the card under the card's own policy.
+ */
+export async function openTestHost(page: Page) {
+  await page.route(`**${HOST_PATH}`, (route) =>
+    route.fulfill({ contentType: "text/html", body: "<!doctype html><title>MCP Apps test host</title>" }),
+  );
+  await page.goto(HOST_PATH);
+}
+
 // This is an explicit test host, never evidence of native ChatGPT rendering.
 export async function mountTimeCard(
   page: Page,

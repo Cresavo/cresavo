@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { salonState } from "./fixtures";
 
 // The journey that has to stay short: from the demo to your own salon's booking page
 // in at most three setup screens and ten inputs, with no question setup can answer itself.
@@ -44,6 +45,6 @@ test("own salon to own booking page", async ({ page }) => {
   await page.goto("/studio/more/advanced");
   await expect(page.getByRole("heading", { name: "Advanced", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Preview the staff view", exact: true })).toHaveCount(0);
-  const state = await page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo-own")!));
+  const state = (await salonState(page, "own"))!;
   expect(Object.values(state.modules).some(Boolean)).toBe(false);
 });

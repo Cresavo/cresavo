@@ -7,20 +7,24 @@ import { paidWithCards, remainingForCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
-import { findCustomer, findService, fullName } from "../../selectors";
+import { findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
-import { dispatchWithLog, withBookingLock } from "../../store";
 import { Button, ButtonLink } from "../../ui/button";
 import { Chip, Switch } from "../../ui/controls";
 import { Sheet } from "../../ui/sheet";
+import { JournalRead } from "../customers/journal-read";
 import { RedeemSheet } from "../giftcards/redeem-sheet";
-import { dispatchWithUndoToast, showUndoToast } from "../log/undo-toast";
+import { commitWithUndoToast } from "../log/commit-toast";
+import type { CommitOptions } from "../../store/commit";
+import type { DemoAction } from "../../actions";
+import { useCommit } from "../../ui/use-commit";
 import { useStudio } from "../use-studio";
 import { salonCancellationOnly } from "../../booking/settlement";
 import { useSalonNow } from "../../use-now";
 import { formatMinor } from "../../booking/policy-summary";
+import { EditBookingContact } from "./edit-booking-contact";
 import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
@@ -31,7 +35,8 @@ const CANCEL_REASONS: MessageKey[] = ["cancel.reason.customer", "cancel.reason.i
 
 /** Booking details with move and cancel flows. Mount it with `key={bookingId}`. */
 export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { bookingId: string; onClose: () => void; initialMode?: Mode }) {
-  const { state, today, minutes } = useStudio();
+  const { state, today, minutes, target } = useStudio();
+  const [run, pending] = useCommit();
   const clock = useSalonNow();
   const booking = state.bookings.find((b) => b.id === bookingId);
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -45,15 +50,20 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const go = (next: Mode) => { setFailure(undefined); setMode(next); };
   const report = (reason: MessageKey) => setFailure({ reason, requestId: newActionRequestId() });
   const failureNotice = failure && <ActionFailure failure={failure} />;
+  /** Commits to the salon this sheet shows, with Undo bound to it; false for any refusal (a replaced salon included). */
+  const commit = (action: DemoAction, message: string, options?: CommitOptions) =>
+    target ? commitWithUndoToast(target, action, message, options).then((result) => result.ok, () => false) : Promise.resolve(false);
 
   const customer = findCustomer(state, booking.customerId);
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId)!;
-  const name = customer ? fullName(customer) : "";
+  const name = visitorName(booking, customer);
+  const firstName = booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "";
   const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
   const finished = booking.status === "booked" && !upcoming;
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
-  const lastJournal = state.modules.journal
+  // A visit booked for someone else: the note, the advice and the journal are the booker's, not the visitor's.
+  const lastJournal = state.modules.journal && !booking.visitFor
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
@@ -62,37 +72,39 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const salonCancellation = salonCancellationOnly(booking, clock.instant ?? 0);
   const paidByCard = paidWithCards(state, booking.id);
 
-  const markDone = () => {
+  const markDone = () => run(async () => {
     const usesStock = state.modules.stock && !!service?.consumption?.length;
-    const first = customer?.firstName ?? "";
+    const first = firstName;
     const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
-    if (dispatchWithUndoToast({ type: "booking/complete", id: booking.id }, message)) onClose();
+    if (await commit({ type: "booking/complete", id: booking.id }, message)) onClose();
     else report("booking.completeFailed");
-  };
+  });
 
-  const confirmMove = () => {
+  const confirmMove = () => run(async () => {
     if (!slot) return;
-    const message = t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
-    if (dispatchWithUndoToast({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message)) onClose();
+    const message = t("booking.movedToast", { name: firstName, when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
+    if (await commit({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message)) onClose();
     else report("booking.move.failed");
-  };
+  });
 
-  const confirmCancel = async () => {
+  const confirmCancel = () => run(async () => {
     const sendOffer = offer && waitlist > 0;
     const message = sendOffer ? tc("booking.cancelledOfferedToast", waitlist) : t("booking.cancelledToast");
-    const result = await withBookingLock(() => dispatchWithLog({
+    const done = await commit({
       type: "booking/cancel",
       id: booking.id,
       reason: t(salonCancellation ? "cancel.reason.salon" : reason),
       notice: sendOffer ? waitlistNotice(booking, waitlist, { today, minutes }) : undefined,
-    }, undefined, latest => {
-      const current = latest.bookings.find(b => b.id === booking.id);
-      return current?.status === "booked" && salonCancellationOnly(current, Date.now()) === salonCancellation &&
-        current.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
-    })).catch(() => false as const);
-    if (showUndoToast(message, result)) onClose();
+    }, message, {
+      guard: latest => {
+        const current = latest.bookings.find(b => b.id === booking.id);
+        return current?.status === "booked" && salonCancellationOnly(current, Date.now()) === salonCancellation &&
+          current.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
+      },
+    });
+    if (done) onClose();
     else report("booking.visitChanged");
-  };
+  });
 
   if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => go("details")} onClose={onClose} />;
 
@@ -107,7 +119,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <>
             {failureNotice}
             <Button variant="ghost" onClick={() => go("details")}>{t("common.back")}</Button>
-            <Button disabled={!slot} onClick={confirmMove}>{t("move.confirm")}</Button>
+            <Button disabled={!slot || pending} onClick={confirmMove}>{t("move.confirm")}</Button>
           </>
         }
       >
@@ -149,7 +161,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <>
             {failureNotice}
             <Button variant="ghost" onClick={() => go("details")}>{t("common.back")}</Button>
-            <Button variant="danger" onClick={confirmCancel}>{t("cancel.confirm")}</Button>
+            <Button variant="danger" disabled={pending} onClick={confirmCancel}>{t("cancel.confirm")}</Button>
           </>
         }
       >
@@ -192,7 +204,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             </ButtonLink>
           )}
           {finished && (
-            <Button icon={<Check size={18} />} onClick={markDone}>{t("booking.markDone")}</Button>
+            <Button icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
           )}
           {upcoming && (
             <>
@@ -212,15 +224,17 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         )}
         <dl className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
           <InfoRow label={t("booking.when")} value={when} />
+          {booking.visitFor && customer && <InfoRow label={t("booking.bookedBy")} value={fullName(customer)} />}
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
           {booking.resourceId && <InfoRow label={t("booking.room")} value={state.resources.find((r) => r.id === booking.resourceId)?.name ?? ""} />}
           <InfoRow label={t("booking.price")} value={formatMoney(booking.price)} />
           <InfoRow label={t("booking.source")} value={t(`source.${booking.source}`)} />
           {paidByCard > 0 && <InfoRow label={t("giftcards.paidWith")} value={formatMoney(paidByCard)} />}
           {pkg && <InfoRow label={t("packages.on")} value={tc("packages.onLeft", visitsLeft(pkg))} />}
+          {booking.contactEmail && <InfoRow label={t("booking.contact.email")} value={<span className="break-all">{booking.contactEmail}</span>} />}
           {customer?.phone && (
             <InfoRow
-              label={t("booking.phone")}
+              label={t(booking.visitFor ? "booking.contactPhone" : "booking.phone")}
               value={
                 <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex min-h-target min-w-target items-center gap-2 text-action">
                   <Phone size={14} />
@@ -237,7 +251,10 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
             {pkg && <p className="text-sm text-text-secondary">{t("packages.giftCardInstead")}</p>}
           </div>
         )}
-        {customer?.note && (
+        {(booking.contactEmail || (booking.status === "cancelled" && booking.cancelReason)) && (
+          <EditBookingContact booking={booking} save={(patch) => commit({ type: "booking/update", id: booking.id, patch }, t("booking.contact.saved"))} />
+        )}
+        {customer?.note && !booking.visitFor && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
             {customer.note}
@@ -247,6 +264,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           <div className="rounded-lg bg-surface-2 px-4 py-3 text-sm">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
             {lastJournal.advice}
+            <JournalRead customerId={booking.customerId} />
           </div>
         )}
       </div>

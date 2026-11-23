@@ -1,7 +1,7 @@
 import { jsonEqual } from "../data/json-equal";
 import type { PageConfig } from "./config";
 
-export type PageAspect = "logo" | "colours" | "fonts" | "corners" | "style" | "photo" | "sections" | "instagram" | "css";
+export type PageAspect = "logo" | "colours" | "fonts" | "corners" | "style" | "photo" | "sections" | "instagram" | "about" | "css";
 
 const same = jsonEqual;
 
@@ -16,6 +16,7 @@ export function changedAspects(before: PageConfig, after: PageConfig): PageAspec
     ["photo", before.theme.heroPhoto !== after.theme.heroPhoto],
     ["sections", !same(before.sections, after.sections)],
     ["instagram", before.instagram !== after.instagram],
+    ["about", !same(before.about, after.about)],
     ["css", before.css !== after.css],
   ];
   return checks.filter(([, changed]) => changed).map(([aspect]) => aspect);

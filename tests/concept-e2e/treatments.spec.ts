@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { englishDemoState } from "./fixtures";
+import { englishDemoState, salonState } from "./fixtures";
 import type { DemoState } from "../../src/concept/data/types";
 import { salonClock } from "../../src/concept/tools/clock";
 
@@ -11,7 +11,7 @@ const today = salonClock().today;
 const errors = new WeakMap<Page, string[]>();
 
 async function state(page: Page): Promise<DemoState> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!));
+  return salonState(page) as Promise<DemoState>;
 }
 
 async function pickUpWithKeyboard(handle: Locator) {
@@ -96,6 +96,106 @@ test("a treatment is added, appears on the booking page, is hidden and then dele
   const after = await state(page);
   expect(after.services.some(s => s.id === added.id)).toBe(false);
   expect(after.retiredServices).toEqual([]);
+});
+
+test("details typed in the studio open behind More info on the booking page and lead on to booking", async ({ page }) => {
+  const sheet = page.getByRole("dialog");
+  const text = "We start with a short chat.\n\nThen forty minutes of slow massage.";
+
+  // A treatment without the longer text has no More info; the demo's own two have one each.
+  await page.goto("/boka/salong-eko");
+  await expect(page.getByRole("button", { name: "More info about Deep tissue massage" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^More info about / })).toHaveCount(2);
+
+  await page.goto("/studio/more/services");
+  await page.getByRole("button", { name: "Edit Deep tissue massage" }).click();
+  await sheet.getByText("More options").click();
+  await sheet.getByLabel("More about this treatment").fill(text);
+  await sheet.getByLabel("Photo with the text").selectOption({ label: "Massage" });
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Deep tissue massage saved")).toBeVisible();
+  expect((await state(page)).services.find(s => s.id === "deep-tissue")).toMatchObject({ details: text, image: "massage" });
+
+  // The row keeps Book and More info as two controls of at least 44 px, neither inside the other.
+  await page.goto("/boka/salong-eko");
+  const more = page.getByRole("button", { name: "More info about Deep tissue massage" });
+  const book = page.getByRole("button", { name: "Book Deep tissue massage", exact: true });
+  for (const control of [more, book]) {
+    const box = (await control.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+  }
+  expect(await more.evaluate(node => !!node.parentElement?.closest("button, a"))).toBe(false);
+
+  await more.click();
+  await expect(sheet.getByRole("heading", { name: "Deep tissue massage" })).toBeVisible();
+  await expect(sheet).toContainText(/1 h · SEK\s+895/);
+  const body = sheet.getByText("We start with a short chat.");
+  await expect(body).toContainText("Then forty minutes of slow massage.");
+  expect(await body.evaluate(node => getComputedStyle(node).whiteSpace)).toBe("pre-line");
+  await expect(sheet.getByRole("img")).toHaveCount(0);
+  await expect(sheet.locator("img")).toBeVisible();
+
+  // Closing returns to the page; Book in the sheet continues the normal flow with the treatment chosen.
+  await sheet.getByRole("button", { name: "Close" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await more.click();
+  await sheet.getByRole("button", { name: "Book Deep tissue massage" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /Deep tissue massage/ })).toBeVisible();
+
+  // Without a price list on the page, the flow's own list has the same action under the row's button, not inside it.
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem("salong-eko-demo")!);
+    stored.page.sections = stored.page.sections.filter((section: { kind: string }) => section.kind !== "treatments");
+    localStorage.setItem("salong-eko-demo", JSON.stringify(stored));
+  });
+  await page.goto("/boka/salong-eko");
+  await page.getByRole("button", { name: "Choose a treatment from the list" }).click();
+  const inFlow = page.getByRole("button", { name: "More info about Deep tissue massage" });
+  await expect(page.getByRole("button", { name: /^More info about / })).toHaveCount(3);
+  expect(await inFlow.evaluate(node => !!node.parentElement?.closest("button, a"))).toBe(false);
+  expect((await inFlow.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await inFlow.click();
+  await expect(sheet).toContainText("We start with a short chat.");
+  await sheet.getByRole("button", { name: "Book Deep tissue massage" }).click();
+  await expect(page.getByRole("heading", { name: /Deep tissue massage/ })).toBeVisible();
+});
+
+test("a sheet left open in another tab does not write old details back over a newer edit", async ({ page, context }) => {
+  const text = "Written in the first tab.";
+  await page.goto("/studio/more/services");
+  const other = await context.newPage();
+  const otherErrors: string[] = [];
+  other.on("pageerror", error => otherErrors.push(error.message));
+  await other.goto("/studio/more/services");
+
+  // Both tabs open the same treatment before either saves.
+  for (const tab of [page, other]) {
+    await tab.getByRole("button", { name: "Edit Deep tissue massage" }).click();
+    await tab.getByRole("dialog").getByText("More options").click();
+  }
+  await page.getByRole("dialog").getByLabel("More about this treatment").fill(text);
+  await page.getByRole("dialog").getByLabel("Photo with the text").selectOption({ label: "Massage" });
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Deep tissue massage saved")).toBeVisible();
+
+  // The second tab's sheet still shows the empty text; it changes only the price.
+  await expect(other.getByRole("dialog").getByLabel("More about this treatment")).toHaveValue("");
+  await other.getByRole("dialog").getByLabel("Price (SEK)").fill("915");
+  await other.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(other.getByText("Deep tissue massage saved")).toBeVisible();
+  expect((await state(other)).services.find(s => s.id === "deep-tissue")).toMatchObject({ price: 915, details: text, image: "massage" });
+
+  // Clearing the text on purpose still clears it.
+  await other.getByRole("button", { name: "Edit Deep tissue massage" }).click();
+  await other.getByRole("dialog").getByText("More options").click();
+  await expect(other.getByRole("dialog").getByLabel("More about this treatment")).toHaveValue(text);
+  await other.getByRole("dialog").getByLabel("More about this treatment").fill("");
+  await other.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect.poll(async () => (await state(other)).services.find(s => s.id === "deep-tissue")?.details).toBeUndefined();
+  expect(otherErrors).toEqual([]);
+  await other.close();
 });
 
 test("deleting a booked treatment says what happens and keeps the bookings", async ({ page }) => {

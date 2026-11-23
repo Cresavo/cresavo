@@ -8,7 +8,14 @@ export const POSTER_FORMATS: Record<PosterFormat, { width: number; height: numbe
   window: { width: 1050, height: 1485, exportScale: 2 },
 };
 
-export const POSTER_STYLES: PosterStyle[] = ["calm", "bold", "photo", "arch", "dusk"];
+export const POSTER_STYLES: PosterStyle[] = ["price", "pricelist", "season", "review", "slots", "beforeafter", "portrait", "fullphoto", "typography", "calm", "bold", "photo", "arch", "dusk"];
+/** Styles rendered by the server poster engine (src/concept/campaigns/poster-engine). */
+export const ENGINE_STYLES = ["price", "pricelist", "season", "review", "slots", "beforeafter", "portrait", "fullphoto", "typography"] as const satisfies readonly PosterStyle[];
+export const isEngineStyle = (style: PosterStyle): style is (typeof ENGINE_STYLES)[number] => (ENGINE_STYLES as readonly PosterStyle[]).includes(style);
+/** Type only is the one engine style without a photo: the editor hides the photo controls and no photo is sent. */
+export const usesPhoto = (style: PosterStyle) => style !== "typography";
+/** The engine styles with a mirrored arrangement; the others ignore the choice, so the editor does not offer it. */
+export const ARRANGEABLE_STYLES: readonly PosterStyle[] = ["price", "portrait", "fullphoto", "beforeafter"];
 export const POSTER_IMAGES = ["/demo/salon.webp", "/demo/massage.webp"];
 
 /** Greedy word wrap by character count. Words longer than a line stay whole. */
@@ -34,3 +41,12 @@ const BOLD_GLYPH_WIDTH = 0.58;
 export function fitFontSize(text: string, width: number, max: number): number {
   return Math.min(max, Math.floor(width / (Math.max(1, text.length) * BOLD_GLYPH_WIDTH)));
 }
+
+/** Wellness-benefit services common in Sweden, offered as badges on Price and Price list posters. */
+export const WELLNESS_BADGES = ["Epassi", "Söderberg & Partners", "Benify", "Wellnet", "Actiway", "Edenred"] as const;
+export const MAX_BADGES = 4;
+
+/** Above this many letters in one word, a headline can only fit by getting too small to read in the feed. */
+export const LONG_WORD = 14;
+/** True when the headline has a word so long that the poster would have to shrink it below a readable size. */
+export const headlineTooLong = (headline: string) => headline.split(/\s+/).some((word) => word.length > LONG_WORD);

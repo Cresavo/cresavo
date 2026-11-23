@@ -15,7 +15,7 @@ assert(!process.env.VERCEL && !process.env.VERCEL_ENV, "PAIR_CLOUD_REFUSED");
 const nativeCodex = process.argv.includes("--native-codex");
 if (nativeCodex) assert(!process.env.CI, "NATIVE_CLIENT_CI_REFUSED");
 const salonPath = realpathSync(fileURLToPath(new URL("../..", import.meta.url)));
-const gatewayPath = realpathSync(resolve(process.env.GATEWAY_PATH ?? "../booking-lab-gateway"));
+const gatewayPath = realpathSync(resolve(process.env.GATEWAY_PATH ?? "../gateway"));
 assert.notEqual(gatewayPath, salonPath, "PAIR_REQUIRES_SEPARATE_REPOSITORIES");
 for (const dir of [salonPath, gatewayPath]) {
   for (const name of [".env", ".env.local", ".env.production", ".env.production.local"])
@@ -30,7 +30,9 @@ const revision = (cwd: string) => ({
 const pair = { salon: revision(salonPath), gateway: revision(gatewayPath) };
 assert.equal(pair.gateway.sha, pin.gatewayRevision, "PAIR_GATEWAY_REVISION_MISMATCH");
 if (process.env.CI) assert(!pair.salon.dirty && !pair.gateway.dirty, "PAIR_DIRTY_CI_REFUSED");
-assert.equal(JSON.parse(readFileSync(join(gatewayPath, "package.json"), "utf8")).name, "booking-lab-gateway");
+// The gateway package was renamed from booking-lab-gateway to cresavo-gateway.
+assert(["booking-lab-gateway", "cresavo-gateway"].includes(JSON.parse(readFileSync(join(gatewayPath, "package.json"), "utf8")).name),
+  "PAIR_GATEWAY_PACKAGE_MISMATCH");
 const { db } = await import("../../src/lib/db");
 const { createAgentApiKey, revokeAgentApiKey } = await import("../../src/lib/agent-api/keys");
 const { cleanupRun, grant } = await import("../agentprov/fixtures.mjs");
@@ -151,7 +153,8 @@ try {
   gatewayOrigin = `http://127.0.0.1:${gatewayPort}`;
   await new Promise<void>(r => proxy.listen(0, "127.0.0.1", r));
   await startSalon("split");
-  const gatewayEnv = { ...baseEnv, PORT: String(gatewayPort), GATEWAY_SERVICE_TOKEN: token,
+  // The proof makes many synthetic creates from loopback; gateways without the flag ignore it.
+  const gatewayEnv = { ...baseEnv, PORT: String(gatewayPort), GATEWAY_SERVICE_TOKEN: token, GATEWAY_LOOPBACK_TEST_LIMITS: "1",
     SALON_ORIGIN: `http://127.0.0.1:${(proxy.address() as { port: number }).port}` };
   assert(!("DATABASE_URL" in gatewayEnv) && !("SESSION_SECRET" in gatewayEnv));
   await launch(gatewayPath, ["src/server.js"], gatewayEnv, "GATEWAY_READY");
@@ -199,7 +202,9 @@ try {
   pass("LOST_SUCCESS_RETRY_ONE_BOOKING");
   step = "FOREIGN_CLIENT";
   assert.equal((await call("GET", `/api/v1/bookings/${savedBooking}`, undefined, undefined, b.key)).status, 404);
-  assert.equal((await call("POST", `/api/v1/bookings/${savedBooking}/cancel`, undefined, undefined, b.key)).status, 404);
+  // Older gateways answer 404 for a foreign booking; newer ones refuse every direct cancel with 403.
+  assert([403, 404].includes((await call("POST", `/api/v1/bookings/${savedBooking}/cancel`, undefined, undefined, b.key)).status));
+  assert.equal((await (await call("GET", `/api/v1/bookings/${savedBooking}`)).json()).booking.status, "confirmed");
   pass("FOREIGN_READ_AND_CANCEL_DENIED");
   step = "RESTART_BETWEEN_CHECK_AND_WRITE";
   const second = await payload(slots[1], "restart"), secondKey = randomUUID();

@@ -1,13 +1,13 @@
 "use client";
 
-import { textWaitlistAboutSlot } from "../../booking/waitlist-offer";
-import { waitlistCount, waitlistNotice } from "../booking/waitlist-notice";
+import { offerSlotToWaitlist } from "../booking/offer-waitlist";
+import { waitlistCount } from "../booking/waitlist-notice";
 import { useState } from "react";
 import { CalendarCheck, Send } from "lucide-react";
 import { bookingLink } from "../../customers/return-visits";
 import { inboxTimestamp } from "../../data/dates";
 import type { InboxItem } from "../../data/types";
-import { t, tc } from "../../i18n";
+import { t } from "../../i18n";
 import { customerText } from "../../i18n/customer-text";
 import { formatDayLong, relativeDay, formatTime } from "../../i18n/format";
 import { findCustomer, findService } from "../../selectors";
@@ -93,7 +93,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
       )}
 
       {canReply && (
-        <div className="space-y-3 rounded-lg p-4 ring-1 ring-action/30 md:max-w-form">
+        <div className="space-y-3 md:max-w-form">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-action">
             {t("inbox.suggestedReply")}
           </p>
@@ -116,8 +116,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
               <Button
                 variant="secondary"
                 onClick={() => {
-                  const waitlist = waitlistCount(state, booking);
-                  if (!textWaitlistAboutSlot(state, booking) || !dispatchWithUndoToast({ type: "inbox/add", item: waitlistNotice(booking, waitlist, { today, minutes }) }, tc("suggest.gaps.toast", waitlist))) {
+                  if (!offerSlotToWaitlist(booking, { today, minutes })) {
                     setFailure({ requestId: newActionRequestId(), reason: "messages.failed" });
                   }
                 }}
@@ -125,7 +124,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 {t("inbox.offerSlot")}
               </Button>
             )}
-            <Button variant={onDone ? "primary" : "secondary"} icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
+            <Button icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
               {review ? t("reviews.publish") : slot ? t("inbox.sendAndBook") : t("inbox.send")}
             </Button>
           </div>

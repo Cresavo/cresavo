@@ -61,12 +61,12 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
 export const UNKNOWN_PATH = "/unknown-address";
 export const COMING_SOON_PATH = "/coming-soon";
 
-/** The product front door can also arrive at its rewritten path on an internal host. */
+/** The product site's public pages (home and about, in both languages), which search engines may index. The front door can also arrive at its rewritten path on an internal host. */
 export function isProductHome(rawHost: string | null | undefined, pathname: string): boolean {
   const host = normalizeHost(rawHost);
   const resolution = resolveHost(host);
   if (resolution.kind === "site" && resolution.site === "apex") {
-    return pathname === "/" || pathname === "/sv" || pathname === COMING_SOON_PATH;
+    return pathname === "/" || pathname === "/sv" || pathname === "/about" || pathname === "/sv/about" || pathname === COMING_SOON_PATH;
   }
   return (pathname === COMING_SOON_PATH || pathname === "/sv") &&
     Boolean(process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN) && (!host || LOCAL_HOSTS.has(host));
@@ -123,6 +123,10 @@ export function routeHost(rawHost: string | null | undefined, pathname: string, 
     return pathname === own || pathname.startsWith(`${own}/`) ? { action: "next" } : { action: "rewrite", path: UNKNOWN_PATH };
   }
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return { action: "next" };
+  // The page's own calls: this business's free times, booking, and one booking's view, cancel and move, never another business's.
+  const api = `/api/public/salons/${resolution.slug}`;
+  const rest = pathname.startsWith(api) ? pathname.slice(api.length) : null;
+  if (rest !== null && (rest === "" || rest === "/bookings" || /^\/bookings\/[\w-]{1,64}(?:\/(?:cancel|move))?$/.test(rest))) return { action: "next" };
   if (pathname === "/" || pathname === "") return { action: "rewrite", path: `/boka/${resolution.slug}` };
   if (BOOKING_PATHS.test(pathname)) return { action: "rewrite", path: `/boka/${resolution.slug}${pathname.replace(/\/$/, "")}` };
   return { action: "rewrite", path: UNKNOWN_PATH };

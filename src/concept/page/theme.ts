@@ -1,3 +1,4 @@
+import { PUBLIC_LOGO_URL } from "../../lib/media/limits";
 import { buildTokens, isHex, mix, onColour, schemeOf, type Palette, type Tokens } from "./colour";
 
 // The look of the booking page: logo, colours, fonts, corners and photo. A
@@ -52,9 +53,11 @@ export const PALETTE_IDS = Object.keys(PALETTES) as PaletteId[];
 
 export const MAX_LOGO_LENGTH = 90_000;
 const LOGO = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+/** An account's uploaded logo, served by the app at its id and hash (src/lib/media/limits.ts). */
+const isLogo = (logo: string) => LOGO.test(logo) || PUBLIC_LOGO_URL.test(logo);
 
 export interface PageTheme {
-  /** A small image as a data URL, or null for the product's leaf mark. */
+  /** A small image as a data URL, the address of an account's uploaded logo, or null for the product's leaf mark. */
   logo: string | null;
   /** Up to three colours picked from the logo, offered as accents. */
   logoColors: string[];
@@ -74,7 +77,7 @@ const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback:
 export function normalizeTheme(input: Partial<PageTheme> | undefined): PageTheme {
   const colors = input?.colors;
   return {
-    logo: typeof input?.logo === "string" && input.logo.length <= MAX_LOGO_LENGTH && LOGO.test(input.logo) ? input.logo : null,
+    logo: typeof input?.logo === "string" && input.logo.length <= MAX_LOGO_LENGTH && isLogo(input.logo) ? input.logo : null,
     logoColors: Array.isArray(input?.logoColors) ? input.logoColors.filter(isHex).slice(0, 3).map((c) => c.toLowerCase()) : [],
     colors: colors && isHex(colors.background) && isHex(colors.text) && isHex(colors.accent) ? { background: colors.background.toLowerCase(), text: colors.text.toLowerCase(), accent: colors.accent.toLowerCase() } : null,
     fonts: pick(input?.fonts, FONT_PAIR_IDS, DEFAULT_THEME.fonts),

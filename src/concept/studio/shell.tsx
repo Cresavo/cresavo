@@ -4,7 +4,7 @@ import { Button } from "@/concept/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
 import { StudioLanguageSwitch } from "./studio-language";
@@ -16,14 +16,15 @@ import { t } from "../i18n";
 import { unreadCount } from "../selectors";
 import { isPreset } from "../modules/registry";
 import { dispatch, markTrialUsed, useDemo, useTrialRemoved } from "../store";
+import { openSignedInSalon } from "../account/sync";
 import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
-import { DemoBadge } from "../ui/badge";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeControl } from "../ui/theme-control";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
+import { QuickActions } from "./quick-actions";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
@@ -56,8 +57,17 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const removed = useTrialRemoved();
   const own = !!state?.industry;
   const preview = state && role === "staff" ? staffViewer(state) : null;
+  // A signed-in owner works in their salon on the server; everyone else keeps the browser salons.
+  useEffect(() => { void openSignedInSalon(); }, []);
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
-  useEffect(() => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme))), []);
+  useEffect(() => {
+    const pin = () => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme)));
+    pin();
+    // "System" follows the device, also when it switches between light and dark while the studio is open.
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    scheme.addEventListener("change", pin);
+    return () => scheme.removeEventListener("change", pin);
+  }, []);
   useStartPreset(!!state);
   // Opening a page counts as using the trial salon; it is removed after a day without use.
   useEffect(() => { if (own) markTrialUsed(); }, [own, pathname]);
@@ -67,10 +77,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       <>
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
           <Wordmark className="w-28" />
-          <div className="flex flex-wrap items-center gap-3">
-            <DemoBadge short />
-            {(isSetup || removed) && <StudioLanguageSwitch />}
-          </div>
+          {(isSetup || removed) && <StudioLanguageSwitch />}
         </header>
         <main className="studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
@@ -80,12 +87,12 @@ export function StudioShell({ children }: { children: ReactNode }) {
   return (
     <>
       <Sidebar state={state} pathname={pathname} role={role} />
-      <header className="studio-safe-top flex min-h-14 items-center justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
+      <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
         <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-target min-w-target items-center px-1 max-[374px]:px-0">
           <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
-          <DemoBadge short />
+          <QuickActions role={role} assistant={state.modules.assistant} page={`/boka/${state.salon.slug}`} />
           {state.modules.assistant && <AssistantHeaderButton />}
           <HelpButton compact />
         </div>
@@ -125,7 +132,7 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       aria-current={active ? "page" : undefined}
       className={cx(
         "flex min-h-target items-center gap-3 rounded-md px-3 text-body transition-colors",
-        active ? "bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
+        active ? "studio-nav-active bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
       )}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
@@ -174,12 +181,16 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   const tall = useTallScreen();
   const open = choice?.pathname === pathname ? choice.open : groupOf(pathname, tall);
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-hairline bg-surface px-4 pb-3 pt-5 lg:flex">
+    <aside className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col bg-surface px-4 pb-3 pt-5 text-text lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="flex min-h-target items-center px-3">
         <Wordmark label="" className="w-32" />
       </Link>
       <p className="mt-3 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
-      <p className="mt-1 px-3"><DemoBadge /></p>
+      {/* The page customers see is one click away from anywhere in the studio. */}
+      <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
+        {t("quick.viewPage")}
+        <ExternalLink size={14} aria-hidden />
+      </a>
       <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <div className="space-y-1">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
@@ -189,7 +200,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         {groups.map((group) => {
           const expanded = open === group.id;
           return (
-            <div key={group.id} className="border-t border-hairline pt-2">
+            <div key={group.id} className="pt-3">
               <Button variant="tertiary" size="sm" align="between"
                 type="button"
                 aria-expanded={expanded}
@@ -211,7 +222,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           );
         })}
       </nav>
-      <div className="mt-2 space-y-2 border-t border-hairline pt-3">
+      <div className="mt-4 space-y-2">
         <div className="flex items-center gap-3 px-1">
           <StaffAvatar person={person} size="md" />
           <span className="min-w-0 flex-1 text-sm leading-tight">
@@ -246,13 +257,13 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               aria-current={active ? "page" : undefined}
               className={cx("relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-md transition-colors max-[299px]:w-9", active && "bg-action-bg")}>
+              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors max-[299px]:w-9", active && "bg-action text-on-action")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
               {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}
               <span className="max-[299px]:sr-only">{t(item.label)}</span>
               {badge > 0 && (
-                <span className="absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full bg-danger px-1 text-center text-minimum font-semibold leading-normal text-bg">
+                <span className="studio-highlight absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full px-1 text-center text-minimum font-semibold leading-normal">
                   {badge}
                 </span>
               )}

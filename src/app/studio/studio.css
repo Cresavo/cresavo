@@ -14,6 +14,35 @@
   min-height: 100dvh;
 }
 
+/* The highlight: apricot as a fill with dark ink, the same in both themes. Never as text on a light ground. */
+.studio-root {
+  /* Page titles are larger in the studio than the kit's app scale: about 30 px on a phone, 36 px on a wide screen. */
+  --type-h1: clamp(1.875rem, 1.5rem + 1.25vw, 2.25rem);
+  --studio-highlight: #f2b184;
+  --studio-highlight-text: #211820;
+  --studio-elevation-card: 0 1px 2px light-dark(rgb(44 36 46 / 0.05), rgb(0 0 0 / 0.3)), 0 8px 24px light-dark(rgb(80 54 75 / 0.08), rgb(0 0 0 / 0.28));
+}
+.studio-highlight { background: var(--studio-highlight); color: var(--studio-highlight-text); }
+.studio-raised { box-shadow: var(--studio-elevation-card); }
+
+/* The sidebar is a plum surface (the deepest ground in dark). It re-declares the
+   tokens its contents read, so shared controls inside it adapt without variants. */
+.studio-chrome {
+  --brand-wordmark: #fbf5f0;
+  --ui-surface: light-dark(#50364b, #120e17);
+  --ui-surface-2: light-dark(#66445e, #25202a);
+  --ui-text: #fbf5f0;
+  --ui-text-secondary: light-dark(#e0d3dc, #beb4bd);
+  --ui-hairline: light-dark(#6f5169, #302936);
+  --ui-input-border: light-dark(#c9b7c4, #9b8c9c);
+  --ui-action: #f2b184;
+  --ui-action-hover: #ffc29b;
+  --ui-action-text: #211820;
+  --ui-action-bg: light-dark(#66445e, #3a2f33);
+  --ui-focus: #f5bd97;
+}
+.studio-nav-active { box-shadow: inset 3px 0 0 var(--ui-action); }
+
 body:has(.studio-root) {
   background: var(--ui-bg);
 }
@@ -105,6 +134,11 @@ body:has(.studio-root) .demo-banner {
   outline-offset: 2px;
 }
 
+/* Rows that share one surface are separated by a straight line; only the surface is rounded. */
+.studio-root .divide-y > * { border-radius: 0; }
+/* The button reset above clears a row's border; a button row keeps its divider. */
+.studio-root .divide-hairline > * ~ button { border-top: 1px solid var(--ui-hairline); }
+
 .studio-content {
   padding-bottom: calc(var(--studio-bottom-nav) + var(--space-8) + env(safe-area-inset-bottom));
 }
@@ -118,6 +152,14 @@ body:has(.studio-root) .demo-banner {
 }
 
 .studio-calendar-day { --calendar-column-width: calc(3 * var(--space-8) + var(--space-4)); }
+
+/* Lunch reads the same in the day and week grids: a faint tint with sparse lines,
+   so it is clearly not free time and never louder than a booking. */
+.studio-calendar-lunch {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 9px, var(--ui-hairline) 9px 10px),
+    color-mix(in srgb, var(--ui-surface-2) 70%, transparent);
+}
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 

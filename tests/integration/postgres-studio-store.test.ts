@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { DateTime } from "luxon";
 import type { PrismaClient } from "@prisma/client";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 import type { DemoAction } from "@/concept/actions";
 import { DEFAULT_POLICY } from "@/concept/booking/protection";
 import type { OutboxEntry } from "@/concept/connections/simulated/outbox";
-import { addDays, toKey } from "@/concept/data/dates";
+import { addDays, toKey, weekday } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState, Service, StaffId } from "@/concept/data/types";
@@ -16,6 +16,7 @@ import { SALON_TIMEZONE } from "@/concept/tools/clock";
 import { IDEMPOTENCY_TTL_MS, PostgresStudioStore, type EffectDelivery, type EffectSink, type TenantKind } from "@/concept/store/postgres-studio-store";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { runStudioStoreContract } from "../store-contract/contract";
+import { withOwnSlug } from "./own-slug";
 
 // PostgresStudioStore against a disposable local database (vitest.integration
 // refuses anything but a loopback *_test or *_demo database). Run migrations
@@ -45,7 +46,7 @@ afterAll(async () => {
 async function seed(tenantId: string, saved: unknown, kind: TenantKind = "salon", expiresAt: number | null = null) {
   await db.$executeRaw`
     INSERT INTO tenant_state (tenant_id, kind, version, doc, expires_at)
-    VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(saved) ?? "null"}::jsonb,
+    VALUES (${tenantId}, ${kind}::tenant_kind, 0, ${JSON.stringify(withOwnSlug(saved, tenantId)) ?? "null"}::jsonb,
             ${expiresAt === null ? null : new Date(expiresAt).toISOString()}::timestamptz)`;
 }
 
@@ -53,24 +54,31 @@ async function seed(tenantId: string, saved: unknown, kind: TenantKind = "salon"
 function recordingSinks() {
   const delivered: EffectDelivery[] = [];
   const sink: EffectSink = (delivery) => { delivered.push(delivery); };
-  return { delivered, sinks: { payment: sink, message: sink }, payments: (tenantId: string): OutboxEntry[] =>
-    delivered.filter((d) => d.tenantId === tenantId && d.effect.kind === "payment").map((d) => d.effect.record) };
+  const of = (kind: "payment" | "message") => (tenantId: string): OutboxEntry[] =>
+    delivered.filter((d) => d.tenantId === tenantId && d.effect.kind === kind).map((d) => d.effect.record);
+  return { delivered, sinks: { payment: sink, message: sink }, payments: of("payment"), messages: of("message") };
 }
+
+let contractStore: PostgresStudioStore | undefined;
+afterEach(() => {
+  contractStore?.close();
+  contractStore = undefined;
+});
 
 runStudioStoreContract("PostgresStudioStore", async (seeds) => {
   const a = tenantIds("a");
   const b = tenantIds("b");
   await seed(a, seeds.a);
   await seed(b, seeds.b, "salon");
-  const { sinks, payments } = recordingSinks();
-  const store = new PostgresStudioStore({ prisma: db, hmacSecret, sinks });
-  return { store, tenants: { a, b }, open: async () => {}, payments };
+  const { sinks, payments, messages } = recordingSinks();
+  const store = contractStore = new PostgresStudioStore({ prisma: db, hmacSecret, sinks });
+  return { store, tenants: { a, b }, open: async () => {}, payments, messages };
 });
 
 const today = toKey(new Date());
 
-function depositState(): { state: DemoState; deposit: Service } {
-  const base = createDemoState(today);
+function depositState(date = today): { state: DemoState; deposit: Service } {
+  const base = createDemoState(date);
   const [deposit] = bookableServices(base);
   return { state: { ...base, cancellationPolicy: { ...DEFAULT_POLICY, deposits: { [deposit.id]: 20_000 } } }, deposit };
 }
@@ -342,17 +350,19 @@ describe("PostgresStudioStore review fixes", () => {
   });
 
   it("judges booking cutoffs and support grants by the store clock, not the caller's", async () => {
-    // 18:00 in the salon on the fixture's day, so the morning has already passed.
-    const evening = DateTime.fromISO(`${today}T18:00`, { zone: SALON_TIMEZONE }).toMillis();
-    const { state, deposit: service } = depositState();
+    // The demo salon is closed at weekends, so the test uses the next weekday.
+    const day = [0, 1, 2, 3].map((i) => addDays(today, i)).find((d) => weekday(d) >= 1 && weekday(d) <= 5)!;
+    // 18:00 in the salon on that day, so the morning has already passed.
+    const evening = DateTime.fromISO(`${day}T18:00`, { zone: SALON_TIMEZONE }).toMillis();
+    const { state, deposit: service } = depositState(day);
     // A start that is already past the cutoff at 18:00 (a one-hour lead).
     const morning = service.staffIds.flatMap((staffId) =>
-      freeStarts(state, staffId, today, needOf(service)).filter((start) => start <= 16 * 60).map((start) => ({ staffId, start })))[0];
+      freeStarts(state, staffId, day, needOf(service)).filter((start) => start <= 16 * 60).map((start) => ({ staffId, start })))[0];
     if (!morning) throw new Error("no free start before the cutoff");
     // The caller claims it is still midnight.
     const late: DemoAction = {
-      type: "online/hold", serviceId: service.id, staffId: morning.staffId, date: today, start: morning.start,
-      guest: { name: "Fictional Guest", phone: "0700009911", at: { date: today, time: 0 } },
+      type: "online/hold", serviceId: service.id, staffId: morning.staffId, date: day, start: morning.start,
+      guest: { name: "Fictional Guest", phone: "0700009911", at: { date: day, time: 0 } },
       notice: { title: "Demo request", body: "Demo appointment" },
     };
     const strict = tenantIds("cutoff");

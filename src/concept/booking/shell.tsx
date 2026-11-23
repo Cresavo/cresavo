@@ -10,6 +10,7 @@ import { parseLocale, type Locale } from "@/lib/locale";
 import { t, translate } from "../i18n";
 import { ConceptLanguage } from "../i18n/boundary";
 import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
+import { useServerSalon } from "../server-salon";
 import { openBookingWorkspace, usePublicDemo, useWorkspaceSlug } from "../store";
 import { ButtonLink } from "../ui/button";
 import { Select } from "../ui/controls";
@@ -24,8 +25,11 @@ import { UnknownAddress } from "./unknown-address";
 /** Page frame for everything a customer sees: slim header, content, small footer, wearing the business's theme. */
 export function BookShell({ children, visitorLanguage }: { children: ReactNode; visitorLanguage: Locale | null }) {
   const state = usePublicDemo();
-  const slug = useParams<{ slug: string }>()?.slug ?? "";
-  const path = usePathname()?.replace(/\/$/, "") || "/";
+  const fromServer = useServerSalon() !== null;
+  // The server looks salons up by lower-case address; the demo compares the address and path as typed.
+  const canonical = (text: string) => fromServer ? text.toLowerCase() : text;
+  const slug = canonical(useParams<{ slug: string }>()?.slug ?? "");
+  const path = canonical(usePathname()?.replace(/\/$/, "") || "/");
   const widget = path === widgetPath(slug) || path === "/widget";
   const otherSlug = useWorkspaceSlug(state?.industry ? "demo" : "own");
   useEffect(() => {
@@ -64,11 +68,13 @@ function Frame({ children, slug, widget, switchLanguage }: {
   const page = usePage();
   const known = !state || state.salon.slug === slug;
   const ownerView = useOwnerView();
-  useTenantIcon(known ? page.theme.logo : null);
+  const fromServer = useServerSalon() !== null;
+  const [brokenLogo, setBrokenLogo] = useState<string | null>(null);
+  useTenantIcon(known && page.theme.logo !== brokenLogo ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
   if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
-  const { logo } = page.theme;
+  const logo = page.theme.logo && page.theme.logo !== brokenLogo ? page.theme.logo : null;
   return (
     <PageRoot page={page} className="flex min-h-dvh flex-col">
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
@@ -76,9 +82,10 @@ function Frame({ children, slug, widget, switchLanguage }: {
         <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-x-3">
           <Link href={bookingHome(slug)} className="flex min-h-target min-w-0 items-center gap-3 break-words font-semibold leading-tight tracking-tight">
             {logo ? (
-              // A small data URL chosen by the owner; there is nothing for the image optimiser to do.
+              // The owner's logo: a small data URL in the demo, the app's own address for an account; nothing for the
+              // image optimiser to do. One the server no longer serves (removed, or a page restored to an older logo) gives way to the leaf.
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="" className="h-8 w-auto max-w-32 rounded-sm object-contain" />
+              <img src={logo} alt="" className="h-8 w-auto max-w-32 rounded-sm object-contain" onError={() => setBrokenLogo(logo)} />
             ) : (
               <span className="flex size-8 items-center justify-center rounded-sm bg-action text-on-action">
                 <Leaf size={16} />
@@ -101,9 +108,11 @@ function Frame({ children, slug, widget, switchLanguage }: {
                 <option value="sv" lang="sv">{t("language.sv")}</option>
               </Select>
             )}
-            <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary" className="min-[360px]:whitespace-nowrap">
-              {t("booking.myBookings")}
-            </ButtonLink>
+            {!fromServer && (
+              <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary" className="min-[360px]:whitespace-nowrap">
+                {t("booking.myBookings")}
+              </ButtonLink>
+            )}
           </div>
         </div>
       </header>
@@ -111,10 +120,14 @@ function Frame({ children, slug, widget, switchLanguage }: {
         {state ? children : <p role="status" className="py-12 text-center text-text-secondary">{t("booking.loading")}</p>}
       </main>
       <footer className="booking-gutters booking-safe-bottom border-t border-hairline py-4 text-center text-meta text-text-secondary print:hidden">
-        {t("booking.demoNote")}{" "}
-        <Link href={ownerView} className="inline-flex min-h-target items-center font-medium text-action underline-offset-2 hover:underline">
-          {t("booking.ownerView")}
-        </Link>
+        {!fromServer && (
+          <>
+            {t("booking.demoNote")}{" "}
+            <Link href={ownerView} className="inline-flex min-h-target items-center font-medium text-action underline-offset-2 hover:underline">
+              {t("booking.ownerView")}
+            </Link>
+          </>
+        )}
         {TENANT_POLICY.attribution && <span className="mt-1 block">{t("booking.attribution")}</span>}
       </footer>
       <Toaster />

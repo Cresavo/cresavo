@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { PortName } from "../core";
 import type { PortMap } from "../ports";
 import { simulatedAdapters } from "../simulated/adapters";
@@ -19,6 +20,8 @@ export interface Resolution<P extends PortName> {
   reason: ResolutionReason;
   /** The provider that was asked for, also when it fell back. Only a known provider id, never a raw setting. */
   selected?: string;
+  /** A short hash of the last characters of the credentials in use: tells two accounts of one provider apart, reveals no key. Live adapters only. */
+  account?: string;
   /** Names (never values) of secrets or settings that are missing. */
   missing?: string[];
 }
@@ -65,7 +68,8 @@ export function createRegistry(options: RegistryOptions = {}) {
     if (missingSettings.length) return fallback("missing-setting", { missing: missingSettings });
     const adapter = definition.create({ secrets: values, settings, fetch: options.fetch ?? globalThis.fetch });
     const live = definition.info.kind === "live";
-    return { adapter, live, reason: live ? "live" : "interface-only", selected: choice.provider };
+    const account = createHash("sha256").update(Object.entries(values).sort().map(([name, value]) => `${name}:${value.slice(-8)}`).join("|")).digest("hex").slice(0, 12);
+    return { adapter, live, reason: live ? "live" : "interface-only", selected: choice.provider, ...(live ? { account } : {}) };
   }
 
   return { resolve, outbox };

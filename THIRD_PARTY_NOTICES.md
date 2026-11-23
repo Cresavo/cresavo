@@ -31,6 +31,16 @@ and the served font files carry the copyright notice and a link to the OFL in
 their metadata (checked on a 2026-11-18 build). The font is not committed to
 this repository; anyone distributing a build should include the OFL text.
 
+**Instrument Serif** (Copyright 2022 The Instrument Serif Project Authors,
+<https://github.com/Instrument/instrument-serif>) is loaded the same way, through
+`next/font/google`, for the product site's display headings (regular, Latin and
+Latin Extended). It is licensed under the
+[SIL Open Font License 1.1](https://openfontlicense.org/open-font-license-official-text/);
+the upstream notice and licence are in
+[Instrument Serif's OFL.txt](https://github.com/Instrument/instrument-serif/blob/main/OFL.txt).
+The font is not committed to this repository; anyone distributing a build should
+include the OFL text.
+
 The ready-made booking page designs load four more families the same way
 (`src/app/page-fonts.ts`), all under the SIL Open Font License 1.1 and none
 committed to this repository:
@@ -38,6 +48,27 @@ committed to this repository:
 **Bodoni Moda** (Copyright 2020 The Bodoni Moda Project Authors, <https://github.com/indestructible-type/Bodoni>),
 **Barlow Condensed** (Copyright 2017 The Barlow Project Authors, <https://github.com/jpt/barlow>) and
 **Outfit** (Copyright 2021 The Outfit Project Authors, <https://github.com/Outfitio/Outfit-Fonts>).
+
+**Poster fonts.** `src/concept/campaigns/poster-engine/fonts/` holds Latin
+subsets of Inter (SemiBold, ExtraBold, Display Black; Copyright 2016-2023 The
+Inter Project Authors) and Caladea (Regular, Italic; Copyright 2012 The Caladea
+Project Authors), both under the SIL Open Font License 1.1. The full licence
+text is in that folder's `LICENSE.md`. They are committed because the poster
+renderer reads them on the server.
+
+## Poster engine (2026-11-21)
+
+**satori 0.63.2** (Vercel), MPL-2.0: renders the campaign poster templates to
+SVG on the server (`src/concept/campaigns/poster-engine`). It is used unmodified;
+MPL-2.0 is file-level copyleft and compatible with this project's
+AGPL-3.0-only licence. Its runtime dependencies are MIT or ISC
+(`@shuding/opentype.js`, `harfbuzzjs`, `linebreak`, `css-to-react-native`,
+`fflate`, `pako` and smaller parsers), and it bundles yoga-layout (MIT).
+[Source and licence](https://github.com/vercel/satori).
+
+**uqr 0.1.3** (unjs), MIT, no dependencies: encodes the booking link as the QR
+code in the poster signature. Its encoder is a port of Project Nayuki's QR Code
+generator (MIT). [Source and licence](https://github.com/unjs/uqr).
 
 ## Epic 06 icon subset
 

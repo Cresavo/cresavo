@@ -3,14 +3,15 @@ import Image from "next/image";
 import { AtSign } from "lucide-react";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
+import { aboutParagraphs, type PageAbout } from "../page/about";
 import { PHOTOS, type PhotoId } from "../page/theme";
 import { buttonClass } from "../ui/button";
 import { StaffAvatar } from "../ui/avatar";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 
-// The simple sections of the booking page: team, gallery, questions and the
-// Instagram link. The others (hero, treatments, reviews, hours, gift cards)
+// The simple sections of the booking page: team, about, gallery, questions and
+// the Instagram link. The others (hero, treatments, reviews, hours, gift cards)
 // live next to the pieces they were made from.
 
 export function StaffSection({ state, variant }: { state: DemoState; variant: string }) {
@@ -41,6 +42,22 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
           ))}
         </ul>
       )}
+    </Section>
+  );
+}
+
+/** The business's own words. React writes them as text, so nothing in them is ever markup. */
+export function AboutSection({ about, name, variant }: { about: PageAbout; name: string; variant: string }) {
+  const paragraphs = aboutParagraphs(about.text);
+  if (!paragraphs.length) return null;
+  const body = (
+    <div className="max-w-reading space-y-3 text-body leading-relaxed">
+      {paragraphs.map((paragraph, index) => <p key={index} className="whitespace-pre-line break-words">{paragraph}</p>)}
+    </div>
+  );
+  return (
+    <Section title={about.heading || t("booking.about", { name })}>
+      {variant === "card" ? <Card className="p-4">{body}</Card> : body}
     </Section>
   );
 }

@@ -3,6 +3,7 @@ import type { DemoState } from "../../src/concept/data/types";
 import { createDemoState } from "../../src/concept/data/generate";
 import { createSalon, salonDraft } from "../../src/concept/onboarding/salon";
 import { salonClock } from "../../src/concept/tools/clock";
+import { salonState } from "./fixtures";
 
 const today = salonClock().today;
 
@@ -35,8 +36,7 @@ test("a demo booking tab leaves the open salon hours form and its save in the ow
   await expect(page.locator("#hours")).toContainText("10:30");
   await page.reload();
   await expect(page.locator("#hours")).toContainText("10:30");
-  const opens = await page.evaluate(() => ["salong-eko-demo", "salong-eko-demo-own"].map(key =>
-    JSON.parse(localStorage.getItem(key)!).salon.hours[1].open));
+  const opens = await Promise.all((["demo", "own"] as const).map(async (workspace) => (await salonState(page, workspace))!.salon.hours[1]!.open));
   expect(opens[0]).toBe(createDemoState(today).salon.hours[1]!.open);
   expect(opens[1]).toBe(630);
 });
@@ -85,7 +85,7 @@ for (const role of ["owner", "staff"] as const) {
     await sheet.getByRole("button", { name: "09:00", exact: true }).click();
     await sheet.getByRole("button", { name: "Book 09:00", exact: true }).click();
     await expect(sheet).toHaveCount(0);
-    const bookings = await page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo-own")!).bookings);
+    const bookings = (await salonState(page, "own"))!.bookings;
     expect(bookings).toMatchObject([{ staffId: "staff-2" }]);
   });
 }

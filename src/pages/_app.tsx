@@ -1,5 +1,5 @@
 import type { AppProps } from "next/app";
-import { Inter } from "next/font/google";
+import { Inter, Instrument_Serif } from "next/font/google";
 import { inject, type BeforeSend } from "@vercel/analytics";
 import { useEffect } from "react";
 import { SiteLocale } from "@/concept/site/copy";
@@ -10,6 +10,8 @@ import "@/concept/site/site-base.css";
 
 // The pages router (the two public sites) gets the same brand tokens and UI font as the app router.
 const inter = Inter({ subsets: ["latin", "latin-ext"], weight: ["400", "500", "600", "700"], display: "swap", variable: "--font-inter" });
+// The product site's display face: headings on the homepage only. Inter stays the body, UI and product-panel face.
+const display = Instrument_Serif({ subsets: ["latin", "latin-ext"], weight: "400", style: "normal", display: "swap", variable: "--font-display" });
 
 const removeUrlParameters: BeforeSend = (event) => {
   const url = new URL(event.url);
@@ -31,7 +33,7 @@ export default function App({ Component, pageProps, router }: AppProps<Partial<S
   }, [analyticsOrigin]);
 
   return (
-    <div className={`${inter.variable} site`}>
+    <div className={`${inter.variable} ${display.variable} site`}>
       <SiteLocale.Provider value={locale}>
         <Component {...pageProps} />
       </SiteLocale.Provider>

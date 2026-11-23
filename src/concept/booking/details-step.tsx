@@ -6,14 +6,19 @@ import { CalendarCheck } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
-import { currentState, dispatchWithLog, withBookingLock } from "../store";
+import { useServerBook } from "../server-salon";
+import { targetOf } from "../store";
+import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
 import type { ActionFailureInfo } from "../ui/action-failure";
 import { StaffAvatar } from "../ui/avatar";
 import { Button } from "../ui/button";
+import { Field, TextInput } from "../ui/controls";
 import { salonClock } from "../tools/clock";
+import { useCommit } from "../ui/use-commit";
 import type { Now } from "../use-now";
-import { GuestFields, RememberContact, isGuestValid } from "./guest-fields";
+import { GuestFields, RememberContact, VisitForChoice, isGuestValid } from "./guest-fields";
+import { isVisitForValid, visitForName } from "./visit-for";
 import { hoursUntil, LEAD_MINUTES } from "./policy";
 import { quote, type CheckoutHold } from "./protection";
 import { BookingSummary } from "./booking-summary";
@@ -37,33 +42,62 @@ interface DetailsStepProps {
 
 /** Last step: confirm the chosen time with name and phone number. */
 export function DetailsStep({ state, now, serviceId, slot, contact, suggested, timeControl, onTaken, onBooked, onHeld }: DetailsStepProps) {
-  const { guest, setGuest, remember, chooseRemember } = contact;
+  const { guest, setGuest, remember, chooseRemember, who, setWho, visitFor, setVisitFor } = contact;
   const service = state.services.find((s) => s.id === serviceId)!;
   const person = state.staff.find((s) => s.id === slot.staffId)!;
-  const [pending, setPending] = useState(false);
+  const [run, pending] = useCommit();
+  const book = useServerBook();
+  const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [failure, setFailure] = useState<{ key: MessageKey; minutes?: number }>();
 
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, !findCustomerByPhone(state, guest.phone));
 
-  const confirm = async () => {
-    if (pending || !isGuestValid(guest)) return;
+  // A deposit is not taken on the server yet, and no guest is known there until a phone number can be verified: the salon takes these by phone.
+  const callForDeposit = (book && terms.depositMinor > 0) || failure?.key === "booking.depositByPhone";
+  // Booking for someone else is offered where the salon lives in this browser; a salon kept on the server cannot erase a guest's name yet.
+  const canBookForOther = !book && targetOf(state)?.workspace !== "account";
+  const forOther = canBookForOther && who === "other";
+  const ready = isGuestValid(guest) && (!forOther || isVisitForValid(visitFor));
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  const confirmOnServer = () => run(async () => {
+    if (!book || !isGuestValid(guest) || !validEmail) return;
+    const request = { serviceId, staffId: slot.staffId, date: slot.date, start: slot.start, name: guest.name.trim(), phone: guest.phone.trim(), email: email.trim(), website };
+    setFailure(undefined);
+    const result = await book(request);
+    if (result.ok) return onBooked(result.booking);
+    if (result.reason === "unavailable") return setFailure({ key: "booking.failed" });
+    if (result.reason === "rate_limited") return setFailure({ key: "booking.tooManyAttempts", minutes: result.minutes });
+    if (result.reason === "deposit_unsupported") return setFailure({ key: "booking.depositByPhone" });
+    onTaken({ requestId: newActionRequestId(), reason: result.reason === "terms_changed" ? "booking.summary.changed" : "booking.slotTaken" });
+  });
+
+  const confirm = () => run(async () => {
+    const target = targetOf(state);
+    if (!ready) return;
     const name = guest.name.trim();
     const phone = guest.phone.trim();
+    const visitor = forOther ? visitForName(visitFor) : undefined;
     const day = formatDayLong(slot.date);
     const requestId = newActionRequestId();
     let reason: MessageKey = "booking.slotTaken";
-    setPending(true);
-    const latest = await withBookingLock(() => {
-      const clock = salonClock();
-      if (hoursUntil(slot, clock.today, clock.minutes, Math.floor(Date.now() / 60_000) * 60_000) * 60 < LEAD_MINUTES) return;
-      const result = dispatchWithLog({
-        type: terms.depositMinor ? "online/hold" : "online/book",
-        guest: { name, phone, at: { date: clock.today, time: clock.minutes } },
-        serviceId, staffId: slot.staffId, date: slot.date, start: slot.start,
-        notice: {
-          title: t("booking.inboxTitle"),
-          body: t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
-        },
-      }, undefined, current => {
+    const clock = salonClock();
+    const result = target && await commitAction(target, {
+      type: terms.depositMinor ? "online/hold" : "online/book",
+      guest: { name, phone, ...(visitor ? { visitFor: visitor } : {}), at: { date: clock.today, time: clock.minutes } },
+      serviceId, staffId: slot.staffId, date: slot.date, start: slot.start,
+      notice: {
+        title: t("booking.inboxTitle"),
+        body: visitor
+          ? t("booking.for.inboxBody", { service: service.name, guest: visitor, contact: name, staff: person.firstName, day, time: formatTime(slot.start) })
+          : t("booking.inboxBody", { service: service.name, staff: person.firstName, day, time: formatTime(slot.start) }),
+      },
+    }, {
+      guard: current => {
+        // The lead time is judged when the booking is saved, not when the customer opened the form.
+        const at = salonClock();
+        if (hoursUntil(slot, at.today, at.minutes, Math.floor(Date.now() / 60_000) * 60_000) * 60 < LEAD_MINUTES) return false;
         const offering = current.services.find(s => s.id === serviceId);
         if (!offering || current.salon.slug !== state.salon.slug) return false;
         if (offering.duration !== service.duration || offering.price !== service.price || current.localization.currency !== terms.currency) {
@@ -76,15 +110,14 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
           return false;
         }
         return true;
-      });
-      if (result === false) return;
-      return terms.depositMinor ? currentState()?.checkoutHolds.at(-1) : currentState()?.bookings.at(-1);
-    }).catch(() => false as const);
-    setPending(false);
-    if (!latest) return onTaken({ requestId, reason });
-    if ("expiresAt" in latest) onHeld(latest);
-    else onBooked(latest);
-  };
+      },
+    }).catch(() => null);
+    // Any refusal (time taken, lead time passed, terms changed, salon replaced) sends the customer back to choose.
+    if (!result || !result.ok) return onTaken({ requestId, reason });
+    // The saved state is this commit's: its newest hold or booking is the customer's.
+    if (terms.depositMinor) onHeld(result.state.checkoutHolds.at(-1)!);
+    else onBooked(result.state.bookings.at(-1)!);
+  });
 
   return (
     <div className="space-y-5">
@@ -101,19 +134,36 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         </p>
         {timeControl}
       </div>
-      <form className="booking-checkout" onSubmit={event => { event.preventDefault(); void confirm(); }}>
+      {callForDeposit ? (
+        <p role="status" className="rounded-lg bg-surface-2 p-4">{t("booking.depositByPhone", { phone: state.salon.phone })}</p>
+      ) : (
+      <form className="booking-checkout" onSubmit={event => { event.preventDefault(); void (book ? confirmOnServer() : confirm()); }}>
         <div className="space-y-3">
+          {canBookForOther && <VisitForChoice who={who} onWho={setWho} name={visitFor} onName={setVisitFor} />}
           <GuestFields value={guest} onChange={setGuest} />
-          <RememberContact checked={remember} onChange={chooseRemember} />
+          {book ? (
+            <>
+              <Field label={t("booking.yourEmail")} hint={t("booking.emailHint")}>
+                <TextInput required value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" maxLength={254} placeholder={t("booking.emailPlaceholder")} />
+              </Field>
+              {/* The honeypot: out of sight and of the tab order, so only a script fills it. */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-10000px" }}>
+                <TextInput name="website" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+              </div>
+            </>
+          ) : <RememberContact checked={remember} onChange={chooseRemember} />}
         </div>
-        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} />
+        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} demo={!book} />
         <div className="space-y-2">
-          <Button type="submit" size="lg" className="w-full" disabled={pending || !isGuestValid(guest)}>
+          <Button type="submit" size="lg" className="w-full" disabled={pending || !ready || (!!book && !validEmail)}>
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}
           </Button>
-          {!isGuestValid(guest) && <p className="text-meta text-text-secondary">{t("booking.confirmDisabled")}</p>}
+          {failure && <p role="alert" className="text-meta text-danger">{t(failure.key, { minutes: failure.minutes ?? 0, phone: state.salon.phone })}</p>}
+          {!ready || (book && !validEmail) ? <p className="text-meta text-text-secondary">{t(book ? "booking.confirmDisabledEmail" : forOther ? "booking.for.confirmDisabled" : "booking.confirmDisabled")}</p> : null}
         </div>
+        {book && <p className="text-meta text-text-secondary">{t("booking.processorNotice", { salon: state.salon.name })}</p>}
       </form>
+      )}
     </div>
   );
 }

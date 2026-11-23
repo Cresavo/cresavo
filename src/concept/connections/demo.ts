@@ -2,7 +2,7 @@ import type { Campaign } from "../data/types";
 import { stableHash } from "./core";
 import type { Outbox, OutboxEntry } from "./simulated/outbox";
 import { createOutbox } from "./simulated/outbox";
-import { simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
+import { channelLedger, simulatedEmail, paymentLedger, simulatedSms, simulatedSocial, type SimulatedEmail, type SimulatedSms } from "./simulated/adapters";
 import type { SocialPort } from "./ports/social";
 
 // The concept demo's sends go through the ports here, always with the
@@ -12,6 +12,8 @@ import type { SocialPort } from "./ports/social";
 // reported in SEK; the ports themselves take any ISO 4217 currency.
 
 const DEMO_CURRENCY = "SEK";
+/** What an erased customer's message holds afterwards; the same marker as the store's audit data. */
+const REDACTED_SEND = "[redacted]";
 
 export const demoOutbox: Outbox = createOutbox();
 export const demoPaymentLedger = paymentLedger(demoOutbox);
@@ -32,6 +34,75 @@ const shared: DemoChannels = {
   social: simulatedSocial({ outbox: demoOutbox, currency: DEMO_CURRENCY }),
 };
 let channels = shared;
+
+/**
+ * Message and post keys and the sink they are published to, per salon: one
+ * salon's send never counts as another's, even with the same id (the same
+ * campaign in both workspaces).
+ */
+const messageLedgers = new Map<string, ReturnType<typeof channelLedger>>();
+
+function messageLedger(salon: string) {
+  let ledger = messageLedgers.get(salon);
+  if (!ledger) messageLedgers.set(salon, (ledger = channelLedger(createOutbox(), DEMO_CURRENCY)));
+  return ledger;
+}
+
+/** Forgets a salon's sends and keys when it is deleted or replaced, so its successor starts fresh. */
+export function forgetDemoSends(salon: string) {
+  messageLedgers.delete(salon);
+}
+
+/**
+ * After a customer is erased in a browser salon: the messages sent to them lose
+ * their subject and text, and their identifiers (name, phone, address) are
+ * replaced in every other message, for example a confirmation to someone else
+ * that says the visit is for them. Entries keep their ids, so a replay still
+ * records nothing twice.
+ */
+export function redactDemoSends(salon: string, customerId: string, identifiers: readonly string[], scrub: (text: string, identifiers: readonly string[]) => string) {
+  const outbox = messageLedgers.get(salon)?.outbox;
+  if (!outbox) return;
+  const to = `customer:${customerId}`;
+  const entries = outbox.list().map((entry): OutboxEntry => {
+    if (entry.port === "payments") return entry;
+    const theirs = (entry.to ?? "").split(",").some((recipient) => recipient.trim() === to);
+    if (theirs) return { ...entry, body: REDACTED_SEND, ...(entry.subject === undefined ? {} : { subject: REDACTED_SEND }) };
+    return { ...entry, body: scrub(entry.body, identifiers), ...(entry.subject === undefined ? {} : { subject: scrub(entry.subject, identifiers) }) };
+  });
+  outbox.clear();
+  for (const entry of entries) outbox.record(entry);
+}
+
+/** The simulated SMS, email and posts a browser salon's saved changes sent (see `stageDemoSends`). */
+export function demoSentMessages(salon: string): Outbox {
+  return messageLedger(salon).outbox;
+}
+
+/**
+ * One browser save's sends, staged: payments (on the payment ledger, which the
+ * direct port shares, into `demoOutbox`) and SMS, email and posts (on `salon`'s
+ * own ledger, into `demoSentMessages(salon)`). Run the reducer inside
+ * `withDemoChannels(stage, …)`; nothing is recorded until `publish`, which the
+ * store calls only after the save succeeded, and returns what the destinations
+ * accepted: the commit's effects.
+ */
+export function stageDemoSends(salon: string) {
+  const ledger = messageLedger(salon);
+  const payments = demoPaymentLedger.stage();
+  const messages = ledger.stage();
+  return {
+    outbox: messages.outbox,
+    sms: messages.sms,
+    email: messages.email,
+    social: messages.social,
+    payments: payments.payments,
+    hasPayments: payments.hasPayments,
+    publish(): OutboxEntry[] {
+      return [...payments.publish(), ...messages.publish()];
+    },
+  };
+}
 
 /** The demo currency, for stores that build their own channels. */
 export const DEMO_CHANNEL_CURRENCY = DEMO_CURRENCY;
@@ -69,7 +140,7 @@ export function sendDemoMessage(message: DemoMessage): OutboxEntry | null {
   const { sms, email, outbox } = channels;
   const result = message.channel === "sms"
     ? sms.deliver({ to, body: message.body, reference: message.reference, idempotencyKey })
-    : email.deliver({ to: [to], from: "demo@salon.invalid", subject: message.subject ?? "", text: message.body, idempotencyKey });
+    : email.deliver({ to: [to], from: "demo@salon.invalid", subject: message.subject ?? "", text: message.body, reference: message.reference, idempotencyKey });
   if (!result.ok) return null;
   return outbox.list(message.channel).find((entry) => entry.id === result.providerId) ?? null;
 }

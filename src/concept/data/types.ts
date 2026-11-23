@@ -1,6 +1,7 @@
 import type { BookingProtection, CancellationPolicy, CheckoutHold } from "../booking/protection";
 import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
+import type { Backdrop } from "../campaigns/poster-engine/backdrops";
 import type { ReminderSettings } from "../booking/reminders";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
@@ -57,6 +58,8 @@ export interface Salon {
   /** The lunch break on long days; null = no break. */
   lunch: Interval | null;
   closures: Closure[];
+  /** Set only by the server's public projection: the last day the booking page offers. Later days count as closed. */
+  bookableUntil?: DateKey;
 }
 
 export interface Staff {
@@ -81,8 +84,11 @@ export interface Service {
   duration: number;
   price: number;
   description: string;
+  /** Longer plain text customers open with "More info": what is included and what to expect. Line breaks are kept. */
+  details?: string;
   /** Recommended weeks between visits, used for recall reminders. */
   recallWeeks: number;
+  /** A photo shown with `details`: one of the page's own photos (a `PhotoId`). */
   image?: string;
   /** Products used up by one visit; lowers the stock when the visit is marked done. */
   consumption?: StockUse[];
@@ -90,6 +96,21 @@ export interface Service {
   resourceIds?: string[];
   /** Kept in the studio but not offered on the booking page or to customers' assistants. */
   hidden?: boolean;
+  /** Minutes of preparation before the customer arrives; the staff member is busy. Default 0. */
+  bufferBefore?: number;
+  /** Minutes of cleaning up after the customer leaves; the staff member is busy. Default 0. */
+  bufferAfter?: number;
+  /** A wait inside the treatment, such as colour developing: the customer stays but the staff member is free for short work. */
+  processing?: Processing;
+}
+
+/** The timing a visit keeps from its treatment when it is booked, so later edits to the treatment never move it. */
+export type VisitTiming = Pick<Service, "bufferBefore" | "bufferAfter" | "processing">;
+
+/** A gap that starts `after` minutes into a treatment and lasts `duration` minutes. */
+export interface Processing {
+  after: number;
+  duration: number;
 }
 
 export type ResourceKind = "room" | "chair" | "equipment";
@@ -141,12 +162,16 @@ export interface Customer {
   waitlist: boolean;
   /** A fictional sample a new salon starts with, so its day is not empty. */
   example?: true;
+  /** The day the owner reviewed this customer's retention and decided to keep them (see `privacy/retention.ts`). */
+  keptOn?: DateKey;
+  /** Names, phone numbers and addresses this card had before a correction, kept so an erasure still finds them in old records. Erased with the card. */
+  earlier?: string[];
 }
 
 export type BookingStatus = "booked" | "completed" | "cancelled" | "noshow";
 export type BookingSource = "online" | "phone" | "walk-in" | "campaign" | "assistant";
 
-export interface Booking {
+export interface Booking extends VisitTiming {
   protection?: BookingProtection;
   id: string;
   customerId: string;
@@ -161,6 +186,12 @@ export interface Booking {
   source: BookingSource;
   /** The room or chair the visit uses, picked when it is booked. */
   resourceId?: string;
+  /** The address typed on the public booking page; where this visit's confirmation goes. Erased with the customer. */
+  contactEmail?: string;
+  /** What the public booking page shows the guest as the visit's reference. Random, so it says nothing about the salon's other records. */
+  publicRef?: string;
+  /** Who the visit is for when the customer booked for someone else. The customer stays the contact; this name goes when they are erased. */
+  visitFor?: string;
   note?: string;
   cancelReason?: string;
   /** A fictional sample a new salon starts with; never counts as the salon's own first booking. */
@@ -262,6 +293,8 @@ export interface Review {
   text: string;
   source: "Google" | "Booking page";
   reply?: string;
+  /** Public display name ("Maria L."), set only by the server's public projection, which sends no customers. */
+  author?: string;
 }
 
 export type InboxKind = "request" | "reschedule" | "cancel" | "review" | "message" | "system";
@@ -275,7 +308,7 @@ export interface SlotSuggestion {
 
 export interface InboxItem {
   /** Simulated booking delivery; never an outgoing network request. */
-  delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder"; slot: string };
+  delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder" | "cancellation" | "moved"; slot: string };
   id: string;
   kind: InboxKind;
   customerId?: string;
@@ -315,7 +348,8 @@ export interface Holiday {
 
 export type CampaignStatus = "active" | "planned" | "ended" | "draft";
 export type Channel = "instagram" | "facebook" | "tiktok" | "newsletter" | "sms";
-export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk";
+/** The first five are drawn in the browser; the rest are rendered by the server poster engine. */
+export type PosterStyle = "calm" | "bold" | "photo" | "arch" | "dusk" | "price" | "pricelist" | "season" | "review" | "slots" | "beforeafter" | "portrait" | "fullphoto" | "typography";
 export type PosterFormat = "post" | "story" | "window";
 
 export interface CampaignPoster {
@@ -324,7 +358,45 @@ export interface CampaignPoster {
   image: string;
   headline: string;
   detail: string;
+  /** The owner's adjustments; unset means the template's own choice. */
+  textSize?: PosterTextSize;
+  focus?: PosterFocus;
+  /** Where the template puts its parts: its own arrangement or the mirrored one. Templates without one ignore it. */
+  arrangement?: PosterArrangement;
+  /** Engine styles: the price shown large, a small sticker and the treatments with prices, from the price list. */
+  price?: string;
+  sticker?: [string, string];
+  items?: { name: string; price: string }[];
+  /** Engine styles: a call to book, and a customer's words with who said them (published reviews only). */
+  cta?: string;
+  quote?: string;
+  author?: string;
+  /** Free-times style: the day the advertised times are on, so a published poster can be checked later. */
+  slotDate?: DateKey;
+  /** Review style: the quoted review's own rating, not the salon's average. */
+  stars?: 1 | 2 | 3 | 4 | 5;
+  /** Engine styles: the wellness-benefit services the salon accepts, e.g. "Epassi". */
+  badges?: string[];
+  /** Before/after style: the "before" photo; `image` is the "after" photo. */
+  before?: string;
+  /** Portrait style: the smaller line above the headline, and the drawn background. */
+  lead?: string;
+  backdrop?: Backdrop;
+  /** Engine styles: also show the QR code in posts and stories. It is always on the printed window poster. */
+  socialQr?: boolean;
+  /** Engine styles: the owner's light, contrast and warmth adjustment of the photos, in percent. The photo itself is untouched. */
+  photoTone?: PosterTone;
 }
+export interface PosterTone {
+  light: number;
+  contrast: number;
+  warmth: number;
+}
+export type PosterTextSize = "small" | "normal" | "large";
+/** Which part of the photo stays in view when the template crops it. */
+export type PosterFocus = "top" | "center" | "bottom";
+/** Standard, or the same parts mirrored (Full photo: text at the top instead of the bottom). */
+export type PosterArrangement = "standard" | "mirrored";
 
 /** Simulated results: the demo never talks to a real channel. */
 export interface CampaignStats {
@@ -354,6 +426,8 @@ export interface Campaign {
   publishOn?: DateKey;
   /** Final text per channel, including the trackable link. */
   copy?: Partial<Record<Channel, string>>;
+  /** The owner's own closing line, added to the captions where it fits. */
+  signOff?: string;
   poster?: CampaignPoster;
   /** Trackable link, e.g. "salongeko.example/c/fathers-day-7k2". */
   link?: string;
@@ -387,6 +461,24 @@ export interface ServicePackage {
   soldOn: DateKey;
   /** Bookings marked done that used a visit. */
   usedBy: string[];
+}
+
+/** One read of a customer's journal: who and when, never the content. */
+export interface JournalAccess {
+  id: string;
+  /** Epoch milliseconds, from the store's clock. */
+  at: number;
+  actor: "owner" | "staff";
+  /** Set when the actor is a named staff member. */
+  staffId?: StaffId;
+  /** The customer whose journal was read. Absent when a server load delivered every customer's journal to a device at once. */
+  customerId?: string;
+}
+
+/** The owner's privacy settings. */
+export interface PrivacySettings {
+  /** Years a journal entry is kept before the owner is asked to review it. Null keeps entries until the owner decides. */
+  journalRetentionYears: number | null;
 }
 
 export type ModuleKey = "journal" | "stock" | "campaigns" | "finance" | "reviews" | "waitlist" | "assistant" | "giftcards" | "packages" | "domain";
@@ -452,4 +544,8 @@ export interface DemoState {
   page: PageConfig;
   /** The business's own domain (a paid module), once the owner has started connecting one. */
   domain: DomainConnection | null;
+  /** Who read journals and when, newest first. Optional: salons from before the log have none. */
+  journalAccess?: JournalAccess[];
+  /** Optional: salons that never set it keep journal entries until the owner decides. */
+  privacy?: PrivacySettings;
 }

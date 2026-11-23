@@ -2,14 +2,15 @@ import { demoPaymentLedger } from "../connections/demo";
 import { reduce, type DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
 import { describeAction, isLogged } from "./describe";
+import { ageActivityLog } from "../privacy/activity";
 import { diffStates } from "./patch";
 import type { LogEntry, LogMeta } from "./types";
 
 /** Newest entries kept; older ones fall off so the browser storage stays small. */
 export const LOG_LIMIT = 100;
 
-/** Changes that cannot be taken back: access grants and tickets are records, not edits. */
-const NOT_UNDOABLE = new Set<DemoAction["type"]>(["support/grant", "support/revoke", "ticket/create", "online/hold", "online/pay", "online/release", "booking/fee"]);
+/** Changes that cannot be taken back: access grants and tickets are records, not edits; an erasure is final and keeps no copy. */
+const NOT_UNDOABLE = new Set<DemoAction["type"]>(["support/grant", "support/revoke", "ticket/create", "online/hold", "online/pay", "online/release", "booking/fee", "customer/erase"]);
 
 /** Who and where, when the caller does not say: customers act through the booking page, everything else is the owner's button. */
 export function defaultMeta(action: DemoAction, at: number): LogMeta {
@@ -30,13 +31,17 @@ export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta)
   return next;
 }
 
-export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: ReturnType<typeof demoPaymentLedger.stage>): DemoState {
+export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: Pick<ReturnType<typeof demoPaymentLedger.stage>, "payments" | "hasPayments">): DemoState {
   if ((action.type === "salon/policy" || action.type === "booking/fee") && meta.actor !== "owner") return state;
-  const next = reduce(state, action, meta.at, batch.payments);
-  if (next === state || !isLogged(action)) return next;
-  const patch = diffStates(state, next);
+  // Entries older than the retention period lose their undo data before the change runs, so an undo of one cannot be the first change after the cutoff.
+  const aged = ageActivityLog(state.log, meta.at);
+  const current = aged === state.log ? state : { ...state, log: aged };
+  const next = reduce(current, action, meta.at, batch.payments);
+  if (next === current) return state;
+  if (!isLogged(action)) return next;
+  const patch = diffStates(current, next);
   if (!patch) return next;
-  const { summary, before, after } = describeAction(action, state, next);
+  const { summary, before, after } = describeAction(action, current, next);
   const entry: LogEntry = {
     ...meta,
     id: `l-${next.seq}`,

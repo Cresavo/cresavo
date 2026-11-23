@@ -3,7 +3,7 @@ import type { OutboxEntry } from "../connections/simulated/outbox";
 import { canonicalJson, jsonEqual } from "../data/json-equal";
 import { migrateState } from "../data/migrate";
 import { salonClock } from "../tools/clock";
-import type { DemoState } from "../data/types";
+import type { DateKey, DemoState } from "../data/types";
 import type { LogActor, LogSource } from "../log/types";
 
 // The one way studio and server code reads and changes a salon's state.
@@ -44,13 +44,28 @@ export interface ApplyOptions {
    * Refused applies are not remembered, so a retry runs the rules again.
    */
   idempotencyKey?: string;
+  /**
+   * Called under the tenant's lock once the change is accepted and about to be
+   * written, never for a replay or a refused change; throwing aborts the apply.
+   * A caller reserves its allowance here, so only new commits count against it
+   * and no two can both take the last one. The Postgres store passes its open
+   * database transaction, so an allowance taken in it is given back when the
+   * commit fails. Stores that do not commit under a lock ignore it.
+   */
+  beforeCommit?: (transaction?: unknown) => Promise<void>;
+  /**
+   * Refuse with `not-found` unless the tenant's owner account is active, judged
+   * under the tenant's lock before anything else, a replay included. For public
+   * writes: an account switched off between the caller's lookup and the lock
+   * takes no more bookings. Stores without owner accounts ignore it.
+   */
+  requireActiveAccount?: boolean;
 }
 
 /**
  * Something a committed change asks the outside world to do: a payment, or a
- * message or post. `MemoryStudioStore` stages both; the browser store stages
- * payments only, since its messages are still sent from inside the reducer
- * (see docs/design/STUDIO_STORE.md, open questions).
+ * message or post. Every store stages both while the reducer runs and
+ * publishes them only after the commit.
  */
 export interface StoreEffect {
   kind: "payment" | "message";
@@ -66,15 +81,19 @@ export interface TenantAction {
   /** 1, 2, 3… per tenant, in commit order, never reused. */
   seq: number;
   tenantId: TenantId;
-  action: DemoAction;
-  actor: LogActor;
-  source: LogSource;
+  action: DemoAction | SystemAction;
+  actor: LogActor | "system";
+  source: LogSource | "system";
   /** Epoch milliseconds of the commit. */
   at: number;
   idempotencyKey?: string;
   /** The snapshot version this change produced. */
   resultingVersion: number;
 }
+
+export type SystemAction =
+  | { type: "system/reset"; payload: { generatedFor: DateKey } }
+  | { type: "system/replace"; payload: { reason: string } };
 
 export type ApplyFailure =
   /** `expectedVersion` was stale, or (browser) this tab could not confirm it had the latest write in time. Nothing changed; reload and retry. */
@@ -101,7 +120,7 @@ export type ApplyResult =
       /** True when an earlier apply with the same idempotency key is being returned. */
       replayed: boolean;
     }
-  | { ok: false; reason: ApplyFailure; /** The tenant's current version, when known. */ version?: number };
+  | { ok: false; reason: ApplyFailure; detail?: string; /** The tenant's current version, when known. */ version?: number };
 
 /** Sent to subscribers after a change is committed. */
 export interface StoreChange {
@@ -137,11 +156,11 @@ export interface HistoryPage {
  *   version; otherwise `conflict`. Without it, the reducer decides against
  *   the latest state, so two bookings for one slot never both succeed.
  * - **Idempotency.** See `ApplyOptions.idempotencyKey`.
- * - **Effects after commit.** Payment calls are staged while the reducer
+ * - **Effects after commit.** Payment and message calls are staged while the reducer
  *   runs and published only when the change is committed, then reported in
  *   the result and to subscribers. A conflict or refusal publishes nothing.
- * - **Log.** Every commit appends one `TenantAction`; entries are never
- *   changed or removed by the store.
+ * - **Log.** Every commit appends one `TenantAction`. Privileged erasure
+ *   redacts entries, and maintenance applies demo and sandbox retention.
  * - **Isolation.** Nothing in one tenant's state, log, keys or effects is
  *   visible through another tenant's id.
  * - **Detached values.** Everything returned or passed to a listener is a
@@ -159,18 +178,33 @@ export interface StudioStore {
   history(tenantId: TenantId, query: HistoryQuery): Promise<HistoryPage>;
 }
 
+/**
+ * Erasure removes a customer for good, but a store also keeps their data in
+ * its history, idempotency results and published effects. Only a store that
+ * can redact those too (`PostgresStudioStore.eraseSubject`) may run it, never
+ * as a plain `apply`: every store refuses `customer/erase` there.
+ */
+export const isErasure = (action: DemoAction) => action.type === "customer/erase";
+
 /** Largest page `history` returns. */
 export const HISTORY_MAX_LIMIT = 500;
 
-/** Key-order independent JSON, so the same action always fingerprints the same. */
+/**
+ * Key-order independent JSON, so the same action always fingerprints the same.
+ * The receipt reference of a public booking is minted per request, so it is
+ * left out: a retry of the same intent is the same action.
+ */
 export function actionFingerprint(action: DemoAction): string {
+  if (action.type === "online/book" && action.public) {
+    return canonicalJson({ ...action, public: { ...action.public, publicRef: undefined } });
+  }
   return canonicalJson(action);
 }
 
 /**
  * The action with the caller-reported times that decide eligibility or access
  * replaced by the store's clock: the booking cutoff of an online request
- * (`guest.at`), whether a review comes after the visit, and the start or end of
+ * (`guest.at`, or `at` and `instant` of a customer's cancel or move), whether a review comes after the visit, and the start or end of
  * a support grant. Pure event stamps (`stock/order`, `customers/message`) are
  * kept as reported. Stores call this unless they trust the caller's clock.
  */
@@ -184,6 +218,9 @@ export function withTrustedTimes(action: DemoAction, at: number): DemoAction {
       return { ...action, guest: { ...action.guest, at: local } };
     case "review/submit":
       return { ...action, at: local };
+    case "online/cancel":
+    case "online/move":
+      return { ...action, at: local, instant: at };
     case "support/grant":
     case "support/revoke":
       return { ...action, at };

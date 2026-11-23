@@ -1,5 +1,5 @@
 import { addDays } from "./data/dates";
-import { isActive, workMinutes } from "./data/slots";
+import { bookableIntervals, busyMinutes, isActive, workMinutes } from "./data/slots";
 import type { Booking, Customer, DateKey, DemoState, InboxItem, Service, StaffId } from "./data/types";
 import { salesBetween } from "./stock/sales";
 
@@ -39,6 +39,11 @@ export function categoryName(state: Pick<DemoState, "categories">, id: string): 
 
 export function fullName(c: Pick<Customer, "firstName" | "lastName">) {
   return `${c.firstName} ${c.lastName}`;
+}
+
+/** Who a visit is for: the named guest when the customer booked for someone else, otherwise the customer. */
+export function visitorName(booking: Pick<Booking, "visitFor">, customer?: Pick<Customer, "firstName" | "lastName"> | null): string {
+  return booking.visitFor ?? (customer ? fullName(customer) : "");
 }
 
 export function dayBookings(state: DemoState, date: DateKey, staffId?: StaffId, resourceId?: string): Booking[] {
@@ -121,7 +126,7 @@ export function utilisation(state: DemoState, from: DateKey, days: number, staff
       const minutes = workMinutes(state, staff.id, date);
       if ((staffId && staff.id !== staffId) || !minutes) continue;
       capacity += minutes;
-      booked += Math.min(minutes, dayBookings(state, date, staff.id).reduce((sum, b) => sum + b.duration, 0));
+      booked += Math.min(minutes, busyMinutes(dayBookings(state, date, staff.id), bookableIntervals(state, staff.id, date)));
     }
   }
   return capacity ? booked / capacity : 0;

@@ -42,8 +42,15 @@ test("long customer names fit in details, lists, and booking controls without mo
     await fits(".customer-contact", width);
     await page.getByRole("link", { name: "Ny bokning", exact: true }).click();
     await fits(".customer-picker p", width);
-    await page.getByRole("button", { name: "Byt kund", exact: true }).click();
-    await page.locator("#booking-customer-search").fill(name);
+    // "Byt kund" is a client-side button: a click that lands before the page has
+    // hydrated does nothing, so click until the search field appears.
+    const search = page.locator("#booking-customer-search");
+    await expect(async () => {
+      if (!(await search.isVisible()))
+        await page.getByRole("button", { name: "Byt kund", exact: true }).click({ timeout: 2_000 });
+      await expect(search).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await search.fill(name);
     await page.getByRole("button", { name: "Sök kund", exact: true }).click();
     await fits(".customer-choices button", width);
     await page.getByRole("button", { name, exact: true }).click();

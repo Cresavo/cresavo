@@ -1,14 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { reduce } from "@/concept/actions";
 import { monthGrid, postDay, shiftMonth } from "@/concept/campaigns/calendar";
 import { assembleCopy, CHANNEL_LIMIT, CHANNELS, isOverLimit } from "@/concept/campaigns/channels";
 import { listServices, offerText, rulesCopy } from "@/concept/campaigns/copy";
-import { defaultPrefill, draftLink, draftOffer, newDraft, resolvePoster } from "@/concept/campaigns/draft";
+import { defaultPrefill, draftLink, draftOffer, firstSentence, newDraft, resolvePoster } from "@/concept/campaigns/draft";
 import { campaignCode, trackingLink } from "@/concept/campaigns/links";
 import { fitFontSize, wrapText } from "@/concept/campaigns/poster-layout";
 import { parseCampaignRequest, prefillForHoliday, prefillFromQuery, studioHref } from "@/concept/campaigns/prefill";
 import { quietDay } from "@/concept/campaigns/quiet-day";
 import { estimateAd, reachByChannel, simulateStats } from "@/concept/campaigns/simulate";
+import { toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import type { Channel } from "@/concept/data/types";
 
@@ -163,6 +164,13 @@ describe("campaign store actions", () => {
     expect(next.campaigns[0].stats?.revenue).toBeGreaterThan(0);
   });
 
+  it("saves the owner's sign-off cleaned: trimmed, one line, 80 characters, no control characters, dropped when empty", () => {
+    const launch = (signOff: string) => reduce(state, { type: "campaign/launch", today, campaign: { ...campaign, signOff } }).campaigns[0].signOff;
+    expect(launch("  Warm regards,\nAnna\u0007 ")).toBe("Warm regards, Anna");
+    expect(launch("x".repeat(120))).toHaveLength(80);
+    expect(launch(" \n ")).toBeUndefined();
+  });
+
   it("scheduling for a later day plans the posts without results", () => {
     const next = reduce(state, { type: "campaign/launch", today, campaign: { ...campaign, publishOn: "2026-11-20" } });
     expect(next.campaigns[0]).toMatchObject({ status: "planned", stats: undefined });
@@ -189,8 +197,13 @@ describe("campaign store actions", () => {
     expect(draftOffer(state, draft)).toBe("Test offer: 10% off Medical foot care until 29 Nov 2026.");
     const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
     expect(draftOffer(swedish, draft)).toBe("Test offer: 10 % rabatt på Medicinsk fotvård till 29 november 2026.");
-    const poster = resolvePoster(state, draft);
-    expect(poster).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
+    expect(resolvePoster(state, { ...draft, style: "calm" })).toMatchObject({ style: "calm", image: "/demo/salon.webp", headline: "−10%", detail: state.services[0].name });
+    // The engine's price poster: the treatment as headline, the first words of its description (the rest is for
+    // the post's text), the price after the discount and a sticker.
+    const first = state.services[0];
+    expect(resolvePoster(state, draft)).toMatchObject({ style: "price", headline: first.name, detail: firstSentence(first.description), sticker: ["Offer", "–10%"] });
+    expect(firstSentence(first.description).length).toBeLessThanOrEqual(71);
+    expect(resolvePoster(state, draft).price).toContain(String(Math.round(first.price * 0.9)));
     expect(resolvePoster(state, { ...draft, serviceIds: ["deep-tissue"], posterEdits: { headline: "Gift" } })).toMatchObject({ image: "/demo/massage.webp", headline: "Gift" });
   });
 });
@@ -244,4 +257,209 @@ it("links a local campaign to its salon's booking page on this origin", () => {
   const origin = "https://studio.example";
   expect(draftLink(salon, offer, origin)).toBe(`${origin}/boka/studio-vide?campaign=${campaignCode(offer.name, today)}`);
   expect(draftLink(state, offer, origin)).toBe(trackingLink(offer.name, today));
+});
+
+it("carries the owner's text size and photo focus into the poster", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  expect(resolvePoster(state, draft)).not.toHaveProperty("textSize");
+  expect(resolvePoster(state, { ...draft, posterEdits: { textSize: "large", focus: "top", arrangement: "mirrored" } })).toMatchObject({ textSize: "large", focus: "top", arrangement: "mirrored" });
+});
+
+it("starts a new poster from the owner's latest choices", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, latestPoster, newDraft } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const prefill = defaultPrefill(state, "2026-11-21");
+  expect(newDraft(prefill)).toMatchObject({ style: "price", posterEdits: {} });
+  const mine = { style: "dusk" as const, image: "/demo/salon.webp", headline: "Höst", detail: "Fotvård", textSize: "large" as const, focus: "top" as const, arrangement: "mirrored" as const, badges: ["Epassi", "Benify"] };
+  const withMine = { ...state, campaigns: [{ ...state.campaigns[0], id: "mine", poster: mine }, ...state.campaigns] };
+  expect(latestPoster(withMine)).toBe(mine);
+  expect(newDraft(prefill, latestPoster(withMine))).toMatchObject({ style: "dusk", posterEdits: { textSize: "large", focus: "top", arrangement: "mirrored", badges: ["Epassi", "Benify"] } });
+});
+
+it("never saves a photo that only lives in this tab with the campaign", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, posterToSave, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), posterEdits: { image: "blob:https://demo.example/123", headline: "Höst" } };
+  expect(resolvePoster(state, draft).image).toBe("blob:https://demo.example/123");
+  expect(posterToSave(state, draft)).toMatchObject({ image: resolvePoster(state, { ...draft, posterEdits: {} }).image, headline: "Höst" });
+  const demoPhoto = { ...draft, posterEdits: { image: "/demo/massage.webp" } };
+  expect(posterToSave(state, demoPhoto).image).toBe("/demo/massage.webp");
+});
+
+it("gives the before/after poster two different photos and never saves the owner's own", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, posterToSave, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "beforeafter" as const };
+  const poster = resolvePoster(state, draft);
+  expect(poster.before).toBeTruthy();
+  expect(poster.before).not.toBe(poster.image);
+  expect(resolvePoster(state, { ...draft, style: "price" }).before).toBeUndefined();
+  expect(poster.cta).toBeTruthy();
+  const own = { ...draft, posterEdits: { before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" } };
+  expect(resolvePoster(state, own)).toMatchObject({ before: "blob:https://demo.example/1", image: "blob:https://demo.example/2" });
+  expect(posterToSave(state, own)).toMatchObject({ before: poster.before, image: poster.image });
+});
+
+it("starts the portrait poster from a staff photo with a lead line and a backdrop", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "portrait" as const };
+  const poster = resolvePoster(state, draft);
+  expect(state.staff.map((member) => member.photo)).toContain(poster.image);
+  expect(poster).toMatchObject({ backdrop: "bloom" });
+  expect(poster.lead).toBeTruthy();
+  expect(resolvePoster(state, { ...draft, posterEdits: { lead: "Betala med", backdrop: "sun" } })).toMatchObject({ lead: "Betala med", backdrop: "sun" });
+});
+
+it("fills the review and free-times posters from published reviews and the calendar", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { toKey } = await import("@/concept/data/dates");
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 10, 17, 9, 0));
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  const today = toKey(new Date());
+  const state = createDemoState(today);
+  const draft = newDraft(defaultPrefill(state, today));
+  const review = resolvePoster(state, { ...draft, style: "review" });
+  expect(review.quote).toBeTruthy();
+  expect(state.reviews.some((r) => r.text === review.quote && r.approved !== false)).toBe(true);
+  const slots = resolvePoster(state, { ...draft, style: "slots" });
+  expect(slots.cta).toBe("Book now →");
+  if (slots.items?.length) {
+    expect(slots.items.length).toBeLessThanOrEqual(4);
+    expect(slots.headline).toMatch(/times? left!/);
+    expect(slots.sticker).toHaveLength(2);
+  }
+});
+
+it("keeps poster texts to one short message", async () => {
+  const { firstSentence } = await import("@/concept/campaigns/draft");
+  const { headlineTooLong } = await import("@/concept/campaigns/poster-layout");
+  expect(firstSentence("Fotbad och nagelvård. Vi avslutar med kräm.")).toBe("Fotbad och nagelvård.");
+  expect(firstSentence("Ett väldigt långt stycke utan punkt som fortsätter och fortsätter långt förbi gränsen för en affisch")).toMatch(/^Ett väldigt.*…$/);
+  expect(firstSentence("Ett väldigt långt stycke utan punkt som fortsätter och fortsätter långt förbi gränsen för en affisch").length).toBeLessThanOrEqual(71);
+  expect(headlineTooLong("Fotvård")).toBe(false);
+  expect(headlineTooLong("friskvårdsbidragen")).toBe(true);
+});
+
+it("shows the QR code in posts and stories only when the owner asks, and remembers the choice", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  expect(resolvePoster(state, draft).socialQr).toBeUndefined();
+  const withQr = resolvePoster(state, { ...draft, posterEdits: { socialQr: true } });
+  expect(withQr.socialQr).toBe(true);
+  expect(newDraft(defaultPrefill(state, "2026-11-21"), withQr).posterEdits.socialQr).toBe(true);
+});
+
+it("starts a campaign from a goal with its offer and three different suggested posters", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { applyGoal, GOALS, GOAL_STYLES } = await import("@/concept/campaigns/goals");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), posterEdits: { textSize: "large" as const, headline: "Old" } };
+  for (const goal of GOALS) {
+    const patch = applyGoal(state, draft, goal, "2026-11-21");
+    expect(patch).toMatchObject({ goal, style: GOAL_STYLES[goal][0], from: "2026-11-21" });
+    expect(new Set(GOAL_STYLES[goal]).size).toBe(3);
+    // The owner's look stays; words from an earlier goal do not.
+    expect(patch.posterEdits?.textSize).toBe("large");
+    expect(patch.posterEdits?.headline).not.toBe("Old");
+    expect(patch.name).toBeTruthy();
+  }
+  const fill = applyGoal(state, draft, "fill", "2026-11-21");
+  expect(fill).toMatchObject({ discountPercent: 0, to: "2026-11-27" });
+  const gift = { ...draft, ...applyGoal(state, draft, "giftcard", "2026-11-21") };
+  expect(resolvePoster(state, gift)).toMatchObject({ style: "portrait", lead: "Give away", headline: "a gift card" });
+});
+
+it("keeps goal posters honest: no invented prices or reviews, the review's own stars, the business's language", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const { applyGoal, availableGoals, GOAL_STYLES } = await import("@/concept/campaigns/goals");
+  const state = createDemoState("2026-11-21");
+  const draft = newDraft(defaultPrefill(state, "2026-11-21"));
+  // A gift card never borrows a treatment's price.
+  expect(GOAL_STYLES.giftcard).not.toContain("price");
+  // Sharing a review needs one; the quote's stars are the review's own.
+  expect(availableGoals({ ...state, reviews: [] })).not.toContain("review");
+  const one = { ...state.reviews[0], approved: true, rating: 2 as const, date: "2026-11-20" };
+  const withLow = { ...state, reviews: [one] };
+  const review = { ...draft, ...applyGoal(withLow, draft, "review", "2026-11-21") };
+  expect(resolvePoster(withLow, review)).toMatchObject({ style: "review", stars: 2 });
+  // Choosing the current goal again keeps the owner's later edits.
+  const edited = { ...review, posterEdits: { ...review.posterEdits, headline: "Mine" } };
+  expect(applyGoal(withLow, edited, "review", "2026-11-21")).toEqual({});
+  // Poster words follow the business's language, not the studio's.
+  const swedish = { ...state, localization: { ...state.localization, language: "sv" as const } };
+  expect(applyGoal(swedish, draft, "giftcard", "2026-11-21")).toMatchObject({ name: "Presentkort", posterEdits: { lead: "Ge bort" } });
+});
+
+it("looks for free times inside the offer period", async () => {
+  const { createDemoState } = await import("@/concept/data/generate");
+  const { defaultPrefill, newDraft, resolvePoster } = await import("@/concept/campaigns/draft");
+  const state = createDemoState("2026-11-21");
+  const draft = { ...newDraft(defaultPrefill(state, "2026-11-21")), style: "slots" as const, from: "2026-12-08", to: "2026-12-12" };
+  const sticker = resolvePoster(state, draft).sticker;
+  expect(sticker).toBeTruthy();
+  // The day on the sticker is in the offer period (8–12 December), not this week.
+  expect(sticker![1]).toMatch(/\b(8|9|10|11|12)\b/);
+});
+
+it("shortens descriptions without one-letter stubs or going over 70 characters", async () => {
+  const { firstSentence } = await import("@/concept/campaigns/draft");
+  const word = "x".repeat(75);
+  expect(firstSentence(word)).toBe(`${"x".repeat(69)}…`);
+  expect(firstSentence(`${"y".repeat(70)} more`).length).toBeLessThanOrEqual(70);
+  expect(firstSentence("Kort text.")).toBe("Kort text.");
+});
+
+describe("poster words in the business's language", () => {
+  // A fixed Tuesday: free times depend on the clock, and the demo salon is closed on Sundays.
+  const NOW = new Date(2026, 10, 17, 9, 0);
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterAll(() => vi.useRealTimers());
+  const now = toKey(NOW);
+  const current = createDemoState(now);
+  const swedish = { ...current, localization: { ...current.localization, language: "sv" as const } };
+  const draft = { ...newDraft({ ...defaultPrefill(current, now), name: "Test offer" }), style: "fullphoto" as const };
+
+  it("names the treatment and describes it in the business's language, not the studio's, and lets owner edits win", () => {
+    const service = current.services.find((s) => s.id === draft.serviceIds[0])!;
+    const english = resolvePoster(current, draft);
+    const sv = resolvePoster(swedish, draft);
+    expect(english.headline).toBe(service.name);
+    expect(sv.headline).not.toBe(service.name);
+    expect(sv.detail).not.toBe(english.detail);
+    expect(resolvePoster(swedish, { ...draft, posterEdits: { headline: "Mitt val", detail: "Min text" } })).toMatchObject({ headline: "Mitt val", detail: "Min text" });
+  });
+
+  it("says when times are free, not what the treatment is, on the Full photo and Type only suggestions for Fill free times", () => {
+    const fill = { ...draft, goal: "fill" as const };
+    for (const style of ["fullphoto", "typography"] as const) {
+      const english = resolvePoster(current, { ...fill, style }).detail;
+      const sv = resolvePoster(swedish, { ...fill, style }).detail;
+      expect(english).toMatch(/\d{2}:\d{2}/);
+      expect(sv).toMatch(/\d{2}:\d{2}/);
+      expect(sv).not.toBe(english);
+      expect(english).not.toBe(resolvePoster(current, { ...draft, style }).detail);
+      expect(resolvePoster(current, { ...fill, style, posterEdits: { detail: "Min text" } }).detail).toBe("Min text");
+    }
+    // Other goals keep the treatment's description.
+    expect(resolvePoster(current, { ...draft, goal: "promote" }).detail).toBe(resolvePoster(current, draft).detail);
+  });
 });

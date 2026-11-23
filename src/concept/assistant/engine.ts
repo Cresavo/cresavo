@@ -258,10 +258,12 @@ function cardFacts(card: ReplyCard | undefined): string[] {
   }
 }
 
-/** Every customer's full and first name, longest first, as whole-word patterns. */
+/** Every customer's full and first name, and the name of each person a visit or checkout is booked for (they have no card), longest first, as whole-word patterns. */
 function customerNames(state: DemoState): RegExp[] {
   const names = new Set<string>();
   for (const c of state.customers) for (const name of [fullName(c), c.lastName, c.firstName]) if (name.trim().length > 1) names.add(name.trim());
+  const visitors = [...state.bookings.map((b) => b.visitFor), ...state.checkoutHolds.map((hold) => hold.guest.visitFor)];
+  for (const visitor of visitors) if (visitor) for (const name of [visitor, ...visitor.split(" ")]) if (name.trim().length > 1) names.add(name.trim());
   return [...names].sort((a, b) => b.length - a.length).map((name) => new RegExp(`(?<![\\p{L}\\p{N}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:'?s)?(?![\\p{L}\\p{N}])`, "giu"));
 }
 

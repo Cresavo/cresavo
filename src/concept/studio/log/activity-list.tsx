@@ -6,6 +6,7 @@ import { toKey } from "../../data/dates";
 import { formatTime } from "../../data/dates";
 import { t } from "../../i18n";
 import { relativeDay } from "../../i18n/format";
+import { accountRecordSettled, useDemo } from "../../store";
 import { filterLog, present, type LogFilter } from "../../log/filter";
 import type { LogEntry } from "../../log/types";
 import { undoBlockReason } from "../../log/undo";
@@ -19,13 +20,14 @@ import { useStudio } from "../use-studio";
 import { undoBlockMessageKey, undoWithToast } from "./undo-toast";
 
 /** "Today 10:42", "Mon 16 Nov 10:42". */
-function entryTime(at: number, today: string): string {
+export function entryTime(at: number, today: string): string {
   const date = new Date(at);
   return `${relativeDay(toKey(date), today)} ${formatTime(date.getHours() * 60 + date.getMinutes())}`;
 }
 
 function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typeof undoBlockReason>; today: string }) {
   const undoMessage = undoBlockMessageKey(reason);
+  const settled = accountRecordSettled("log", entry.id);
   return (
     <li>
       <ListRow title={entry.summary} meta={<>
@@ -42,7 +44,7 @@ function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typ
         {undoMessage && <span className="block">{t(undoMessage)}</span>}
       </>}
       trailing={entry.undone ? <Badge>{t("log.undone")}</Badge> : !reason && (
-        <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} onClick={() => undoWithToast(entry.id)}>{t("common.undo")}</Button>
+        <Button size="sm" variant="secondary" icon={<Undo2 size={16} />} disabled={!settled} onClick={() => undoWithToast(entry.id)}>{t("common.undo")}</Button>
       )} />
     </li>
   );
@@ -51,6 +53,8 @@ function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typ
 /** Everything that changed, newest first, with filters and Undo where it is still possible. */
 export function ActivityList() {
   const { state, today } = useStudio();
+  // Undo is checked against the salon as it is saved: the studio's view translates demo copy, which is not a change.
+  const saved = useDemo() ?? state;
   const [filter, setFilter] = useState<LogFilter>({});
   const actors = present(state.log, "actor");
   const sources = present(state.log, "source");
@@ -73,7 +77,7 @@ export function ActivityList() {
         <Card>
           <ul className="divide-y divide-hairline">
             {shown.map((entry) => (
-              <Row key={entry.id} entry={entry} reason={undoBlockReason(state, entry)} today={today} />
+              <Row key={entry.id} entry={entry} reason={undoBlockReason(saved, entry)} today={today} />
             ))}
           </ul>
         </Card>

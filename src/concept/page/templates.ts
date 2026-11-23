@@ -1,6 +1,6 @@
 import { jsonEqual } from "../data/json-equal";
 import { normalizePage, type PageConfig } from "./config";
-import type { PageSection } from "./sections";
+import { addSectionAfter, type PageSection } from "./sections";
 import { PALETTES, type PageTheme } from "./theme";
 
 // Ready-made designs for the booking page. A template is nothing more than a
@@ -68,10 +68,16 @@ export const TEMPLATE_IDS = Object.keys(TEMPLATES) as TemplateId[];
 
 export const isTemplateId = (value: unknown): value is TemplateId => typeof value === "string" && Object.hasOwn(TEMPLATES, value);
 
-/** The page wearing a template. The logo, its colours, the Instagram name and the owner's own CSS are theirs and stay. */
+/**
+ * The page wearing a template. The logo, its colours, the Instagram name, the About text and the
+ * owner's own CSS are theirs and stay. No design has an About section of its own, so a page that
+ * shows one keeps it, after the team.
+ */
 export function applyTemplate(page: PageConfig, id: TemplateId): PageConfig {
   const { theme, sections } = TEMPLATES[id];
-  return normalizePage({ ...page, theme: { ...page.theme, ...theme }, sections: sections.map((section) => ({ ...section })) });
+  const designed = sections.map((section) => ({ ...section }));
+  const about = page.sections.find((section) => section.kind === "about");
+  return normalizePage({ ...page, theme: { ...page.theme, ...theme }, sections: about ? addSectionAfter(designed, "about", "staff").map((section) => (section.kind === "about" ? { ...about } : section)) : designed });
 }
 
 /** The template this page is, when nothing in its look or sections has been changed since. */

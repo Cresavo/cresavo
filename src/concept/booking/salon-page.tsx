@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { DemoState } from "../data/types";
 import { t } from "../i18n";
 import type { PageSection } from "../page/sections";
+import { useServerSalon } from "../server-salon";
 import { usePublicDemo } from "../store";
 import { cx } from "../ui/cx";
 import { useSalonNow, type Now } from "../use-now";
@@ -12,8 +13,9 @@ import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
 import { usePage } from "./page-context";
 import { CancellationPolicy, FindUs, OpeningHours, Reviews } from "./salon-info";
-import { FaqSection, GallerySection, InstagramSection, StaffSection } from "./sections";
+import { AboutSection, FaqSection, GallerySection, InstagramSection, StaffSection } from "./sections";
 import { Treatments } from "./treatments";
+import { Confirmation } from "./confirmation";
 import { BookingWizard } from "./wizard";
 
 /**
@@ -24,13 +26,17 @@ import { BookingWizard } from "./wizard";
  */
 export function SalonPage() {
   const state = usePublicDemo();
+  const fromServer = useServerSalon() !== null;
   const now = useSalonNow();
   const params = useSearchParams();
   const fromLink = params?.get("service") ?? undefined;
-  const { sections, instagram, theme } = usePage();
+  const { sections, instagram, about, theme } = usePage();
   const [inFlow, setInFlow] = useState(false);
   const [preset, setPreset] = useState<{ serviceId: string; count: number }>();
+  // On a salon's own page there is no page for a booking to go to yet, so the receipt replaces the flow here.
+  const [receipt, setReceipt] = useState<string>();
   if (!state) return null;
+  if (receipt) return <Confirmation id={receipt} onBack={() => setReceipt(undefined)} />;
   const initial = preset?.serviceId ?? (state.services.some((s) => s.id === fromLink) ? fromLink : undefined);
 
   const book = (serviceId: string) => {
@@ -51,6 +57,8 @@ export function SalonPage() {
         );
       case "staff":
         return <StaffSection state={state} variant={variant} />;
+      case "about":
+        return about.text ? <AboutSection about={about} name={state.salon.name} variant={variant} /> : null;
       case "reviews":
         return state.modules.reviews ? <Reviews state={state} variant={variant} /> : null;
       case "gallery":
@@ -62,7 +70,7 @@ export function SalonPage() {
       case "instagram":
         return <InstagramSection handle={instagram} variant={variant} />;
       case "giftcards":
-        return <GiftCardBalance state={state} compact={variant === "compact"} />;
+        return fromServer ? null : <GiftCardBalance state={state} compact={variant === "compact"} />;
     }
   };
 
@@ -70,7 +78,7 @@ export function SalonPage() {
   const topIsHero = first?.kind === "hero";
   const flow = (
     <section id="book" data-booking-flow className="scroll-mt-4" aria-label={t("booking.ask.title")}>
-      {!state.services.length ? <p className="rounded-lg bg-surface p-4">{t("booking.menuSoon")}</p> : <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} listOnPage={sections.some((s) => s.kind === "treatments")} />}
+      {!state.services.length ? <p className="rounded-lg bg-surface p-4">{t("booking.menuSoon")}</p> : <BookingWizard key={preset?.count ?? params?.toString()} state={state} now={now} initialServiceId={initial} initialStaffId={preset ? undefined : state.staff.find(person => person.id === params?.get("staff"))?.id} onFlowChange={setInFlow} onBooked={fromServer ? setReceipt : undefined} listOnPage={sections.some((s) => s.kind === "treatments")} />}
     </section>
   );
   const policy = <CancellationPolicy state={state} />;

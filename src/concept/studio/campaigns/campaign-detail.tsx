@@ -1,7 +1,9 @@
 "use client";
 
+import { reviewSummary } from "../../booking/reviews";
 import { useRef, useState } from "react";
 import { Check, Copy, Download, Megaphone } from "lucide-react";
+import { unavailablePosterTimes } from "../../campaigns/draft";
 import { CHANNELS } from "../../campaigns/channels";
 import { downloadBlob, posterToPng } from "../../campaigns/export-png";
 import { postDay } from "../../campaigns/calendar";
@@ -12,6 +14,7 @@ import { findService } from "../../selectors";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
+import { Notice } from "../../ui/notice";
 import { EmptyState } from "../../ui/empty-state";
 import { showToast } from "../../ui/toast";
 import { BackLink } from "../back-link";
@@ -62,6 +65,7 @@ export function CampaignDetail({ id }: { id: string }) {
   };
   const day = postDay(campaign);
   const poster = campaign.poster;
+  const stale = poster ? unavailablePosterTimes(state, poster, campaign.serviceIds[0]).length > 0 : false;
 
   return (
     <>
@@ -125,8 +129,9 @@ export function CampaignDetail({ id }: { id: string }) {
             <Section title={t("campaigns.poster.title")}>
               <div className="space-y-3">
                 <div className="mx-auto w-full max-w-xs overflow-hidden rounded-lg">
-                  <PosterView ref={postSvg} source={campaign} salon={state.salon} format="post" />
+                  <PosterView ref={postSvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
                 </div>
+                {stale && <Notice tone="warning">{t("campaigns.poster.stale")}</Notice>}
                 <div className="flex flex-wrap justify-center gap-2">
                   {(["post", "story", "window"] as const).map((format) => (
                     <Button key={format} size="sm" variant="secondary" icon={<Download size={15} />} onClick={() => void download(format)}>
@@ -135,8 +140,8 @@ export function CampaignDetail({ id }: { id: string }) {
                   ))}
                 </div>
                 <div className="hidden">
-                  <PosterView ref={storySvg} source={campaign} salon={state.salon} format="story" />
-                  <PosterView ref={windowSvg} source={campaign} salon={state.salon} format="window" />
+                  <PosterView ref={storySvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="story" />
+                  <PosterView ref={windowSvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="window" />
                 </div>
               </div>
             </Section>

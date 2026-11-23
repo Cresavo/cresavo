@@ -5,6 +5,7 @@ import { bookingHome, giftCardLink, myBookingsFor, rebookLink, widgetPath } from
 import { buildIntentContext } from "@/concept/command/intent-context";
 import { proposalFor } from "@/concept/command/proposal";
 import { createDemoState, DEMO_VERSION } from "@/concept/data/generate";
+import { translate } from "@/concept/i18n";
 import { interpretCommand } from "@/concept/intent";
 import { applyAction } from "@/concept/log/capture";
 import { undoEntry } from "@/concept/log/undo";
@@ -14,6 +15,7 @@ import { DEFAULT_PAGE, normalizePage, pageCss } from "@/concept/page/config";
 import { designRequest } from "@/concept/page/design-request";
 import { changedAspects } from "@/concept/page/diff";
 import { resolveHost } from "@/concept/page/resolve";
+import { addSectionAfter } from "@/concept/page/sections";
 import { applyTemplate, isTemplateId, TEMPLATE_IDS, TEMPLATES, templateIdOf } from "@/concept/page/templates";
 import { FONT_PAIRS, PALETTES, PHOTOS } from "@/concept/page/theme";
 
@@ -98,6 +100,16 @@ describe("ready-made designs", () => {
     expect(next).toMatchObject({ instagram: "salong.eko", css: "h1 { color: red }" });
   });
 
+  it("keep the owner's About section and text, after the team", () => {
+    const about = { heading: "Our story", text: "Two people and a quiet room." };
+    const own = normalizePage({ ...DEFAULT_PAGE, sections: addSectionAfter(DEFAULT_PAGE.sections, "about", "hero"), about });
+    const next = applyTemplate(own, "atelier");
+    expect(next.about).toEqual(about);
+    expect(next.sections).toEqual(addSectionAfter(applyTemplate(DEFAULT_PAGE, "atelier").sections, "about", "staff"));
+    expect(templateIdOf(next)).toBe("atelier");
+    expect(applyTemplate(DEFAULT_PAGE, "atelier").sections.some((section) => section.kind === "about")).toBe(false);
+  });
+
   it("are recognised until the owner changes something", () => {
     const noir = applyTemplate(DEFAULT_PAGE, "noir");
     expect(templateIdOf(noir)).toBe("noir");
@@ -126,7 +138,7 @@ describe("design proposal", () => {
   it("lists the section order for 'put reviews first'", () => {
     const proposal = ask("put reviews first");
     if (proposal.kind !== "change") throw new Error("expected a change");
-    expect(proposal.rows).toEqual([{ label: "sections", before: expect.stringContaining("Treatments and prices, Team, Reviews"), after: expect.stringContaining("Top of the page, Reviews, Treatments") }]);
+    expect(proposal.rows).toEqual([{ label: "sections", before: expect.stringContaining("Treatments and prices, Team, About us, Reviews"), after: expect.stringContaining("Top of the page, Reviews, Treatments") }]);
   });
 
   it("points to the editor when the logo is missing", () => {
@@ -213,8 +225,9 @@ describe("own domain module and demo data", () => {
     expect(monthlyTotal(["domain"])).toBeGreaterThan(monthlyTotal([]));
   });
 
-  it("starts with Salong Eko in the Eko design and no domain, in a new demo version", () => {
-    expect(state.page).toEqual(applyTemplate(DEFAULT_PAGE, "eko"));
+  it("starts with Salong Eko in the Eko design with its About text and no domain, in a new demo version", () => {
+    const eko = applyTemplate(DEFAULT_PAGE, "eko");
+    expect(state.page).toEqual({ ...eko, sections: addSectionAfter(eko.sections, "about", "staff"), about: { heading: "", text: translate("en", "fixture.eko.about") } });
     expect(state.page.theme.colors).toEqual(PALETTES.forest);
     expect(DEFAULT_PAGE.theme.colors).toBeNull();
     expect(state.domain).toBeNull();

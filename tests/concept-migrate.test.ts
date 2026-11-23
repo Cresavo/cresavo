@@ -3,8 +3,10 @@ import { toKey } from "@/concept/data/dates";
 import { createDemoState, DEMO_VERSION } from "@/concept/data/generate";
 import { migrateState, OLDEST_MIGRATABLE } from "@/concept/data/migrate";
 import type { DemoState } from "@/concept/data/types";
+import { translate } from "@/concept/i18n";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { DEFAULT_PAGE } from "@/concept/page/config";
+import { addSectionAfter, DEFAULT_SECTIONS } from "@/concept/page/sections";
 import { applyTemplate } from "@/concept/page/templates";
 import { PALETTES } from "@/concept/page/theme";
 
@@ -55,7 +57,8 @@ describe("migrateState", () => {
     expect(migrated.version).toBe(DEMO_VERSION);
     expect(migrated.memory).toEqual([]);
     expect(migrated.routines).toEqual([]);
-    expect(migrated.page).toEqual(DEFAULT_PAGE);
+    // The demo salon gets its About text ready (v24), with the section still off.
+    expect(migrated.page).toEqual({ ...DEFAULT_PAGE, about: { heading: "", text: translate("en", "fixture.eko.about") } });
     expect(migrated.domain).toBeNull();
     expect(migrated.bookings).toEqual(fresh.bookings);
   });
@@ -136,12 +139,45 @@ describe("migrateState", () => {
     expect(migrateState(saved)!.bookings.every((booking) => booking.example)).toBe(true);
   });
 
-  it("gives the demo salon the Eko design in v24, unless its page was changed", () => {
+  describe("v25: section style and the ready-made designs", () => {
     const fresh = createDemoState(today);
-    const untouched = { ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } };
-    expect(migrateState({ ...fresh, version: 23, page: untouched })!.page).toEqual(applyTemplate(DEFAULT_PAGE, "eko"));
-    const edited = { ...untouched, theme: { ...untouched.theme, corners: "round" as const } };
-    expect(migrateState({ ...fresh, version: 23, page: edited })!.page).toEqual(edited);
+    const { style: _style, ...oldTheme } = { ...DEFAULT_PAGE.theme, colors: PALETTES.forest };
+    void _style;
+    const about = { heading: "", text: translate("en", "fixture.eko.about") };
+    // The demo page as v24 generated it: forest colours, the About section after the team, no section style yet.
+    const generated = { ...DEFAULT_PAGE, theme: oldTheme, sections: addSectionAfter(DEFAULT_SECTIONS, "about", "staff"), about };
+    const lift = (page: unknown, extra: object = {}) => migrateState({ ...fresh, version: 24, page, ...extra })!;
+
+    it("gives the demo salon the Eko design and keeps its About section and text", () => {
+      const page = lift(generated).page;
+      const eko = applyTemplate(DEFAULT_PAGE, "eko");
+      expect(page.theme).toEqual(eko.theme);
+      expect(page.sections).toEqual(addSectionAfter(eko.sections, "about", "staff"));
+      expect(page.about).toEqual(about);
+    });
+
+    it("gives it to a demo page migrated from v23 too, which has the text but no About section", () => {
+      const page = lift({ ...generated, sections: DEFAULT_SECTIONS }).page;
+      expect(page.sections).toEqual(applyTemplate(DEFAULT_PAGE, "eko").sections);
+      expect(page.about).toEqual(about);
+    });
+
+    it("leaves a page the owner changed alone and only adds the style", () => {
+      const edited = { ...generated, theme: { ...oldTheme, corners: "round" as const } };
+      expect(lift(edited).page).toEqual({ ...edited, theme: { ...edited.theme, style: "boxed" } });
+    });
+
+    it("leaves an own salon's page alone even when it looks like the demo's", () => {
+      expect(lift(generated, { industry: "other" }).page).toEqual({ ...generated, theme: { ...oldTheme, style: "boxed" } });
+    });
+
+    it("adds the style to page snapshots in the activity log, so an earlier page edit can still be undone", () => {
+      const entry = { id: "log-1", patch: { values: { page: { before: generated, after: { ...generated, css: "h1 { margin: 0 }" } } } } };
+      const log = lift(generated, { log: [entry] }).log as unknown as (typeof entry)[];
+      expect(log[0].patch.values.page.before.theme).toMatchObject({ style: "boxed" });
+      expect(log[0].patch.values.page.after.theme).toMatchObject({ style: "boxed" });
+      expect(log[0].patch.values.page.after.css).toBe("h1 { margin: 0 }");
+    });
   });
 
   it("is one linear chain: every saved version from the oldest to the current reaches DEMO_VERSION", () => {
