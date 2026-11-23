@@ -47,6 +47,13 @@ describe("concept store actions", () => {
     expect(next.inbox.find((i) => i.id === item.id)).toMatchObject({ handled: true, read: true, reply: "Done" });
   });
 
+  it("keeps a reschedule request open, and its reply unsent, if the offered slot was taken", () => {
+    const item = base.inbox.find((i) => i.kind === "reschedule" && i.suggestion)!;
+    const occupied = reduce(base, { ...item.suggestion!, type: "booking/create", customerId: "k001", source: "phone" });
+    expect(occupied.bookings).toHaveLength(base.bookings.length + 1);
+    expect(reduce(occupied, { type: "inbox/reply", id: item.id, reply: "Done", slot: item.suggestion })).toBe(occupied);
+  });
+
   it("turns a new customer's request into a customer and a booking", () => {
     const item = base.inbox.find((i) => i.fromName)!;
     const next = reduce(base, { type: "inbox/reply", id: item.id, reply: "Welcome", slot: item.suggestion });
