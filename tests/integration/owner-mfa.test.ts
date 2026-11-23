@@ -106,6 +106,8 @@ async function passwordStep(name: string, ip = freshIp()) {
 const secondStep = (pending: string | undefined, body: unknown, ip = freshIp()) =>
   mfaLoginRoute(post("/api/owner/login/mfa", body, { ip, cookies: { [OWNER_MFA_PENDING_COOKIE]: pending } }));
 
+const STORE_HMAC_SECRET = randomBytes(32).toString("hex");
+
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
 });
@@ -114,6 +116,7 @@ beforeEach(() => {
   vi.unstubAllEnvs();
   vi.stubEnv("OWNER_ACCOUNTS_ENABLED", "1");
   vi.stubEnv("OWNER_MFA_KEY", MFA_KEY);
+  vi.stubEnv("STUDIO_STORE_HMAC_SECRET", STORE_HMAC_SECRET);
   vi.stubEnv("NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN", "book.example");
   vi.setSystemTime(START + ++testIndex * 3_600_000);
 });
