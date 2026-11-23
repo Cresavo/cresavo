@@ -38,6 +38,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **The assistant fits the phone screen.** On iPhones the message box zoomed the page in when tapped, which pushed the panel, the close button and the send button past the right edge; fields with small text now use 16 px on touch screens. The panel now fills only the area above the on-screen keyboard, so its header stays in view and the page behind no longer shows or scrolls. The arrow in the round send button is full size again.
 - **A signed-in owner can save a treatment's timing.** With owner accounts on, the server refused any treatment edit that carried preparation, clean-up or processing time, and the studio then put the old treatment back. The server now accepts those fields, and the new longer text and photo, with the same limits the studio applies.
 
 ## [0.8.0] - 2026-11-22

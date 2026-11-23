@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { X } from "lucide-react";
 import { t } from "../i18n";
 import { IconButton } from "./button";
@@ -29,6 +29,7 @@ export function Sheet({ open, onClose, title, description, children, footer, var
   const side = variant === "side";
   const dismiss = () => setDismissing(true);
   if (open && !present) setPresent(true);
+  useVisibleArea(ref, side && !closing);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -71,7 +72,7 @@ export function Sheet({ open, onClose, title, description, children, footer, var
       onClick={event => { if (!side && event.target === event.currentTarget) dismiss(); }}
       className={cx(
         "ui-sheet m-0 w-full max-w-none overflow-hidden p-0 text-text shadow-sheet backdrop:bg-black/40",
-        side ? "ui-sheet-side h-dvh bg-bg sm:ml-auto sm:rounded-l-lg" : "mt-auto rounded-t-lg bg-surface sm:m-auto sm:max-w-lg sm:rounded-lg",
+        side ? "ui-sheet-side bg-bg sm:ml-auto sm:rounded-l-lg" : "mt-auto rounded-t-lg bg-surface sm:m-auto sm:max-w-lg sm:rounded-lg",
       )}
     >
       {present && (
@@ -96,4 +97,34 @@ export function Sheet({ open, onClose, title, description, children, footer, var
       )}
     </dialog>
   );
+}
+
+/**
+ * On phones the on-screen keyboard covers the bottom of a full-height panel and the browser scrolls the page to
+ * reveal the focused field, which pushes the header away. The panel follows the visible area instead.
+ */
+function useVisibleArea(ref: RefObject<HTMLDialogElement | null>, active: boolean) {
+  useEffect(() => {
+    const dialog = ref.current;
+    const view = dialog?.ownerDocument.defaultView?.visualViewport;
+    if (!active || !dialog || !view) return;
+    const clear = () => {
+      dialog.style.removeProperty("--sheet-top");
+      dialog.style.removeProperty("--sheet-height");
+    };
+    const follow = () => {
+      // Pinch zoom moves the visible area too; the panel stays put then.
+      if (Math.abs(view.scale - 1) > 0.01) return clear();
+      dialog.style.setProperty("--sheet-top", `${view.offsetTop}px`);
+      dialog.style.setProperty("--sheet-height", `${view.height}px`);
+    };
+    follow();
+    view.addEventListener("resize", follow);
+    view.addEventListener("scroll", follow);
+    return () => {
+      view.removeEventListener("resize", follow);
+      view.removeEventListener("scroll", follow);
+      clear();
+    };
+  }, [ref, active]);
 }
