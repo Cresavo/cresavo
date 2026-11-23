@@ -6,7 +6,7 @@ import { addressProof } from "../scripts/client-address.mjs";
 // The read-only salon route. No database: the lookup is stubbed to find nothing.
 
 const query = vi.hoisted(() => vi.fn(async () => []));
-vi.mock("@/lib/db", () => ({ db: { $queryRaw: query } }));
+vi.mock("@/lib/db", async () => ({ db: (await import("./helpers/scoped-db")).withStoreScopes({ $queryRaw: query }) }));
 
 const SECRET = "synthetic-address-secret";
 const ip = "192.0.2.7";

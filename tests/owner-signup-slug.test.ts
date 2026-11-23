@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     $queryRaw: async () => [],
     $transaction: async (run: (tx: unknown) => Promise<unknown>) => run({
+      $queryRaw: async () => [],
       tenantState: { create: async ({ data }: { data: { doc: { salon: { slug: string } } } }) => {
         ctx.tries.push(data.doc.salon.slug);
         throw new Prisma.PrismaClientKnownRequestError('Unique constraint failed on the constraint: `tenant_state_salon_slug_key`', { code: "P2002", clientVersion: "test" });

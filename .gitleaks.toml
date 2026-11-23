@@ -125,3 +125,16 @@ commits = ["3c70fa0fd0c868d943e5c244131d1d3bcff7e8e6"]
 paths = ['''^tests/media-s3\.test\.ts$''']
 regexTarget = "line"
 regexes = ['''const SECRET = "fictional-secret-0123456789abcdefghijklmnop";''']
+
+# Store row-level security test (branch feat/store-rls-policies, 2026-11-22):
+# the first version of the test signed up a fictional owner with the made-up
+# password "fictional-password-long" (no real account, written in a sandbox with
+# no credentials). Later commits generate the password at run time. Scoped to the
+# one commit that introduced it AND this file AND this literal.
+[[allowlists]]
+description = "Fictional owner password in the first store RLS test"
+condition = "AND"
+commits = ["981ae7f431367485e4126c8f7b47758ffd037b9c"]
+paths = ['''^tests/integration/store-rls\.test\.ts$''']
+regexTarget = "match"
+regexes = ['''password: "fictional-password-long"''']

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { scoped } from "@/concept/store/tenant-scope";
 import { db } from "./db";
 import { ownerFromCookie, OWNER_COOKIE } from "./owner-session";
 
@@ -9,7 +10,7 @@ export async function currentOwner() {
 
 /** The salon's name from its stored document. */
 export async function ownerSalonName(tenantId: string): Promise<string> {
-  const row = await db.tenantState.findUnique({ where: { tenantId }, select: { doc: true } });
+  const row = await scoped(db, { tenant: tenantId }, (tx) => tx.tenantState.findUnique({ where: { tenantId }, select: { doc: true } }));
   const name = (row?.doc as { salon?: { name?: unknown } } | undefined)?.salon?.name;
   return typeof name === "string" ? name : "";
 }

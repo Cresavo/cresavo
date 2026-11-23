@@ -95,9 +95,25 @@ Security
       equivalent) and covered by tests that try to read another tenant.
       The tests exist (`tests/integration/tenant-isolation.test.ts`: owner
       routes, public booking links, the store and its sweeps, each against a
-      second salon). Still open: enforcement in the database itself (RLS or
-      equivalent). Today isolation rests on the application's `tenant_id`
-      conditions, which these tests guard.
+      second salon). Row-level security is prepared: `prisma/grants/rls-enable.sql`
+      holds the policies for the four store tables, every
+      store transaction already sets its tenant or its narrow cross-tenant
+      scope, and `tests/integration/store-rls.test.ts` runs the store under
+      RLS as real application, poller (`cresavo_outbox`), sweeper and support
+      logins, including booking e-mail of two salons through the real message
+      sink, and a dump and restore drill under RLS. Each policy names its
+      roles; the poller and the sweeper have no table privileges and work
+      through fixed functions (claimed effects only; retention cutoffs
+      inside). Enforcement is one SQL step
+      away (`prisma/grants/rls-enable.sql`, rollback `rls-disable.sql`, state
+      `verify-rls.sql`; order in docs/design/STUDIO_STORE.md, "Row-level
+      security"). Threat model: RLS here is defence in depth against query
+      bugs (a missing tenant condition, a code path without a scope), not
+      against a compromised web credential, which sets its own tenant and so
+      still reaches every tenant; the separate poller and sweeper roles have
+      no table access at all. Still open: running that step in production. Until then
+      isolation rests on the application's `tenant_id` conditions, which these
+      tests guard.
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
 - [x] Rate limiting on public endpoints (booking, login, AI). Audited
       2026-11-22: every public or demo route under `/api` (not `/admin`,

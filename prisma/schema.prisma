@@ -584,6 +584,10 @@ model TenantEffect {
   leasedUntil   DateTime? @map("leased_until") @db.Timestamptz(3)
   /// An erasure stopped this row: never claimed again.
   erasedAt      DateTime? @map("erased_at") @db.Timestamptz(3)
+  /// The current claim's random token (store_outbox_claim); every read and write of a deliverer needs it. Cleared by the claim's outcome.
+  claimToken    String?   @map("claim_token") @db.Uuid
+  /// A provider's confirmation that arrived after the row was settled otherwise (cancelled by an erasure, or failed): kept apart, the status stays.
+  lateConfirmation Json?  @map("late_confirmation") @db.JsonB
   @@id([tenantId, seq, n])
   @@index([status, nextAttemptAt])
   @@index([tenantId, status, seq, n])

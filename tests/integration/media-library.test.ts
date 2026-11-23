@@ -417,6 +417,7 @@ describe("as the least-privilege logins of prisma/grants/roles.sql", () => {
   const appLogin = `media_app_${run}`;
   const sweepLogin = `media_sweep_${run}`;
   const supportLogin = `media_support_${run}`;
+  const outboxLogin = `media_outbox_${run}`;
   // A throwaway password made at run time: CI's Postgres requires password authentication, a local trust setup ignores it.
   const loginSecret = randomBytes(18).toString("hex");
   const url = (user: string) => { const next = new URL(process.env.TEST_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL!); next.username = user; next.password = loginSecret; return next.href; };
@@ -428,7 +429,9 @@ describe("as the least-privilege logins of prisma/grants/roles.sql", () => {
     const logins: PrismaClient[] = [];
     try {
       await pgAdmin.query(readFileSync(new URL("../../prisma/grants/roles.sql", import.meta.url), "utf8"));
-      await pgAdmin.query(`CREATE ROLE ${appLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_app; CREATE ROLE ${sweepLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_sweeper; CREATE ROLE ${supportLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_support`);
+      // The store's grants too: verify-roles.sql holds every login to the complete allowlist of both files.
+      await pgAdmin.query(readFileSync(new URL("../../prisma/grants/studio-store.sql", import.meta.url), "utf8"));
+      await pgAdmin.query(`CREATE ROLE ${appLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_app; CREATE ROLE ${sweepLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_sweeper; CREATE ROLE ${supportLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_support; CREATE ROLE ${outboxLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_outbox`);
       const app = createDatabaseClient(url(appLogin), 2) as PrismaClient;
       const sweeper = createDatabaseClient(url(sweepLogin), 2) as PrismaClient;
       logins.push(app, sweeper);
@@ -453,12 +456,13 @@ describe("as the least-privilege logins of prisma/grants/roles.sql", () => {
       await expect(sweeper.$queryRaw`SELECT alt_text FROM media_asset LIMIT 1`).rejects.toThrow();
 
       const verify = readFileSync(new URL("../../prisma/grants/verify-roles.sql", import.meta.url), "utf8")
-        .replaceAll(":'app_login'", `'${appLogin}'`).replaceAll(":'sweeper_login'", `'${sweepLogin}'`).replaceAll(":'support_login'", `'${supportLogin}'`);
+        .replaceAll(":'app_login'", `'${appLogin}'`).replaceAll(":'sweeper_login'", `'${sweepLogin}'`).replaceAll(":'support_login'", `'${supportLogin}'`)
+        .replaceAll(":'outbox_login'", `'${outboxLogin}'`);
       const problems = (await pgAdmin.query(verify)).rows.map((r: { problem: string }) => r.problem).filter((problem) => /media_asset/.test(problem));
       expect(problems).toEqual([]);
     } finally {
       await Promise.all(logins.map((client) => client.$disconnect()));
-      await pgAdmin.query(`DROP ROLE IF EXISTS ${appLogin}; DROP ROLE IF EXISTS ${sweepLogin}; DROP ROLE IF EXISTS ${supportLogin}`);
+      await pgAdmin.query(`DROP ROLE IF EXISTS ${appLogin}; DROP ROLE IF EXISTS ${sweepLogin}; DROP ROLE IF EXISTS ${supportLogin}; DROP ROLE IF EXISTS ${outboxLogin}`);
       await pgAdmin.end();
     }
   });

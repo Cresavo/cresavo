@@ -28,6 +28,7 @@ import { createOwnerAccount } from "../../src/lib/owner-accounts";
 import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
 import { issuedAtToken } from "../../src/lib/public-issued-at";
 import { withOwnSlug } from "./own-slug";
+import { installStoreFunctions } from "./store-functions";
 
 // Tenant isolation against a disposable local *_test database: one owner, one
 // customer or one stored row tries to read or change another salon's data.
@@ -893,6 +894,7 @@ describe("the sweeps leave other tenants' rows and kinds alone", () => {
       for (const table of tables) await tx.$executeRawUnsafe(`CREATE TABLE ${schema}.${table} (LIKE public.${table} INCLUDING ALL)`);
     });
     created = true;
+    await installStoreFunctions(schema);
     const url = new URL(process.env.DATABASE_URL!);
     url.searchParams.set("options", `-c search_path=${schema},public`);
     sweepDb = newClient(url.href);
