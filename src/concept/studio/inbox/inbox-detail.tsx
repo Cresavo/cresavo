@@ -93,7 +93,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
       )}
 
       {canReply && (
-        <div className="space-y-3 rounded-lg p-4 ring-1 ring-action/30 md:max-w-form">
+        <div className="space-y-3 md:max-w-form">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-action">
             {t("inbox.suggestedReply")}
           </p>
@@ -124,7 +124,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 {t("inbox.offerSlot")}
               </Button>
             )}
-            <Button variant={onDone ? "primary" : "secondary"} icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
+            <Button icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
               {review ? t("reviews.publish") : slot ? t("inbox.sendAndBook") : t("inbox.send")}
             </Button>
           </div>

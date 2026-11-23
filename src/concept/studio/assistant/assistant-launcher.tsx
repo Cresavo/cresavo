@@ -47,9 +47,9 @@ function useShortcut() {
 export function AssistantHeaderButton() {
   const mac = useSyncExternalStore(noChange, () => /Mac|iPhone|iPad/.test(navigator.platform), () => false);
   return (
-    <Button size="sm" variant="secondary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
+    <Button size="sm" variant="tertiary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
       <span className="max-sm:sr-only">{t("assistant.open")}</span>
-      <kbd aria-hidden className="hidden rounded-xs border border-hairline px-2 font-sans text-xs text-text-secondary lg:inline">{t(mac ? "assistant.shortcut.mac" : "assistant.shortcut.pc")}</kbd>
+      <kbd aria-hidden className="hidden font-sans text-xs text-text-secondary lg:inline">{t(mac ? "assistant.shortcut.mac" : "assistant.shortcut.pc")}</kbd>
     </Button>
   );
 }

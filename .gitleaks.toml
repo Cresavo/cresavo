@@ -98,15 +98,17 @@ paths = ['''^tests/concept-connections-secrets\.test\.ts$''']
 regexTarget = "match"
 regexes = ['''TWILIO_AUTH_TOKEN: "SECRETother01234567ab"''']
 
-# Structured log scrub test (monitoring work, 2026-11-22): a fictional token
-# fed to the logger to prove it is dropped. The value is made up
-# ("sk-secret-123456", ascending digits, no real provider format), was written
-# in a sandbox with no credentials, and is scoped to the one commit that
-# introduced it AND this file AND this literal, so it is reported anywhere else.
+# Log redaction test (branch claude/cresavo-product-architecture-n4rznl,
+# 2026-11-22): a hostile fixture object feeds a made-up "token=..." string,
+# next to a fictional name, e-mail address and phone number, to prove that
+# the structured logger never writes such values. Verified by reading the
+# line: the value has no real credential format and contains an ascending
+# digit run. Scoped to the one commit that introduced it AND this file AND
+# this literal, so it is reported anywhere else.
 [[allowlists]]
-description = "Fictional token in the log scrub test"
+description = "Fictional token string in the log redaction test"
 condition = "AND"
 commits = ["97b53cb0c2d61344c533f25a172b3f6603f09e67"]
 paths = ['''^tests/log\.test\.ts$''']
-regexTarget = "match"
-regexes = ['''token=sk-secret-123456''']
+regexTarget = "line"
+regexes = ['''task: "token=sk-secret-123456"''']

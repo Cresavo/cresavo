@@ -35,7 +35,7 @@ export function CustomerSummary({ customer }: { customer: Customer }) {
 
   const aiText = localOnly ? undefined : aiSummaries.get(key);
   return (
-    <p className="flex items-start gap-2 rounded-md bg-surface-2 px-4 py-3 text-body leading-relaxed">
+    <p className="flex items-start gap-2 text-body leading-relaxed">
       <span>
         {aiText ?? summarizeFallback(facts)}
         {aiText && <span className="ml-2 rounded-full bg-action-bg px-2 py-1 text-xs font-semibold text-text">{t("customer.summary.ai")}</span>}

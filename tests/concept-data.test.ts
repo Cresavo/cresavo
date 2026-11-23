@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { addDays } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { upcomingHolidays } from "@/concept/data/holidays";
-import { freeStarts, isFree } from "@/concept/data/slots";
+import { freeGaps, freeStarts, isFree, openingFor, staffWorks } from "@/concept/data/slots";
+import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { notSeenInThreeMonths } from "@/concept/customers/segments";
 import { buildCustomerStats, lowStock, utilisation } from "@/concept/selectors";
 
@@ -52,6 +53,30 @@ describe("concept demo data", () => {
       expect(isFree(state, "anna", date, start, { serviceId: "medical-foot-care", duration: 60 })).toBe(true);
     }
     expect(freeStarts(state, "anna", "2026-11-22", { serviceId: "ingrown-nail", duration: 30 })).toEqual([]);
+  });
+});
+
+describe("the demo day is never empty", () => {
+  // A whole week from Monday, so Saturday and Sunday are included.
+  const week = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+
+  it.each(week)("%s is a full working day with visits to come and a free gap", (day) => {
+    const demo = day === today ? state : createDemoState(day);
+    expect(openingFor(demo.salon, day)).not.toBeNull();
+    for (const person of demo.staff) expect(staffWorks(demo, person.id, day)).toBe(true);
+    const booked = demo.bookings.filter((b) => b.date === day && b.status === "booked");
+    expect(booked.length).toBeGreaterThanOrEqual(8);
+    // Spread over the day: one in the first hour, and someone still to come until half past five.
+    expect(Math.min(...booked.map((b) => b.start))).toBeLessThanOrEqual(10 * 60);
+    expect(Math.max(...booked.map((b) => b.start + b.duration))).toBeGreaterThanOrEqual(17 * 60 + 30);
+    expect(demo.staff.flatMap((person) => freeGaps(demo, person.id, day, { after: 9 * 60, min: 30 })).length).toBeGreaterThan(0);
+  }, 20000);
+
+  it("leaves a new salon's own hours alone, closed days included", () => {
+    const sunday = "2026-11-22";
+    const own = createSalon(sunday, salonDraft("en"));
+    expect(own.salon.hours[0]).toBeNull();
+    expect(openingFor(own.salon, sunday)).toBeNull();
   });
 });
 
