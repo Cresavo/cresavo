@@ -13,7 +13,7 @@ Use the runtime variables in `brand-theme.css` or their Tailwind utilities. Them
 | Spacing | `--space-{1,2,3,4,5,6,8,12}` = 4, 8, 12, 16, 20, 24, 32, 48 px | `gap-2`, `p-4`, `lg:px-8` |
 | Type | `--type-{h1,h2,h3,body,meta,min}` = 28, 20, 16, 15, 13, 12 px at the default root size. Relative units respect text zoom. | `text-h1`, `text-h2`, `text-h3`, `text-body`, `text-meta`, `text-minimum` |
 | Radius | `--radius-{xs,sm,md,lg,pill}` = 4, 6, 10, 14, 999 px | `rounded-md` controls, `rounded-lg` cards, `rounded-full` chips |
-| Elevation | Flat by default. `--elevation-raised` for a floating surface, `--elevation-sheet` for sheets and toasts. Shadows adapt to the theme. | `shadow-raised`, `shadow-sheet` |
+| Elevation | Flat by default; a screen's one raised card uses the studio's soft card shadow (`.studio-raised`). `--elevation-raised` for a floating surface, `--elevation-sheet` for sheets and toasts. Shadows adapt to the theme. | `shadow-raised`, `shadow-sheet` |
 | Layer | `--z-sticky` 10, `--z-popover` 40, `--z-toast` 50. Native modal dialogs use the browser top layer. | `z-sticky`, `z-popover`, `z-toast` |
 | Motion | `--dur-1` 120 ms, `--dur-2` 200 ms, `--dur-3` 280 ms. Enter with `--ease-out` cubic-bezier(.2,.8,.2,1). Exit with `--ease-in` cubic-bezier(.4,0,1,1). | `duration-quick`, `duration-normal`, `duration-slow`, `ease-enter`, `ease-exit` |
 | Colour | Use ground, surface, text, secondary text, input border, action, on-action, focus and semantic pairs. Hairlines are decorative. | `bg-surface`, `text-text-secondary`, `ring-input-border` |
@@ -23,19 +23,19 @@ Use the runtime variables in `brand-theme.css` or their Tailwind utilities. Them
 
 | Component | When to use | Do | Don't |
 | --- | --- | --- | --- |
-| Button / ButtonLink | Commit a change or navigate to the next step | Lead with a verb. Use primary, secondary, tertiary or danger. Use the link for navigation. Loading preserves the name and disables repeat submission. | Put two competing filled actions on one screen. |
+| Button / ButtonLink | Commit a change or navigate to the next step | Lead with a verb. Use primary, secondary, tertiary, link or danger. The primary is a filled pill; a secondary is a neutral tint with no outline. `link` is an underlined word for a quiet action in running text or a list. Use the link for navigation. Loading preserves the name and disables repeat submission. | Put two competing filled actions on one screen. |
 | IconButton | A familiar compact action such as Close | Supply a translated label and keep the 44 px target in every variant. | Rely on the icon or tooltip to name an unfamiliar action. |
 | SegmentedControl | Choose exactly one view or filter | Keep labels short. Use the selected tab stop and arrow keys. Let a long group scroll horizontally inside its own track. The selected segment is an outlined thumb with stronger text. Use `fit` for a row of collection filters so each sizes to its label, and `quiet` for a utility such as the theme switch (bare icons, a short line under the chosen one). | Wrap segments onto another line, or fill the selected segment with the action colour. |
 | ChoiceCards | Choose one of a few answers in a setup question | Use a short noun per card in a two- or three-column grid. Arrow keys move the choice. | Use it for a view switch or for more than about eight options. |
 | Switch | A setting that takes effect immediately | Name the setting and expose its checked state. Explain an unavailable setting nearby. | Make a switch appear operable when nothing happens. |
 | Chip / Tag | Toggle a filter / identify a category | Use Chip for a pressed state and optional count. Use Tag for a static category. | Present a static label as a button. |
-| Badge / DemoBadge | Name a status or identify simulated activity | Pair an icon and a word. Put DemoBadge beside simulated sending or charging. The studio header carries one; use `short` where space is tight. | Convey risk by colour alone or imply live delivery. |
+| Badge / DemoBadge | Name a status or identify simulated activity | Pair an icon and a word. Put DemoBadge beside simulated sending or charging, at the moment it happens; use `short` where space is tight. The studio shell carries none. | Convey risk by colour alone or imply live delivery. |
 | Field / Input / Select / Textarea | Collect one value | Put the visible label above the control. Add a hint and an actionable inline error. Use native date and time inputs. | Use a placeholder as the only label or erase invalid input. |
 | PageHeader | Introduce a screen | Provide a back link on a detail page, one title, an optional short subtitle and one primary action. Studio pages use the adapter that includes Help. | Build a separate mobile header or hide the only action in a toolbar. |
 | ListRow | Open an item or its details | Put the identity in the title, context in 13 px meta and a supporting mark at either end. The entire row is one link or button. Use optional enter/exit motion for a changed row and remove it in `onExited`. | Nest another button or link in the row. |
 | StickyActionBar | Keep an action reachable while a form or preview scrolls | Put the content in `children` and the controls in `actions`. Set `--action-layout-height` to the available height inside existing chrome. The grid reserves the footer's actual height including wrapped text and the bottom safe area. | Estimate a fixed footer height or cover the last field. |
-| Card / Section | Group related content | Use a heading for a section and a single surface for related rows. Round the surface only; rows inside it are separated by straight hairlines. | Put a card inside every row. |
-| EmptyState | Explain a genuinely empty result | Use one icon, one sentence and one recovery action such as clearing a filter. It has no frame; when the page already says why (a closed day), use one status row instead. | Show a blank card, multiple competing actions or a loading skeleton for empty data. |
+| Card / Section | Group related content | Use a heading for a section. Group with spacing first. `Card` has three surfaces: `paper` (the default, a plain surface with no outline, for lists and forms), `raised` (the one thing a screen is about, lifted with a soft shadow) and `flat` (content straight on the canvas, no box and no rules). Raise at most one surface per screen. See "No nested boxes" in [SITE_RULES](SITE_RULES.md). | Put a card inside a card or around every row, or outline a card. |
+| EmptyState | Explain a genuinely empty result | Use one icon, one sentence and one recovery action such as clearing a filter. It has no frame and no icon plate; when the page already says why (a closed day), use one status row instead. | Show a blank card, multiple competing actions or a loading skeleton for empty data. |
 | Sheet / ConfirmDialog | Edit a focused task or confirm a consequential change | Keep a mounted sheet controlled by `open` through exit. Use a title, a specific verb and a way to cancel. Escape and the close button return focus to the opener. | Use an alert for routine information or unmount the sheet mid-transition. |
 | MediaDialog | Expand a recording with native media controls | Mount on demand, supply a titled, focusable media element and remove the dialog in `onClose`. Give Close a translated label. | Use a sheet for full-size video or build custom playback controls for the expanded recording. |
 | ConsentSheet | Ask for access at the moment it is needed | Summarise who wants access and why, list each grant, and supply a specific verb. High-risk access needs a fresh, unticked acknowledgement on every opening. The caller handles confirmation. | Pre-check consent, hide a grant or use this UI as a stored authorisation. |
@@ -84,6 +84,7 @@ Budget at most **2 KB gzipped per component** and **5 KB per feature** of increm
 ## UI review checklist
 
 - [ ] One filled primary per screen.
+- [ ] No nested boxes: at most one level of surface, no card in a card.
 - [ ] Targets ≥ 44 px at 390 px.
 - [ ] Text ≥ 12 px, secondary contrast ≥ 4.5:1.
 - [ ] Spacing only from tokens, gutters 16/32.
@@ -92,10 +93,20 @@ Budget at most **2 KB gzipped per component** and **5 KB per feature** of increm
 - [ ] Shared components.
 - [ ] Never colour alone.
 - [ ] No jargon (MCP, API, CSV, slug, localhost, token, UTC, CSS, iframe, SIE) in primary views; Advanced only.
-- [ ] Demo label on anything simulated.
+- [ ] Demo label beside a simulated send or charge, not as a standing disclaimer.
 - [ ] Standard empty states.
 - [ ] Long, empty and dark cases checked on mobile and desktop.
 
 ESLint warns on native controls outside the kit and gallery, literal hex colours inside TSX className/style, and arbitrary Tailwind sizes. Run `npm run lint` to see each location. Resolve warnings as each screen adopts the shared components.
 
 The foundation baseline is 314 warnings across application TSX: 185 raw controls, 125 arbitrary sizes and 4 hex colours.
+
+## Plum and paper (studio direction, November 2026)
+
+- The sidebar and the phone masthead are a plum surface (`.studio-chrome` in `studio.css`), the deepest ground in dark. The scope re-declares the tokens its contents read, so shared controls inside it need no variants. The phone status bar follows it (`studioChrome` in `ui/theme.ts`).
+- The canvas is paper. Content sits on it without frames or rules; rows inside one list keep a hairline only where the rows vary enough to need it (Customers, Inbox).
+- Page titles are larger in the studio than the kit's app scale (about 30 px on a phone, 36 px wide), set on `.studio-root`; the kit token is unchanged.
+- Apricot is a highlight fill with dark ink (`.studio-highlight`), used for counts. Never apricot text on a light ground, and not on passive facts such as a time.
+- On phones a plus in the masthead opens Quick actions: New booking, Find a customer, Someone is calling, Ask the assistant.
+- An export button becomes "Open file" after the download.
+- Review rule: no centred-everything layouts, no rows of identical cards, no icons on plates, no dotted "A · B · C" strings where separate facts read better, no arrows appended to links.

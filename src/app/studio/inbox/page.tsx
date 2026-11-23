@@ -136,7 +136,7 @@ function InboxPageContent() {
         )}
         <div className="hidden lg:block">
           {selected ? (
-            <Card className="p-6">
+            <Card surface="raised" className="p-6">
               <InboxDetail key={selected.id} item={selected} />
             </Card>
           ) : items.length > 0 && (

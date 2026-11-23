@@ -27,7 +27,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   const scale = calendarScale(PX_PER_MIN, columns.flat(2));
 
   return (
-    <div className="overflow-x-auto rounded-lg bg-surface ring-1 ring-hairline">
+    <div className="studio-raised overflow-x-auto rounded-lg bg-surface">
       <div className="studio-calendar-grid" style={{ "--calendar-columns": days.length * Math.max(1, staff.length) } as React.CSSProperties}>
         <div className="flex border-b border-hairline">
           <div className="w-11 shrink-0" />

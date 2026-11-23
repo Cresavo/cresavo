@@ -6,7 +6,7 @@ import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { t } from "../../i18n";
 import { taskEnabled } from "../../modules/registry";
 import { dayFacts, daySummaryText, summaryDue } from "../../summary/day";
-import { Card, Section } from "../../ui/card";
+import { Section } from "../../ui/card";
 import { useStudio } from "../use-studio";
 
 interface Summary {
@@ -46,21 +46,16 @@ export function EveningSummary() {
   const text = ai ?? daySummaryText(facts, state.localization.currency);
   return (
     <Section title={t("summary.title")}>
-      <Card className="space-y-3 p-4" data-help="evening-summary">
+      <div className="space-y-3" data-help="evening-summary">
         <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-action-bg text-text"><Moon size={18} /></span>
-          <p className="min-w-0 flex-1 pt-2 font-medium">{text.summary}</p>
-          {ai && <span className="mt-1 shrink-0 rounded-full bg-surface-2 px-2 py-1 text-xs font-semibold text-text-secondary">{t("customer.summary.ai")}</span>}
+          <Moon size={18} aria-hidden className="mt-1 shrink-0 text-text-secondary" />
+          <p className="min-w-0 flex-1 font-medium">{text.summary}</p>
+          {ai && <span className="shrink-0 text-xs font-semibold text-text-secondary">{t("customer.summary.ai")}</span>}
         </div>
-        <ul className="space-y-1 text-sm">
-          {text.highlights.map((line) => (
-            <li key={line} className="flex gap-2">
-              <span className="mt-2 size-1 shrink-0 rounded-full bg-action" aria-hidden />
-              {line}
-            </li>
-          ))}
+        <ul className="space-y-1 pl-8 text-sm text-text-secondary">
+          {text.highlights.map((line) => <li key={line}>{line}</li>)}
         </ul>
-      </Card>
+      </div>
     </Section>
   );
 }

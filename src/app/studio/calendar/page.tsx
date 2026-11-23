@@ -153,7 +153,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
           </div>
         </>
       )}
-      <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>
+      {(view === "week" || openingFor(state.salon, date)) && <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>}
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

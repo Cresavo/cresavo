@@ -84,7 +84,7 @@ export default function CustomerPage() {
         </Button>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
-          <Card className="space-y-4 p-5">
+          <Card surface="raised" className="space-y-4 p-5">
             <div className="flex items-center gap-4">
               <Avatar name={fullName(customer)} size="xl" />
               <div className="min-w-0 space-y-2">
