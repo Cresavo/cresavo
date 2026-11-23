@@ -11,13 +11,17 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void;
   label: string;
   className?: string;
+  /** Size each option to its label, for a row of collection filters. */
+  fit?: boolean;
+  /** Bare options with a short line under the selected one, for a utility such as the theme switch. */
+  quiet?: boolean;
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label, className }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ value, options, onChange, label, className, fit, quiet }: SegmentedProps<T>) {
   const selectedIndex = options.findIndex(option => option.value === value);
   return (
-    <div className={cx("inline-block w-fit min-w-0 max-w-full overflow-x-auto rounded-md bg-surface-2 p-1 align-middle", className)}>
-      <div role="radiogroup" aria-label={label} data-unselected={selectedIndex < 0 || undefined} className="ui-segments" style={{
+    <div className={cx("inline-block w-fit min-w-0 max-w-full overflow-x-auto align-middle", !quiet && "rounded-md bg-surface-2 p-1", className)}>
+      <div role="radiogroup" aria-label={label} data-unselected={selectedIndex < 0 || undefined} data-fit={fit || undefined} data-quiet={quiet || undefined} className="ui-segments" style={{
         "--segment-count": Math.max(1, options.length), "--segment-index": selectedIndex,
       } as CSSProperties}>
         {options.map((o, index) => (
@@ -43,7 +47,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
             }}
             className={cx(
               "inline-flex min-h-target min-w-target items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 text-body font-medium",
-              o.value === value ? "text-on-action" : "text-text-secondary hover:text-text",
+              "text-text-secondary hover:text-text",
             )}
           >
             {o.content ?? o.icon ?? o.label}

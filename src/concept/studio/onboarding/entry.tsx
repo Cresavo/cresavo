@@ -23,11 +23,13 @@ export function SalonEntry({ today = false, standalone = false }: { today?: bool
   const close = useCallback(() => { setTour(false); explore.current?.focus(); }, []);
   if (workspace === "account") return <AccountNotice />;
   if (state.industry) return <TrialNotice />;
+  // On Today the invitation is one quiet row, so the next customer stays the first thing on the page.
+  const Frame = today ? "div" : Card;
   return <div className="mb-5">
-    <Card className="space-y-3 p-4">
+    <Frame className={today ? "flex flex-wrap items-center gap-x-4 gap-y-2" : "space-y-3 p-4"}>
       {standalone
         ? <PageHeader tools={false} title={t("setup.title")} subtitle={t(savedSalon ? "setup.saved" : "setup.intro")} />
-        : <p className="font-medium">{t(savedSalon ? "setup.saved" : "setup.intro")}</p>}
+        : <p className={today ? "text-text-secondary" : "font-medium"}>{t(savedSalon ? "setup.saved" : "setup.intro")}</p>}
       <div className="flex flex-wrap gap-2">
         <div data-setup-entry className="rounded-md">{savedSalon
           ? <Button variant={today ? "secondary" : "primary"} onClick={async () => { if (await switchSalon("own")) router.push("/studio"); else showToast(t("setup.switchFailed")); }}>{t("setup.resume")}</Button>
@@ -35,7 +37,7 @@ export function SalonEntry({ today = false, standalone = false }: { today?: bool
         {today ? <Button ref={explore} variant="ghost" onClick={() => setTour(true)}>{t("setup.explore")}</Button>
           : <ButtonLink href="/studio" variant="ghost">{t("setup.explore")}</ButtonLink>}
       </div>
-    </Card>
+    </Frame>
     {tour && <DemoTour close={close} />}
   </div>;
 }

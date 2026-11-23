@@ -31,7 +31,9 @@ export function InboxRow({ state, item, today, minutes, selected, onSelect }: In
       meta={<>
         <span className="block truncate">{senderName(state, item) ?? t("inbox.system")}</span>
         <span className="block truncate">{item.body}</span>
-        {!item.read && <Badge tone="accent">{t("inbox.unread")}</Badge>}
+        {!item.read && (
+          <span className="inline-flex items-center gap-2 font-medium text-text"><span aria-hidden className="size-2 shrink-0 rounded-full bg-action" />{t("inbox.unread")}</span>
+        )}
         {item.read && !item.handled && item.draftReply && <Badge>{t("inbox.needsReply")}</Badge>}
       </>}
     />
