@@ -7,7 +7,7 @@ import { paidWithCards, remainingForCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
 import { packageFor, visitsLeft } from "../../packages/packages";
-import { findCustomer, findService, fullName } from "../../selectors";
+import { findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Badge } from "../../ui/badge";
@@ -57,11 +57,13 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const customer = findCustomer(state, booking.customerId);
   const service = findService(state, booking.serviceId);
   const staff = state.staff.find((s) => s.id === booking.staffId)!;
-  const name = customer ? fullName(customer) : "";
+  const name = visitorName(booking, customer);
+  const firstName = booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "";
   const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
   const finished = booking.status === "booked" && !upcoming;
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
-  const lastJournal = state.modules.journal
+  // A visit booked for someone else: the note, the advice and the journal are the booker's, not the visitor's.
+  const lastJournal = state.modules.journal && !booking.visitFor
     ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
@@ -72,7 +74,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 
   const markDone = () => run(async () => {
     const usesStock = state.modules.stock && !!service?.consumption?.length;
-    const first = customer?.firstName ?? "";
+    const first = firstName;
     const message = pkg ? t("booking.donePackageToast", { name: first, left: tc("packages.onLeft", visitsLeft(pkg) - 1) }) : t(usesStock ? "booking.doneStockToast" : "booking.doneToast", { name: first });
     if (await commit({ type: "booking/complete", id: booking.id }, message)) onClose();
     else report("booking.completeFailed");
@@ -80,7 +82,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
 
   const confirmMove = () => run(async () => {
     if (!slot) return;
-    const message = t("booking.movedToast", { name: customer?.firstName ?? "", when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
+    const message = t("booking.movedToast", { name: firstName, when: `${formatDayLong(slot.date)} ${formatTime(slot.start)}` });
     if (await commit({ type: "booking/move", id: booking.id, date: slot.date, start: slot.start }, message)) onClose();
     else report("booking.move.failed");
   });
@@ -222,6 +224,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         )}
         <dl className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
           <InfoRow label={t("booking.when")} value={when} />
+          {booking.visitFor && customer && <InfoRow label={t("booking.bookedBy")} value={fullName(customer)} />}
           <InfoRow label={t("booking.with")} value={`${staff.firstName} ${staff.lastName}`} />
           {booking.resourceId && <InfoRow label={t("booking.room")} value={state.resources.find((r) => r.id === booking.resourceId)?.name ?? ""} />}
           <InfoRow label={t("booking.price")} value={formatMoney(booking.price)} />
@@ -231,7 +234,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
           {booking.contactEmail && <InfoRow label={t("booking.contact.email")} value={<span className="break-all">{booking.contactEmail}</span>} />}
           {customer?.phone && (
             <InfoRow
-              label={t("booking.phone")}
+              label={t(booking.visitFor ? "booking.contactPhone" : "booking.phone")}
               value={
                 <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="inline-flex min-h-target min-w-target items-center gap-2 text-action">
                   <Phone size={14} />
@@ -251,7 +254,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         {(booking.contactEmail || (booking.status === "cancelled" && booking.cancelReason)) && (
           <EditBookingContact booking={booking} save={(patch) => commit({ type: "booking/update", id: booking.id, patch }, t("booking.contact.saved"))} />
         )}
-        {customer?.note && (
+        {customer?.note && !booking.visitFor && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
             {customer.note}

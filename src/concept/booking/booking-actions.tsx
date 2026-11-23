@@ -124,6 +124,9 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
     showToast(t("booking.move.done"));
   });
 
+  // Two visits of the same treatment can be for different people: the dialog says whose this one is.
+  const withVisitor = (text: string) => (booking.visitFor ? `${t("booking.for.visit", { name: booking.visitFor })}. ${text}` : text);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -159,7 +162,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
         open={rule === "free" && sheet === "cancel"}
         onClose={() => setSheet(null)}
         title={t("booking.cancel.title")}
-        description={t("booking.cancel.text", { service: service.name, when })}
+        description={withVisitor(t("booking.cancel.text", { service: service.name, when }))}
         footer={
           <>
             <Button variant="secondary" onClick={() => setSheet(null)}>{t("booking.cancel.keep")}</Button>
@@ -174,7 +177,7 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
         open={moveOpen}
         onClose={() => setSheet(null)}
         title={t("booking.move.title")}
-        description={t("booking.move.commitHint", { service: service.name, when })}
+        description={withVisitor(t("booking.move.commitHint", { service: service.name, when }))}
       >
         <div className="space-y-3 pt-3">
           {moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}

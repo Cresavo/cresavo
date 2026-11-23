@@ -12,6 +12,8 @@ import type { SocialPort } from "./ports/social";
 // reported in SEK; the ports themselves take any ISO 4217 currency.
 
 const DEMO_CURRENCY = "SEK";
+/** What an erased customer's message holds afterwards; the same marker as the store's audit data. */
+const REDACTED_SEND = "[redacted]";
 
 export const demoOutbox: Outbox = createOutbox();
 export const demoPaymentLedger = paymentLedger(demoOutbox);
@@ -49,6 +51,27 @@ function messageLedger(salon: string) {
 /** Forgets a salon's sends and keys when it is deleted or replaced, so its successor starts fresh. */
 export function forgetDemoSends(salon: string) {
   messageLedgers.delete(salon);
+}
+
+/**
+ * After a customer is erased in a browser salon: the messages sent to them lose
+ * their subject and text, and their identifiers (name, phone, address) are
+ * replaced in every other message, for example a confirmation to someone else
+ * that says the visit is for them. Entries keep their ids, so a replay still
+ * records nothing twice.
+ */
+export function redactDemoSends(salon: string, customerId: string, identifiers: readonly string[], scrub: (text: string, identifiers: readonly string[]) => string) {
+  const outbox = messageLedgers.get(salon)?.outbox;
+  if (!outbox) return;
+  const to = `customer:${customerId}`;
+  const entries = outbox.list().map((entry): OutboxEntry => {
+    if (entry.port === "payments") return entry;
+    const theirs = (entry.to ?? "").split(",").some((recipient) => recipient.trim() === to);
+    if (theirs) return { ...entry, body: REDACTED_SEND, ...(entry.subject === undefined ? {} : { subject: REDACTED_SEND }) };
+    return { ...entry, body: scrub(entry.body, identifiers), ...(entry.subject === undefined ? {} : { subject: scrub(entry.subject, identifiers) }) };
+  });
+  outbox.clear();
+  for (const entry of entries) outbox.record(entry);
 }
 
 /** The simulated SMS, email and posts a browser salon's saved changes sent (see `stageDemoSends`). */

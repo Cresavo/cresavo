@@ -6,7 +6,7 @@ import { openingFor } from "../../data/slots";
 import type { DateKey, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDayLong, formatTime } from "../../i18n/format";
-import { dayBookings, findCustomer, findService, fullName, utilisation } from "../../selectors";
+import { dayBookings, findCustomer, findService, fullName, utilisation, visitorName } from "../../selectors";
 import { Card } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Meter } from "../../ui/charts";
@@ -41,8 +41,8 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
                     <li key={b.id}>
                       <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })}
                         leading={<><span className="w-12 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span><StaffDot staffId={b.staffId} /></>}
-                        title={customer ? fullName(customer) : ""}
-                        meta={staff.length > 1 ? staff.find((person) => person.id === b.staffId)?.firstName : undefined}
+                        title={visitorName(b, customer)}
+                        meta={[b.visitFor && customer && t("booking.bookedByName", { name: fullName(customer) }), staff.length > 1 && staff.find((person) => person.id === b.staffId)?.firstName].filter(Boolean).join(" · ") || undefined}
                         trailing={<span className="max-w-24 break-words text-meta text-text-secondary">{findService(state, b.serviceId)?.name}</span>} />
                     </li>
                   );

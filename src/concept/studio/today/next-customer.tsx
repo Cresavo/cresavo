@@ -5,7 +5,7 @@ import { addDays } from "../../data/dates";
 import type { Booking, DateKey, DemoState, StaffId } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { agoText, formatDuration, relativeDay, formatTime } from "../../i18n/format";
-import { buildCustomerStats, dayBookings, findCustomer, findService, fullName } from "../../selectors";
+import { buildCustomerStats, dayBookings, findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { Tag } from "../../ui/badge";
 import { Button, ButtonLink, buttonClass } from "../../ui/button";
 import { Section } from "../../ui/card";
@@ -34,6 +34,22 @@ export function NextDetails({ booking, onOpen }: { booking: Booking; onOpen: (sh
   const { state, today } = useStudio();
   const customer = findCustomer(state, booking.customerId);
   if (!customer) return null;
+  // Visits, tags, the note and the advice describe the customer on the card. On a visit booked for someone else that is the contact, so only how to reach them is shown.
+  if (booking.visitFor) {
+    return (
+      <div className="space-y-2 text-sm text-text-secondary">
+        <div className="-ml-3 flex flex-wrap gap-x-1">
+          <Button variant="tertiary" size="sm" icon={<CalendarClock size={16} aria-hidden />} onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>
+            {t("booking.move")}
+          </Button>
+          {customer.phone.trim() && <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className={buttonClass("tertiary", "sm")}>
+            <Phone size={16} aria-hidden />
+            {t("next.callContact")}
+          </a>}
+        </div>
+      </div>
+    );
+  }
   const stats = buildCustomerStats(state, today).get(customer.id);
   const advice = state.modules.journal ? state.journals.filter((j) => j.customerId === customer.id).at(-1)?.advice : undefined;
   return (
@@ -84,7 +100,8 @@ export function NextDayCustomer({ staffId, onOpen }: { staffId?: StaffId; onOpen
       <div className="space-y-3">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-semibold tracking-tight">{fullName(customer)}</p>
+            <p className="text-lg font-semibold tracking-tight">{visitorName(booking, customer)}</p>
+            {booking.visitFor && <p className="text-sm text-text-secondary">{t("booking.bookedByName", { name: fullName(customer) })}</p>}
             <p className="text-sm text-text-secondary">{service?.name}, {formatDuration(booking.duration)}</p>
             <p className="mt-1 flex items-center gap-2 text-sm text-text-secondary">
               <StaffDot staffId={staff.id} />

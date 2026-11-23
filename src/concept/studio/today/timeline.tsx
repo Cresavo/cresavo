@@ -7,7 +7,7 @@ import { freeGaps } from "../../data/slots";
 import type { Booking, DateKey, StaffId } from "../../data/types";
 import { t } from "../../i18n";
 import { formatDuration, formatTime } from "../../i18n/format";
-import { findCustomer, findService, fullName } from "../../selectors";
+import { findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { Badge, Tag } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { cx } from "../../ui/cx";
@@ -71,10 +71,11 @@ export function Timeline({ date, staffId, onOpen }: { date: DateKey; staffId?: S
             <li key={b.id} data-figure-row className={cx(isNext && "studio-raised my-3 rounded-lg bg-surface")}>
               <ListRow onClick={() => onOpen({ kind: "booking", id: b.id })} className={cx(ROW, isNext && "pt-3")}
                 leading={<span className={cx(TIME, isNext ? "font-semibold" : "text-text-secondary")}>{formatTime(b.start)}</span>}
-                title={<span className={cx(isNext && "text-lg font-semibold tracking-tight", cancelled && "line-through", quiet && "font-normal text-text-secondary")}>{customer ? fullName(customer) : ""}</span>}
+                title={<span className={cx(isNext && "text-lg font-semibold tracking-tight", cancelled && "line-through", quiet && "font-normal text-text-secondary")}>{visitorName(b, customer)}</span>}
                 meta={<span className="flex items-center gap-2">
                   <StaffDot staffId={b.staffId} />
                   <span>
+                    {b.visitFor && customer && <span className="block">{t("booking.bookedByName", { name: fullName(customer) })}</span>}
                     {person && `${person} · `}
                     {service?.name}
                     {!(service && /\d+ min/.test(service.name)) && <> · <span className="whitespace-nowrap">{formatDuration(b.duration)}</span></>}
