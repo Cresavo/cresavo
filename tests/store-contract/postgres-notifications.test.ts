@@ -1,9 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import pg from "pg";
 import { beforeEach, expect, it, vi } from "vitest";
-import { PostgresNotifications } from "@/concept/store/postgres-notifications";
+import { PostgresNotifications, wakeTag } from "@/concept/store/postgres-notifications";
 import { PostgresStudioStore } from "@/concept/store/postgres-studio-store";
-import type { StoreChange } from "@/concept/store/studio-store";
 
 vi.mock("pg", async () => {
   const { EventEmitter } = await import("node:events");
@@ -22,15 +21,16 @@ beforeEach(() => vi.clearAllMocks());
 
 const connection = "postgresql://127.0.0.1:1/studio_notifications_test";
 
-const notify = (client: pg.Client, version: number, sender?: string) => client.emit("notification", {
-  channel: "tenant_changes", payload: JSON.stringify({ tenantId: "fixture", version, sender }), processId: 100,
+const tag = (n: number) => wakeTag("fictional test secret with 32 characters", `fixture-${n}`);
+const notify = (client: pg.Client, n: number, sender?: string, payload: object = { tag: tag(n), sender }) => client.emit("notification", {
+  channel: "tenant_changes", payload: JSON.stringify(payload), processId: 100,
 });
 
 it("suppresses its own echoes and signals refresh after each successful LISTEN", async () => {
   vi.useFakeTimers();
-  const changes: StoreChange[] = [];
+  const changes: string[] = [];
   const refresh = vi.fn();
-  const listener = new PostgresNotifications(connection, (change) => changes.push(change), refresh);
+  const listener = new PostgresNotifications(connection, (woken) => changes.push(woken), refresh);
   try {
     const clients = vi.mocked(pg.Client).mock.instances;
     listener.start();
@@ -42,7 +42,10 @@ it("suppresses its own echoes and signals refresh after each successful LISTEN",
 
     notify(first, 1, listener.sender);
     notify(first, 2);
-    expect(changes).toEqual([{ tenantId: "fixture", version: 2, effects: [] }]);
+    // Only an opaque tag is accepted: a tenant id and version, or anything else, wakes nobody.
+    notify(first, 5, undefined, { tenantId: "fixture", version: 5 });
+    notify(first, 6, undefined, { tag: "not-a-tag" });
+    expect(changes).toEqual([tag(2)]);
 
     first.emit("error", new Error("Database connection closed"));
     expect(first.end).toHaveBeenCalledOnce();
@@ -54,10 +57,10 @@ it("suppresses its own echoes and signals refresh after each successful LISTEN",
     const [, second] = clients;
     expect(listener.ready).toBe(true);
     expect(refresh).toHaveBeenCalledTimes(2);
-    expect(changes.map((change) => change.version)).toEqual([2]);
+    expect(changes).toEqual([tag(2)]);
     notify(second, 4, listener.sender);
     notify(second, 4, "another-store");
-    expect(changes.map((change) => change.version)).toEqual([2, 4]);
+    expect(changes).toEqual([tag(2), tag(4)]);
 
     listener.stop();
     second.emit("end");

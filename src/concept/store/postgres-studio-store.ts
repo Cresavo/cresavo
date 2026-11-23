@@ -35,7 +35,7 @@ import {
 } from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
 import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
-import { notifyTenantChange, PostgresNotifications } from "./postgres-notifications";
+import { notifyTenantChange, PostgresNotifications, wakeTag } from "./postgres-notifications";
 import { DOCUMENT_SIZE_REFUSAL, MAX_DOCUMENT_BYTES, StoreMetrics } from "./store-metrics";
 import { enterScope, scoped, type StoreScope } from "./tenant-scope";
 import {
@@ -276,6 +276,9 @@ export class PostgresStudioStore implements StudioStore {
   private readonly liveMessage: (record: OutboxEntry, tenantId: TenantId) => boolean;
   private readonly listeners = new Map<TenantId, Set<(change: StoreChange) => void>>();
   private readonly refreshListeners = new Set<() => void>();
+  /** Wake-up tag to tenant, for the tenants this store has subscribers for, and the last version handed to them. */
+  private readonly tags = new Map<string, TenantId>();
+  private readonly seen = new Map<TenantId, number>();
   private readonly notifications?: PostgresNotifications;
   private readonly metrics = new StoreMetrics();
 
@@ -299,12 +302,25 @@ export class PostgresStudioStore implements StudioStore {
     if (listenerConnectionString) {
       this.notifications = new PostgresNotifications(
         listenerConnectionString,
-        (change) => notifyAll(this.listeners.get(change.tenantId) ?? [], change),
+        (tag) => void this.woken(tag).catch(() => {}),
         () => {
           for (const refresh of [...this.refreshListeners]) refresh();
         },
       );
     }
+  }
+
+  /**
+   * A change notification for one of this store's tenants: the version is read in the tenant's own scope, never
+   * taken from the notification, and handed on only when it is newer than the last one handed on.
+   */
+  private async woken(tag: string) {
+    const tenantId = this.tags.get(tag);
+    if (!tenantId || !this.listeners.has(tenantId)) return;
+    const row = await this.live(tenantId, await this.clock(this.prisma));
+    if (!row || row.version <= (this.seen.get(tenantId) ?? 0)) return;
+    this.seen.set(tenantId, row.version);
+    notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: row.version, effects: [] });
   }
 
   private fingerprint(action: DemoAction): string {
@@ -339,8 +355,8 @@ export class PostgresStudioStore implements StudioStore {
         await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${this.lockTimeoutMs}ms`}, true)`;
         const result = await run(tx);
         if (result.commit) {
-          const { entry, version } = result.commit;
-          await notifyTenantChange(tx, entry.tenantId, version, this.notifications?.sender);
+          const { entry } = result.commit;
+          await notifyTenantChange(tx, wakeTag(this.hmacSecret, entry.tenantId), this.notifications?.sender);
         }
         return result;
       }, TRANSACTION);
@@ -451,6 +467,7 @@ export class PostgresStudioStore implements StudioStore {
   private async published(tenantId: TenantId, { documentBytes, ...commit }: DocumentCommit, start: number): Promise<ApplyResult & { ok: true }> {
     this.metrics.record({ documentBytes, bookings: commit.state.bookings.length, applyDurationMs: performance.now() - start });
     if (this.deliverAfterCommit) await this.drain(tenantId);
+    this.seen.set(tenantId, Math.max(this.seen.get(tenantId) ?? 0, commit.version));
     notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: commit.version, entry: commit.entry, effects: commit.effects });
     return { ok: true, ...detach(commit), replayed: false };
   }
@@ -823,6 +840,7 @@ export class PostgresStudioStore implements StudioStore {
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void, { onRefresh }: { onRefresh?: () => void | Promise<void> } = {}): () => void {
     const listeners = this.listeners.get(tenantId) ?? new Set();
     this.listeners.set(tenantId, listeners);
+    this.tags.set(wakeTag(this.hmacSecret, tenantId), tenantId);
     const subscription = (change: StoreChange) => listener(change);
     listeners.add(subscription);
     const refresh = onRefresh && (async () => {
@@ -844,6 +862,8 @@ export class PostgresStudioStore implements StudioStore {
       if (listeners.size) return;
       if (this.listeners.get(tenantId) !== listeners) return;
       this.listeners.delete(tenantId);
+      this.tags.delete(wakeTag(this.hmacSecret, tenantId));
+      this.seen.delete(tenantId);
       if (!this.listeners.size) this.notifications?.stop();
     };
   }
@@ -858,6 +878,8 @@ export class PostgresStudioStore implements StudioStore {
     for (const listeners of this.listeners.values()) listeners.clear();
     this.listeners.clear();
     this.refreshListeners.clear();
+    this.tags.clear();
+    this.seen.clear();
     this.notifications?.stop();
   }
 
