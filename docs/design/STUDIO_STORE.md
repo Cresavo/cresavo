@@ -401,19 +401,17 @@ simulated delivery, and refusal of oversized writes.
 ### Row-level security
 
 Prepared, not enforced. Migration `20261122160000_store_rls_policies` creates
-the policies on the four store tables and the fixed functions the effect poller
-and the sweeps work through, and does not enable row-level security. Until an
-operator runs `prisma/grants/rls-enable.sql`, isolation rests on the code's
-`tenant_id` conditions alone, as before.
+only what the code needs whether or not RLS is on: the fixed functions the
+effect poller and the sweeps work through. They are closed to PUBLIC, name no
+role and need none, so the migration runs on a fresh cluster without any
+`cresavo_*` role (developer volumes, CI, a first deploy). The policies belong to
+the operator step `prisma/grants/rls-enable.sql`. Until it runs, isolation rests
+on the code's `tenant_id` conditions alone, as before.
 
-Before the first `migrate deploy` of a cluster an admin runs
-`prisma/grants/bootstrap-roles.sql`: it creates the five NOLOGIN group roles
-the policies and grants name. The migration credential stays unprivileged; the
-migration stops before it changes anything when a role is missing. Prisma then
-records it as failed. To recover, run bootstrap-roles.sql, then
-`npx prisma migrate resolve --rolled-back 20261122160000_store_rls_policies`,
-then deploy again. The local Docker database runs bootstrap-roles.sql on the
-first start of a new volume, and the sandbox bootstrap script runs it as well.
+`prisma/grants/bootstrap-roles.sql` creates the five NOLOGIN group roles. An
+admin runs it before `roles.sql` (which repeats the same block) and before
+`rls-enable.sql`, whose policies name the roles; it is never needed before
+`migrate deploy`.
 
 Every statement on a store table runs in a transaction that first calls
 `set_config(…, true)` through `src/concept/store/tenant-scope.ts`. The setting
@@ -432,7 +430,12 @@ next request (`tests/integration/store-rls.test.ts` checks this).
 The functions are SECURITY DEFINER, owned by the table owner (whose
 `store_owner` policy keeps every row under FORCE), with
 `search_path = public, pg_temp`. Each one checks its caller's login
-(`session_user`) and scope first. The outbox functions accept the poller in the
+(`session_user`) and scope first, when it is called: membership of a group role
+is looked up by name then, so a role that does not exist simply grants nothing.
+`studio-store.sql` grants EXECUTE on the outbox functions to `cresavo_app`, and
+`roles.sql` grants the outbox functions to `cresavo_outbox` and the sweep
+functions to `cresavo_sweeper`; the table owner, which owns them, may always
+call them (development and tests). The outbox functions accept the poller in the
 outbox scope, and the app or the poller's sink in a tenant's own scope. The
 sweep functions accept only the sweeper in the sweep scope. The table owner may
 call either kind; tests and operators replay a fixed clock that way. Every
@@ -465,11 +468,11 @@ are never subject to RLS.
 Order, once per environment, after the application code that sets scopes is
 deployed:
 
-1. `bootstrap-roles.sql` (admin, once per cluster), then `npx prisma migrate deploy`. The migration creates the policies and functions; nothing changes yet.
+1. `npx prisma migrate deploy` (creates the functions; nothing else changes), then `bootstrap-roles.sql` as an admin, once per cluster.
 2. `roles.sql`, `studio-store.sql`, `erase-subject.sql` and one login per group role (`cresavo_outbox_login` for `effects:drain`), as in the header of `roles.sql`. Then run `verify-roles.sql` with all four logins. It compares every effective table, column and function privilege of each login with a complete allowlist, and checks what each login can SET ROLE to, inherit or administer.
-3. `psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql` as the table owner. It locks the four tables in ACCESS EXCLUSIVE mode, then refuses unless the policies are exactly the migration's (names, commands, roles and predicates, by digest of PostgreSQL 16's rendering with the default search_path) and the roles exist.
+3. `psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql` as the table owner, in one transaction: it refuses unless the five roles exist, locks the four tables in ACCESS EXCLUSIVE mode, creates the policies (replacing an earlier copy of each), refuses unless the policies on the tables are then exactly the expected set (names, commands, roles and predicates, by digest of PostgreSQL 16's rendering with the default search_path; a policy added by hand stops it), and enables and forces RLS.
 4. `psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql`. Every table must be enabled and forced, with nothing missing, unexpected or changed, and there must be no problem rows. verify-rls finds the runtime logins itself, transitively through memberships that grant INHERIT or SET. An ADMIN-only grant, such as a CREATEROLE creator's, does not count. None of them, and not the erase definer, may be or SET ROLE to a superuser, a BYPASSRLS role or a table's owner, inherit ownership, or hold ADMIN OPTION.
-5. Rollback at any time: `prisma/grants/rls-disable.sql`.
+5. Rollback at any time: `prisma/grants/rls-disable.sql` turns RLS off and drops the policies again, leaving the tables as the migrations made them.
 
 Backups under RLS need an identity that reads every row: a dedicated backup
 login with BYPASSRLS, or the table owner with `pg_dump --enable-row-security`.

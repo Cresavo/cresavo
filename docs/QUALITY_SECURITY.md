@@ -95,8 +95,8 @@ Security
       equivalent) and covered by tests that try to read another tenant.
       The tests exist (`tests/integration/tenant-isolation.test.ts`: owner
       routes, public booking links, the store and its sweeps, each against a
-      second salon). Row-level security is prepared: migration
-      `store_rls_policies` has the policies for the four store tables, every
+      second salon). Row-level security is prepared: `prisma/grants/rls-enable.sql`
+      holds the policies for the four store tables, every
       store transaction already sets its tenant or its narrow cross-tenant
       scope, and `tests/integration/store-rls.test.ts` runs the store under
       RLS as real application, poller (`cresavo_outbox`), sweeper and support

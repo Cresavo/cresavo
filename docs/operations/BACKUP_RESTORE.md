@@ -98,9 +98,13 @@ then decide whether to cut over.
    The name must not be one the application is configured for. The test suites
    refuse databases not ending in `_test` or `_demo`; do not weaken that guard
    to run them here.
-3. **Create the group roles first** on a fresh cluster (roles belong to the
-   cluster, not to the dump): the restored policies and grants name them, and
-   `pg_restore --exit-on-error` stops at the first policy otherwise.
+3. **Create the group roles first when the dump names them** (roles belong
+   to the cluster, not to the dump). A dump of a database with row-level
+   security enforced carries its policies, and a dump taken without
+   `--no-privileges` carries grants; both name the `cresavo_*` roles, and
+   `pg_restore --exit-on-error` stops at the first such statement on a cluster
+   without them. A `--no-privileges` dump of a database without RLS names no
+   role and restores without this step; running it anyway does no harm.
 
    ```bash
    psql --host <scratch-host> --username <admin_login> --dbname cresavo_restore_drill \
