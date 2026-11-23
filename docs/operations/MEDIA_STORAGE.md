@@ -8,21 +8,34 @@ while signed in (`OWNER_ACCOUNTS_ENABLED`). The public demo stores nothing.
 
 ## What is stored
 
-- Only JPEG, PNG and WebP, recognised from the file's own bytes. SVG is
-  refused, and so is HEIC (the studio turns HEIC into JPEG in the browser
-  when it can).
-- Before anything is stored, EXIF (with the GPS position), XMP, IPTC,
-  comments, PNG text chunks and the images a phone appends after the main one
-  are removed. The picture data is not re-encoded. A rotated photo keeps an
-  EXIF block that holds only its orientation.
-- Limits: 8 MB per file, 300 photos and 500 MB per business, 60 uploads per
-  15 minutes per business. The same picture is kept once per business.
+- Only complete still JPEG, PNG and WebP images, recognised from the file's
+  own bytes. SVG, HEIC (the studio turns HEIC into JPEG in the browser when it
+  can) and animated PNG or WebP are refused, and so is anything over
+  40 megapixels or a file whose structure does not add up.
+- Each picture is rebuilt from an allowlist before it is stored: what a
+  decoder needs, and a valid ICC colour profile. Everything else goes: EXIF
+  (with the GPS position), XMP, IPTC, comments, thumbnails (also the one a
+  JFIF header can hold), C2PA and other provenance manifests, time stamps and
+  the images a phone appends. The picture data is not re-encoded. A rotated
+  photo gets a new EXIF block with only its orientation, and a JPEG keeps
+  only Adobe's colour transform byte when it needs it. The rebuild caps the
+  number of segments and never writes more than the upload's size.
+- Limits: 8 MB per file, 300 photos per business, 60 uploads per 15 minutes,
+  and 500 MB of storage per business. Storage counts everything not yet
+  purged, deleted pictures included, so deleting does not free space until
+  the sweep has run.
 - Photos are private: the app serves them to the signed-in owner after its
-  own checks. Only the active logo has a public address, which contains its
-  id and the SHA-256 of its bytes.
-- A deleted picture can be restored for one day and is purged by
-  `npm run store:sweep` 30 days after deletion. A replaced logo counts as
-  deleted.
+  own checks. A logo is published when the owner saves the booking page that
+  uses it; until then only its owner sees it, in the editor's preview. Saving
+  a new logo, or none, retires the published one. The public address holds
+  the logo's id and the SHA-256 of its bytes, and answers only while the
+  saved page uses it. Copies may be kept for five minutes
+  (`max-age=300, must-revalidate`).
+- An account salon's page can no longer take a new inline (data URL) logo;
+  the demo, which stores nothing on the server, still can.
+- A deleted photo can be restored for one day and is purged by
+  `npm run store:sweep` 30 days after deletion. A logo that was uploaded and
+  replaced before any page used it is purged after an hour.
 
 ## Settings
 
@@ -37,6 +50,14 @@ while signed in (`OWNER_ACCOUNTS_ENABLED`). The public demo stores nothing.
 The sweep job needs the `MEDIA_S3_*` settings too when `MEDIA_STORE=s3`, or
 whenever any row is stored in S3. Requests are signed with AWS Signature
 Version 4. The app uses no SDK.
+
+With S3, an upload first writes its row as `pending`, then sends the bytes,
+then marks the row `ready`. A failed or abandoned upload stays pending, and
+the sweep removes its object and row after an hour. The sweep purges each
+picture on its own and reports the ones the store refused (`mediaFailed`);
+they are tried again on the next run. Object keys are always
+`media/<tenant>/<id>`: the database checks this, and the app checks it again
+before every read and delete.
 
 ## Choosing EU storage
 
