@@ -214,21 +214,36 @@ second step. Accounts without two-step sign-in are unaffected.
 
 ### `JOURNAL_ENCRYPTION_KEY`
 
-Only used with `JOURNALS_ON_SERVER=1` (server-side journals, off by default;
-[STUDIO_STORE](../design/STUDIO_STORE.md#server-side-journals)). It encrypts
-every version of every journal entry in `journal_entry` (AES-256-GCM, a fresh
-IV per version, associated data `tenant|customer|entry|version`). The value is
-`v<N>:` plus 32 random bytes in base64; `N` is stored on each row as
+Used with `JOURNALS_ON_SERVER=1` (server-side journals, off by default;
+[STUDIO_STORE](../design/STUDIO_STORE.md#server-side-journals)), and for every
+erasure in a salon that has encrypted journal rows, whatever the flag says. It
+encrypts every version of every journal entry in `journal_entry` (AES-256-GCM,
+a fresh IV per version, associated data `tenant|customer|entry|version`). The
+value is `v<N>:` plus 32 random bytes in base64; `N` is stored on each row as
 `key_version`. Keep it in the secret store, never in a backup next to the
 database.
 
-**Loss.** There is no copy of the text anywhere else once a salon's journals
-have moved into the table (the document keeps stubs, the audit log the entry
-id). A lost key makes every stored journal entry unreadable for good: the
-journal route answers 503 `journals_unreadable`, the salon still loads with
-its stubs, new entries cannot be written, and an erasure is refused with 503
-until a key is configured. Restoring the key from the secret store's history
-makes everything readable again at once.
+**Wrong key.** The first worker that uses a key version stores a verifier for
+it (`journal_key`, a known value encrypted under the key). A different key with
+the same version is refused before it reads or writes anything: journal routes
+answer 503, nothing is written under it, and the salon is served with its stubs.
+Give a new key a new version number.
+
+**What the move removes.** Once a salon is marked (`tenant_state.journals_sealed_at`),
+its document holds stubs only, its stored replays hold no journal text, and its
+audit rows from before the move were stripped of the text
+(`store_journal_redact_audit`; a `journal/add` keeps its entry id). The salon is
+marked only when all three were checked clean, in the same transaction. Copies
+outside the database are not touched: backups taken before the move keep the
+text until they age out (30 days), and a restore of such a backup needs the move
+again (it runs on the first load with the flag on).
+
+**Loss.** After the move there is no other copy of the text in the database. A
+lost key makes every stored journal entry unreadable for good: the journal route
+answers 503 `journals_unreadable`, the salon still loads with its stubs, new
+entries cannot be written, and an erasure is refused with 503 until the key is
+configured again. Restoring the key from the secret store's history makes
+everything readable again at once.
 
 **Rotation.** No rotation tool yet (follow-up): a new value makes every stored
 version unreadable, exactly like a loss. Rotate only after a leak of the key
@@ -239,7 +254,11 @@ the row-locked store transaction, and only then retire the old one.
 **Off switch.** Setting `JOURNALS_ON_SERVER` back to 0 does not bring the text
 back into the documents: salons whose journals moved then show empty entries.
 Keep the flag on once it has been on; a key problem is fixed by restoring the
-key, not by turning the flag off.
+key, not by turning the flag off. Keep `JOURNAL_ENCRYPTION_KEY` set even then:
+erasure needs it (`npm run store:erase` too, after a restore), and without it an
+erasure in a salon with encrypted rows answers 503 and erases nothing. Journal
+text written while the flag is off clears the salon's mark, so it moves again
+when the flag comes back.
 
 ### Other secrets
 

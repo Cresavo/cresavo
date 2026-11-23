@@ -425,35 +425,58 @@ Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
   row and the replay keep `journal/add` with the entry id and `journal/edit`
   with id and day, never the text. A customer leaving the live list (trash,
   undo of an add) sets `deleted_at` on their rows; coming back clears it.
+- **Key.** `journal_key` keeps one verifier per key version (a known value
+  encrypted under it), stored by the first use. A key that does not decrypt its
+  version's verifier is treated as no key at all.
 - **Read.** `readJournals(tenant, customer)` locks the salon, applies
-  `journal/view` for that customer (a repeat within a minute is the read
-  already logged), decrypts the customer's live entries and returns them, in one
-  transaction. `GET /api/owner/journals?customer=` serves it; `POST` takes
-  `journal/add` and `journal/edit` (the actions route refuses them with the flag
-  on). Rate limits `journal-read` (300) and `journal-write` (120) per salon and
-  15 minutes.
-- **Lazy move.** Text still in a document (a salon from before the flag) moves
-  into the table on the first load (`sealJournals`, a `system/seal-journals`
-  audit row and a new version) or the first save, in one transaction under the
-  row lock; a second run finds stubs only. Replays of the last day lose the text
-  in the same transaction. Audit rows written before the flag keep their journal
-  text: the application cannot update them, so the 13-month redaction or an
-  erasure removes it (a one-off operator redaction is a follow-up).
-- **Erasure.** Before the table half, every stored version of another
-  customer's entry that names the erased customer gets a scrubbed copy
-  (`replaces` = the version it replaces) and the document's stubs are
-  renumbered. `erase_subject` (and the statements mode) then deletes the
-  customer's rows and every replaced version. The export reads the customer's
-  journal through the same route.
-- **Without a key.** The store runs with `"unavailable"`: journal writes,
-  `memory/*` and erasure are refused (503 on the routes), the salon is served
-  without journal text, and a document that still holds text is not moved.
-- **Grants and RLS.** `roles.sql`: the app gets `SELECT, INSERT, UPDATE
-  (deleted_at)`; `erase-subject.sql`: the eraser gets the key columns and
-  `DELETE`; support and the sweeper get nothing. `rls-enable.sql` adds
+  `journal/view` for that customer with `served` (a repeat within a minute of
+  another server read is that read; a read the studio reported never counts),
+  decrypts the customer's live entries and returns them, in one transaction.
+  `GET /api/owner/journals?customer=` serves it; `POST` takes `journal/add` and
+  `journal/edit`. The actions route refuses those and `journal/view` with the
+  flag on. Both journal routes need `x-cresavo-session` equal to the session
+  (the salon load returns it): the studio binds its journal requests, retries
+  and cache to the session it loaded the salon in, and drops text read for an
+  earlier one. Rate limits `journal-read` (300) and `journal-write` (120) per
+  salon and 15 minutes.
+- **Lazy move.** Until a salon is marked (`tenant_state.journals_sealed_at`),
+  the first load (`sealJournals`) or save moves its journals, in one transaction
+  under the row lock: text in the document becomes stubs (a
+  `system/seal-journals` audit row and a new version when it changed), every
+  stored replay loses journal text in its state copy and its action (whatever
+  the document holds now), and the audit rows from before lose it through
+  `store_journal_redact_audit(tenant, ids)` (migration server_journals, SECURITY
+  DEFINER, the tenant's own scope only; `journal/add` keeps its entry metadata
+  and gains the entry id the old document shows, `journal/edit` keeps id and
+  day). The mark is set only after the document, the replays and the audit rows
+  are checked clean; otherwise the transaction fails. `replaceState` finishes
+  the move the same way. Journal text written with the flag off clears the mark.
+- **Erasure.** A salon with encrypted rows is only erased with a working key,
+  whatever the flag says (`erasureVault`, from `JOURNAL_ENCRYPTION_KEY`):
+  otherwise `unavailable` (503) and nothing changes. Each stored version of
+  another customer's entry that names the erased customer is replaced by a
+  scrubbed copy, encrypted for the next version and keeping its trash mark,
+  through `studio_erase_journal_mentions` (erase-subject.sql, owned by the
+  eraser: it writes `replaces` and deletes the replaced version in the same
+  step, and only while the customer is still in the document); the application
+  may not write `replaces`. `erase_subject` (and the statements mode) then
+  deletes the customer's own rows. The document's stubs are renumbered. The
+  export always reads the customer's journal through the route while the server
+  keeps journals, and stops when it cannot.
+- **Without a key.** The store runs with `"unavailable"` (also for a key that
+  fails its verifier): journal writes and `memory/*` are refused, and while the
+  saved document still holds journal text every change is refused under the
+  lock (503), so neither the document nor a replay result is written again. The
+  salon is served without journal text.
+- **Grants and RLS.** `roles.sql`: the app gets `SELECT`, `INSERT` on every
+  column but `replaces`, and `UPDATE (deleted_at)`, plus `SELECT, INSERT` on
+  `journal_key`; `studio-store.sql` grants it `store_journal_redact_audit`;
+  `erase-subject.sql` gives the eraser `SELECT, INSERT, DELETE` and the app
+  `studio_erase_journal_mentions`; support and the sweeper get nothing. `rls-enable.sql` adds
   `store_owner` and `store_tenant` (app and eraser) on the table, no support
   read. No sweep function: journal retention stays the owner's review.
-- **Known gaps.** The whole-salon JSON download carries stubs; the Today and
+- **Known gaps.** The whole-salon JSON download carries stubs (it is cleaned at
+  serialization, so a change still on its way never adds text); the Today and
   booking views show no last advice for a stub; the return-visit suggestion
   from a journal's next visit and the assistant's journal check in the browser
   see no text (the server still checks memory notes). Rows of an undone add stay
