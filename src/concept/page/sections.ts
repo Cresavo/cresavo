@@ -6,6 +6,7 @@ export const SECTION_KINDS = {
   hero: ["photo", "plain"],
   treatments: ["list", "compact"],
   staff: ["cards", "names"],
+  about: ["plain", "card"],
   reviews: ["cards", "quote"],
   gallery: ["grid", "strip"],
   map: ["full", "compact"],
@@ -55,6 +56,14 @@ export const availableKinds = (sections: readonly PageSection[]) => SECTION_ORDE
 
 export const addSection = (sections: readonly PageSection[], kind: SectionKind): PageSection[] =>
   sections.some((s) => s.kind === kind) ? [...sections] : pinHero([...sections, { kind, variant: variantsOf(kind)[0] }]);
+
+/** Adds a section right after another one, or last when that one is not on the page. */
+export function addSectionAfter(sections: readonly PageSection[], kind: SectionKind, after: SectionKind): PageSection[] {
+  if (sections.some((s) => s.kind === kind)) return [...sections];
+  const at = sections.findIndex((s) => s.kind === after);
+  if (at < 0) return addSection(sections, kind);
+  return pinHero([...sections.slice(0, at + 1), { kind, variant: variantsOf(kind)[0] }, ...sections.slice(at + 1)]);
+}
 
 export const removeSection = (sections: readonly PageSection[], kind: SectionKind): PageSection[] => sections.filter((s) => s.kind !== kind);
 

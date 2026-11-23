@@ -253,6 +253,7 @@ export const footMassage: Pack = {
   categories: ["foot", "massage"],
   salon: SALON,
   palette: "forest",
+  about: copy("about"),
   staff: STAFF,
   services: SERVICES,
   stock: STOCK,

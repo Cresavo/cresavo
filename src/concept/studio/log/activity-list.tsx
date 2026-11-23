@@ -6,7 +6,7 @@ import { toKey } from "../../data/dates";
 import { formatTime } from "../../data/dates";
 import { t } from "../../i18n";
 import { relativeDay } from "../../i18n/format";
-import { accountRecordSettled } from "../../store";
+import { accountRecordSettled, useDemo } from "../../store";
 import { filterLog, present, type LogFilter } from "../../log/filter";
 import type { LogEntry } from "../../log/types";
 import { undoBlockReason } from "../../log/undo";
@@ -53,6 +53,8 @@ function Row({ entry, reason, today }: { entry: LogEntry; reason: ReturnType<typ
 /** Everything that changed, newest first, with filters and Undo where it is still possible. */
 export function ActivityList() {
   const { state, today } = useStudio();
+  // Undo is checked against the salon as it is saved: the studio's view translates demo copy, which is not a change.
+  const saved = useDemo() ?? state;
   const [filter, setFilter] = useState<LogFilter>({});
   const actors = present(state.log, "actor");
   const sources = present(state.log, "source");
@@ -75,7 +77,7 @@ export function ActivityList() {
         <Card>
           <ul className="divide-y divide-hairline">
             {shown.map((entry) => (
-              <Row key={entry.id} entry={entry} reason={undoBlockReason(state, entry)} today={today} />
+              <Row key={entry.id} entry={entry} reason={undoBlockReason(saved, entry)} today={today} />
             ))}
           </ul>
         </Card>

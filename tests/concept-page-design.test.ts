@@ -5,6 +5,7 @@ import { bookingHome, giftCardLink, myBookingsFor, rebookLink, widgetPath } from
 import { buildIntentContext } from "@/concept/command/intent-context";
 import { proposalFor } from "@/concept/command/proposal";
 import { createDemoState, DEMO_VERSION } from "@/concept/data/generate";
+import { translate } from "@/concept/i18n";
 import { interpretCommand } from "@/concept/intent";
 import { applyAction } from "@/concept/log/capture";
 import { undoEntry } from "@/concept/log/undo";
@@ -13,6 +14,7 @@ import { subdomainHost } from "@/concept/page/address";
 import { DEFAULT_PAGE, normalizePage, pageCss } from "@/concept/page/config";
 import { designRequest } from "@/concept/page/design-request";
 import { resolveHost } from "@/concept/page/resolve";
+import { addSectionAfter } from "@/concept/page/sections";
 import { PALETTES } from "@/concept/page/theme";
 
 const today = "2026-11-17";
@@ -79,7 +81,7 @@ describe("design proposal", () => {
   it("lists the section order for 'put reviews first'", () => {
     const proposal = ask("put reviews first");
     if (proposal.kind !== "change") throw new Error("expected a change");
-    expect(proposal.rows).toEqual([{ label: "sections", before: expect.stringContaining("Treatments and prices, Team, Reviews"), after: expect.stringContaining("Top of the page, Reviews, Treatments") }]);
+    expect(proposal.rows).toEqual([{ label: "sections", before: expect.stringContaining("Treatments and prices, Team, About us, Reviews"), after: expect.stringContaining("Top of the page, Reviews, Treatments") }]);
   });
 
   it("points to the editor when the logo is missing", () => {
@@ -167,7 +169,12 @@ describe("own domain module and demo data", () => {
   });
 
   it("starts with the default page in Salong Eko's own colours and no domain, in a new demo version", () => {
-    expect(state.page).toEqual({ ...DEFAULT_PAGE, theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest } });
+    expect(state.page).toEqual({
+      ...DEFAULT_PAGE,
+      theme: { ...DEFAULT_PAGE.theme, colors: PALETTES.forest },
+      sections: addSectionAfter(DEFAULT_PAGE.sections, "about", "staff"),
+      about: { heading: "", text: translate("en", "fixture.eko.about") },
+    });
     expect(DEFAULT_PAGE.theme.colors).toBeNull();
     expect(state.domain).toBeNull();
     expect(state.version).toBe(DEMO_VERSION);

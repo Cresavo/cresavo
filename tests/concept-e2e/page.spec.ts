@@ -117,6 +117,8 @@ test("design the booking page with a live preview, and custom CSS cannot run scr
   await page.getByRole("button", { name: "Night and gold" }).click();
   await page.getByRole("button", { name: "Elegant" }).click();
   await page.getByRole("radio", { name: "Sharp" }).click();
+  // Reviews sits below the team and the About text; two steps take it to right after the price list.
+  await page.getByRole("button", { name: "Move Reviews up" }).click();
   await page.getByRole("button", { name: "Move Reviews up" }).click();
   await page.getByRole("button", { name: "Questions", exact: true }).click();
   await page.getByRole("radio", { name: "One quote" }).click();
@@ -190,6 +192,36 @@ test("dragging a section keeps the booking flow fixed and follows the editor's s
   expect((await state(page)).page.sections.slice(0, 3).map(({ kind }) => kind)).toEqual(["hero", "staff", "treatments"]);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   expect((await state(page)).page.sections).toEqual(before);
+});
+
+test("the owner writes an About text and customers read it as plain text", async ({ page }) => {
+  await page.goto("/studio/more/booking-page");
+  // The demo salon starts with the section on. Switched off, its fields go away; added again, they come back.
+  await page.getByRole("button", { name: "Remove About us" }).click();
+  await expect(page.getByLabel("About text")).toHaveCount(0);
+  await page.getByRole("button", { name: "About us", exact: true }).click();
+  await page.getByRole("radio", { name: "Card", exact: true }).click();
+  await page.getByLabel("About heading").fill("Our story");
+  await page.getByLabel("About text").fill("We opened on Dalagatan in 2019.\nCome as you are.\n\n<b>Bold</b> is not markup here.");
+
+  if (phone(page)) await page.getByRole("radio", { name: "Preview" }).click();
+  const preview = frame(page);
+  await expect(preview.getByRole("heading", { name: "Our story" })).toBeVisible();
+  await expect(preview.getByText("<b>Bold</b> is not markup here.")).toBeVisible();
+  if (phone(page)) await page.getByRole("radio", { name: "Edit" }).click();
+
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Booking page updated").first()).toBeVisible();
+  expect((await state(page)).page.about).toEqual({ heading: "Our story", text: "We opened on Dalagatan in 2019.\nCome as you are.\n\n<b>Bold</b> is not markup here." });
+
+  await page.goto("/boka/salong-eko");
+  const about = page.locator("section").filter({ has: page.getByRole("heading", { name: "Our story" }) });
+  await expect(about.locator("p")).toHaveText(["We opened on Dalagatan in 2019.\nCome as you are.", "<b>Bold</b> is not markup here."], { useInnerText: true });
+  await expect(about.locator("b")).toHaveCount(0);
+  // Readable line length: the text never runs wider than 70 characters, however wide the column is.
+  expect(await about.locator("p").first().evaluate((el) => getComputedStyle(el.parentElement!).maxWidth)).not.toBe("none");
+  await screenshot(page, "about", 2400);
+  expect(await violations(page)).toEqual([]);
 });
 
 test("a custom theme with other sections has no accessibility violations", async ({ page }) => {
