@@ -42,6 +42,8 @@ export const PERSONAL_FIELDS = {
   "memory/add": ["item.text"],
   "memory/edit": ["text"],
   "ticket/create": ["ticket.question", "ticket.screen", "ticket.activity.*.summary"],
+  // A proposal's text and its whole change: the change can be any proposable action, with its own personal fields.
+  "proposal/create": ["proposal.title", "proposal.subtitle", "proposal.rows", "proposal.toast", "proposal.action"],
 } as const satisfies Partial<Record<DemoAction["type"], readonly string[]>>;
 
 /** Replaces the value at a path (with `*` for array elements) by `[redacted]`. Missing fields stay missing. */

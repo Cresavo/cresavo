@@ -109,6 +109,7 @@ covers:
 - history ordering, actor, versions and pagination with `after` and `next`
 - tenant isolation of state, log, idempotency keys and notifications
 - migration of a v20 save that keeps the owner's edits
+- assistant proposals: a proposal stores no change; approval applies the change in the same commit; two racing approvals apply it once and a retried key replays; an approval that no longer applies commits as `failed`; only assistants propose and only the owner decides
 
 Store-specific tests cover the following:
 
@@ -129,6 +130,34 @@ Store-specific tests cover the following:
 Not yet covered: cancel **by token** (the studio has no public cancel token
 yet), customer data **export** (a read, outside the store), and the legacy
 engine's per-resource limits beyond what `isFree` checks.
+
+## Assistant proposals
+
+Changes an assistant proposes wait in the salon's own state, `state.proposals`
+(optional; a salon saved before it has none), and every store gets the same
+rules from the reducer (`src/concept/proposals/proposals.ts`):
+
+- `proposal/create` takes a drafted change from an assistant (`actor` `ai` or
+  `integration`; anyone else is refused). The change must be one of
+  `PROPOSABLE_TYPES` and must apply now: the reducer tries it with throwaway
+  channels, so the check never sends or charges. Its text is bounded. While 50
+  are pending, new ones are refused. It is not undoable.
+- `proposal/decide` is the owner's (`actor` `owner`). Approval runs the change
+  in the same reducer call, so the change and the recorded approval commit
+  together or not at all. A change that no longer applies commits as `failed`
+  and changes nothing else; a proposal past its seven days is `expired`
+  whatever the decision; a decided or unknown proposal is refused. Undoing an
+  approval reverts the change and makes the proposal pending again.
+- Replay is the store's idempotency, not the list: a retried create or decide
+  with the same key returns its first result. The list keeps every pending
+  proposal and the newest decided ones, 100 in all.
+- Erasing a customer removes every proposal that names them, and
+  `PERSONAL_FIELDS` redacts a proposal's text and whole change in the log.
+
+The concept MCP (`src/concept/server/demo-business.ts`), the assistant pairing
+preview (`PairProposal`) and the legacy agent API keep their own proposal
+stores until they move onto these actions. The owner route does not accept
+them yet.
 
 ## Step 2: Postgres
 

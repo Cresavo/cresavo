@@ -10,7 +10,7 @@ import type { LogEntry, LogMeta } from "./types";
 export const LOG_LIMIT = 100;
 
 /** Changes that cannot be taken back: access grants and tickets are records, not edits; an erasure is final and keeps no copy. */
-const NOT_UNDOABLE = new Set<DemoAction["type"]>(["support/grant", "support/revoke", "ticket/create", "online/hold", "online/pay", "online/release", "booking/fee", "customer/erase"]);
+const NOT_UNDOABLE = new Set<DemoAction["type"]>(["support/grant", "support/revoke", "ticket/create", "online/hold", "online/pay", "online/release", "booking/fee", "customer/erase", "proposal/create"]);
 
 /** Who and where, when the caller does not say: customers act through the booking page, everything else is the owner's button. */
 export function defaultMeta(action: DemoAction, at: number): LogMeta {
@@ -32,7 +32,9 @@ export function applyAction(state: DemoState, action: DemoAction, meta: LogMeta)
 }
 
 export function prepareAction(state: DemoState, action: DemoAction, meta: LogMeta, batch: Pick<ReturnType<typeof demoPaymentLedger.stage>, "payments" | "hasPayments">): DemoState {
-  if ((action.type === "salon/policy" || action.type === "booking/fee") && meta.actor !== "owner") return state;
+  if ((action.type === "salon/policy" || action.type === "booking/fee" || action.type === "proposal/decide") && meta.actor !== "owner") return state;
+  // Assistants propose; the owner decides. An owner's own change needs no proposal.
+  if (action.type === "proposal/create" && meta.actor !== "ai" && meta.actor !== "integration") return state;
   // Entries older than the retention period lose their undo data before the change runs, so an undo of one cannot be the first change after the cutoff.
   const aged = ageActivityLog(state.log, meta.at);
   const current = aged === state.log ? state : { ...state, log: aged };

@@ -8,6 +8,7 @@ import type { ReminderSettings } from "../booking/reminders";
 
 import type { MemoryItem } from "../assistant/memory";
 import type { Routine } from "../assistant/routines";
+import type { StoredProposal } from "../proposals/proposals";
 import type { AccountingLink, Cost, MonthFigures } from "../finance/types";
 import type { LogEntry } from "../log/types";
 import type { PageConfig } from "../page/config";
@@ -543,4 +544,6 @@ export interface DemoState {
   journalAccess?: JournalAccess[];
   /** Optional: salons that never set it keep journal entries until the owner decides. */
   privacy?: PrivacySettings;
+  /** Changes assistants proposed, newest first, pending and recently decided. Optional: salons from before proposals have none. */
+  proposals?: StoredProposal[];
 }

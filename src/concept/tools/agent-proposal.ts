@@ -6,7 +6,7 @@ import type { ChangeDraft } from "./define";
 /** Which kind of assistant asked, as far as its User-Agent tells. */
 export type AgentClient = "claude" | "chatgpt" | "agent";
 
-export type ProposalStatus = "pending" | "approved" | "declined" | "failed";
+export type ProposalStatus = "pending" | "approved" | "declined" | "failed" | "expired";
 
 export interface AgentProposal extends ChangeDraft {
   id: string;

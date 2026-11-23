@@ -401,6 +401,77 @@ export function runStudioStoreContract(name: string, makeStore: MakeStore) {
       expect(applied.ok || ["not-found", "rejected"].includes(applied.reason)).toBe(true);
     });
 
+    describe("assistant proposals", () => {
+      const assistant = { actor: "ai", source: "mcp" } as const;
+      const owner = { actor: "owner", source: "button" } as const;
+      const proposal = (action: DemoAction): DemoAction => ({
+        type: "proposal/create",
+        proposal: { title: "Book a fictional customer", rows: [{ label: "Time", after: "Tomorrow" }], action, toast: "Booked", tool: "create_booking", client: "agent" },
+      });
+      const decide = (id: string, approve = true): DemoAction => ({ type: "proposal/decide", id, approve });
+
+      async function proposed() {
+        const context = await setup();
+        const slot = freeSlot(context.initial.state, context.plain);
+        const change = create(context.first.id, context.plain, slot);
+        const result = await context.store.apply(context.a, proposal(change), assistant);
+        if (!result.ok) throw new Error(`Proposal refused: ${result.reason}`);
+        return { ...context, slot, change, result, id: result.state.proposals![0].id };
+      }
+
+      it("stores a proposal without its change, then applies it with the approval in one commit", async () => {
+        const { store, a, slot, result, id } = await proposed();
+        expect(at(result.state, slot)).toHaveLength(0);
+        expect(result.entry).toMatchObject({ actor: "ai", source: "mcp" });
+        const approved = await store.apply(a, decide(id), owner);
+        expect(approved.ok).toBe(true);
+        if (!approved.ok) return;
+        expect(approved.version).toBe(result.version + 1);
+        expect(at(approved.state, slot)).toHaveLength(1);
+        expect(approved.state.proposals![0]).toMatchObject({ id, status: "approved" });
+        const loaded = (await store.load(a))!;
+        expect(at(loaded.state, slot)).toHaveLength(1);
+        expect(loaded.state.proposals![0].status).toBe("approved");
+        const page = await store.history(a, { limit: 10 });
+        expect(page.entries.map((entry) => [entry.action.type, entry.actor])).toEqual([["proposal/create", "ai"], ["proposal/decide", "owner"]]);
+      });
+
+      it("decides once: racing approvals apply the change once, and a retried key replays", async () => {
+        const { store, a, slot, id } = await proposed();
+        const raced = await Promise.all([store.apply(a, decide(id), owner), store.apply(a, decide(id), owner)]);
+        expect(raced.filter((r) => r.ok)).toHaveLength(1);
+        const loaded = (await store.load(a))!;
+        expect(at(loaded.state, slot)).toHaveLength(1);
+        const again = await store.apply(a, decide(id, false), owner);
+        expect(again.ok).toBe(false);
+
+        const second = await proposed();
+        const first = await second.store.apply(second.a, decide(second.id), owner, { idempotencyKey: "decide-once" });
+        const replay = await second.store.apply(second.a, decide(second.id), owner, { idempotencyKey: "decide-once" });
+        expect(first.ok && replay.ok && replay.replayed && replay.version === first.version).toBe(true);
+        expect(at((await second.store.load(second.a))!.state, second.slot)).toHaveLength(1);
+      });
+
+      it("records a failed approval when the change no longer applies, and books nothing twice", async () => {
+        const { store, a, slot, change, id } = await proposed();
+        expect((await store.apply(a, change, owner)).ok).toBe(true);
+        const failed = await store.apply(a, decide(id), owner);
+        expect(failed.ok).toBe(true);
+        if (!failed.ok) return;
+        expect(failed.state.proposals![0].status).toBe("failed");
+        expect(at(failed.state, slot)).toHaveLength(1);
+      });
+
+      it("takes proposals only from assistants and decisions only from the owner", async () => {
+        const { store, a, initial, change, id } = await proposed();
+        const version = (await store.load(a))!.version;
+        expect(await store.apply(a, proposal(change), owner)).toMatchObject({ ok: false, reason: "rejected" });
+        expect(await store.apply(a, decide(id), assistant)).toMatchObject({ ok: false, reason: "rejected" });
+        expect(await store.apply(a, proposal({ type: "salon/policy", policy: initial.state.cancellationPolicy }), assistant)).toMatchObject({ ok: false, reason: "rejected" });
+        expect((await store.load(a))!.version).toBe(version);
+      });
+    });
+
     it("migrates an older saved state on load and keeps the owner's data", async () => {
       const seed = sampleSeed();
       const edited = { ...seed, customers: seed.customers.map((c, i) => (i === 0 ? { ...c, firstName: "Edited" } : c)) };

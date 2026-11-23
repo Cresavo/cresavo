@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Assistant proposals as studio store actions (groundwork, no UI change yet).** `proposal/create` stores a change an assistant proposes, after checking that it could apply now without sending anything, and `proposal/decide` records the owner's decision and, on approval, applies the change in the same commit. An approval that can no longer apply is recorded as failed, and an undecided proposal expires after seven days. Only assistants can propose and only the owner can decide. The store's idempotency keys make a retried decision safe, and the contract suite covers this for the memory, browser and Postgres stores. Erasing a customer removes their proposals and redacts them in the audit log, including in `prisma/grants/erase-subject.sql` (no migration). The concept MCP, the assistant pairing preview and the agent API move onto these actions in later steps, which closes issues #10 and #11.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

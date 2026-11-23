@@ -229,6 +229,10 @@ export function eraseCustomer(state: DemoState, id: string): DemoState {
     .filter((entry) => entry.kind === "customer" ? entry.customer.id !== id : !bookingIds.has(entry.bookingId))
     .map((entry) => entry.kind === "customer" ? { ...entry, bookings: withoutAddresses(entry.bookings, addresses) } : entry);
   erased.log = state.log.map((entry) => scrubLogEntry(entry, id, identifiers, phones));
+  // A proposal that concerns them goes whole, pending or decided: its text and change name them.
+  if (state.proposals?.some((proposal) => mentionsCustomer(proposal, id, identifiers, phones))) {
+    erased.proposals = state.proposals.filter((proposal) => !mentionsCustomer(proposal, id, identifiers, phones));
+  }
   const marker = erasedMarker();
   const scrub = (text: string) => scrubText(text, identifiers, marker);
   for (const [key, paths] of Object.entries(DOCUMENT_FREE_TEXT) as Array<[keyof DemoState, readonly string[]]>) {

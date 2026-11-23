@@ -33,6 +33,7 @@ import { applyOps, type OpsAction } from "./ops/edit";
 import { applySalonDetails, type SalonDetails } from "./ops/salon-details";
 import { applyServiceAction, validServicePrice, type ServiceAction } from "./services/edit";
 import { applyPageAction, type PageAction } from "./page/actions";
+import { createProposal, decideProposal, dryRun, type ProposalAction } from "./proposals/proposals";
 import { grantSupport, revokeSupport, type GrantHours } from "./support/access";
 import type { NewTicket } from "./support/tickets";
 import { deleteCustomer, restoreEntry, trashBooking } from "./trash/trash";
@@ -81,6 +82,7 @@ export type DemoAction =
   | ServiceAction
   | AssistantAction
   | PageAction
+  | ProposalAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
   | ({
@@ -592,6 +594,10 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "routine/ran":
     case "customers/message":
       return applyAssistant(state, action, now);
+    case "proposal/create":
+      return createProposal(state, action.proposal, now, (from, change) => dryRun(from, (scratch) => reduce(from, change, now, scratch)));
+    case "proposal/decide":
+      return decideProposal(state, action.id, action.approve, now, (from, change) => reduce(from, change, now, payments));
     case "page/set":
     case "salon/slug":
     case "domain/connect":

@@ -158,7 +158,8 @@ DECLARE
     "giftcard/sell": ["recipient","message"],
     "memory/add": ["item.text"],
     "memory/edit": ["text"],
-    "ticket/create": ["ticket.question","ticket.screen","ticket.activity.*.summary"]
+    "ticket/create": ["ticket.question","ticket.screen","ticket.activity.*.summary"],
+    "proposal/create": ["proposal.title","proposal.subtitle","proposal.rows","proposal.toast","proposal.action"]
   }';
   -- PERSONAL_FIELDS END
   v_doc jsonb;

@@ -156,6 +156,13 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
       const pkg = next.packages.at(-1)!;
       return { summary: t("log.packageSell", { service: serviceName(next, action.serviceId), customer: customerName(next, action.customerId) }), after: formatMoney(pkg.price) };
     }
+    case "proposal/create":
+      return { summary: t("log.proposalCreate", { title: action.proposal.title }) };
+    case "proposal/decide": {
+      const decided = next.proposals?.find((p) => p.id === action.id);
+      const key = decided?.status === "approved" ? "log.proposalApproved" : decided?.status === "failed" ? "log.proposalFailed" : decided?.status === "expired" ? "log.proposalExpired" : "log.proposalDeclined";
+      return { summary: t(key, { title: decided?.title ?? "" }) };
+    }
     case "inbox/reply":
       return { summary: t("log.inboxReply") };
     case "inbox/add":
