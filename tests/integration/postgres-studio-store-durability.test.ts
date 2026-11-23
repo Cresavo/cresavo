@@ -12,6 +12,7 @@ import type { Customer, DemoState, Service, StaffId } from "@/concept/data/types
 import { bookableServices } from "@/concept/selectors";
 import { drainPendingEffects, type EffectDelivery, type EffectSink, type EffectSinks, type TenantKind } from "@/concept/store/effect-outbox";
 import { EFFECT_LEASE_MS, LOCK_TIMEOUT_MS, PostgresStudioStore } from "@/concept/store/postgres-studio-store";
+import { enterScope } from "@/concept/store/tenant-scope";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { withOwnSlug } from "./own-slug";
 
@@ -666,6 +667,8 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
         SELECT has_function_privilege('public', 'erase_subject(text, text)', 'EXECUTE') AS "publicCanExecute"`;
       [{ scrubbed }] = await tx.$queryRaw<Array<{ scrubbed: unknown }>>`
         SELECT studio_scrub('{"700001234": 1700001234000, "s": "call 700001234", "n": [700001234, "x 700001234"]}'::jsonb, ARRAY['700001234']) AS scrubbed`;
+      // erase_subject holds to the tenant's own scope, as the store's erasure transaction sets it.
+      await enterScope(tx, { tenant: b });
       [{ counts }] = await tx.$queryRaw<Array<{ counts: unknown }>>`SELECT erase_subject(${b}, ${customer.id}) AS counts`;
       seen = await snapshot(tx, b);
       throw new Error(ROLLBACK);
@@ -700,7 +703,7 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
       expect(stored.every((row) => row.result.entry.action.note === undefined || row.result.entry.action.note === "[redacted]")).toBe(true);
       expect(JSON.stringify(await db.$queryRaw`SELECT result FROM tenant_idempotency WHERE tenant_id = ${id}`)).not.toContain("names nobody");
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb, boolean), studio_redact_replay(jsonb, text, text[], text[]),
         studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]), studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   }, 30_000);
@@ -721,7 +724,7 @@ describe("erase_subject (prisma/grants/erase-subject.sql)", () => {
       expect(erased).toMatchObject({ ok: true, redacted: { idempotencyKeys: 1 } });
       expect(await personalDataHits(id, ERASURE_NEEDLES)).toEqual([]);
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb, boolean), studio_redact_replay(jsonb, text, text[], text[]), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   });

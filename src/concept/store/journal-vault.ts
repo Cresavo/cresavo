@@ -108,7 +108,7 @@ export function actionHoldsText(action: unknown): boolean {
   const fields = action as { type?: unknown; entry?: unknown; [key: string]: unknown } | null;
   if (!fields || typeof fields !== "object") return false;
   if (fields.type === "journal/add") return !!fields.entry && typeof fields.entry === "object" && TEXT_FIELDS.some((key) => key in (fields.entry as object));
-  if (fields.type === "journal/edit") return Object.keys(fields).some((key) => !["type", "id", "on"].includes(key));
+  if (fields.type === "journal/edit") return Object.keys(fields).some((key) => !["type", "id", "on", "customerId"].includes(key));
   return false;
 }
 

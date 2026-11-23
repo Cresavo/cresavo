@@ -69,10 +69,10 @@ BEGIN
   END IF;
   UPDATE tenant_action a SET action = CASE a.action ->> 'type'
       WHEN 'journal/add' THEN jsonb_build_object('type', 'journal/add', 'entry', (a.action -> 'entry') - v_text)
-      ELSE jsonb_build_object('type', 'journal/edit', 'id', a.action -> 'id', 'on', a.action -> 'on') END
+      ELSE jsonb_strip_nulls(jsonb_build_object('type', 'journal/edit', 'id', a.action -> 'id', 'on', a.action -> 'on', 'customerId', a.action -> 'customerId')) END
   WHERE a.tenant_id = p_tenant
     AND ((a.action ->> 'type' = 'journal/add' AND jsonb_typeof(a.action -> 'entry') = 'object' AND (a.action -> 'entry') ?| v_text)
-      OR (a.action ->> 'type' = 'journal/edit' AND (a.action ? 'content' OR a.action - ARRAY['type', 'id', 'on'] <> '{}'::jsonb)));
+      OR (a.action ->> 'type' = 'journal/edit' AND (a.action ? 'content' OR a.action - ARRAY['type', 'id', 'on', 'customerId'] <> '{}'::jsonb)));
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN v_count;
 END $fn$;

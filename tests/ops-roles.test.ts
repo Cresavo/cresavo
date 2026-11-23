@@ -200,7 +200,8 @@ describe("prisma/grants/roles.sql", () => {
     expect(appInsert.split(",").map((c) => c.trim()).sort()).toEqual(inserted);
     const erase = read("prisma/grants/erase-subject.sql");
     // Only the eraser runs the replacement (it owns it; no grant at all), and only inside erase_subject.
-    expect(erase).not.toMatch(/GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions/);
+    expect(erase).not.toMatch(/GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions[^;]*TO :"app_role"/);
+    expect(erase).toContain('REVOKE ALL ON FUNCTION studio_erase_journal_mentions(text, text, jsonb) FROM :"app_role";');
     expect(erase).toMatch(/GRANT EXECUTE ON FUNCTION erase_subject\(text, text, jsonb\) TO :"app_role";/);
     expect(erase).toMatch(/v_replaced := public\.studio_erase_journal_mentions\(p_tenant, p_customer, p_copies\);/);
     expect(erase).toContain("IF (p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')) IS NOT TRUE THEN");

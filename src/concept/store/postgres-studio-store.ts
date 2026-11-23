@@ -115,6 +115,11 @@ const REPLAY_MAX_BATCHES = 40;
 const REPLAY_TEXT = Prisma.sql`jsonb_path_exists(result, 'lax $.state.** ? (exists(@.treatment) && exists(@.observations) && exists(@.advice) && (!(exists(@.sealed)) || @.treatment != "" || @.observations != "" || @.advice != "" || exists(@.nextVisit) || exists(@.photos) || exists(@.versions)))')
   OR jsonb_path_exists(result, 'lax $.entry.action ? ((@.type == "journal/add" && (exists(@.entry.treatment) || exists(@.entry.observations) || exists(@.entry.advice) || exists(@.entry.nextVisit) || exists(@.entry.photos) || exists(@.entry.versions))) || (@.type == "journal/edit" && exists(@.content)))')`;
 
+/** An audit row that still holds journal text: what store_journal_redact_audit removes. */
+const AUDIT_TEXT = Prisma.sql`(action ->> 'type' = 'journal/add' AND jsonb_typeof(action -> 'entry') = 'object'
+    AND jsonb_exists_any(action -> 'entry', ARRAY['treatment', 'observations', 'advice', 'nextVisit', 'photos', 'versions']))
+  OR (action ->> 'type' = 'journal/edit' AND action - ARRAY['type', 'id', 'on', 'customerId'] <> '{}'::jsonb)`;
+
 /** A replay result with every journal entry that carries text left out and its journal action without text. */
 function replayWithoutAnyText(result: StoredReplay): StoredReplay {
   const state = result?.state && Array.isArray(result.state.journals) ? withoutJournalText(result.state) : result?.state;
@@ -953,14 +958,17 @@ export class PostgresStudioStore implements StudioStore {
     }
     // Stored results are state copies. A row is never deleted (a retry would run again): the customer is removed from its snapshot and their
     // identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
-    const replays = await tx.$queryRaw<Array<{ key: string; result: unknown }>>`
-      SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}
-        AND (key ILIKE ANY(${keyPatterns}::text[]) OR result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))
-      FOR UPDATE`;
+    // A replay whose audit row (same seq) names the customer by subject_ids loses every personal field of its action.
+    const replays = await tx.$queryRaw<Array<{ key: string; result: unknown; named: boolean }>>`
+      SELECT i.key, i.result, EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = ${tenantId} AND a.seq = i.seq AND a.subject_ids @> ARRAY[${customerId}]::text[]) AS named
+      FROM tenant_idempotency i WHERE i.tenant_id = ${tenantId}
+        AND (i.key ILIKE ANY(${keyPatterns}::text[]) OR i.result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR i.result::text ILIKE ANY(${patterns}::text[])
+          OR EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = ${tenantId} AND a.seq = i.seq AND a.subject_ids @> ARRAY[${customerId}]::text[]))
+      FOR UPDATE OF i`;
     let idempotencyKeys = 0;
     for (const replay of replays) {
       const key = keyHoldsIdentifier(replay.key, identifiers) ? erasedKey(replay.key) : replay.key;
-      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts));
+      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts, replay.named));
       // A row that is already redacted (a repeated erasure) is left alone and not counted.
       if (key === replay.key && result === JSON.stringify(replay.result)) continue;
       await tx.$executeRaw`
@@ -984,10 +992,7 @@ export class PostgresStudioStore implements StudioStore {
   private async redactJournalAudit(tx: Tx, tenantId: TenantId) {
     await tx.$queryRaw`SELECT store_journal_redact_audit(${tenantId})`;
     const [{ left }] = await tx.$queryRaw<Array<{ left: number }>>`
-      SELECT count(*)::int AS left FROM tenant_action WHERE tenant_id = ${tenantId}
-        AND ((action ->> 'type' = 'journal/add' AND jsonb_typeof(action -> 'entry') = 'object'
-              AND jsonb_exists_any(action -> 'entry', ARRAY['treatment', 'observations', 'advice', 'nextVisit', 'photos', 'versions']))
-          OR (action ->> 'type' = 'journal/edit' AND action - ARRAY['type', 'id', 'on'] <> '{}'::jsonb))`;
+      SELECT count(*)::int AS left FROM tenant_action WHERE tenant_id = ${tenantId} AND (${AUDIT_TEXT})`;
     if (left > 0) throw new Error("STUDIO_STORE_JOURNAL_MOVE_INCOMPLETE");
   }
 
@@ -1071,8 +1076,9 @@ export class PostgresStudioStore implements StudioStore {
    * 1. under the row lock, text still in the document becomes stubs (a new version and a `system/seal-journals`
    *    audit entry) and the old audit rows lose their text;
    * 2. the stored replays lose theirs in bounded batches (`sealReplayBatch`), each its own short transaction;
-   * 3. under the row lock again, the document, the audit rows and the replays are checked; only when all three are
-   *    clean is the salon marked (`journals_sealed_at`). Anything left is for the next load.
+   * 3. without the lock, every audit row and replay is checked up to a high-water mark of the log; then, under the row
+   *    lock, only the document and what came past the mark. Only when all are clean is the salon marked
+   *    (`journals_sealed_at`). Anything left is for the next load.
    *
    * Does nothing for a marked salon whose document holds stubs only. `changed`: the document was rewritten.
    */
@@ -1116,18 +1122,25 @@ export class PostgresStudioStore implements StudioStore {
       cursor = last;
     }
 
+    // The full check runs without the row lock: every audit row and replay, up to a high-water mark of the log.
+    const checked = await inScope(this.prisma, { tenant: tenantId }, async (tx) => {
+      const [row] = await tx.$queryRaw<Array<{ mark: bigint; left: number }>>`
+        SELECT coalesce((SELECT max(seq) FROM tenant_action WHERE tenant_id = ${tenantId}), 0) AS mark,
+          (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${tenantId} AND (${AUDIT_TEXT}))
+          + (SELECT count(*)::int FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND (${REPLAY_TEXT})) AS left`;
+      return row;
+    }, TRANSACTION);
+    if (checked.left > 0) return { ok: true, changed, sealed: false };
+    // Under the lock only what may have come since: the document, and audit rows and replays past the mark.
     const last = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ sealed: boolean; commit?: never }> => {
       const locked = await this.lock(tx, tenantId);
       const clock = await this.clock(tx);
       const state = locked && migrateSaved(locked.doc);
       if (!locked || !state || holdsJournalText(state) || locked.journals_sealed) return { sealed: !!locked?.journals_sealed };
-      const [{ audit, replays }] = await tx.$queryRaw<Array<{ audit: number; replays: number }>>`
-        SELECT (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${tenantId}
-                  AND ((action ->> 'type' = 'journal/add' AND jsonb_typeof(action -> 'entry') = 'object'
-                        AND jsonb_exists_any(action -> 'entry', ARRAY['treatment', 'observations', 'advice', 'nextVisit', 'photos', 'versions']))
-                    OR (action ->> 'type' = 'journal/edit' AND action - ARRAY['type', 'id', 'on'] <> '{}'::jsonb))) AS audit,
-               (SELECT count(*)::int FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND (${REPLAY_TEXT})) AS replays`;
-      if (audit > 0 || replays > 0) return { sealed: false };
+      const [{ left }] = await tx.$queryRaw<Array<{ left: number }>>`
+        SELECT (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${tenantId} AND seq > ${checked.mark} AND (${AUDIT_TEXT}))
+          + (SELECT count(*)::int FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND seq > ${checked.mark} AND (${REPLAY_TEXT})) AS left`;
+      if (left > 0) return { sealed: false };
       await tx.$executeRaw`UPDATE tenant_state SET journals_sealed_at = to_timestamp(${clock}::float8 / 1000) WHERE tenant_id = ${tenantId}`;
       return { sealed: true };
     });

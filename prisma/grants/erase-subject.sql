@@ -36,6 +36,9 @@ GRANT SELECT, UPDATE ("key", "result") ON "tenant_idempotency" TO :"eraser_role"
 -- Server-side journals: the customer's encrypted versions are deleted, and another customer's version that named
 -- them is replaced by the scrubbed copy the store encrypted (studio_erase_journal_mentions).
 GRANT SELECT, INSERT, DELETE ON "journal_entry" TO :"eraser_role";
+-- statement
+-- Which key versions exist, so a copy under an unknown one is refused (never the verifier itself).
+GRANT SELECT ("key_version") ON "journal_key" TO :"eraser_role";
 
 -- statement
 CREATE OR REPLACE FUNCTION studio_phone_digits(p text) RETURNS text
@@ -94,16 +97,22 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $fn$
 $fn$;
 
 -- statement
+-- The form before p_named; replaced by the one below.
+DROP FUNCTION IF EXISTS studio_redact_replay_action(jsonb, text, text[], text[], jsonb);
+
+-- statement
 -- The action of a stored replay's entry, when it concerns the customer: every personal field of its type (the map below) is replaced,
--- not only text that matches an identifier. Same rule as `theirs` in erase_subject.
-CREATE OR REPLACE FUNCTION studio_redact_replay_action(r jsonb, p_customer text, digit_list text[], contact_patterns text[], fields jsonb) RETURNS jsonb
+-- not only text that matches an identifier. Same rule as `theirs` in erase_subject. p_named: the audit row the replay
+-- came from names the customer (`subject_ids`), as for an edit of their journal that carries only the entry id.
+CREATE OR REPLACE FUNCTION studio_redact_replay_action(r jsonb, p_customer text, digit_list text[], contact_patterns text[], fields jsonb, p_named boolean) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE SET search_path = public, pg_temp AS $fn$
 DECLARE
   act jsonb := r #> '{entry,action}';
   path text;
 BEGIN
   IF act IS NULL OR jsonb_typeof(act) <> 'object' THEN RETURN r; END IF;
-  IF NOT ((act ->> 'type' LIKE 'customer/%' AND act ->> 'id' = p_customer)
+  IF NOT (p_named IS TRUE
+      OR (act ->> 'type' LIKE 'customer/%' AND act ->> 'id' = p_customer)
       OR jsonb_path_exists(act, 'lax $.** ? (@.customerId == $c || (@.id == $c && exists(@.firstName)))', jsonb_build_object('c', p_customer))
       OR act::text ILIKE ANY(contact_patterns)
       OR (cardinality(digit_list) > 0 AND EXISTS (
@@ -189,6 +198,10 @@ DECLARE
   v_keys integer;
   v_journals integer;
 BEGIN
+  -- Only in the tenant's own scope, whether row-level security is on or not: the caller set it with its row lock.
+  IF (p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')) IS NOT TRUE THEN
+    RAISE EXCEPTION 'erase_subject: not in the tenant''s scope' USING ERRCODE = '42501';
+  END IF;
   -- The caller holds the row lock (SELECT ... FOR UPDATE in the same transaction).
   SELECT s.doc INTO v_doc FROM tenant_state s WHERE s.tenant_id = p_tenant;
   IF NOT FOUND THEN RAISE EXCEPTION 'erase_subject: unknown tenant'; END IF;
@@ -298,12 +311,16 @@ BEGIN
 
   -- Stored results are state copies. A row is never deleted (a retry would run again): the customer is removed from its snapshot and their
   -- identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
-  UPDATE tenant_idempotency SET
-    key = CASE WHEN key ILIKE ANY(v_key_patterns) THEN 'erased-' || encode(sha256(convert_to(key, 'UTF8')), 'hex') ELSE key END,
-    result = public.studio_redact_replay(public.studio_redact_replay_action(result, p_customer, v_digit_list, v_contact_patterns, v_fields), p_customer, v_identifiers, v_digit_list)
-  WHERE tenant_id = p_tenant AND (key ILIKE ANY(v_key_patterns) OR result::text LIKE ANY(v_id_patterns) OR result::text ILIKE ANY(v_patterns))
+  -- A replay whose audit row (same seq) names the customer by subject_ids loses every personal field of its action.
+  UPDATE tenant_idempotency i SET
+    key = CASE WHEN i.key ILIKE ANY(v_key_patterns) THEN 'erased-' || encode(sha256(convert_to(i.key, 'UTF8')), 'hex') ELSE i.key END,
+    result = public.studio_redact_replay(public.studio_redact_replay_action(i.result, p_customer, v_digit_list, v_contact_patterns, v_fields,
+      EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = p_tenant AND a.seq = i.seq AND a.subject_ids @> ARRAY[p_customer])), p_customer, v_identifiers, v_digit_list)
+  WHERE i.tenant_id = p_tenant AND (i.key ILIKE ANY(v_key_patterns) OR i.result::text LIKE ANY(v_id_patterns) OR i.result::text ILIKE ANY(v_patterns)
+      OR EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = p_tenant AND a.seq = i.seq AND a.subject_ids @> ARRAY[p_customer]))
     -- A row that is already redacted (a repeated erasure) is left alone and not counted.
-    AND (key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(public.studio_redact_replay_action(result, p_customer, v_digit_list, v_contact_patterns, v_fields), p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM result);
+    AND (i.key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(public.studio_redact_replay_action(i.result, p_customer, v_digit_list, v_contact_patterns, v_fields,
+      EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = p_tenant AND a.seq = i.seq AND a.subject_ids @> ARRAY[p_customer])), p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM i.result);
   GET DIAGNOSTICS v_keys = ROW_COUNT;
 
   -- Server-side journals: every version of the customer's entries (studio_erase_journal_mentions replaced the
@@ -349,7 +366,14 @@ BEGIN
      AND jsonb_array_length(coalesce(v_customer -> 'earlier', '[]'::jsonb)) = 0 THEN
     RAISE EXCEPTION 'studio_erase_journal_mentions: nothing to scrub';
   END IF;
+  -- At most one copy per stored version of another customer, each under a key version the salon's rows already use.
+  IF jsonb_array_length(p_copies) > (SELECT count(*) FROM journal_entry j WHERE j.tenant_id = p_tenant AND j.customer_id <> p_customer) THEN
+    RAISE EXCEPTION 'studio_erase_journal_mentions: more copies than versions';
+  END IF;
   FOR v_copy IN SELECT jsonb_array_elements(coalesce(p_copies, '[]'::jsonb)) LOOP
+    IF NOT EXISTS (SELECT 1 FROM journal_key k WHERE k.key_version = (v_copy ->> 'keyVersion')::integer) THEN
+      RAISE EXCEPTION 'studio_erase_journal_mentions: unknown key version';
+    END IF;
     SELECT j.customer_id, j.id, j.version, j.author, j.deleted_at INTO v_old FROM journal_entry j
     WHERE j.tenant_id = p_tenant AND j.id = v_copy ->> 'id' AND j.version = (v_copy ->> 'replaces')::integer;
     IF NOT FOUND OR v_old.customer_id = p_customer THEN RAISE EXCEPTION 'studio_erase_journal_mentions: no such version'; END IF;
@@ -381,7 +405,7 @@ END $fn$;
 
 -- statement
 REVOKE ALL ON FUNCTION studio_phone_digits(text), studio_redact_path(jsonb, text[]), studio_scrub_text(text, text[]),
-  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), erase_subject(text, text, jsonb) FROM PUBLIC;
+  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb, boolean), erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), erase_subject(text, text, jsonb) FROM PUBLIC;
 -- statement
 ALTER FUNCTION studio_phone_digits(text) OWNER TO :"eraser_role";
 -- statement
@@ -393,7 +417,7 @@ ALTER FUNCTION studio_scrub(jsonb, text[]) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION studio_redact_replay(jsonb, text, text[], text[]) OWNER TO :"eraser_role";
 -- statement
-ALTER FUNCTION studio_redact_replay_action(jsonb, text, text[], text[], jsonb) OWNER TO :"eraser_role";
+ALTER FUNCTION studio_redact_replay_action(jsonb, text, text[], text[], jsonb, boolean) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION erase_subject(text, text) OWNER TO :"eraser_role";
 -- statement
@@ -404,6 +428,12 @@ ALTER FUNCTION erase_subject(text, text, jsonb) OWNER TO :"eraser_role";
 GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO :"app_role";
 -- statement
 GRANT EXECUTE ON FUNCTION erase_subject(text, text, jsonb) TO :"app_role";
+-- statement
+-- The replacement is the eraser's alone (it owns it): an earlier run of this file granted it to the application.
+REVOKE ALL ON FUNCTION studio_erase_journal_mentions(text, text, jsonb) FROM :"app_role";
+-- statement
+-- Its owner keeps it (and so does a test run where both roles are one).
+GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions(text, text, jsonb) TO :"eraser_role";
 
 -- statement
 COMMIT;
