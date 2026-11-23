@@ -57,6 +57,8 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
     services.find((s) => s.staffIds.includes(preset.staffId ?? (presetCustomer ? preferredStaffOf(state, presetCustomer) : "anna"))) ??
     (preset.staffId && !viewer ? undefined : services[0]);
   const [serviceId, setServiceId] = useState(firstService?.id);
+  // The list folds to the chosen treatment, so the day and time follow right below it.
+  const [choosingService, setChoosingService] = useState(!firstService);
   const service = services.find((s) => s.id === serviceId) ?? firstService;
   const [chosenStaff, setChosenStaff] = useState<string | undefined>(preset.staffId);
   const staffId = viewer?.id ?? service?.staffIds.find(id => id === chosenStaff) ?? service?.staffIds[0];
@@ -83,7 +85,8 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
   const contactValid = guest.name.trim().length >= 2 && isContactPhone(guest.phone);
   const emailValid = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const guestValid = contactValid && emailValid;
-  const reason = slot && !fits ? t("newBooking.doesNotFit") : undefined;
+  const needsCustomer = !customer && (!adding || !contactValid);
+  const reason = slot && !fits ? t("newBooking.doesNotFit") : slot && needsCustomer ? t("newBooking.needsCustomer") : undefined;
 
   const book = () => run(async () => {
     if (!slot || !fits || (!customer && (!adding || !guestValid))) return;
@@ -166,14 +169,22 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.treatment")}</h3>
-          <Card className="grid gap-px overflow-hidden bg-hairline sm:grid-cols-2">
+          {!choosingService ? (
+            <div className="flex items-center gap-3 rounded-lg bg-surface-2 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{service.name}</p>
+                <p className="text-sm text-text-secondary">{formatDuration(service.duration)} · {formatMoney(service.price)}</p>
+              </div>
+              <Button variant="ghost" size="sm" aria-label={t("newBooking.changeTreatment")} onClick={() => setChoosingService(true)}>{t("common.change")}</Button>
+            </div>
+          ) : <Card className="grid gap-px overflow-hidden bg-hairline sm:grid-cols-2">
             {services.map((s) => {
               const chosen = s.id === service.id;
               return (
                 <ListRow
                   key={s.id}
                   aria-pressed={chosen}
-                  onClick={() => { setServiceId(s.id); setFailure(undefined); }}
+                  onClick={() => { setServiceId(s.id); setChoosingService(false); setFailure(undefined); }}
                   className={cx("rounded-none", chosen ? "bg-action-bg hover:bg-action-bg" : "bg-surface")}
                   title={<span className={cx("block leading-snug", chosen && "font-semibold")}>{s.name}</span>}
                   meta={`${formatDuration(s.duration)} · ${state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}`}
@@ -185,7 +196,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
               );
             })}
             {services.length % 2 === 1 && <div aria-hidden className="hidden bg-surface sm:block" />}
-          </Card>
+          </Card>}
         </section>
 
         {!viewer && service.staffIds.length > 1 && <Field width="short" label={t("calendar.staff")}>
