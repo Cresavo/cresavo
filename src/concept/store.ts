@@ -708,12 +708,22 @@ export function accountRecordSettled(collection: "bookings" | "log", id: string)
 
 registerRecordSettledCheck(accountRecordSettled);
 
+const accountListeners = new Set<() => void>();
+
+/** Called whenever the account salon is opened or closed (sign-in, sign-out, another account): caches tied to an account start over. */
+export function onAccountChange(listener: () => void): () => void {
+  accountListeners.add(listener);
+  return () => accountListeners.delete(listener);
+}
+const accountChange = () => accountListeners.forEach((listener) => listener());
+
 /**
  * Shows a signed-in owner's salon from the server and selects it. `onChange`
  * receives every action applied to it here, to send to the server.
  */
 export function openAccountSalon(state: DemoState, onChange: (action: DemoAction, change: AccountChange) => void) {
   initialize();
+  accountChange();
   accountChanged = onChange;
   accountBase = undefined;
   const next = migrateState(state);
@@ -762,6 +772,7 @@ export function restoreAccountBase() {
 
 /** Leaves the account salon (after signing out) for the sample business. */
 export function closeAccountSalon() {
+  accountChange();
   snapshots.account = {};
   accountChanged = undefined;
   accountBase = undefined;

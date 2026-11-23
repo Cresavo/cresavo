@@ -26,6 +26,15 @@ data for bookings, client records and journal entries. [Data flows](DATA_FLOWS.m
   sessions. Local owner MCP admin permissions rely on trust in the operator
   who launches the process. [Admin identity decision](decisions/ADR_004_ADMIN_IDENTITY.md).
 
+## Photos
+
+The photo library strips location and camera metadata before it stores a
+photo, keeps photos private to the signed-in owner and publishes only the
+active logo. Photos are not linked to customer records, so a customer's
+export or erasure does not include them. A photo may still show a person:
+the owner must remove it on request. This is a note, not legal wording
+([storage and backups](operations/MEDIA_STORAGE.md)).
+
 ## Before a pilot
 
 Real use requires production authentication, tested tenant isolation,

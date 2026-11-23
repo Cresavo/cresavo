@@ -27,7 +27,8 @@ endpoints. Write records `propose` for owner-reviewed MCP changes, otherwise
 `available` for direct REST writes. Bookings and services also have direct
 REST writes. MCP includes the paired owner tools and concept MCP. For example,
 salon opening hours and the booking-page profile have partial reads through
-`get_business`.
+`get_business`. The photo library and logo are read and written through the
+signed-in owner's `/api/owner/media` routes; only the active logo has a public address.
 The paired studio session returns inbox items, and the demo AI settings route
 reads and updates task settings. Events refer to outbound change notifications.
 `planned` marks a coverage gap, subject to the security model. Journal and
@@ -45,6 +46,7 @@ Regenerate after declaration changes with `node --import tsx scripts/api-parity-
 | core | hours | planned | planned | available | planned |
 | core | booking-page-profile | planned | planned | available | planned |
 | core | inbox | available | propose | available | planned |
+| core | media-library | available | available | planned | planned |
 | journal | journal | planned | planned | planned | planned |
 | stock | stock | planned | propose | available | planned |
 | campaigns | campaigns | planned | planned | available | planned |

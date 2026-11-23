@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type Ref } from "react";
 import type { CampaignPoster, PosterFormat } from "../../data/types";
-import { engineRequest, fetchPosterSvg, uniqueIds, type EngineContext } from "../../campaigns/poster-engine/client";
+import { posterSvg, uniqueIds, type EngineContext } from "../../campaigns/poster-engine/client";
 import { POSTER_FORMATS } from "../../campaigns/poster-layout";
 import { t } from "../../i18n";
 
@@ -33,7 +33,7 @@ export function EnginePoster({ poster, format, kicker, context, label, ref }: En
     let live = true;
     const timer = window.setTimeout(async () => {
       try {
-        const markup = uniqueIds(await fetchPosterSvg(await engineRequest(poster, format, kicker, context)));
+        const markup = uniqueIds(await posterSvg(poster, format, kicker, context));
         const root = new DOMParser().parseFromString(markup, "image/svg+xml").documentElement;
         if (!live || !holder.current || root.nodeName !== "svg" || root.querySelector("script, foreignObject")) return;
         const svg = document.importNode(root, true) as unknown as SVGSVGElement;

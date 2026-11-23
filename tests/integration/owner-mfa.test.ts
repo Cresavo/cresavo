@@ -134,7 +134,7 @@ describe("setting up two-step sign-in", () => {
   it("turns it on with a code, and sign-in then asks for one before any session", async () => {
     const a = await enrolled("happy");
     expect(a.recoveryCodes).toHaveLength(10);
-    expect(await answer(await meRoute(get("/api/owner/me", a.session)))).toEqual({ status: 200, body: { email: email("happy"), mfaEnabled: true } });
+    expect(await answer(await meRoute(get("/api/owner/me", a.session)))).toEqual({ status: 200, body: { email: email("happy"), mfaEnabled: true, session: expect.stringMatching(/^\w+\.\d+$/) } });
 
     const { response, pending } = await passwordStep("happy");
     expect(await answer(response)).toEqual({ status: 200, body: { next: "mfa" } });
@@ -390,7 +390,7 @@ describe("OWNER_MFA_REQUIRED=1", () => {
     expect(await answer(await salonRoute(get("/api/owner/salon", session)))).toEqual({ status: 403, body: { error: "mfa_required" } });
     const action = await actionsRoute(post("/api/owner/salon/actions", { action: { type: "salon/update" }, idempotencyKey: "k".repeat(32) }, { cookies }));
     expect(await answer(action)).toEqual({ status: 403, body: { error: "mfa_required" } });
-    expect(await answer(await meRoute(get("/api/owner/me", session)))).toEqual({ status: 200, body: { email: email("required"), mfaEnabled: false } });
+    expect(await answer(await meRoute(get("/api/owner/me", session)))).toEqual({ status: 200, body: { email: email("required"), mfaEnabled: false, session: expect.stringMatching(/^\w+\.\d+$/) } });
 
     const { secret } = await (await setupRoute(post("/api/owner/mfa/setup", { password }, { cookies }))).json();
     const enable = await enableRoute(post("/api/owner/mfa/enable", { password, code: codeNow(fromBase32(secret)) }, { cookies }));
