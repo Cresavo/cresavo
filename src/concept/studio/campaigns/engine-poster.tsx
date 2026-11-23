@@ -26,16 +26,21 @@ function assign(ref: Ref<SVGSVGElement> | undefined, value: SVGSVGElement | null
  */
 export function EnginePoster({ poster, format, kicker, context, label, ref }: EnginePosterProps) {
   const holder = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const request = JSON.stringify({ poster, format, kicker, context });
+  // The outcome belongs to the request it was drawn for, so a changed poster reads as loading at once.
+  const [result, setResult] = useState<{ request: string; ok: boolean } | null>(null);
+  const state = result?.request !== request ? "loading" : result.ok ? "ready" : "failed";
 
   useEffect(() => {
     let live = true;
+    // Until the new SVG is in place, nothing may export the previous one.
+    assign(ref, null);
     const timer = window.setTimeout(async () => {
       try {
         const markup = uniqueIds(await posterSvg(poster, format, kicker, context));
         const root = new DOMParser().parseFromString(markup, "image/svg+xml").documentElement;
-        if (!live || !holder.current || root.nodeName !== "svg" || root.querySelector("script, foreignObject")) return;
+        if (!live || !holder.current) return;
+        if (root.nodeName !== "svg" || root.querySelector("script, foreignObject")) throw new Error("unsafe poster markup");
         const svg = document.importNode(root, true) as unknown as SVGSVGElement;
         svg.setAttribute("role", "img");
         svg.setAttribute("aria-label", label);
@@ -45,9 +50,9 @@ export function EnginePoster({ poster, format, kicker, context, label, ref }: En
         svg.style.height = "auto";
         holder.current.replaceChildren(svg);
         assign(ref, svg);
-        setState("ready");
+        setResult({ request, ok: true });
       } catch {
-        if (live) setState("failed");
+        if (live) setResult({ request, ok: false });
       }
     }, 250);
     return () => {

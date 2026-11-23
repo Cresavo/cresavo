@@ -1,7 +1,7 @@
 "use client";
 
 import { reviewSummary } from "../../booking/reviews";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Check, Copy, Download, Megaphone } from "lucide-react";
 import { unavailablePosterTimes } from "../../campaigns/draft";
 import { CHANNELS } from "../../campaigns/channels";
@@ -28,9 +28,11 @@ import { PosterView } from "./poster-view";
 /** One campaign: how it is doing, the link, the texts and poster that went out, and "Run as ad". */
 export function CampaignDetail({ id }: { id: string }) {
   const { state } = useStudio();
-  const postSvg = useRef<SVGSVGElement>(null);
-  const storySvg = useRef<SVGSVGElement>(null);
-  const windowSvg = useRef<SVGSVGElement>(null);
+  // Held as state so each download stays off until its poster is drawn.
+  const [postSvg, setPostSvg] = useState<SVGSVGElement | null>(null);
+  const [storySvg, setStorySvg] = useState<SVGSVGElement | null>(null);
+  const [windowSvg, setWindowSvg] = useState<SVGSVGElement | null>(null);
+  const svgs = { post: postSvg, story: storySvg, window: windowSvg };
   const [adOpen, setAdOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const campaign = state.campaigns.find((c) => c.id === id);
@@ -55,7 +57,7 @@ export function CampaignDetail({ id }: { id: string }) {
     }
   };
   const download = async (format: PosterFormat) => {
-    const svg = { post: postSvg, story: storySvg, window: windowSvg }[format].current;
+    const svg = svgs[format];
     if (!svg) return;
     try {
       downloadBlob(await posterToPng(svg, format), `${campaign.name.replace(/\W+/g, "-").toLowerCase()}-${format}.png`);
@@ -129,19 +131,19 @@ export function CampaignDetail({ id }: { id: string }) {
             <Section title={t("campaigns.poster.title")}>
               <div className="space-y-3">
                 <div className="mx-auto w-full max-w-xs overflow-hidden rounded-lg">
-                  <PosterView ref={postSvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
+                  <PosterView ref={setPostSvg}source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
                 </div>
                 {stale && <Notice tone="warning">{t("campaigns.poster.stale")}</Notice>}
                 <div className="flex flex-wrap justify-center gap-2">
                   {(["post", "story", "window"] as const).map((format) => (
-                    <Button key={format} size="sm" variant="secondary" icon={<Download size={15} />} onClick={() => void download(format)}>
+                    <Button key={format} size="sm" variant="secondary" icon={<Download size={15} />} onClick={() => void download(format)} disabled={!svgs[format]}>
                       {t(`campaigns.format.${format}`)}
                     </Button>
                   ))}
                 </div>
                 <div className="hidden">
-                  <PosterView ref={storySvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="story" />
-                  <PosterView ref={windowSvg} source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="window" />
+                  <PosterView ref={setStorySvg}source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="story" />
+                  <PosterView ref={setWindowSvg}source={campaign} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="window" />
                 </div>
               </div>
             </Section>
