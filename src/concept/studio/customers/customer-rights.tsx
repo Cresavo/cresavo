@@ -7,7 +7,7 @@ import { customerExport, customerExportCsv, customerExportFilename, customerExpo
 import type { Customer, DemoState } from "../../data/types";
 import { isStub } from "../../journals/sealed";
 import { t, tc } from "../../i18n";
-import { useDemo } from "../../store";
+import { currentTarget, targetOf, useDemo } from "../../store";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { showToast } from "../../ui/toast";
@@ -38,8 +38,16 @@ export function CustomerRights({ customer }: { customer: Customer }) {
   const router = useRouter();
 
   const save = async (extension: "json" | "csv") => {
-    // Mode and login are fixed with the snapshot, when the owner asks for the file.
-    const source = await withJournalText(saved, customer.id, journalsOnServer(), journalSessionKey());
+    // Mode and login are fixed with the snapshot, when the owner asks for the file. With a signed-in salon on either
+    // side, the salon rendered here must be the one open now, in the same lifetime, or nothing is fetched or saved.
+    const target = targetOf(saved);
+    const now = currentTarget();
+    const account = target?.workspace === "account" || now?.workspace === "account";
+    if (account && (!target || !now || target.workspace !== now.workspace || target.epoch !== now.epoch)) {
+      showToast(t("customer.export.journalFailed"));
+      return;
+    }
+    const source = await withJournalText(saved, customer.id, account && journalsOnServer(), journalSessionKey());
     if (!source) {
       showToast(t("customer.export.journalFailed"));
       return;

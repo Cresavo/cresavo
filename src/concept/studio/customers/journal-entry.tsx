@@ -9,6 +9,7 @@ import { formatDate } from "../../i18n/format";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { showToast } from "../../ui/toast";
+import { accountRecordSettled } from "../../store";
 import { useStudio } from "../use-studio";
 import { JournalForm } from "./journal-form";
 import { JournalPhotoPair } from "./journal-photos";
@@ -23,7 +24,9 @@ export function JournalEntryCard({ entry }: { entry: Entry }) {
 
   if (editing) {
     const save = (content: JournalContent) => {
-      if (!dispatchWithUndoToast({ type: "journal/edit", id: entry.id, content, on: today }, t("journal.edited"))) {
+      // The customer goes with the edit, so it never lands in another customer's entry under a reused id.
+      if (!accountRecordSettled("journals", entry.id)) showToast(t("journal.pending"));
+      else if (!dispatchWithUndoToast({ type: "journal/edit", id: entry.id, content, on: today, customerId: entry.customerId }, t("journal.edited"))) {
         showToast(t("journal.unchanged"));
       }
       setEditing(false);

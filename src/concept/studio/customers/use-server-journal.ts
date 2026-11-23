@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { journalSessionKey, readCustomerJournals } from "../../account/sync";
+import { journalSessionKey, onJournalSessionChange, readCustomerJournals } from "../../account/sync";
 import type { JournalEntry } from "../../data/types";
 import { isStub } from "../../journals/sealed";
 
@@ -25,6 +25,12 @@ export function useServerJournal(customerId: string, entries: JournalEntry[]): S
   const signature = stubs.map((entry) => `${entry.id}:${entry.sealed!.versions.join(".")}`).join("|");
   const [attempt, setAttempt] = useState(0);
   const [loaded, setLoaded] = useState<{ key: string; entries: Map<string, JournalEntry> | null } | null>(null);
+  // Another tab signed in or out, or this tab switched salon: the text goes at once, not at the next render.
+  const [, setGeneration] = useState(0);
+  useEffect(() => onJournalSessionChange(() => {
+    setLoaded(null);
+    setGeneration((n) => n + 1);
+  }), []);
   // Text read for another session (an account switch, a sign-out) is never shown: the key changes with the session.
   const key = `${journalSessionKey()}|${customerId}|${signature}|${attempt}`;
 

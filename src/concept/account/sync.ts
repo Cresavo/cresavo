@@ -37,10 +37,23 @@ export const journalsOnServer = () => journalsServer && currentTarget()?.workspa
 /** What journal text read from the server belongs to: the session it was read in. Changes on every account change. */
 export const journalSessionKey = () => `${sessionEpoch}:${salonSession ?? ""}`;
 
+const sessionListeners = new Set<() => void>();
+
+/** Calls `listener` whenever journal text read before may no longer be shown (the login or the open salon changed). */
+export function onJournalSessionChange(listener: () => void): () => void {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+
+function newEpoch() {
+  sessionEpoch++;
+  sessionListeners.forEach((listener) => listener());
+}
+
 function bindSession(session: string | null) {
   if (session === salonSession) return;
   salonSession = session;
-  sessionEpoch++;
+  newEpoch();
 }
 
 /** Signed out or switched away: nothing read or queued for the old session is used any more. */
@@ -51,7 +64,7 @@ function closeSalon() {
 
 if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
   // This tab opened or closed an account salon: journal text read before is not shown again.
-  onAccountChange(() => { sessionEpoch++; });
+  onAccountChange(newEpoch);
   // Another tab signed in, out or switched accounts: drop what was read, and send nothing more under the old login
   // until this tab loads its salon again (the server refuses it, and the studio reloads).
   onSessionSignal(() => bindSession(null));
@@ -122,8 +135,8 @@ async function request(url: string, init?: RequestInit) {
 
 async function post(action: DemoAction, idempotencyKey: string, session: string | null) {
   const journal = journalsServer && (action.type === "journal/add" || action.type === "journal/edit");
-  // A journal change goes out bound to the session it was made in, retries included: never to another account.
-  const headers: Record<string, string> = { "content-type": "application/json", ...(journal ? { [UPLOAD_SESSION_HEADER]: session ?? "" } : {}) };
+  // Every change goes out bound to the login it was made in, retries included: never to another account or sign-in.
+  const headers: Record<string, string> = { "content-type": "application/json", [UPLOAD_SESSION_HEADER]: session ?? "" };
   const send = () => request(journal ? JOURNALS : `${SALON}/actions`, { method: "POST", headers, body: JSON.stringify({ action, idempotencyKey }) });
   try {
     return await send();
@@ -180,6 +193,11 @@ function send(action: DemoAction, change: AccountChange) {
     let answer: Answer = { ok: false, reason: "unavailable" };
     try {
       const response = await post(action, idempotencyKey, session);
+      // An answer for another login (an account switch or a new sign-in meanwhile) is never shown here.
+      if (salonSession !== session || (response.ok && typeof response.body?.session === "string" && response.body.session !== session)) {
+        answer = { ok: false, reason: "conflict" };
+        return;
+      }
       if (response.status === 401) {
         closeSalon();
         showToast(t("account.sync.signedOut"));
@@ -207,7 +225,7 @@ function send(action: DemoAction, change: AccountChange) {
       logSettlers.delete(idempotencyKey);
       // A last change that failed leaves the screen on an earlier optimistic state: the newest server copy replaces it.
       // With no server copy at all, the salon as it was confirmed before the queue is the only state that is true.
-      if (pending === 0 && !reconciled) { if (latestAnswer) replaceAccountSalon(latestAnswer); else restoreAccountBase(); reconciled = true; }
+      if (pending === 0 && !reconciled && salonSession === session) { if (latestAnswer) replaceAccountSalon(latestAnswer); else restoreAccountBase(); reconciled = true; }
       waiters.get(idempotencyKey)?.(answer);
       waiters.delete(idempotencyKey);
     }

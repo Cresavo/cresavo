@@ -700,15 +700,17 @@ let accountBase: DemoState | undefined;
 const accountLogRequests = new Map<string, string>();
 export const accountRequestOfLog = (localLogId: string) => accountLogRequests.get(localLogId);
 
-/** True for an action on a booking or log entry that a pending change made: `booking/*` and `log/undo` ids. */
+/** True for an action on a booking, log entry or journal entry that a pending change made: `booking/*`, `log/undo` and `journal/edit` ids. */
 function namesProvisionalRecord(action: DemoAction): boolean {
   const id = (action as { id?: unknown }).id;
   if (typeof id !== "string") return false;
   if (action.type === "log/undo") return !accountRecordSettled("log", id);
+  // A journal entry added a moment ago has a provisional id the server may give another customer's entry.
+  if (action.type === "journal/edit") return !accountRecordSettled("journals", id);
   return action.type.startsWith("booking/") && !accountRecordSettled("bookings", id);
 }
 
-export function accountRecordSettled(collection: "bookings" | "log", id: string): boolean {
+export function accountRecordSettled(collection: "bookings" | "log" | "journals", id: string): boolean {
   return !accountBase || active !== "account" || accountBase[collection].some((record) => record.id === id);
 }
 

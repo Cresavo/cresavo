@@ -1123,6 +1123,7 @@ const messages = {
   "journal.loading": "Öppnar journalen…",
   "journal.loadFailed": "Journalen kunde inte öppnas. Försök igen om en stund.",
   "journal.unavailable": "Journalerna går inte att nå just nu. Inget sparades.",
+  "journal.pending": "Anteckningen sparas fortfarande. Redigera den igen om en stund.",
   "journal.retry": "Försök igen",
   "customer.export.journalFailed": "Journalen kunde inte läsas, så inget laddades ner. Försök igen om en stund.",
   "journal.template": "Utgå från en mall",

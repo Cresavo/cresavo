@@ -436,13 +436,18 @@ Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
   decrypts the customer's live entries and returns them, in one transaction.
   `GET /api/owner/journals?customer=` serves it; `POST` takes `journal/add` and
   `journal/edit`. The actions route refuses those and `journal/view` with the
-  flag on. Both journal routes and the erase route need `x-cresavo-session`
-  equal to the session key (account, credential version and a tag of the login
+  flag on. Both journal routes, the erase route and the actions route (every
+  account change, whatever the flag) need `x-cresavo-session` equal to the
+  session key (account, credential version and a tag of the login
   itself, so a new sign-in gets a new key; the salon load returns it), checked
-  before anything is looked up. The studio binds its journal requests, retries,
-  erasures and cache to the login it loaded the salon in, drops text read for an
-  earlier one, and drops it too on the session signals (another tab signing in
-  or out) and on sign-out. An export fixes its mode and login with its snapshot:
+  before anything is looked up or applied, and their answers name the key. The
+  studio binds every change, its retries, erasures and the journal cache to the
+  login it loaded the salon in, never shows an answer for another login, drops
+  text read for an earlier one, and clears a shown journal at once on the session
+  signals (another tab signing in or out) and on sign-out. An edit is refused in
+  the studio while its entry's id is still provisional (as for bookings and
+  undo), and names the customer it was made for: the reducer leaves an entry of
+  anyone else alone. An export fixes its mode and login with its snapshot:
   a browser salon's export never asks the server. Rate limits `journal-read` (300) and `journal-write` (120) per
   salon and 15 minutes.
 - **Lazy move.** Until a salon is marked (`tenant_state.journals_sealed_at`),
@@ -456,8 +461,9 @@ Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
   stored replays lose journal text, in their state copy and their action, in
   batches of 25, each its own short transaction without the row lock (a cleaned
   row no longer matches, so progress survives a failure); (3) under the row lock
-  again the document, the audit rows and the replays are checked, and only when
-  all three are clean is the salon marked. The first save with the flag on does
+  the audit rows and the replays are checked up to a high-water mark of the log
+  without the lock, then under the lock only the document and what came past the
+  mark; only when all are clean is the salon marked. The first save with the flag on does
   step 1 in its own transaction. Any write that leaves journal text in the
   document (with the flag off, `replaceState` included) clears the mark in the
   same transaction.
@@ -468,14 +474,19 @@ Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
   scrubbed copy, encrypted for the next version and keeping its trash mark,
   through `erase_subject(tenant, customer, copies)`, which runs
   `studio_erase_journal_mentions` as the eraser (no other role may execute it):
-  it holds to the tenant's own scope whether RLS is on or not, writes `replaces`
-  and deletes the replaced version in the same step, and only while the customer
-  is still in the document with an identifier long enough to scrub. Whether the
+  it holds to the tenant's own scope whether RLS is on or not (so does
+  `erase_subject(tenant, customer)` itself), writes `replaces` and deletes the
+  replaced version in the same step, and only while the customer is still in the
+  document with an identifier long enough to scrub, for at most one copy per
+  stored version and under a key version the salon uses. Whether the
   replaced version really named the customer cannot be checked there, since it
   is ciphertext; that is why it runs only inside the erasure, which the
   application can already ask for any customer of its tenant. The application
   may not write `replaces`. `erase_subject` (and the statements mode) then
-  deletes the customer's own rows. The document's stubs are renumbered. The
+  deletes the customer's own rows. A stored replay whose audit row (the same
+  `seq`) names the customer by `subject_ids` loses every personal field of its
+  action, so an old edit of their journal that carries only the entry id does not
+  keep its text. The document's stubs are renumbered. The
   export always reads the customer's journal through the route while the server
   keeps journals, and stops when it cannot.
 - **Without a key.** The store runs with `"unavailable"` (also for a key that
