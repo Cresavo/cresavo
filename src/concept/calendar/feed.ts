@@ -15,8 +15,13 @@ const FUTURE_DAYS = 120;
 
 const escapeText = (text: string) => text.replace(/\\/g, "\\\\").replace(/\r\n|\r|\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,");
 
+/** A booking's minutes are wall-clock time in the salon, so they set the hour and minute; adding them as elapsed time would be an hour off on clock-change days. */
 const utc = (date: string, minutes: number) =>
-  DateTime.fromISO(date, { zone: SALON_TIMEZONE }).startOf("day").plus({ minutes }).toUTC().toFormat("yyyyLLdd'T'HHmmss'Z'");
+  DateTime.fromISO(date, { zone: SALON_TIMEZONE })
+    .plus({ days: Math.floor(minutes / 1440) })
+    .set({ hour: Math.floor((minutes % 1440) / 60), minute: minutes % 60, second: 0, millisecond: 0 })
+    .toUTC()
+    .toFormat("yyyyLLdd'T'HHmmss'Z'");
 
 /** RFC 5545: lines are at most 75 octets, folded with CRLF + space, never inside a character. */
 function fold(line: string): string {

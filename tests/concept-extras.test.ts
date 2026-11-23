@@ -245,6 +245,18 @@ describe("calendar feed", () => {
   it("is null for someone who does not work there", () => {
     expect(buildStaffFeed(base, "nobody", today, now)).toBeNull();
   });
+
+  it("keeps the salon's wall-clock time on both clock-change days", () => {
+    const template = base.bookings.find((b) => b.staffId === "anna" && b.status === "booked")!;
+    const on = (date: string) => {
+      const state = { ...base, bookings: [{ ...template, id: `dst-${date}`, date, start: 10 * 60, duration: 60 }] };
+      return buildStaffFeed(state, "anna", date, now)!.replace(/\r\n /g, "").split("\r\n");
+    };
+    // 28 March 2027: Stockholm moves to UTC+2 at 02:00, so 10:00 is 08:00 UTC.
+    expect(on("2027-03-28")).toEqual(expect.arrayContaining(["DTSTART:20270328T080000Z", "DTEND:20270328T090000Z"]));
+    // 31 October 2027: back to UTC+1 at 03:00, so 10:00 is 09:00 UTC.
+    expect(on("2027-10-31")).toEqual(expect.arrayContaining(["DTSTART:20271031T090000Z", "DTEND:20271031T100000Z"]));
+  });
 });
 
 describe("calendar feed token", () => {
