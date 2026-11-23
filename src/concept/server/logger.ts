@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { reportError } from "@/lib/error-report";
 
 // Structured logging for /api/concept/*. One JSON line per request with a
 // fixed set of fields. Request bodies, query strings, keys, error messages and
@@ -67,6 +68,7 @@ export function withRequestLog<Context>(route: string, handler: Handler<Context>
       response = await handler(request, context, log);
     } catch (caught) {
       error = caught instanceof Error ? caught.constructor.name : "Error";
+      reportError(caught, { code: "CONCEPT_ROUTE_ERROR", route });
       response = Response.json({ error: "Unable to handle the request" }, { status: 500 });
     }
     response.headers.set("x-request-id", requestId);

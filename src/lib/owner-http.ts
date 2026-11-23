@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { failure } from "./http";
 import { ownerAccountsEnabled } from "./owner-accounts";
-import { OWNER_COOKIE, OWNER_HINT_COOKIE, renewedOwnerCookie, type OwnerCookie } from "./owner-session";
+import { enrolmentOnly } from "./owner-mfa";
+import { SECOND_STEP_TTL_MS, SECOND_STEP_COOKIE, SECOND_STEP_PATH } from "./owner-mfa-pending";
+import { OWNER_COOKIE, OWNER_HINT_COOKIE, ownerFromCookie, renewedOwnerCookie, type OwnerContext, type OwnerCookie } from "./owner-session";
 import { isPublicReadonly, readonlyForbidden } from "./public-readonly";
 import { isSameOriginWrite } from "./same-origin";
 
@@ -60,5 +62,31 @@ export function withRenewedSession(response: NextResponse, request: NextRequest)
 export function withoutSession(response: NextResponse) {
   response.cookies.set(OWNER_COOKIE, "", { ...cookieOptions, maxAge: 0 });
   response.cookies.set(OWNER_HINT_COOKIE, "", { ...hintOptions, maxAge: 0 });
+  return response;
+}
+
+/** The signed-in owner of the request's session cookie, or null. */
+export const sessionOwner = (request: NextRequest) => ownerFromCookie(request.cookies.get(OWNER_COOKIE)?.value);
+
+/** True when the owner may use the salon routes: signed in, and not limited to setting up two-step sign-in. */
+export const fullOwner = (owner: OwnerContext | null): owner is OwnerContext => owner !== null && !enrolmentOnly(owner);
+
+/**
+ * The answer for an owner `fullOwner` turned away: 401 when signed out, 403 `mfa_required` while
+ * OWNER_MFA_REQUIRED=1 and the account has not set up two-step sign-in. Only /me, logout and the
+ * /api/owner/mfa/* routes accept an enrolment-only session; they read the session with ownerFromCookie.
+ */
+export const refusedOwner = (owner: OwnerContext | null) => (owner ? ownerError("mfa_required", 403) : ownerError("signed_out", 401));
+
+// The pending second step of a sign-in: sent only to /api/owner/login and below.
+const pendingOptions = { ...cookieOptions, path: SECOND_STEP_PATH };
+
+export function withPendingSecondStep(response: NextResponse, value: string) {
+  response.cookies.set(SECOND_STEP_COOKIE, value, { ...pendingOptions, maxAge: SECOND_STEP_TTL_MS / 1000 });
+  return response;
+}
+
+export function withoutPendingSecondStep(response: NextResponse) {
+  response.cookies.set(SECOND_STEP_COOKIE, "", { ...pendingOptions, maxAge: 0 });
   return response;
 }

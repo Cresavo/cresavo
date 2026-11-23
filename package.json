@@ -23,6 +23,7 @@
     "test:integration": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts",
     "test:e2e:production": "node --env-file=.env scripts/run-production-e2e.mjs",
     "effects:drain": "node --env-file-if-exists=.env --import tsx scripts/drain-effects.mts",
+    "effects:reconcile": "node --env-file-if-exists=.env --import tsx scripts/reconcile-effects.mts",
     "store:sweep": "node --import tsx scripts/sweep-store.mts",
     "store:erase": "node --import tsx scripts/replay-erasure.mts",
     "store:loadtest": "node --import tsx scripts/loadtest-store.mts",

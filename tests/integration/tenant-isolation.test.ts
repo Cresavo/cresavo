@@ -236,7 +236,7 @@ describe("/api/owner/*: owner A against salon B", () => {
     for (const id of [...a.ids.services, ...a.ids.customers, a.ids.inbox, a.ids.trash, a.ids.log]) expect(twinOwn.has(id), id).toBe(true);
     // `me` says who is signed in and nothing about any tenant.
     const me = await getMe(ownerRequest("/api/owner/me", { cookie: a.cookie }));
-    expect(await me.json()).toEqual({ email: a.email });
+    expect(await me.json()).toEqual({ email: a.email, mfaEnabled: false });
   });
 
   it("ignores every other way a request can name a tenant: query, headers and extra fields", async () => {
