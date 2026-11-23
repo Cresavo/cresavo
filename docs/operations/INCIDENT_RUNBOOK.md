@@ -190,8 +190,9 @@ current build.
 
 
 Encrypts every owner's authenticator secret (AES-256-GCM, stored as
-`v1:<iv>:<tag>:<ciphertext>` in `owner_account.totp_secret_enc`) and, through a
-key derived from it, keys the recovery-code hashes (`owner_recovery_code`).
+`v1:<iv>:<tag>:<ciphertext>` in `owner_account.totp_secret_enc`) and, through
+per-account salts derived from it, the scrypt hashes of the recovery codes
+(`owner_recovery_code`).
 **There is no re-encryption yet: a new value makes every stored secret and
 recovery code unreadable.** After a rotation, every owner with two-step sign-in
 gets "not configured" (503) at the code step, cannot turn it off or get new

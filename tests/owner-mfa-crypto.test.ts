@@ -2,9 +2,9 @@ import { randomBytes } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   decryptSecret, encryptSecret, hashRecoveryCode, mfaKey, MfaSecretUnreadable, newRecoveryCodes, normalizeRecoveryCode, RECOVERY_ALPHABET,
-  RECOVERY_CODE_COUNT, sameHash,
+  RECOVERY_CODE_COUNT, RECOVERY_SCRYPT, sameHash,
 } from "@/lib/owner-mfa-crypto";
-import { MFA_PENDING_MS, parsePending, signPending } from "@/lib/owner-mfa-pending";
+import { SECOND_STEP_TTL_MS, parsePending, signPending } from "@/lib/owner-mfa-pending";
 import { base32, hotp, matchTotp, normalizeTotp, otpauthUri, TOTP_STEP_SECONDS, totpStep } from "@/lib/owner-totp";
 
 // The pure parts of owner two-step sign-in. All values are invented, except the published RFC test vectors.
@@ -125,13 +125,15 @@ describe("recovery codes", () => {
     for (const bad of ["ab2cd-ef3g", "ab2cd-ef3ghj", "ab2cd-ef3g!", "", 42, "u".repeat(10)]) expect(normalizeRecoveryCode(bad), String(bad)).toBeNull();
   });
 
-  it("hash under the server key, bound to the account, the same however typed", () => {
-    const hash = hashRecoveryCode("ab2cd-ef3gh", "acct-one", key);
+  it("hash with scrypt under a salt from the server key, bound to the account, the same however typed", async () => {
+    const hash = await hashRecoveryCode("ab2cd-ef3gh", "acct-one", key);
     expect(hash).toMatch(/^[a-f0-9]{64}$/);
     expect(hash).not.toContain("ab2cd");
-    expect(sameHash(hashRecoveryCode("AB2CDEF3GH", "acct-one", key), hash)).toBe(true);
-    expect(sameHash(hashRecoveryCode("ab2cd-ef3gh", "acct-two", key), hash)).toBe(false);
-    expect(sameHash(hashRecoveryCode("ab2cd-ef3gh", "acct-one", randomBytes(32)), hash)).toBe(false);
+    expect(RECOVERY_SCRYPT).toMatchObject({ N: 16384, r: 8, p: 1 });
+    expect(sameHash(await hashRecoveryCode("AB2CDEF3GH", "acct-one", key), hash)).toBe(true);
+    expect(sameHash(await hashRecoveryCode("ab2cd-ef3gh", "acct-two", key), hash)).toBe(false);
+    expect(sameHash(await hashRecoveryCode("ab2cd-ef3gh", "acct-one", randomBytes(32)), hash)).toBe(false);
+    await expect(hashRecoveryCode("not a code", "acct-one", key)).rejects.toThrow();
     expect(sameHash(hash, hash.slice(1))).toBe(false);
   });
 });
@@ -143,13 +145,13 @@ describe("pending second-step cookie", () => {
   it("names the account and version until it expires after five minutes", () => {
     vi.stubEnv("SESSION_SECRET", "x".repeat(40));
     const { value, expires, challenge } = signPending(pending, now);
-    expect(expires.getTime()).toBe(now + MFA_PENDING_MS);
-    expect(MFA_PENDING_MS).toBe(5 * 60_000);
+    expect(expires.getTime()).toBe(now + SECOND_STEP_TTL_MS);
+    expect(SECOND_STEP_TTL_MS).toBe(5 * 60_000);
     expect(challenge).toMatch(/^[a-f0-9]{64}$/);
     expect(value).not.toContain(challenge);
     expect(parsePending(value, now)).toEqual({ ...pending, challenge });
-    expect(parsePending(value, now + MFA_PENDING_MS - 1)).toEqual({ ...pending, challenge });
-    expect(parsePending(value, now + MFA_PENDING_MS)).toBeNull();
+    expect(parsePending(value, now + SECOND_STEP_TTL_MS - 1)).toEqual({ ...pending, challenge });
+    expect(parsePending(value, now + SECOND_STEP_TTL_MS)).toBeNull();
     expect(signPending(pending, now).value).not.toBe(value);
   });
 

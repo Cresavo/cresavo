@@ -617,7 +617,7 @@ model OwnerAccount {
   @@map("owner_account")
 }
 
-/// Single-use recovery codes for two-step sign-in, stored as HMAC-SHA-256 under a key derived from OWNER_MFA_KEY.
+/// Single-use recovery codes for two-step sign-in, stored as scrypt with a per-account salt derived from OWNER_MFA_KEY.
 model OwnerRecoveryCode {
   id        String       @id @default(cuid())
   accountId String       @map("account_id")

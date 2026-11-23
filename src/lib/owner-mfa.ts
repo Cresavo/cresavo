@@ -4,7 +4,7 @@ import { db } from "./db";
 import type { OwnerIdentity } from "./owner-accounts";
 import { loginGuard } from "./owner-guard-store";
 import { decryptSecret, hashRecoveryCode, mfaKey, MfaSecretUnreadable, normalizeRecoveryCode, sameHash } from "./owner-mfa-crypto";
-import { MFA_PENDING_MS, parsePending, signPending } from "./owner-mfa-pending";
+import { SECOND_STEP_TTL_MS, parsePending, signPending } from "./owner-mfa-pending";
 import { matchTotp, normalizeTotp } from "./owner-totp";
 import { insertOwnerSession, type OwnerCookie } from "./owner-session";
 import { assertWritable } from "./public-readonly";
@@ -46,15 +46,25 @@ export async function spendTotp(account: SecretRow, input: string, key: Buffer, 
 }
 
 /**
- * Uses a recovery code once. The stored secret is decrypted first, so a key that does not fit throws
- * MfaSecretUnreadable instead of judging the code. The stored hashes are compared in constant time.
+ * A second factor ready to spend. A recovery code is hashed here, outside any transaction, because scrypt is
+ * slow on purpose; a code that cannot be one has no hash and is refused.
  */
-export async function spendRecoveryCode(account: SecretRow, input: string, key: Buffer, now: number, client: Client = db): Promise<boolean> {
+export type PreparedFactor = { code: string } | { recoveryHash: string | null };
+
+export async function prepareFactor(accountId: string, factor: SecondFactor, key: Buffer): Promise<PreparedFactor> {
+  if ("code" in factor) return { code: factor.code };
+  const code = normalizeRecoveryCode(factor.recoveryCode);
+  return { recoveryHash: code ? await hashRecoveryCode(code, accountId, key) : null };
+}
+
+/**
+ * Uses a recovery code once, given its prepared hash. The stored secret is decrypted first, so a key that does
+ * not fit throws MfaSecretUnreadable instead of judging the code. The stored hashes are compared in constant time.
+ */
+export async function spendRecoveryCode(account: SecretRow, hash: string | null, key: Buffer, now: number, client: Client = db): Promise<boolean> {
   if (!account.totpSecretEnc) return false;
   decryptSecret(account.totpSecretEnc, account.id, key);
-  const code = normalizeRecoveryCode(input);
-  if (!code) return false;
-  const hash = hashRecoveryCode(code, account.id, key);
+  if (!hash) return false;
   const rows = await client.ownerRecoveryCode.findMany({ where: { accountId: account.id, usedAt: null }, select: { id: true, codeHash: true } });
   let match: string | null = null;
   for (const row of rows) if (sameHash(row.codeHash, hash) && match === null) match = row.id;
@@ -63,15 +73,13 @@ export async function spendRecoveryCode(account: SecretRow, input: string, key: 
   return count === 1;
 }
 
-export const spendFactor = (account: SecretRow, factor: SecondFactor, key: Buffer, now: number, client: Client = db) =>
-  "code" in factor ? spendTotp(account, factor.code, key, now, client) : spendRecoveryCode(account, factor.recoveryCode, key, now, client);
+export const spendFactor = (account: SecretRow, factor: PreparedFactor, key: Buffer, now: number, client: Client = db) =>
+  "code" in factor ? spendTotp(account, factor.code, key, now, client) : spendRecoveryCode(account, factor.recoveryHash, key, now, client);
 
-/** Replaces an account's recovery codes with these, inside the caller's transaction. */
-export async function replaceRecoveryCodes(tx: Prisma.TransactionClient, accountId: string, codes: string[], key: Buffer, now: number) {
+/** Replaces an account's recovery codes with these stored hashes, inside the caller's transaction. */
+export async function replaceRecoveryCodes(tx: Prisma.TransactionClient, accountId: string, hashes: string[], now: number) {
   await tx.ownerRecoveryCode.deleteMany({ where: { accountId } });
-  await tx.ownerRecoveryCode.createMany({
-    data: codes.map((code) => ({ accountId, codeHash: hashRecoveryCode(code, accountId, key), createdAt: new Date(now) })),
-  });
+  await tx.ownerRecoveryCode.createMany({ data: hashes.map((codeHash) => ({ accountId, codeHash, createdAt: new Date(now) })) });
 }
 
 /** Runs a check that reads a stored secret; a secret the configured key cannot read answers `not_configured`. */
@@ -109,7 +117,7 @@ export async function startSecondStep(identity: OwnerIdentity, now = Date.now())
     await tx.ownerMfaChallenge.create({
       data: {
         id: pending.challenge, accountId: identity.id, credentialVersion: identity.credentialVersion,
-        createdAt: new Date(now), expiresAt: new Date(now + MFA_PENDING_MS),
+        createdAt: new Date(now), expiresAt: new Date(now + SECOND_STEP_TTL_MS),
       },
     });
   });
@@ -146,6 +154,7 @@ export async function completeSecondStep(pendingCookie: string | undefined, inpu
   const key = mfaKey();
   if (!key) return { ok: false, reason: "not_configured" };
   const factor = factorSchema.safeParse(input);
+  const prepared = factor.success ? await prepareFactor(pending.accountId, factor.data, key) : null;
   const guard = loginGuard();
   const transaction = () => db.$transaction(async (tx): Promise<Judged> => {
     const taken = await tx.$queryRaw<{ id: string }[]>`
@@ -161,7 +170,7 @@ export async function completeSecondStep(pendingCookie: string | undefined, inpu
     if (account.credential_version !== pending.credentialVersion || !account.totp_secret_enc) return { ok: false, reason: "expired" };
     if (await guard.locked(account.email)) return refuse({ ok: false, reason: "invalid_code" });
     const row = { id: pending.accountId, totpSecretEnc: account.totp_secret_enc, totpLastStep: account.totp_last_step };
-    if (!factor.success || !(await spendFactor(row, factor.data, key, now, tx))) return refuse({ ok: false, reason: "invalid_code", failed: account.email });
+    if (!prepared || !(await spendFactor(row, prepared, key, now, tx))) return refuse({ ok: false, reason: "invalid_code", failed: account.email });
     // Checks the lock and clears the failures in one step, like a correct password without two-step sign-in.
     if (!(await guard.succeeded(account.email))) return refuse({ ok: false, reason: "invalid_code" });
     const identity = { id: pending.accountId, credentialVersion: account.credential_version };

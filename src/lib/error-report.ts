@@ -8,7 +8,7 @@
 // release, the environment and the event code. Messages, causes, request
 // bodies, headers, cookies, query strings, e-mails and IPs have no way in.
 
-import { version } from "../../package.json";
+import { APP_VERSION as version } from "./app-version";
 
 export interface ReportContext {
   /** Fixed event code, e.g. BOOKING_INTERNAL_ERROR. */

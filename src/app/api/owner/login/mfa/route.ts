@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { ownerError, ownerOk, ownerRoute, readBoundedJson, withoutPendingSecondStep, withSession } from "@/lib/owner-http";
 import { completeSecondStep, type SecondStepResult } from "@/lib/owner-mfa";
-import { OWNER_MFA_PENDING_COOKIE } from "@/lib/owner-mfa-pending";
+import { SECOND_STEP_COOKIE } from "@/lib/owner-mfa-pending";
 import type { OwnerCookie } from "@/lib/owner-session";
 import { checkLoginAttempt, clientIp } from "@/lib/rate-limit";
 
@@ -17,7 +17,7 @@ type Refusal = Extract<SecondStepResult, { ok: false }>["reason"];
 export function POST(request: NextRequest) {
   return ownerRoute(request, async () => {
     const json = await readBoundedJson(request, MAX_BODY_BYTES);
-    const pending = request.cookies.get(OWNER_MFA_PENDING_COOKIE)?.value;
+    const pending = request.cookies.get(SECOND_STEP_COOKIE)?.value;
     const outcome: { cookie?: OwnerCookie; reason?: Refusal } = {};
     const accepted = await checkLoginAttempt(clientIp(request.headers), async () => {
       // Spends the code, consumes the challenge and opens the session in one transaction.
