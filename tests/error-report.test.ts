@@ -7,6 +7,7 @@ const DSN = "https://publickey@o1.ingest.de.sentry.io/4501";
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -62,8 +63,14 @@ describe("error report", () => {
     vi.stubEnv("ERROR_REPORT_DSN", DSN);
     const fetchMock = vi.fn().mockResolvedValue(new Response(null));
     vi.stubGlobal("fetch", fetchMock);
+    // The event ID and the two times are the only random parts of a report. Pin
+    // them, or a short canary such as "070" turns up in them by chance.
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("11111111-2222-4333-8444-555555555555");
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-01-02T03:04:05.678Z") });
     reportError(canaryError(), { code: "BOOKING_INTERNAL_ERROR", route: "/api/x?email=anna@example.test" });
     const [url, init] = fetchMock.mock.calls[0];
+    expect(init.body).toContain('"event_id":"11111111222243338444555555555555","sent_at":"2026-01-02T03:04:05.678Z"');
+    expect(init.body).toContain('"timestamp":1767323045,');
     const sent = `${url}\n${JSON.stringify(init.headers)}\n${init.body}`;
     for (const secret of ["CANARY", "example.test", "070", "postgres", "owner_session", "203.0.113.9", "token=", "finns inte"]) {
       expect(sent, secret).not.toContain(secret);
