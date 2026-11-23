@@ -6,6 +6,7 @@ import { isPublicReadonly, publicReadonlyResponse } from "./lib/public-readonly"
 import { sandboxConfig, sandboxCronHost, sandboxHost, sandboxRequested } from "./lib/agent-api/sandbox/config";
 import { contentSecurityPolicy, createNonce, cspExempt, frameOptions } from "./lib/csp";
 import { MAX_IMPORT_ACTION_BYTES } from "./lib/owner-actions/types";
+import { MAX_MEDIA_BYTES } from "./lib/media/limits";
 import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
@@ -93,15 +94,18 @@ function hostResponse(request: NextRequest, host: string | null | undefined, rou
 const OWNER_ACTIONS_PATH = "/api/owner/salon/actions";
 /** What the owner actions route reads at most: its largest action cap plus the envelope (`app/api/owner/salon/actions/route.ts`). */
 export const OWNER_ACTIONS_MAX_BODY_BYTES = MAX_IMPORT_ACTION_BYTES + 1024;
+const OWNER_MEDIA_PATH = "/api/owner/media";
+const OWNER_BODY_CAPS = new Map([[OWNER_ACTIONS_PATH, OWNER_ACTIONS_MAX_BODY_BYTES], [OWNER_MEDIA_PATH, MAX_MEDIA_BYTES]]);
 
 /**
  * Next.js clones and buffers a proxied request's body (10 MiB by default) before it calls this proxy, so the
  * self-hosted HTTP entry point (`scripts/server.mjs`, `scripts/owner-body-limit.mjs`) refuses an oversized body
  * first. This is the second line, for any other way of running the app: it refuses what the route would never read.
+ * The same holds for a picture uploaded to the photo library (`app/api/owner/media/route.ts`).
  */
 function ownerActionsTooLarge(request: NextRequest) {
-  if (request.method !== "POST" || request.nextUrl.pathname.replace(/\/+$/, "") !== OWNER_ACTIONS_PATH) return;
-  if (!(Number(request.headers.get("content-length") ?? 0) > OWNER_ACTIONS_MAX_BODY_BYTES)) return;
+  const cap = request.method === "POST" ? OWNER_BODY_CAPS.get(request.nextUrl.pathname.replace(/\/+$/, "")) : undefined;
+  if (cap === undefined || !(Number(request.headers.get("content-length") ?? 0) > cap)) return;
   return NextResponse.json({ error: "too_large" }, { status: 413, headers: { "Cache-Control": "no-store" } });
 }
 

@@ -69,11 +69,12 @@ function Frame({ children, slug, widget, switchLanguage }: {
   const known = !state || state.salon.slug === slug;
   const ownerView = useOwnerView();
   const fromServer = useServerSalon() !== null;
-  useTenantIcon(known ? page.theme.logo : null);
+  const [brokenLogo, setBrokenLogo] = useState<string | null>(null);
+  useTenantIcon(known && page.theme.logo !== brokenLogo ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
   if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
-  const { logo } = page.theme;
+  const logo = page.theme.logo && page.theme.logo !== brokenLogo ? page.theme.logo : null;
   return (
     <PageRoot page={page} className="flex min-h-dvh flex-col">
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
@@ -81,9 +82,10 @@ function Frame({ children, slug, widget, switchLanguage }: {
         <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3">
           <Link href={bookingHome(slug)} className="flex min-h-target min-w-target max-w-full items-center gap-3 break-words font-semibold tracking-tight">
             {logo ? (
-              // A small data URL chosen by the owner; there is nothing for the image optimiser to do.
+              // The owner's logo: a small data URL in the demo, the app's own address for an account; nothing for the
+              // image optimiser to do. One the server no longer serves (removed, or a page restored to an older logo) gives way to the leaf.
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="" className="h-8 w-auto max-w-32 rounded-sm object-contain" />
+              <img src={logo} alt="" className="h-8 w-auto max-w-32 rounded-sm object-contain" onError={() => setBrokenLogo(logo)} />
             ) : (
               <span className="flex size-8 items-center justify-center rounded-sm bg-action text-on-action">
                 <Leaf size={16} />

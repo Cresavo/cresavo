@@ -7,7 +7,7 @@ import { GUARD_PREFIXES } from "./owner-guard-keys";
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
 export const rateLimitDatabase = createDatabaseClient(undefined, 1);
-type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit";
+type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload";
 export type Reservation = { key: string; generation: string; count: number };
 
 const limitOf = (route: Route) =>

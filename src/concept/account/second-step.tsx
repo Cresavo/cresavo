@@ -9,6 +9,7 @@ import { Field, TextInput } from "../ui/controls";
 import { Notice } from "../ui/notice";
 import { mfaError, postMfa } from "./mfa-client";
 import { StepHeading } from "./step-heading";
+import { signalSessionChange } from "./session-signal";
 
 /**
  * The second step of a sign-in: a code from the authenticator app, or a recovery code. `onRestart` goes back to
@@ -28,6 +29,7 @@ export function SecondStep({ language, onRestart }: { language: Locale; onRestar
     setError(null);
     const answer = await postMfa("/api/owner/login/mfa", recovery ? { recoveryCode: value } : { code: value });
     if (answer.ok) {
+      signalSessionChange();
       router.push("/account");
       router.refresh();
       return;
