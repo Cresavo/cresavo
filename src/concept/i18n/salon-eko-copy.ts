@@ -1,6 +1,7 @@
 import type { Locale } from "@/lib/locale";
 import { holidayCopy } from "../data/holidays";
 import type { DemoState, Service, Staff, StockItem } from "../data/types";
+import type { PageAbout } from "../page/about";
 import { getPack } from "../packs";
 import { translate, type MessageKey } from ".";
 import { en } from "./en";
@@ -96,6 +97,18 @@ export function salonCopy(state: DemoState, language: Locale): DemoState {
       reply: review.reply && lookupCopy(review.reply, reviewReply, language),
     } : review),
   };
+}
+
+/**
+ * The About text as it is stored when a page is saved from a translated view:
+ * the demo text in another language is the same text, so it stays as stored
+ * and the save is not an edit of it. The owner's own words are saved as typed.
+ */
+export function fixtureAbout(state: DemoState, about: PageAbout): PageAbout {
+  const stored = state.page.about?.text;
+  if (state.industry || state.pack !== eko.id || typeof stored !== "string" || about.text === stored) return about;
+  const copies = [translate("en", "fixture.eko.about"), translate("sv", "fixture.eko.about")];
+  return copies.includes(stored) && copies.includes(about.text) ? { ...about, text: stored } : about;
 }
 
 export function studioSalonCopy(state: DemoState, language: Locale): DemoState {

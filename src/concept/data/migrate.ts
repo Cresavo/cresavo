@@ -3,7 +3,7 @@ import { returnRedemptions } from "../giftcards/cards";
 import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
-import { EMPTY_ABOUT } from "../page/about";
+import { EMPTY_ABOUT, normalizeAbout, type PageAbout } from "../page/about";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
 import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
 import { getPack } from "../packs";
@@ -26,11 +26,34 @@ const V15_SECTIONS: PageSection[] = [
   { kind: "map", variant: "full" },
 ];
 
+// The page as v14 introduced it: later fields are added by the step of their own version.
+const V14_PAGE = { theme: DEFAULT_PAGE.theme, sections: DEFAULT_PAGE.sections, instagram: DEFAULT_PAGE.instagram, css: DEFAULT_PAGE.css };
+
+type PageSnapshot = Partial<PageConfig> | undefined;
+type SavedEntry = { patch?: { values?: { page?: { before: PageSnapshot; after: PageSnapshot } } } };
+
+/** A page from before v24 with its About text. A page that already has one is returned as it is. */
+const withAbout = <T extends PageSnapshot>(page: T, about: PageAbout): T => (page && !page.about ? { ...page, about } : page);
+
+/**
+ * The page snapshots that undo keeps in the activity log, lifted like the page
+ * itself: undo compares the whole page with the snapshot, so a snapshot without
+ * the new field would make every earlier page edit look changed since.
+ */
+function logWithAbout(log: unknown, about: PageAbout): unknown {
+  if (!Array.isArray(log)) return log;
+  return (log as SavedEntry[]).map((entry) => {
+    const page = entry?.patch?.values?.page;
+    if (!page) return entry;
+    return { ...entry, patch: { ...entry.patch, values: { ...entry.patch!.values, page: { before: withAbout(page.before, about), after: withAbout(page.after, about) } } } };
+  });
+}
+
 const STEPS: Record<number, (saved: Saved) => Saved> = {
   // v13 added the assistant's memory and routines.
   12: (saved) => ({ ...saved, memory: [], routines: [], version: 13 }),
   // v14 added the booking page design and the own-domain connection.
-  13: (saved) => ({ ...saved, page: DEFAULT_PAGE, domain: null, version: 14 }),
+  13: (saved) => ({ ...saved, page: V14_PAGE, domain: null, version: 14 }),
   // v15 (the brand v0.9 rebrand) changed no shape. A saved page keeps its colours as the
   // owner left them; only freshly generated Salong Eko data starts on Forest.
   14: (saved) => ({ ...saved, version: 15 }),
@@ -76,8 +99,8 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   // business gets its text ready for when the section is added, an own salon starts empty.
   23: (saved) => {
     const page = saved.page as PageConfig;
-    const text = saved.industry ? "" : getPack(saved.pack as PackId).about ?? "";
-    return { ...saved, page: { ...page, about: page.about ?? { ...EMPTY_ABOUT, text } }, version: 24 };
+    const about = { ...EMPTY_ABOUT, text: saved.industry ? "" : getPack(saved.pack as PackId).about ?? "" };
+    return { ...saved, page: withAbout(page, about), log: logWithAbout(saved.log, about), version: 24 };
   },
 };
 
@@ -93,5 +116,10 @@ export function migrateState(saved: unknown): DemoState | null {
     if (!step) return null;
     current = step(current);
   }
-  return current.version === DEMO_VERSION ? (current as unknown as DemoState) : null;
+  if (current.version !== DEMO_VERSION) return null;
+  // A save at the current version can still lack the About object (written by hand or cut short):
+  // the studio reads it on every screen, so it is filled in here and the rest of the salon is kept.
+  const page = current.page as PageSnapshot;
+  const whole = typeof page?.about?.heading === "string" && typeof page.about.text === "string";
+  return (page && !whole ? { ...current, page: { ...page, about: normalizeAbout(page.about) } } : current) as unknown as DemoState;
 }

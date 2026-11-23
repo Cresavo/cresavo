@@ -58,7 +58,7 @@ export function SalonPage() {
       case "staff":
         return <StaffSection state={state} variant={variant} />;
       case "about":
-        return <AboutSection about={about} name={state.salon.name} variant={variant} />;
+        return about.text ? <AboutSection about={about} name={state.salon.name} variant={variant} /> : null;
       case "reviews":
         return state.modules.reviews ? <Reviews state={state} variant={variant} /> : null;
       case "gallery":

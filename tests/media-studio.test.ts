@@ -30,7 +30,7 @@ describe("library pictures in the studio", () => {
     for (const bad of [ownerMediaUrl(ID), `${publicLogoUrl(ID, SHA)}?x=1`, `https://elsewhere.example${publicLogoUrl(ID, SHA)}`, "data:image/svg+xml;base64,PHN2Zz4="]) {
       expect(normalizeTheme({ logo: bad }).logo, bad).toBeNull();
     }
-    const page = { theme: { logo: publicLogoUrl(ID, SHA), logoColors: [], colors: null, fonts: "modern", corners: "soft", heroPhoto: "salon" }, sections: [], instagram: "", css: "", about: { heading: "", text: "" } };
+    const page = { theme: { logo: publicLogoUrl(ID, SHA), logoColors: [], colors: null, fonts: "modern", corners: "soft", heroPhoto: "salon" }, sections: [], instagram: "", css: "" };
     expect(ownerAction({ type: "page/set", page })).not.toBeNull();
     expect(ownerAction({ type: "page/set", page: { ...page, theme: { ...page.theme, logo: ownerMediaUrl(ID) } } })).toBeNull();
   });

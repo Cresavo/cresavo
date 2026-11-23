@@ -464,7 +464,7 @@ const messages = {
   "fixture.eko.service.footCalf.name": "Fot- och vadmassage",
   "fixture.eko.service.footCalf.description": "Avslappnande massage för fötter och vader.",
   "fixture.eko.tagline": "Fotvård och massage i Vasastan",
-  "fixture.eko.about": "Salong Eko är en liten salong för fotvård och massage på Dalagatan i Vasastan. Anna öppnade den 2019 efter många år som medicinsk fotterapeut, och Erik började här 2022 för att ge massage.\n\nVi tar oss tid. Varje besök börjar med ett kort samtal om vad du vill ha hjälp med i dag, och vi använder oparfymerade produkter där det går.\n\nDu är välkommen oavsett om det är ditt första besök eller ditt femtionde.",
+  "fixture.eko.about": "Salong Eko är en liten salong för fotvård och massage på Dalagatan i Vasastan. Anna öppnade den 2019 efter många år som medicinsk fotterapeut.\n\nVi tar oss tid. Varje besök börjar med ett kort samtal om vad du vill ha hjälp med i dag, och vi använder oparfymerade produkter där det går.\n\nDu är välkommen oavsett om det är ditt första besök eller ditt femtionde.",
   "fixture.eko.staff.anna.title": "Medicinsk fotterapeut",
   "fixture.eko.staff.anna.bio": "Utbildad medicinsk fotterapeut sedan 2012. Öppnade Salong Eko 2019.",
   "fixture.eko.staff.erik.title": "Massageterapeut",

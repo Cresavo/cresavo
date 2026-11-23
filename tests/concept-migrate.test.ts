@@ -3,6 +3,7 @@ import { toKey } from "@/concept/data/dates";
 import { createDemoState, DEMO_VERSION } from "@/concept/data/generate";
 import { migrateState, OLDEST_MIGRATABLE } from "@/concept/data/migrate";
 import type { DemoState } from "@/concept/data/types";
+import { translate } from "@/concept/i18n";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
 import { DEFAULT_PAGE } from "@/concept/page/config";
 import { PALETTES } from "@/concept/page/theme";
@@ -54,7 +55,8 @@ describe("migrateState", () => {
     expect(migrated.version).toBe(DEMO_VERSION);
     expect(migrated.memory).toEqual([]);
     expect(migrated.routines).toEqual([]);
-    expect(migrated.page).toEqual(DEFAULT_PAGE);
+    // The demo salon gets its About text ready (v24), with the section still off.
+    expect(migrated.page).toEqual({ ...DEFAULT_PAGE, about: { heading: "", text: translate("en", "fixture.eko.about") } });
     expect(migrated.domain).toBeNull();
     expect(migrated.bookings).toEqual(fresh.bookings);
   });

@@ -1,6 +1,8 @@
 import { jsonEqual } from "../data/json-equal";
 import type { DemoState } from "../data/types";
 import { checkOwnSlug } from "./address";
+import { fixtureAbout } from "../i18n/salon-eko-copy";
+import type { PageAbout } from "./about";
 import { normalizePage, type PageConfig } from "./config";
 import { advanceStatus, checkDomain, type DomainStatus } from "./domain";
 
@@ -9,7 +11,8 @@ import { advanceStatus, checkDomain, type DomainStatus } from "./domain";
 // state can never put an unchecked value on the page.
 
 export type PageAction =
-  | { type: "page/set"; page: PageConfig }
+  /** `about` may be missing from an editor opened before the About text existed: the stored text is then kept. */
+  | { type: "page/set"; page: Omit<PageConfig, "about"> & { about?: PageAbout } }
   | { type: "salon/slug"; slug: string }
   | { type: "domain/connect"; host: string; status?: DomainStatus }
   /** One more check of the DNS record. The live module passes the status it found; the demo moves one step on. */
@@ -19,7 +22,7 @@ export type PageAction =
 export function applyPageAction(state: DemoState, action: PageAction): DemoState {
   switch (action.type) {
     case "page/set": {
-      const page = normalizePage(action.page);
+      const page = normalizePage({ ...action.page, about: action.page.about ? fixtureAbout(state, action.page.about) : state.page.about });
       return jsonEqual(page, state.page) ? state : { ...state, page };
     }
     case "salon/slug": {

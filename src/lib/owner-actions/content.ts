@@ -30,7 +30,8 @@ const page = z.strictObject({
   theme,
   sections: list(section, kinds.length).refine((sections) => new Set(sections.map((entry) => entry.kind)).size === sections.length, "A section appears once"),
   instagram: text(MAX_INSTAGRAM),
-  about: z.strictObject({ heading: text(MAX_ABOUT_HEADING), text: text(MAX_ABOUT_TEXT) }),
+  // An editor opened before the About text existed sends no `about`; the reducer then keeps the stored one.
+  about: z.strictObject({ heading: text(MAX_ABOUT_HEADING), text: text(MAX_ABOUT_TEXT) }).optional(),
   css: text(MAX_CSS_LENGTH),
 });
 

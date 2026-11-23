@@ -464,7 +464,7 @@ const messages = {
   "fixture.eko.service.footCalf.name": "Foot and calf massage",
   "fixture.eko.service.footCalf.description": "Relaxing massage of feet and calves.",
   "fixture.eko.tagline": "Foot care and massage in Vasastan",
-  "fixture.eko.about": "Salong Eko is a small studio for foot care and massage on Dalagatan in Vasastan. Anna opened it in 2019 after many years as a medical foot therapist, and Erik joined in 2022 to offer massage.\n\nWe take our time. Every visit starts with a short talk about what you would like help with today, and we use fragrance-free products where we can.\n\nYou are welcome whether it is your first visit or your fiftieth.",
+  "fixture.eko.about": "Salong Eko is a small studio for foot care and massage on Dalagatan in Vasastan. Anna opened it in 2019 after many years as a medical foot therapist.\n\nWe take our time. Every visit starts with a short talk about what you would like help with today, and we use fragrance-free products where we can.\n\nYou are welcome whether it is your first visit or your fiftieth.",
   "fixture.eko.staff.anna.title": "Medical foot therapist",
   "fixture.eko.staff.anna.bio": "Qualified medical foot therapist since 2012. Opened Salong Eko in 2019.",
   "fixture.eko.staff.erik.title": "Massage therapist",

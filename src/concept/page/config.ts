@@ -40,5 +40,8 @@ export function normalizePage(input: Partial<PageConfig> | undefined): PageConfi
 
 export const hasSection = (page: PageConfig, kind: PageSection["kind"]) => page.sections.some((s) => s.kind === kind);
 
+/** Whether customers see the About section: it is switched on and has a body. A heading alone shows nothing. */
+export const showsAbout = (page: PageConfig) => hasSection(page, "about") && page.about.text !== "";
+
 /** The owner's CSS as it reaches the page. */
 export const pageCss = (page: PageConfig) => page.sanitizedCss ?? sanitizeCss(page.css);
