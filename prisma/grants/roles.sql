@@ -151,9 +151,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "owner_session" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE ("used_at"), DELETE ON "owner_recovery_code" TO cresavo_app;
 GRANT SELECT, INSERT, DELETE ON "owner_mfa_challenge" TO cresavo_app;
 
--- Photo library (src/lib/media/library.ts): pictures are stored, described, deleted and restored (deleted_at),
--- never rewritten. Only the media sweep removes a row, as the sweep role.
-GRANT SELECT, INSERT, UPDATE ("deleted_at", "alt_text") ON "media_asset" TO cresavo_app;
+-- Photo library (src/lib/media/library.ts): pictures are stored, confirmed once their bytes are stored (status),
+-- described, deleted and restored (deleted_at), and a logo is published with its page (published_at); the
+-- bytes, hash, key and owner of a row never change. Only the media sweep removes a row, as the sweep role.
+-- The public logo check reads the saved page's logo from tenant_state, granted by studio-store.sql.
+GRANT SELECT, INSERT, UPDATE ("deleted_at", "alt_text", "status", "published_at") ON "media_asset" TO cresavo_app;
 
 -- Shared rate-limit and owner-guard rows (postgres-rate-limit.ts, owner-guard-store.ts).
 GRANT SELECT, INSERT, UPDATE, DELETE ON "RateLimitBucket" TO cresavo_app;
@@ -195,9 +197,10 @@ GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_a
       UPDATE ("payload"), DELETE ON "tenant_effect" TO cresavo_sweeper;
 -- sweepOwnerGuardBuckets and sweepRateLimits.
 GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
--- sweepDeletedMedia (src/lib/media/sweep.ts): which deleted pictures are old enough and where their bytes are; the
--- rows are deleted. Never the bytes, the description or the hash.
-GRANT SELECT ("id", "storage", "storage_key", "deleted_at"), DELETE ON "media_asset" TO cresavo_sweeper;
+-- sweepDeletedMedia (src/lib/media/sweep.ts): which pictures are due (deleted long enough, a replaced logo never
+-- published, an upload left pending) and where their bytes are, checked against tenant and id; the rows are
+-- deleted. Never the bytes, the description or the hash.
+GRANT SELECT ("id", "tenant_id", "kind", "storage", "storage_key", "status", "created_at", "published_at", "deleted_at"), DELETE ON "media_asset" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
 -- checks the effective privilege; the function is owned by cresavo_eraser, so this file cannot touch it).
 
@@ -219,7 +222,7 @@ GRANT SELECT ("id", "tenant_id", "active", "credential_version", "created_at", "
 GRANT SELECT ("account_id", "credential_version", "created_at", "expires_at", "revoked_at", "mfa_verified_at") ON "owner_session" TO cresavo_support;
 GRANT SELECT ("expiresAt", "count") ON "RateLimitBucket" TO cresavo_support;
 -- Photo library sizes and counts for quota questions; never the bytes, the description (it may name a person) or the hash.
-GRANT SELECT ("id", "tenant_id", "kind", "content_type", "byte_size", "width", "height", "storage", "created_at", "deleted_at") ON "media_asset" TO cresavo_support;
+GRANT SELECT ("id", "tenant_id", "kind", "content_type", "byte_size", "width", "height", "storage", "status", "created_at", "published_at", "deleted_at") ON "media_asset" TO cresavo_support;
 -- Migration status only: not `logs` (free text of a failure) or `checksum`.
 GRANT SELECT ("id", "migration_name", "started_at", "finished_at", "rolled_back_at", "applied_steps_count") ON "_prisma_migrations" TO cresavo_support;
 

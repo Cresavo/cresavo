@@ -60,7 +60,7 @@ export const POST = withRequestLog("/api/concept/poster", async (request: Reques
   if (namesLibraryPhoto(raw)) {
     const { withLibraryPhotos } = await import("@/lib/media/poster-photos");
     const resolved = await withLibraryPhotos(request, raw as { data: Record<string, unknown> }).catch(() => ({ ok: false as const, reason: "photo_unsuitable" as const }));
-    if (!resolved.ok) return json({ error: resolved.reason }, resolved.reason === "signed_out" ? 401 : 422);
+    if (!resolved.ok) return json({ error: resolved.reason }, resolved.reason === "signed_out" ? 401 : resolved.reason === "unavailable" ? 404 : 422);
   }
   const parsed = requestSchema.safeParse(raw);
   if (!parsed.success) return json({ error: "invalid" }, 400);

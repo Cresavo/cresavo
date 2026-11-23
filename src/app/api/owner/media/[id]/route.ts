@@ -3,7 +3,7 @@ import { z } from "zod";
 import { deleteMedia, findMedia, setAltText } from "@/lib/media/library";
 import { MAX_ALT_TEXT, MEDIA_ID } from "@/lib/media/limits";
 import { imageResponse } from "@/lib/media/respond";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson, signedInOwner } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, sessionKey, signedInOwner } from "@/lib/owner-http";
 export const runtime = "nodejs";
 
 // One picture of the signed-in owner's business. Another business's picture answers exactly like one that
@@ -17,7 +17,7 @@ async function own(request: NextRequest, context: Context) {
   const owner = await signedInOwner(request);
   if (owner instanceof NextResponse) return owner;
   const { id } = await context.params;
-  return MEDIA_ID.test(id) ? { tenantId: owner.tenantId, id } : ownerError("not_found", 404);
+  return MEDIA_ID.test(id) ? { tenantId: owner.tenantId, id, session: sessionKey(owner) } : ownerError("not_found", 404);
 }
 
 /** The picture's bytes, for the studio. */
@@ -40,7 +40,7 @@ export function PATCH(request: NextRequest, context: Context) {
     const body = altSchema.safeParse(json);
     if (!body.success) return ownerError("invalid", 400);
     const asset = await setAltText(target.tenantId, target.id, body.data.altText || null);
-    return asset ? ownerOk({ asset }) : ownerError("not_found", 404);
+    return asset ? ownerOk({ asset, session: target.session }) : ownerError("not_found", 404);
   });
 }
 
@@ -49,6 +49,6 @@ export function DELETE(request: NextRequest, context: Context) {
   return ownerRoute(request, async () => {
     const target = await own(request, context);
     if (target instanceof NextResponse) return target;
-    return (await deleteMedia(target.tenantId, target.id)) ? ownerOk() : ownerError("not_found", 404);
+    return (await deleteMedia(target.tenantId, target.id)) ? ownerOk({ ok: true, session: target.session }) : ownerError("not_found", 404);
   });
 }

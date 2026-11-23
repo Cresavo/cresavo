@@ -18,8 +18,8 @@ try {
     const activityRows = await sweepActivityPersonalData({ prisma });
     const journalAccessRows = await sweepJournalAccessRows({ prisma });
     // Deleted photos and logos (src/lib/media/sweep.ts); with MEDIA_STORE=s3 the job needs the MEDIA_S3_* settings too.
-    const mediaPurged = await sweepDeletedMedia({ prisma });
-    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox, outboxBodies, rateLimitRows, activityRows, journalAccessRows, mediaPurged }));
+    const media = await sweepDeletedMedia({ prisma });
+    console.log(JSON.stringify({ expiredIdempotencyKeys, demoActions, ownerGuardBuckets, sandbox, outboxBodies, rateLimitRows, activityRows, journalAccessRows, mediaPurged: media.purged, mediaFailed: media.failed }));
   } finally {
     await prisma.$disconnect();
   }

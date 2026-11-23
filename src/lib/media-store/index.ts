@@ -8,6 +8,26 @@ import { MediaStoreError, type MediaStore } from "./types";
 export type { MediaStore, StorageName } from "./types";
 export { MediaStoreError } from "./types";
 
+const TENANT = /^[A-Za-z0-9_-]{1,100}$/;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/**
+ * The object key of a picture: always derived from its tenant and row id, never taken from elsewhere. The
+ * database checks the same relationship (media_asset_storage_key_check), and every read and delete checks it
+ * again, so a wrong row cannot point the store at another object.
+ */
+export function mediaKey(tenantId: string, id: string): string {
+  if (!TENANT.test(tenantId) || !ID.test(id)) throw new MediaStoreError("config");
+  return `media/${tenantId}/${id}`;
+}
+
+/** The stored key of a row, once it is checked to be the one its tenant and id give. */
+export function checkedKey(row: { tenantId: string; id: string; storageKey: string }): string {
+  const key = mediaKey(row.tenantId, row.id);
+  if (row.storageKey !== key) throw new MediaStoreError("config");
+  return key;
+}
+
 let s3: MediaStore | undefined;
 
 function s3Store(): MediaStore {

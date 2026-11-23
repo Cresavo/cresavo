@@ -11,7 +11,7 @@ const IMAGE_POLICY = "default-src 'none'; img-src 'self' data:; style-src 'unsaf
 export type Audience =
   /** The signed-in owner: the browser keeps a copy but asks the server, which checks the session, every time. */
   | "owner"
-  /** The public logo: its address carries the hash of its bytes, so a copy is never stale. */
+  /** The published logo: kept five minutes, then checked again, so a removed logo soon stops showing. */
   | "public";
 
 /** The picture as a response, or 304 when the browser's copy (If-None-Match) is this one. */
@@ -19,7 +19,7 @@ export async function imageResponse(request: Request, media: StoredMedia, audien
   const etag = `"${media.sha256}"`;
   const headers: Record<string, string> = {
     ETag: etag,
-    "Cache-Control": audience === "owner" ? "private, no-cache" : "public, max-age=86400",
+    "Cache-Control": audience === "owner" ? "private, no-cache" : "public, max-age=300, must-revalidate",
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": IMAGE_POLICY,
     "Cross-Origin-Resource-Policy": audience === "owner" ? "same-origin" : "cross-origin",

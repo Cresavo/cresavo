@@ -15,13 +15,23 @@ const noStore = { "Cache-Control": "no-store" };
 export const ownerError = (code: string, status: number) => NextResponse.json({ error: code }, { status, headers: noStore });
 export const ownerOk = (body: Record<string, unknown> = { ok: true }) => NextResponse.json(body, { headers: noStore });
 
-/** Runs a handler only when owner accounts are on, the deployment is writable and, for writes, the request is same-origin. */
-export async function ownerRoute(request: NextRequest, handler: () => Promise<NextResponse>, { write = true } = {}) {
+/** The session an answer is for (account id and credential version): the studio keeps its caches to one session. */
+export const sessionKey = (owner: { accountId: string; credentialVersion: number }) => `${owner.accountId}.${owner.credentialVersion}`;
+
+/** The answer to send when this deployment serves no owner requests (read-only, accounts off, not configured); null when it does. */
+export function ownerDeploymentRefusal(): Response | null {
   if (isPublicReadonly()) return readonlyForbidden();
   if (!ownerAccountsEnabled()) return ownerError("not_found", 404);
   // Lock-outs and reset limits must be seen by every worker. A process-local store would give each worker its own count.
   if (process.env.NODE_ENV === "production" && process.env.RATE_LIMIT_STORE !== "postgres" && process.env.OWNER_SINGLE_WORKER !== "1")
     return ownerError("not_configured", 503);
+  return null;
+}
+
+/** Runs a handler only when owner accounts are on, the deployment is writable and, for writes, the request is same-origin. */
+export async function ownerRoute(request: NextRequest, handler: () => Promise<NextResponse>, { write = true } = {}) {
+  const refused = ownerDeploymentRefusal();
+  if (refused) return refused;
   if (write && !isSameOriginWrite((name) => request.headers.get(name))) return ownerError("forbidden_origin", 403);
   try {
     return await handler();
