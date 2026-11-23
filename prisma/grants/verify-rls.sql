@@ -6,10 +6,10 @@
 -- First result: one row per table with whether RLS is enabled and forced, and
 -- the policies that are missing, unexpected (any other policy on the table,
 -- permissive or restrictive) or changed (command, roles or predicates differ
--- from migration store_rls_policies, by the digests rls-enable.sql checks).
--- After rls-enable.sql every row must say enabled = t, forced = t and three
--- empty lists. After the migration alone (or rls-disable.sql) enabled and
--- forced are f: the policies are prepared but not enforced.
+-- from the ones rls-enable.sql creates, by the digests it checks). After
+-- rls-enable.sql every row must say enabled = t, forced = t and three empty
+-- lists. Before it (or after rls-disable.sql) enabled and forced are f, every
+-- expected policy is listed as missing and `unexpected` must be empty.
 --
 -- Second result: problems, one per row; no rows means none. The runtime logins
 -- are found, not named: every login that reaches one of the runtime group roles

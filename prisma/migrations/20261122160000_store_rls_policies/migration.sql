@@ -1,92 +1,26 @@
--- Row-level security for the four studio store tables, and the fixed functions
--- through which the effect poller and the retention sweeps work
--- (docs/design/STUDIO_STORE.md, "Row-level security"). PREPARED, NOT ENFORCED:
--- this migration creates policies and functions and does NOT enable row-level
--- security. A policy has no effect until an operator runs
--- prisma/grants/rls-enable.sql (ENABLE plus FORCE, after checking this exact
--- policy set); rls-disable.sql undoes that and verify-rls.sql reports the state.
--- Only the store tables get policies; no data, column or other table changes.
+-- The fixed functions through which the effect poller and the retention
+-- sweeps work on the four studio store tables (docs/design/STUDIO_STORE.md,
+-- "Row-level security"). The code calls them whether or not row-level security
+-- is on, so they are created here; nothing else changes (no table, column,
+-- data, role, policy or grant).
 --
--- PREREQUISITE: the five NOLOGIN group roles, created once per cluster by an
--- admin with prisma/grants/bootstrap-roles.sql BEFORE the first migrate deploy
--- (the policies and grants below name them). The migration credential needs no
--- role privileges. Without the roles this migration stops before it changes
--- anything; Prisma then records it as failed. Recovery:
---   psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/bootstrap-roles.sql
---   npx prisma migrate resolve --rolled-back 20261122160000_store_rls_policies
---   npx prisma migrate deploy
+-- This migration names no role and needs none: it succeeds on a fresh cluster.
+-- The functions are closed by default (EXECUTE revoked from PUBLIC); the table
+-- owner, which runs migrations and owns them, may always call them.
+-- prisma/grants/studio-store.sql and roles.sql grant EXECUTE to the runtime
+-- roles. Row-level security itself, its policies included, is the operator step
+-- prisma/grants/rls-enable.sql (undone by rls-disable.sql).
 --
--- Every store transaction sets its scope first, transaction-local
+-- The functions are SECURITY DEFINER, owned by the table owner (whose
+-- `store_owner` policy keeps every row once FORCE is on), with a fixed
+-- search_path. Each checks its caller first, at call time: the login
+-- (`session_user`), its membership of a runtime group role looked up by name
+-- (false while the role does not exist) and the transaction's scope
 -- (src/concept/store/tenant-scope.ts):
---   cresavo.tenant_id     one tenant (cresavo_app, cresavo_eraser by policy; the outbox functions for app and poller)
---   cresavo.cross_tenant  'outbox' for the effects:drain poller, 'sweep' for store:sweep (functions only)
---   cresavo.sandbox_key   cresavo_app resolving a sandbox token: that row only, read
---   cresavo.salon_slug    cresavo_app resolving a booking address: that row only, read
---
--- The poller (cresavo_outbox) and the sweeper (cresavo_sweeper) have no table
--- privileges and no policies on the store tables: they call the SECURITY
--- DEFINER functions at the end of this file, which act only on a claimed
--- effect (the poller) or on rows a retention rule has reached (the sweeper).
--- The functions run as the table owner, whose `store_owner` policy keeps every
--- row under FORCE, with a fixed search_path; each checks its caller first.
--- Superusers and BYPASSRLS roles are never subject to RLS.
-
-DO $roles$
-DECLARE
-  missing text;
-BEGIN
-  SELECT string_agg(r, ', ') INTO missing
-  FROM unnest(ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox']) r
-  WHERE NOT EXISTS (SELECT 1 FROM pg_roles x WHERE x.rolname = r);
-  IF missing IS NOT NULL THEN
-    RAISE EXCEPTION 'store_rls_policies: the group roles % do not exist. As an admin run prisma/grants/bootstrap-roles.sql, then: npx prisma migrate resolve --rolled-back 20261122160000_store_rls_policies, and deploy again', missing;
-  END IF;
-END
-$roles$;
-
--- ---------------------------------------------------------------------------
--- Policies
--- ---------------------------------------------------------------------------
-CREATE POLICY "store_owner" ON "tenant_state" FOR ALL
-  USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_state'::regclass), 'USAGE'))
-  WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_state'::regclass), 'USAGE'));
-CREATE POLICY "store_tenant" ON "tenant_state" FOR ALL TO cresavo_app, cresavo_eraser
-  USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
-  WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
--- Read-only diagnostics across tenants; the column grants of roles.sql keep documents out.
-CREATE POLICY "store_support_read" ON "tenant_state" FOR SELECT TO cresavo_support USING (true);
--- A sandbox token resolves to its own tenant only: the key is the full sbx_ + 32-hex hash of the token.
-CREATE POLICY "store_sandbox_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
-  USING ("kind" = 'sandbox' AND current_setting('cresavo.sandbox_key', true) ~ '^sbx_[0-9a-f]{32}$'
-    AND ("tenant_id" = current_setting('cresavo.sandbox_key', true)
-      OR starts_with("tenant_id", current_setting('cresavo.sandbox_key', true) || '_')));
--- A booking address resolves to the one salon that has it (unique by tenant_state_salon_slug_key).
-CREATE POLICY "store_salon_slug_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
-  USING ("kind" = 'salon' AND ("doc" #>> '{salon,slug}') = nullif(current_setting('cresavo.salon_slug', true), ''));
-
-CREATE POLICY "store_owner" ON "tenant_action" FOR ALL
-  USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_action'::regclass), 'USAGE'))
-  WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_action'::regclass), 'USAGE'));
-CREATE POLICY "store_tenant" ON "tenant_action" FOR ALL TO cresavo_app, cresavo_eraser
-  USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
-  WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
-CREATE POLICY "store_support_read" ON "tenant_action" FOR SELECT TO cresavo_support USING (true);
-
-CREATE POLICY "store_owner" ON "tenant_idempotency" FOR ALL
-  USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_idempotency'::regclass), 'USAGE'))
-  WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_idempotency'::regclass), 'USAGE'));
-CREATE POLICY "store_tenant" ON "tenant_idempotency" FOR ALL TO cresavo_app, cresavo_eraser
-  USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
-  WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
-CREATE POLICY "store_support_read" ON "tenant_idempotency" FOR SELECT TO cresavo_support USING (true);
-
-CREATE POLICY "store_owner" ON "tenant_effect" FOR ALL
-  USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_effect'::regclass), 'USAGE'))
-  WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_effect'::regclass), 'USAGE'));
-CREATE POLICY "store_tenant" ON "tenant_effect" FOR ALL TO cresavo_app, cresavo_eraser
-  USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
-  WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
-CREATE POLICY "store_support_read" ON "tenant_effect" FOR SELECT TO cresavo_support USING (true);
+--   cresavo.tenant_id     one tenant: the outbox functions for the app and the poller's sink
+--   cresavo.cross_tenant  'outbox' for the effects:drain poller, 'sweep' for store:sweep
+-- The outbox functions act only on the effect a claim names; the sweeps have
+-- their retention cutoffs inside.
 
 -- STORE FUNCTIONS BEGIN
 -- ---------------------------------------------------------------------------
@@ -530,15 +464,4 @@ REVOKE ALL ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_swee
   store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
   store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
   store_sweep_journal_views(timestamptz, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
-  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
-  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
-  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
-  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
-  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean)
-  TO cresavo_app, cresavo_outbox;
-GRANT EXECUTE ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
-  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
-  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
-  store_sweep_journal_views(timestamptz, integer) TO cresavo_sweeper;
 -- STORE FUNCTIONS END

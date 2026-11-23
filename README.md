@@ -99,11 +99,6 @@ tries a fast-forward update before starting the local demo.
   npm run dev                    # use the npm scripts, not next dev directly
   ```
 
-  A new Compose volume creates the database's group roles on first start
-  (`prisma/grants/bootstrap-roles.sql`). On a volume from before, or any other
-  server, run that file once as an admin before `npm run db:migrate`:
-  `docker compose exec -T db psql -U booking -d booking_lab < prisma/grants/bootstrap-roles.sql`.
-
 ## Architecture
 
 - **Next.js 16 and TypeScript** power the concept demo. It runs on fixture

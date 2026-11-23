@@ -32,11 +32,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "tenant_idempotency" TO cresavo_app;
 -- backoff and failed (item 4).
 GRANT SELECT, INSERT, UPDATE ON "tenant_effect" TO cresavo_app;
 
--- The outbox and sweep functions of migration store_rls_policies: the
--- migration sets these privileges, and this repeats them, so a restore from a
--- dump taken with --no-privileges (docs/operations/BACKUP_RESTORE.md), which
--- recreates the functions executable by PUBLIC, gets them back. Kept identical
--- to the migration by tests/store-rls-files.test.ts.
+-- The outbox functions of migration store_rls_policies (store_outbox_*): the
+-- web app's drain after a commit calls them in its tenant's scope. The
+-- migration creates every store function closed to PUBLIC; the revokes are
+-- repeated here so a restore from a dump taken with --no-privileges
+-- (docs/operations/BACKUP_RESTORE.md), which recreates the functions open to
+-- PUBLIC, closes them again. roles.sql grants the poller and the sweeper theirs.
 REVOKE ALL ON FUNCTION store_caller_owns(), store_caller_in(text), store_outbox_caller(text), store_effective_now(timestamptz),
   store_sweep_check(), store_redact_path(jsonb, text[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
@@ -55,11 +56,7 @@ GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
   store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
   store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
   store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean)
-  TO cresavo_app, cresavo_outbox;
-GRANT EXECUTE ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
-  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
-  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
-  store_sweep_journal_views(timestamptz, integer) TO cresavo_sweeper;
+  TO cresavo_app;
 
 -- Erasure (item 7): the only path that may change tenant_action is the
 -- SECURITY DEFINER function erase_subject(tenant, customerId), owned by a

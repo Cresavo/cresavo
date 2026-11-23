@@ -121,9 +121,6 @@ const installation = newInstallationId();
 step("marking the empty database (scripts/sandbox/mark.sql)");
 psql("mark", parsed.url, { file: "scripts/sandbox/mark.sql", vars: { installation_id: installation } });
 
-step("creating the store's group roles if missing (prisma/grants/bootstrap-roles.sql)");
-psql("bootstrap roles", parsed.url, { file: "prisma/grants/bootstrap-roles.sql" });
-
 step("applying migrations (prisma migrate deploy)");
 run("migrate", "npx", ["prisma", "migrate", "deploy"], { env: { DATABASE_URL: parsed.url.href } });
 

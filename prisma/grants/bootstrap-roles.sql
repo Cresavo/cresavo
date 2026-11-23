@@ -1,17 +1,16 @@
 -- Creates the five NOLOGIN group roles of a Cresavo installation. Roles belong
--- to the cluster, not to one database, and migration store_rls_policies names
--- them in its policies and grants, so an ADMIN runs this once per cluster
--- BEFORE the first `prisma migrate deploy`, and on a fresh cluster before a
--- pg_restore (docs/operations/BACKUP_RESTORE.md). The migration credential needs
--- no role privileges. Safe to run again: an existing role is checked, never
+-- to the cluster, not to one database. Migrations never need them. An ADMIN
+-- runs this before roles.sql (which repeats the same block) and before
+-- rls-enable.sql, whose policies name the roles, and on a fresh cluster before
+-- restoring a dump that carries policies or grants (docs/operations/
+-- BACKUP_RESTORE.md). Safe to run again: an existing role is checked, never
 -- altered. One transaction.
 --
 --   psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/bootstrap-roles.sql
 --
 -- WHO RUNS IT: a superuser, the managed provider's admin role, or any role
 -- with CREATEROLE. It creates no logins and sets no passwords; roles.sql grants
--- the privileges afterwards and documents the logins. The local Docker database
--- runs it on first start (docker-compose.yml).
+-- the privileges afterwards and documents the logins.
 
 BEGIN;
 

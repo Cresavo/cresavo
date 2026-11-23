@@ -9,8 +9,6 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - booking_data:/var/lib/postgresql/data
-      # The store's NOLOGIN group roles, created on the first start of a new volume (before the first migration).
-      - ./prisma/grants/bootstrap-roles.sql:/docker-entrypoint-initdb.d/10-bootstrap-roles.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U booking -d booking_lab"]
       interval: 3s

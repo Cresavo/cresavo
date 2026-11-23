@@ -1,10 +1,10 @@
 -- Least-privilege Postgres roles for a Cresavo installation (pilot operations
 -- groundwork, docs/QUALITY_SECURITY.md "Operations"). Documentation for
 -- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner
--- and the repository's migrations do not create roles. The group roles must
--- exist before the first migrate deploy (migration store_rls_policies names
--- them): an admin creates them once per cluster with bootstrap-roles.sql, whose
--- role block this file repeats and checks. Safe to run again; the
+-- and the repository's migrations do not create or name roles. The group
+-- roles are created here, or beforehand by an admin with bootstrap-roles.sql
+-- (same block; needed before rls-enable.sql and a restore that carries
+-- policies, never before migrate deploy). Safe to run again; the
 -- whole file is one transaction, so a failed run changes nothing and never
 -- leaves the live application without grants.
 --
@@ -19,8 +19,6 @@
 -- grant on them. Not as one of the roles created here.
 --
 -- ORDER, once per environment (and again after a migration adds a table):
---   0. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/bootstrap-roles.sql
---                                                        (admin, once per cluster)
 --   1. npx prisma migrate deploy                          (schema owner)
 --   2. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/roles.sql
 --   3. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/studio-store.sql
@@ -46,8 +44,8 @@
 --      as the table owner:
 --        psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql
 --        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql
---      Rollback: prisma/grants/rls-disable.sql. The migration has the policies;
---      until this step they have no effect.
+--      It creates the policies and enables and forces RLS in one transaction.
+--      Rollback: prisma/grants/rls-disable.sql (drops the policies again).
 --
 -- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The five roles below are NOLOGIN
 -- group roles. The operator creates one login per use without a password and
@@ -192,10 +190,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "PairGrantToken" TO cresavo_app;
 -- cresavo_sweeper: `npm run store:sweep` (scripts/sweep-store.mts and the
 -- sweepers in src/concept/store/store-sweepers.ts). No privilege on the four
 -- store tables: the store sweeps are the fixed SECURITY DEFINER functions
--- store_sweep_* of migration store_rls_policies (EXECUTE granted there), with
+-- store_sweep_* of migration store_rls_policies (EXECUTE granted below), with
 -- their retention cutoffs inside. Only the rate-limit table is swept directly.
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_sweeper;
+GRANT EXECUTE ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
+  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
+  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
+  store_sweep_journal_views(timestamptz, integer)
+  TO cresavo_sweeper;
 -- sweepOwnerGuardBuckets and sweepRateLimits.
 GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
@@ -207,9 +210,16 @@ GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBuc
 -- No table privilege at all: it claims, retries, fails and acknowledges effects
 -- and reads what a claimed message needs of its salon only through the fixed
 -- SECURITY DEFINER functions store_outbox_* of migration store_rls_policies
--- (EXECUTE granted there), each of which acts on the effect its claim names.
+-- (EXECUTE granted below), each of which acts on the effect its claim names.
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_outbox;
+GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
+  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
+  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
+  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
+  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
+  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean)
+  TO cresavo_outbox;
 
 -- ---------------------------------------------------------------------------
 -- cresavo_support: read-only diagnostics. No salon document (journal entries

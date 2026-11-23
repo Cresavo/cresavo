@@ -29,10 +29,7 @@ sandbox check passes.
 3. Prepare an empty database as the migration owner. Use separate, fresh
    database logins for the provider and for Cron. Neither login should inherit
    the migration role or unrelated grants. Set the installation UUID using
-   `scripts/sandbox/mark.sql` **before** `npm run db:migrate`, and create the
-   store's group roles once per cluster as an admin with
-   `prisma/grants/bootstrap-roles.sql` before the first migration (the
-   bootstrap script does both). Apply
+   `scripts/sandbox/mark.sql` **before** `npm run db:migrate`. Apply
    `scripts/sandbox/runtime-grants.sql` with `runtime_role` after migration and
    `scripts/sandbox/reset.sql` with `reset_role` after that. These SQL files
    take `psql -v` arguments for the installation ID and role names. The
