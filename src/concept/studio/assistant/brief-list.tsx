@@ -9,7 +9,7 @@ export function BriefList({ brief, inset }: { brief: Brief; inset?: boolean }) {
   const pad = inset ? "px-4" : "";
   if (!brief.items.length) return <p className={cx("py-3 text-sm text-text-secondary", pad)}>{t("assistant.brief.quiet")}</p>;
   return (
-    <ul className="divide-y divide-hairline">
+    <ul className="space-y-2">
       {brief.items.map((item) => {
         return (
           <li key={item.id}>

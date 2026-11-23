@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { setLocale, t } from "@/concept/i18n";
 import { StaffSchedule } from "@/concept/studio/ops/staff-schedule";
-import { NextCustomer } from "@/concept/studio/today/next-customer";
+import { NextDetails } from "@/concept/studio/today/next-customer";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { NewBookingSheet } from "@/concept/studio/booking/new-booking-sheet";
 import { ThemeControls } from "@/concept/studio/page/theme-controls";
@@ -48,7 +48,7 @@ it.each(["", "  ", "070 123 45 67"])("only offers a call when the next customer 
   const customer = { ...base.customers[0], phone };
   const booking = { ...base.bookings[0], customerId: customer.id, date: today, start: 550, status: "booked" as const };
   state = { ...base, customers: [customer], bookings: [booking] };
-  const html = renderToStaticMarkup(createElement(NextCustomer, { onOpen: vi.fn() }));
+  const html = renderToStaticMarkup(createElement(NextDetails, { booking, onOpen: vi.fn() }));
   expect(html).toContain(t("next.profile"));
   expect(html.includes('href="tel:')).toBe(Boolean(phone.trim()));
   if (phone.trim()) expect(html).toContain('href="tel:0701234567"');

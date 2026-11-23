@@ -149,7 +149,7 @@ const CUSTOMER_NOTES_FOOT = [
   "Thin skin on the heels, go gently with the file.",
   "Recurring ingrown nail, right big toe.",
   "Prefers morning appointments.",
-  "On blood thinners – take extra care.",
+  "Prefers a quiet room.",
   "Corn on left foot, felt padding works well.",
   "Likes calm music and a little chat.",
   "Finds stairs difficult – book when the lift is working.",

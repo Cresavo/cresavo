@@ -67,6 +67,7 @@ export default function CustomersPage() {
         <SearchInput className="md:max-w-form" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
         <SegmentedControl<CustomerFilter>
           label={t("customers.filter")}
+          fit
           value={filter}
           onChange={(next) => router.replace(next === "all" ? "/studio/customers" : `/studio/customers?filter=${next}`, { scroll: false })}
           options={FILTERS.map((f) => ({ value: f.value, label: t(f.label), count: lists[f.value].length }))}

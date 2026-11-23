@@ -28,7 +28,7 @@ export function StaffSchedule({ person }: { person: Staff }) {
         <p className="text-sm text-text-secondary">{t("schedule.week")}</p>
         <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setOpen("week")}>{t("schedule.editWeek")}</Button>
       </div>
-      <dl className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-x-3 gap-y-2 rounded-md bg-surface-2 p-3">
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-x-3 gap-y-2">
         {WEEK_ORDER.map((d) => {
           const shift = person.week[d];
           return (

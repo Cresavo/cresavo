@@ -31,6 +31,16 @@ and the served font files carry the copyright notice and a link to the OFL in
 their metadata (checked on a 2026-11-18 build). The font is not committed to
 this repository; anyone distributing a build should include the OFL text.
 
+**Instrument Serif** (Copyright 2022 The Instrument Serif Project Authors,
+<https://github.com/Instrument/instrument-serif>) is loaded the same way, through
+`next/font/google`, for the product site's display headings (regular, Latin and
+Latin Extended). It is licensed under the
+[SIL Open Font License 1.1](https://openfontlicense.org/open-font-license-official-text/);
+the upstream notice and licence are in
+[Instrument Serif's OFL.txt](https://github.com/Instrument/instrument-serif/blob/main/OFL.txt).
+The font is not committed to this repository; anyone distributing a build should
+include the OFL text.
+
 **Poster fonts.** `src/concept/campaigns/poster-engine/fonts/` holds Latin
 subsets of Inter (SemiBold, ExtraBold, Display Black; Copyright 2016-2023 The
 Inter Project Authors) and Caladea (Regular, Italic; Copyright 2012 The Caladea
