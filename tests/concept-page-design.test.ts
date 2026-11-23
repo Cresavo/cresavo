@@ -35,6 +35,23 @@ describe("page design requests", () => {
     expect(theme).toMatchObject({ colors: PALETTES.sand, fonts: "elegant", corners: "soft" });
   });
 
+  it("reads a named font as a font, not a mood, in English and Swedish", () => {
+    const theme = (text: string) => (designRequest(text, DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE }).page.theme;
+    for (const text of ["Use the Warm font", "switch the font to Warm", "använd typsnittet Varmt", "Varmt typsnitt på sidan"]) {
+      expect(theme(text), text).toEqual({ ...DEFAULT_PAGE.theme, fonts: "warm" });
+    }
+    expect(theme("use the Friendly font")).toEqual({ ...DEFAULT_PAGE.theme, fonts: "friendly" });
+    expect(theme("byt till typsnittet Vänligt")).toEqual({ ...DEFAULT_PAGE.theme, fonts: "friendly" });
+    expect(theme("make the page warmer")).toMatchObject({ colors: PALETTES.rose, fonts: "soft", corners: "round" });
+  });
+
+  it("proposes only the font when the assistant is asked for a named font", () => {
+    const proposal = ask("Use the Friendly font on the booking page");
+    if (proposal.kind !== "change") throw new Error(`expected a change, got ${proposal.kind}`);
+    expect(proposal.preview?.after.theme.fonts).toBe("friendly");
+    expect(proposal.rows.map((row) => row.label)).toEqual(["fonts"]);
+  });
+
   it("reads single moods", () => {
     const theme = (text: string) => (designRequest(text, DEFAULT_PAGE) as { page: typeof DEFAULT_PAGE }).page.theme;
     expect(theme("make the page more luxurious")).toMatchObject({ fonts: "elegant", corners: "sharp", colors: PALETTES.ink });
