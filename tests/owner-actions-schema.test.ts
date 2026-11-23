@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { DemoAction } from "@/concept/actions";
 import type { CampaignPoster, Customer, InboxItem } from "@/concept/data/types";
 import type { Routine } from "@/concept/assistant/routines";
-import type { ServiceDraft } from "@/concept/services/edit";
+import { MAX_DETAILS, type ServiceDraft } from "@/concept/services/edit";
 import { DEFAULT_POLICY } from "@/concept/booking/protection";
 import { DEFAULT_PAGE } from "@/concept/page/config";
 import { OWNER_ACTION_SCHEMAS } from "@/lib/owner-actions/schemas";
@@ -310,6 +310,29 @@ describe("owner action schemas", () => {
     expect(send("salon/slug", (action) => { action.slug = "Salong Eko"; })).toBeNull();
     expect(send("salon/details", (action) => { (action.details as Record<string, unknown>).name = "x".repeat(61); })).toBeNull();
     expect(send("service/add", (action) => { (action.service as Record<string, unknown>).duration = 7; })).toBeNull();
+  });
+
+  it("accepts the treatment editor's whole draft, with the longer text, photo and timing, and nothing beyond their limits", () => {
+    // What the sheet sends for a treatment with every optional field filled in, as it arrives over HTTP.
+    const full = { ...draft, details: "First.\n\nSecond.", image: "massage", bufferBefore: 5, bufferAfter: 10, processing: { after: 10, duration: 20 } };
+    for (const type of ["service/add", "service/update"] as const) {
+      const sent = JSON.parse(JSON.stringify({ ...EXAMPLES[type], service: full }));
+      expect(parseOwnerAction(sent)).toEqual(sent);
+      // Blank text and photo are how the owner clears them; zero buffers are what an empty field sends.
+      const blank = JSON.parse(JSON.stringify({ ...EXAMPLES[type], service: { ...draft, details: "", image: "", bufferBefore: 0, bufferAfter: 0 } }));
+      expect(parseOwnerAction(blank)).toEqual(blank);
+      const edit = (change: (service: Record<string, unknown>) => void) => send(type, (action) => { action.service = { ...full }; change(action.service as Record<string, unknown>); });
+      expect(edit(() => {})).not.toBeNull();
+      expect(edit((service) => { service.details = "x".repeat(MAX_DETAILS + 1); })).toBeNull();
+      expect(edit((service) => { service.details = 5; })).toBeNull();
+      expect(edit((service) => { service.details = "nul\0"; })).toBeNull();
+      for (const image of ["https://example.test/a.jpg", "data:image/png;base64,AAAA", "nope", 5, null]) expect(edit((service) => { service.image = image; })).toBeNull();
+      expect(edit((service) => { service.bufferBefore = 7; })).toBeNull();
+      expect(edit((service) => { service.bufferAfter = 125; })).toBeNull();
+      expect(edit((service) => { service.processing = { after: 10, duration: 0 }; })).toBeNull();
+      expect(edit((service) => { service.processing = { after: 10, duration: 20, extra: 1 }; })).toBeNull();
+      expect(edit((service) => { service.recallWeeks = 3; })).toBeNull();
+    }
   });
 
   it("refuses what is not an object of an allowed type", () => {

@@ -162,9 +162,19 @@ describe("treatment actions", () => {
     expect(shown.find((s) => s.id === "classic-30")!.details).toBeUndefined();
     expect("details" in reduce(base, { type: "service/add", service: { ...draft, details: " \n " } }).services.at(-1)!).toBe(false);
 
-    const cleared = reduce(added, { type: "service/update", id: service.id, service: draft });
+    // An update that leaves the two fields out keeps what is stored: an older caller cannot erase them.
+    const repriced = reduce(added, { type: "service/update", id: service.id, service: { ...draft, price: 1050 } });
+    expect(repriced.services.at(-1)).toMatchObject({ price: 1050, details: "Warm stones.\n\nSlow strokes.", image: "massage" });
+    const sameAfterJson = reduce(added, JSON.parse(JSON.stringify({ type: "service/update", id: service.id, service: { ...draft, details: undefined, image: undefined } })));
+    expect(sameAfterJson.services.at(-1)).toMatchObject({ details: "Warm stones.\n\nSlow strokes.", image: "massage" });
+    // Each can be changed or cleared on its own; only an explicit blank clears.
+    const noPhoto = reduce(added, { type: "service/update", id: service.id, service: { ...draft, image: "" } });
+    expect(noPhoto.services.at(-1)!.details).toBe("Warm stones.\n\nSlow strokes.");
+    expect(noPhoto.services.at(-1)!.image).toBeUndefined();
+    const cleared = reduce(added, { type: "service/update", id: service.id, service: { ...draft, details: " \n ", image: "" } });
     expect(cleared.services.at(-1)!.details).toBeUndefined();
     expect(cleared.services.at(-1)!.image).toBeUndefined();
+    expect("details" in JSON.parse(JSON.stringify(cleared.services.at(-1)))).toBe(false);
     expect(reduce(added, { type: "service/update", id: service.id, service: { ...draft, details: "x".repeat(MAX_DETAILS + 1) } })).toBe(added);
     expect(reduce(added, { type: "service/update", id: service.id, service: { ...draft, image: "nope" } })).toBe(added);
     // A copy keeps the text.

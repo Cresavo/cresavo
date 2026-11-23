@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DURATION_STEP, MAX_DESCRIPTION, MAX_DURATION, MAX_NAME as MAX_SERVICE_NAME, MIN_DURATION, validServicePrice } from "@/concept/services/edit";
+import { DURATION_STEP, isPhoto, MAX_BUFFER, MAX_DESCRIPTION, MAX_DETAILS, MAX_DURATION, MAX_NAME as MAX_SERVICE_NAME, MIN_DURATION, validServicePrice } from "@/concept/services/edit";
 import { MAX_INTERVAL_WEEKS, MIN_INTERVAL_WEEKS } from "@/concept/customers/return-visits";
 import { direction, id, idList, list, required, staffId, text } from "./primitives";
 
@@ -7,13 +7,21 @@ import { direction, id, idList, list, required, staffId, text } from "./primitiv
 
 const price = z.number().refine(validServicePrice, "Not a valid price");
 
+const stepped = (min: number, max: number) => z.number().int().min(min).max(max).multipleOf(DURATION_STEP);
+
+// The optional fields are the ones the treatment editor sends; the reducer applies the same limits.
 const draft = z.strictObject({
   name: required(MAX_SERVICE_NAME),
   category: id,
   duration: z.number().int().min(MIN_DURATION).max(MAX_DURATION).multipleOf(DURATION_STEP),
   price,
   description: text(MAX_DESCRIPTION),
+  details: text(MAX_DETAILS).optional(),
+  image: z.string().max(40).refine((value): boolean => value === "" || isPhoto(value), "Not one of the page's photos").optional(),
   staffIds: list(staffId, 50),
+  bufferBefore: stepped(0, MAX_BUFFER).optional(),
+  bufferAfter: stepped(0, MAX_BUFFER).optional(),
+  processing: z.strictObject({ after: stepped(0, MAX_DURATION), duration: stepped(DURATION_STEP, MAX_DURATION) }).optional(),
 });
 
 export const catalogueSchemas = {

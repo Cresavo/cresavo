@@ -162,6 +162,42 @@ test("details typed in the studio open behind More info on the booking page and 
   await expect(page.getByRole("heading", { name: /Deep tissue massage/ })).toBeVisible();
 });
 
+test("a sheet left open in another tab does not write old details back over a newer edit", async ({ page, context }) => {
+  const text = "Written in the first tab.";
+  await page.goto("/studio/more/services");
+  const other = await context.newPage();
+  const otherErrors: string[] = [];
+  other.on("pageerror", error => otherErrors.push(error.message));
+  await other.goto("/studio/more/services");
+
+  // Both tabs open the same treatment before either saves.
+  for (const tab of [page, other]) {
+    await tab.getByRole("button", { name: "Edit Deep tissue massage" }).click();
+    await tab.getByRole("dialog").getByText("More options").click();
+  }
+  await page.getByRole("dialog").getByLabel("More about this treatment").fill(text);
+  await page.getByRole("dialog").getByLabel("Photo with the text").selectOption({ label: "Massage" });
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Deep tissue massage saved")).toBeVisible();
+
+  // The second tab's sheet still shows the empty text; it changes only the price.
+  await expect(other.getByRole("dialog").getByLabel("More about this treatment")).toHaveValue("");
+  await other.getByRole("dialog").getByLabel("Price (SEK)").fill("915");
+  await other.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect(other.getByText("Deep tissue massage saved")).toBeVisible();
+  expect((await state(other)).services.find(s => s.id === "deep-tissue")).toMatchObject({ price: 915, details: text, image: "massage" });
+
+  // Clearing the text on purpose still clears it.
+  await other.getByRole("button", { name: "Edit Deep tissue massage" }).click();
+  await other.getByRole("dialog").getByText("More options").click();
+  await expect(other.getByRole("dialog").getByLabel("More about this treatment")).toHaveValue(text);
+  await other.getByRole("dialog").getByLabel("More about this treatment").fill("");
+  await other.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+  await expect.poll(async () => (await state(other)).services.find(s => s.id === "deep-tissue")?.details).toBeUndefined();
+  expect(otherErrors).toEqual([]);
+  await other.close();
+});
+
 test("deleting a booked treatment says what happens and keeps the bookings", async ({ page }) => {
   const sheet = page.getByRole("dialog");
   await page.goto("/studio/more/services");

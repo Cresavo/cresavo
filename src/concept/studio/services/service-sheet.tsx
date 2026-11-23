@@ -36,6 +36,8 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
   const [description, setDescription] = useState(service?.description ?? "");
   const [details, setDetails] = useState(service?.details ?? "");
   const [image, setImage] = useState(service?.image ?? "");
+  // What the sheet showed when it opened; `service` itself follows later edits from other tabs.
+  const [opened] = useState({ details: service?.details ?? "", image: service?.image ?? "" });
   const [staffIds, setStaffIds] = useState<StaffId[]>(service?.staffIds ?? state.staff.map((p) => p.id).slice(0, 1));
   const [bufferBefore, setBufferBefore] = useState(String(service?.bufferBefore ?? ""));
   const [bufferAfter, setBufferAfter] = useState(String(service?.bufferAfter ?? ""));
@@ -58,11 +60,14 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
     const label = name.trim();
     if (service) {
       const stored = currentState()?.services.find(({ id }) => id === service.id);
-      const change = {
+      // The longer text and its photo are sent only when the owner changed them in this sheet. Left out, the
+      // store keeps its own, so a sheet opened before another tab's edit cannot write the old text back.
+      const change: ServiceDraft = {
         ...draft,
         name: draft.name.trim() === service.name ? stored?.name ?? draft.name : draft.name,
         description: draft.description.trim() === service.description ? stored?.description ?? draft.description : draft.description,
-        details: tidyDetails(details) === (service.details ?? "") ? stored?.details ?? details : details,
+        details: tidyDetails(details) !== opened.details ? details : undefined,
+        image: image !== opened.image ? image : undefined,
       };
       const changed = dispatchWithLog({ type: "service/update", id: service.id, service: change });
       const toggled = dispatchWithLog({ type: "service/visibility", id: service.id, hidden: !visible });

@@ -22,6 +22,10 @@ All notable changes to this project are documented here. Format follows
 
 - **Server log lines are structured JSON.** `src/lib/log.ts` writes one line per event with level, event code, time and an allowlist of non-personal fields; the existing codes (for example `BOOKING_INTERNAL_ERROR`) are kept. The two free-text warnings about e-mail that was not sent are now the codes `OWNER_RESET_EMAIL_NOT_SENT` and `BOOKING_EMAIL_WAITING` with a reason field.
 
+### Fixed
+
+- **A signed-in owner can save a treatment's timing.** With owner accounts on, the server refused any treatment edit that carried preparation, clean-up or processing time, and the studio then put the old treatment back. The server now accepts those fields, and the new longer text and photo, with the same limits the studio applies.
+
 ## [0.8.0] - 2026-11-22
 
 ### Added

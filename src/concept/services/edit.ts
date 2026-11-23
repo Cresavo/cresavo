@@ -22,9 +22,9 @@ export interface ServiceDraft {
   duration: number;
   price: number;
   description: string;
-  /** Left out or blank = no "More info" on the booking page. */
+  /** Blank = no "More info" on the booking page. Left out of an update = keep what is stored. */
   details?: string;
-  /** A photo beside the details; left out = none. */
+  /** A photo beside the details; "" = none. Left out of an update = keep what is stored. */
   image?: string;
   staffIds: StaffId[];
   /** Left out or 0 = none. */
@@ -66,7 +66,7 @@ export function validServicePrice(price: number): boolean {
 export const tidyDetails = (details: string | undefined): string =>
   (details ?? "").replace(/\r\n?/g, "\n").replace(/[^\S\n]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
 
-const isPhoto = (image: string): image is PhotoId => (PHOTO_IDS as string[]).includes(image);
+export const isPhoto = (image: string): image is PhotoId => (PHOTO_IDS as string[]).includes(image);
 
 const validMinutes = (minutes: number, min: number, max: number) => Number.isInteger(minutes) && minutes >= min && minutes <= max && minutes % DURATION_STEP === 0;
 
@@ -127,8 +127,17 @@ export function serviceIsReferenced(state: DemoState, id: string): boolean {
   return state.bookings.some((b) => b.serviceId === id) || state.checkoutHolds.some((h) => h.serviceId === id) || state.trash.some((e) => e.kind === "customer" && e.bookings.some((b) => b.serviceId === id)) || state.packages.some((p) => p.serviceId === id) || state.campaigns.some((c) => c.serviceIds.includes(id));
 }
 
-/** Optional fields that are zero, blank or unset are left out, so a service without them stays as it was. */
-const NO_OPTIONAL = { details: undefined, image: undefined, bufferBefore: undefined, bufferAfter: undefined, processing: undefined };
+/** Timing fields that are zero or unset are left out, so a service without them stays as it was. */
+const NO_TIMING = { bufferBefore: undefined, bufferAfter: undefined, processing: undefined };
+
+/**
+ * The longer text and its photo after an update. A field the request leaves out keeps what is stored,
+ * so a caller that does not know the field cannot erase it; an explicit blank clears it.
+ */
+const keptText = (stored: Service, { details, image }: ServiceDraft) => ({
+  details: details === undefined ? stored.details : tidyDetails(details) || undefined,
+  image: image === undefined ? stored.image : image || undefined,
+});
 
 const clean = ({ details, image, bufferBefore, bufferAfter, processing, ...draft }: ServiceDraft): ServiceDraft => ({
   ...draft,
@@ -182,7 +191,7 @@ export function applyServiceAction(state: DemoState, action: ServiceAction): Dem
     }
     case "service/update": {
       if (!state.services.some((s) => s.id === action.id) || serviceIssues(state, action.service, action.id).length) return state;
-      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, ...NO_OPTIONAL, ...clean(action.service) } : s)) };
+      return { ...state, services: state.services.map((s) => (s.id === action.id ? { ...s, ...NO_TIMING, ...clean(action.service), ...keptText(s, action.service) } : s)) };
     }
     case "service/visibility": {
       const service = state.services.find((s) => s.id === action.id);
