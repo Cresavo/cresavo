@@ -4,13 +4,16 @@ import type { DemoState } from "../../data/types";
 export const SCHEDULE_ROWS = 5;
 
 /**
- * The rows Today shows: the next ones that have not ended yet, at most SCHEDULE_ROWS. Late in the day,
- * with nothing left, the day's last rows. `showAll` shows the whole day.
+ * The rows Today shows: the next ones that have not ended yet, at most SCHEDULE_ROWS. When fewer are left, the
+ * latest finished ones fill up the list before them, so the day still reads as a day; with nothing left, the
+ * day's last rows. `showAll` shows the whole day.
  */
 export function scheduleRows<T extends { start: number; end: number }>(rows: T[], now: number, showAll = false): T[] {
   if (showAll) return rows;
   const upcoming = rows.filter((row) => row.end > now);
-  return upcoming.length ? upcoming.slice(0, SCHEDULE_ROWS) : rows.slice(-SCHEDULE_ROWS);
+  if (upcoming.length >= SCHEDULE_ROWS) return upcoming.slice(0, SCHEDULE_ROWS);
+  const ended = rows.filter((row) => row.end <= now).slice(upcoming.length - SCHEDULE_ROWS);
+  return rows.filter((row) => upcoming.includes(row) || ended.includes(row));
 }
 
 /** Below this many real bookings a salon is new, and Today keeps its suggestions to one. */

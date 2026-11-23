@@ -75,7 +75,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   };
 
   return (
-    <div className="overflow-x-auto rounded-lg bg-surface ring-1 ring-hairline">
+    <div className="studio-raised overflow-x-auto rounded-lg bg-surface">
       <div className="studio-calendar-grid studio-calendar-day" style={{ "--calendar-columns": columns.length } as React.CSSProperties}>
         <div className="flex border-b border-hairline">
           <div className="w-11 shrink-0" />
@@ -107,10 +107,10 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                 {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-surface-2/70" style={{ height: (to - shift.end) * scale }} />}
                 {lunch && works && (
                   <div
-                    className="pointer-events-none absolute inset-x-0 flex items-center justify-center bg-[repeating-linear-gradient(135deg,transparent_0_6px,var(--ui-border)_6px_7px)] text-minimum text-text-secondary"
+                    className="studio-calendar-lunch pointer-events-none absolute inset-x-0 flex items-center justify-center text-minimum text-text-secondary"
                     style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
                   >
-                    {t("calendar.lunch")}
+                    <span className="rounded-sm bg-surface px-2">{t("calendar.lunch")}</span>
                   </div>
                 )}
                 {entries.map(({ booking, misfit }) => (

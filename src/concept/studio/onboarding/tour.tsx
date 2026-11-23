@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../i18n";
-import { Button } from "../../ui/button";
-import { Card } from "../../ui/card";
+import { useWorkspaceSlug } from "../../store";
+import { Button, ButtonLink } from "../../ui/button";
 
 const seenKey = "studio-tour-seen-v1";
 let seenInSession = false;
@@ -32,13 +32,20 @@ export function DemoTour({ close }: { close: () => void }) {
     heading.current?.focus({ preventScroll: true });
     return () => { for (const target of targets) target.removeAttribute("data-tour-active"); };
   }, [current]);
-  return <Card role="dialog" onKeyDown={event => {
+  const last = step === steps.length - 1;
+  // The last step points at the way into setup at the end of the page, so the link is here as well.
+  const savedSalon = useWorkspaceSlug("own");
+  return <section role="dialog" onKeyDown={event => {
     if (event.key === "Escape") { event.stopPropagation(); close(); }
-  }} aria-labelledby="tour-heading" aria-describedby="tour-hint" className="mt-3 space-y-2 border-l-4 border-action p-4">
-    <p className="text-xs font-medium text-text-secondary">{t("setup.step", { step: step + 1, total: steps.length })}</p>
-    <h2 id="tour-heading" ref={heading} tabIndex={-1} className="text-lg font-semibold">{t(current.title)}</h2>
-    <p id="tour-hint" className="text-sm text-text-secondary">{t(current.hint)}</p>
-    <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => step === steps.length - 1 ? close() : setStep(step + 1)}>{t(step === steps.length - 1 ? "setup.tourEnd" : "welcome.next")}</Button>
-      <Button size="sm" variant="ghost" onClick={close}>{t("setup.tourSkip")}</Button></div>
-  </Card>;
+  }} aria-labelledby="tour-heading" aria-describedby="tour-hint" className="border-l-2 border-action pl-4">
+    <p className="text-sm text-text-secondary">{t("setup.step", { step: step + 1, total: steps.length })}</p>
+    {/* Focus moves to the heading so it is read out; it is not a control, so it has no focus ring. */}
+    <h2 id="tour-heading" ref={heading} tabIndex={-1} style={{ outline: "none" }} className="mt-1 text-h3 font-semibold">{t(current.title)}</h2>
+    <p id="tour-hint" className="mt-1 max-w-reading text-sm text-text-secondary">{t(current.hint)}</p>
+    <div className="flex flex-wrap gap-x-5">
+      {last && !savedSalon && <ButtonLink variant="link" href="/studio/setup">{t("setup.entry")}</ButtonLink>}
+      <Button variant="link" className="font-semibold" onClick={() => last ? close() : setStep(step + 1)}>{t(last ? "setup.tourEnd" : "welcome.next")}</Button>
+      {!last && <Button variant="link" className="text-text-secondary" onClick={close}>{t("setup.tourSkip")}</Button>}
+    </div>
+  </section>;
 }

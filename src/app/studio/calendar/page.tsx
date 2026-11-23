@@ -19,6 +19,7 @@ import { WeekGrid } from "@/concept/studio/calendar/week-grid";
 import { staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
 import { PageHeader } from "@/concept/studio/page-header";
+import { StaffDot } from "@/concept/studio/staff-dot";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Badge } from "@/concept/ui/badge";
 import { Button, ButtonLink, IconButton } from "@/concept/ui/button";
@@ -102,6 +103,9 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       <div className="mb-4 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-h2 font-semibold">{label}</h2>
+          {staffControl && staff.length === 1 && (
+            <span className="inline-flex items-center gap-2 text-meta text-text-secondary xl:hidden"><StaffDot staffId={staff[0].id} />{staff[0].firstName}</span>
+          )}
           {chosenRoom && <Badge>{chosenRoom.name}</Badge>}
         </div>
         <div className="flex min-w-0 items-center gap-2">
@@ -149,7 +153,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
           </div>
         </>
       )}
-      <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>
+      {(view === "week" || openingFor(state.salon, date)) && <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>}
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

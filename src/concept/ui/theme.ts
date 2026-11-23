@@ -39,8 +39,12 @@ export function pinThemeColor(colour: string | null) {
   keeper.observe(document.head, { childList: true });
 }
 
-/** The studio's chrome colour for a choice: the kit's background, or null for "system" (the OS media queries decide). */
-export const studioChrome = (theme: ThemePreference): string | null => (theme === "system" ? null : THEME_COLORS[theme]);
+/** The studio's masthead and sidebar colours (studio.css `.studio-chrome`), so a phone's status bar continues the masthead. */
+const STUDIO_CHROME = { light: "#50364b", dark: "#120e17" } as const;
+
+/** The studio's chrome colour for a choice; "system" follows the device's scheme at the time of asking. */
+export const studioChrome = (theme: ThemePreference): string =>
+  STUDIO_CHROME[theme === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme];
 
 /**
  * Runs in <head> before first paint, so a saved dark theme never flashes light, and pins the

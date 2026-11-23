@@ -81,12 +81,13 @@ test("browser chrome follows the saved studio theme against the OS, from the fir
   // The control moves the chrome with it; System hands it back to the OS.
   await page.goto("/studio/more/settings");
   const appearance = page.getByRole("radiogroup", { name: "Appearance" }).first();
+  // The studio's chrome is its plum masthead in light and the deepest ground in dark.
   await appearance.getByRole("radio", { name: "Light" }).click();
-  expect(await chrome(page)).toBe("#faf7f3");
+  expect(await chrome(page)).toBe("#50364b");
   await page.emulateMedia({ colorScheme: "dark" });
-  expect(await chrome(page)).toBe("#faf7f3");
+  expect(await chrome(page)).toBe("#50364b");
   await appearance.getByRole("radio", { name: "System" }).click();
-  expect(await chrome(page)).toBe("#18141e");
+  expect(await chrome(page)).toBe("#120e17");
 
   // Saved dark, OS light: a tenant page keeps its own chrome (Salong Eko's light page colour), also after an in-app link.
   await appearance.getByRole("radio", { name: "Dark" }).click();
@@ -95,7 +96,7 @@ test("browser chrome follows the saved studio theme against the OS, from the fir
   await expect(page.getByRole("heading", { name: "Salong Eko", level: 1 })).toBeVisible();
   await expect.poll(() => chrome(page)).toBe("#f7f4ef");
   await page.getByRole("link", { name: "Open the owner's view" }).click();
-  await expect.poll(() => chrome(page)).toBe("#18141e");
+  await expect.poll(() => chrome(page)).toBe("#120e17");
 });
 
 test("a booking page keeps the business's colours whatever the studio theme is", async ({ page }) => {

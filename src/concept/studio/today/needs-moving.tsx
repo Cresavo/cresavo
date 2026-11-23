@@ -7,7 +7,6 @@ import { formatDayShort, formatTime } from "../../i18n/format";
 import { needsMoving } from "../../ops/needs-moving";
 import { findCustomer, findService, fullName } from "../../selectors";
 import { Button } from "../../ui/button";
-import { Card } from "../../ui/card";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { useStudio } from "../use-studio";
 
@@ -20,30 +19,30 @@ export function NeedsMoving({ staffId, onOpen }: { staffId?: StaffId; onOpen: (s
   if (!list.length) return null;
   const hidden = list.length - SHOWN;
   return (
-    <Card className="overflow-hidden ring-warning/30">
-      <div className="flex items-start gap-3 bg-warning-bg px-4 py-3">
-        <CalendarClock size={20} className="mt-1 shrink-0 text-warning" />
+    <section className="space-y-1">
+      <div className="flex items-start gap-3">
+        <CalendarClock size={20} aria-hidden className="mt-0.5 shrink-0 text-warning" />
         <div className="min-w-0">
-          <p className="font-medium leading-snug">{tc("moving.title", list.length)}</p>
+          <p className="font-semibold leading-snug">{tc("moving.title", list.length)}</p>
           <p className="text-sm text-text-secondary">{t("moving.text")}</p>
         </div>
       </div>
-      <ul className="divide-y divide-hairline">
+      <ul className="space-y-1 pl-8">
         {list.slice(0, SHOWN).map(({ booking, reason }) => {
           const customer = findCustomer(state, booking.customerId);
           const person = state.staff.find((s) => s.id === booking.staffId)?.firstName ?? "";
           return (
-            <li key={booking.id} className="flex items-center gap-3 px-4 py-3">
+            <li key={booking.id} className="flex items-center gap-3 py-1">
               <div className="min-w-0 flex-1 text-sm">
                 <p className="truncate font-medium">{customer ? fullName(customer) : ""} · {findService(state, booking.serviceId)?.name}</p>
                 <p className="truncate text-text-secondary">{formatDayShort(booking.date)} {formatTime(booking.start)} · {t(`moving.reason.${reason}`, { name: person })}</p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>{t("moving.move")}</Button>
+              <Button variant="link" onClick={() => onOpen({ kind: "booking", id: booking.id, mode: "move" })}>{t("moving.move")}</Button>
             </li>
           );
         })}
       </ul>
-      {hidden > 0 && <p className="border-t border-hairline px-4 py-3 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
-    </Card>
+      {hidden > 0 && <p className="pl-8 pt-1 text-sm text-text-secondary">{tc("moving.more", hidden)}</p>}
+    </section>
   );
 }
