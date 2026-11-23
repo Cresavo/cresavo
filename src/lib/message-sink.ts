@@ -52,6 +52,11 @@ const LINK_MARK = "__BOOKING_LINK__";
 const DISPATCH_LOCK_TIMEOUT = "3000ms";
 /** The frozen message and what it was made with, and the last attempt's error code, dropped once the effect is settled. */
 const SETTLED = { mail: null, link: null, from: null, replyTo: null, lastError: null } as const;
+/**
+ * Left for a person (`uncertain`, `reconcile`): the frozen message stays, so a send they confirm did not go out can be
+ * resent exactly as it was. It goes once delivery is confirmed, or with the message body when retention expires.
+ */
+const FOR_A_PERSON = { lastError: null } as const;
 
 type BookingMessage = NonNullable<ReturnType<typeof parseMessageReference>>;
 type Registry = { resolve: (port: "email", business: string) => Promise<{ adapter: EmailPort; live: boolean; reason: ResolutionReason; account?: string }> };
@@ -255,7 +260,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const submittedAt = kept?.submittedAt ?? (kept?.dispatched ? firstAttemptAt : now());
     const keyed = !live || (origin === "resend" && provider === "resend" && sameAccount && now() - submittedAt < RESEND_KEY_WINDOW_MS);
     if (live && kept?.dispatched && !keyed) {
-      await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
+      await noteClaim(delivery, { reason: "uncertain", ...FOR_A_PERSON });
       return "failed";
     }
 
@@ -271,10 +276,11 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     }
     // The marker stays when an earlier attempt may have sent: only a request that left nothing behind is released.
     // Also after this claim's timeout made the row `failed`: the marker must not make an unsent message look uncertain.
-    // A request that reached the provider (and was refused) keeps its first-submission time.
-    const release = async (requested: boolean) => { if (!kept?.dispatched) await releaseUnsent(delivery, !requested && kept?.submittedAt === undefined); };
+    // Its first-submission time goes too: only a request that may have been carried out starts the provider's key window.
+    const ownSubmission = kept?.submittedAt === undefined;
+    const release = async () => { if (!kept?.dispatched) await releaseUnsent(delivery, ownSubmission); };
     if (signal.aborted) {
-      await release(false);
+      await release();
       throw new Error("EMAIL_TIMEOUT");
     }
     // The last moment the pause can hold it: nothing has been requested yet. Returned at once, with no write of its
@@ -295,16 +301,21 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     if (UNCERTAIN.has(code) || inProgress) {
       // The request may have been carried out, or is still running. It stays dispatched: the next claim decides by provider and age.
       if (keyed) throw new Error(inProgress ? "EMAIL_RETRYABLE" : "EMAIL_UNCERTAIN");
-      await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
+      await noteClaim(delivery, { reason: "uncertain", ...FOR_A_PERSON });
       return "failed";
     }
     // Nothing was sent. A rate limit and a bad or missing API key will pass.
     if (result.error.retryable || code === "unauthorized") {
-      await release(true);
+      await release();
       throw new Error("EMAIL_RETRYABLE");
     }
-    // A bad address, an unverified domain, other 4xx; and a same key with a changed body, which only a person can settle.
-    await noteClaim(delivery, { reason: code === "conflict" ? "reconcile" : code, ...SETTLED });
+    // A same key with a changed body: an earlier request did reach the provider, so only a person can settle it.
+    if (code === "conflict") {
+      await noteClaim(delivery, { reason: "reconcile", ...FOR_A_PERSON });
+      return "failed";
+    }
+    // A bad address, an unverified domain, other 4xx: refused outright, so this request starts no key window.
+    await noteClaim(delivery, { reason: code, ...SETTLED, ...(ownSubmission ? { submittedAt: null } : {}) });
     return "failed";
   };
 }

@@ -20,14 +20,15 @@ export const USAGE = `Usage: npm run effects:reconcile -- <command> [options]
   mark-sent <id...> --tenant <id>          an uncertain e-mail the provider shows as sent
   mark-failed <id...> --tenant <id>        an uncertain e-mail the provider shows as not sent
 
-  Changes nothing without --apply. --actor <id> (a short lower-case id such as initials) names who acts.`;
+  Changes nothing without --apply. --actor <handle> (a staff handle, not a full name) names who acts.`;
 
 const ACTIONS: readonly ReconcileAction[] = ["retry", "mark-sent", "mark-failed"];
 /** Effect and tenant ids as the store makes them; anything else is a typo or worse. */
 const ID = /^[A-Za-z0-9_.:-]{1,200}$/;
-/** An opaque operator id (initials, a short staff number), never a name, an e-mail address or a phone number. */
+/** A staff handle (`jd`, `ops-2`), not a person's full name, and never an e-mail address or a phone number. */
 const ACTOR = /^[a-z0-9_-]{1,32}$/;
-const opaqueActor = (value: string) => ACTOR.test(value) && !/\d{6,}/.test(value);
+/** Six digits or more, whatever separates them (`073-555-1234`), may be a phone number. */
+const opaqueActor = (value: string) => ACTOR.test(value) && !/\d{6,}/.test(value.replace(/[-_]/g, ""));
 const MAX_IDS = 100;
 const MAX_LIMIT = 1000;
 
@@ -104,9 +105,15 @@ export interface ListedEffect {
   attempts: number;
   error?: string;
   dispatched: boolean;
+  /** Epoch ms of the first rendering and of the first request that may have reached the provider: where a search of its log starts. */
+  firstAttemptAt?: number;
+  submittedAt?: number;
   reconciled?: string;
   recipient: string;
 }
+
+/** An epoch-ms time as UTC to the second, or `-`. */
+const at = (ms: number | undefined) => (ms !== undefined && Number.isFinite(ms) ? new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z") : "-");
 
 /** The rows grouped per tenant, one line each. */
 export function formatList(rows: readonly ListedEffect[]): string[] {
@@ -120,7 +127,7 @@ export function formatList(rows: readonly ListedEffect[]): string[] {
     }
     lines.push([
       `  ${row.id}`, row.kind, row.state, `age ${formatAge(row.ageMs)}`, `attempts ${row.attempts}`, `error ${row.error ?? "-"}`,
-      row.dispatched ? "dispatched" : "not-dispatched", ...(row.reconciled ? [`reconciled ${row.reconciled}`] : []), `to ${row.recipient}`,
+      row.dispatched ? "dispatched" : "not-dispatched", `rendered ${at(row.firstAttemptAt)}`, `submitted ${at(row.submittedAt)}`, ...(row.reconciled ? [`reconciled ${row.reconciled}`] : []), `to ${row.recipient}`,
     ].join("  "));
   }
   return lines;
