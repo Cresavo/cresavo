@@ -36,7 +36,7 @@ import {
 } from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
 import {
-  deleteErasedJournals, JOURNAL_TEXT_ACTIONS, JournalSession, JournalVault, mentionCopiesJson, replaceMentions, replayHoldsText, type MentionCopy, type StoredReplay,
+  deleteErasedJournals, JOURNAL_TEXT_ACTIONS, JournalSession, JournalVault, mentionCopiesJson, replaceMentions, type MentionCopy, type StoredReplay,
 } from "./journal-vault";
 import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
 import { notifyTenantChange, PostgresNotifications, wakeTag } from "./postgres-notifications";
@@ -110,7 +110,7 @@ const REPLAY_BATCH = 25;
 const REPLAY_MAX_BATCHES = 40;
 /**
  * A stored replay result that still holds journal text: in its state copy an entry with text or without `sealed`,
- * or a journal action with its text. The same rule as replayHoldsText in journal-vault.ts.
+ * or a journal action with its text (holdsJournalText and actionHoldsText, as SQL).
  */
 const REPLAY_TEXT = Prisma.sql`jsonb_path_exists(result, 'lax $.state.** ? (exists(@.treatment) && exists(@.observations) && exists(@.advice) && (!(exists(@.sealed)) || @.treatment != "" || @.observations != "" || @.advice != "" || exists(@.nextVisit) || exists(@.photos) || exists(@.versions)))')
   OR jsonb_path_exists(result, 'lax $.entry.action ? ((@.type == "journal/add" && (exists(@.entry.treatment) || exists(@.entry.observations) || exists(@.entry.advice) || exists(@.entry.nextVisit) || exists(@.entry.photos) || exists(@.entry.versions))) || (@.type == "journal/edit" && exists(@.content)))')`;

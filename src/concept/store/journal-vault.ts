@@ -112,13 +112,6 @@ export function actionHoldsText(action: unknown): boolean {
   return false;
 }
 
-/** True when a stored replay result still carries journal text, in its state copy or its entry's action. */
-export function replayHoldsText(result: StoredReplay | null | undefined): boolean {
-  const state = result?.state;
-  const inState = !!state && typeof state === "object" && Array.isArray(state.journals) && holdsJournalText(state);
-  return inState || actionHoldsText(result?.entry?.action);
-}
-
 export class JournalVault {
   constructor(private readonly key: JournalKey) {}
 
