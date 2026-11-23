@@ -1,4 +1,4 @@
--- Reports row-level security on the four studio store tables. Read only; run
+-- Reports row-level security on the four studio store tables and journal_entry. Read only; run
 -- as any role that can read the catalogs:
 --
 --   psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql
@@ -21,6 +21,8 @@
 -- ownership; no ADMIN OPTION on any role. Any of these would see every row
 -- however the policies read. verify-roles.sql checks the named logins' grants.
 WITH expected(tbl, policy, digest) AS (VALUES
+  ('journal_entry', 'store_owner', 'b96a8908fae28d7ec5bb5802493d157c'),
+  ('journal_entry', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
   ('tenant_action', 'store_owner', 'e9faebba0398f4bf24a080070171835a'),
   ('tenant_action', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
   ('tenant_action', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
@@ -38,7 +40,7 @@ WITH expected(tbl, policy, digest) AS (VALUES
 actual AS (
   SELECT p.tablename AS tbl, p.policyname AS policy, md5(p.cmd || '|' || p.permissive || '|' || array_to_string(p.roles, ',') || '|' || coalesce(p.qual, '') || '|' || coalesce(p.with_check, '')) AS digest
   FROM pg_policies p
-  WHERE p.schemaname = current_schema() AND p.tablename IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+  WHERE p.schemaname = current_schema() AND p.tablename IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'journal_entry')
 )
 SELECT c.relname AS "table",
   c.relrowsecurity AS enabled,
@@ -50,7 +52,7 @@ SELECT c.relname AS "table",
   coalesce((SELECT string_agg(a.policy, ', ' ORDER BY a.policy) FROM actual a JOIN expected e ON e.tbl = a.tbl AND e.policy = a.policy
     WHERE a.tbl = c.relname AND a.digest <> e.digest), '') AS changed
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'journal_entry')
 ORDER BY c.relname;
 
 WITH RECURSIVE groups AS (
@@ -66,7 +68,7 @@ runtime AS (
 ),
 store AS (
   SELECT c.relname, c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+  WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'journal_entry')
 ),
 definer AS (
   SELECT 'erase_subject definer ' || o.rolname AS who, o.rolname AS login

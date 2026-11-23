@@ -25,7 +25,8 @@ import { sweepActivityPersonalData, sweepDemoActions, sweepExpiredIdempotency, s
 import { bookingTokenExpiry, mintBookingToken } from "../../src/lib/booking-token";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
-import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
+import { sessionKey } from "../../src/lib/owner-http";
+import { openOwnerSession, OWNER_COOKIE, ownerFromCookie } from "../../src/lib/owner-session";
 import { issuedAtToken } from "../../src/lib/public-issued-at";
 import { withOwnSlug } from "./own-slug";
 import { installStoreFunctions } from "./store-functions";
@@ -104,9 +105,16 @@ const ownerRequest = (path: string, init: { cookie?: string; body?: unknown; hea
   headers: { ...(init.cookie ? { cookie: init.cookie } : {}), ...(init.body === undefined ? {} : { origin, host: "localhost", "content-type": "application/json" }), ...init.headers },
 });
 const read = (cookie: string, path = "/api/owner/salon", headers: Record<string, string> = {}) => getSalon(ownerRequest(path, { cookie, headers }));
-const send = (cookie: string, body: unknown, headers: Record<string, string> = {}, path = "/api/owner/salon/actions") =>
-  postAction(ownerRequest(path, { cookie, body, headers }));
-const erase = (cookie: string, body: unknown) => postErase(ownerRequest("/api/owner/salon/erase", { cookie, body }));
+const send = async (cookie: string, body: unknown, headers: Record<string, string> = {}, path = "/api/owner/salon/actions") =>
+  postAction(ownerRequest(path, { cookie, body, headers: { "x-cresavo-session": await keyOf(cookie), ...headers } }));
+
+/** The session key of a cookie (what the salon load hands the studio for `x-cresavo-session`). */
+const keyOf = async (cookie: string) => {
+  const owner = await ownerFromCookie(cookie.slice(cookie.indexOf("=") + 1));
+  return owner ? sessionKey(owner) : "";
+};
+const erase = async (cookie: string, body: unknown) =>
+  postErase(ownerRequest("/api/owner/salon/erase", { cookie, body, headers: { "x-cresavo-session": await keyOf(cookie) } }));
 let keys = 0;
 const act = (cookie: string, action: unknown, extra: Record<string, unknown> = {}) => send(cookie, { action, idempotencyKey: `iso-${run}-${++keys}`, ...extra });
 const stateOf = async (tenantId: string) => (await store().load(tenantId))!;
@@ -237,7 +245,7 @@ describe("/api/owner/*: owner A against salon B", () => {
     for (const id of [...a.ids.services, ...a.ids.customers, a.ids.inbox, a.ids.trash, a.ids.log]) expect(twinOwn.has(id), id).toBe(true);
     // `me` says who is signed in and nothing about any tenant.
     const me = await getMe(ownerRequest("/api/owner/me", { cookie: a.cookie }));
-    expect(await me.json()).toEqual({ email: a.email, mfaEnabled: false, session: expect.stringMatching(new RegExp(`^${a.accountId}\\.\\d+$`)) });
+    expect(await me.json()).toEqual({ email: a.email, mfaEnabled: false, session: expect.stringMatching(new RegExp(`^${a.accountId}\\.\\d+\\.[0-9a-f]{16}$`)) });
   });
 
   it("ignores every other way a request can name a tenant: query, headers and extra fields", async () => {
@@ -864,10 +872,10 @@ describe("the store: load, apply, history and erase stay inside one tenant", () 
       // The function takes the tenant as an argument: naming the customer for the wrong tenant erases nothing there.
       expect(await snapshot(y)).toEqual(untouched);
       expect(JSON.stringify(await snapshot(x))).not.toContain("twin.kund@example.test");
-      await expect(db.$queryRaw`SELECT erase_subject(${`${PREFIX}-nobody`}, ${customer.id}) AS counts`).rejects.toThrow(/unknown tenant/);
+      await expect(db.$queryRaw`SELECT erase_subject(${`${PREFIX}-nobody`}, ${customer.id}) AS counts`).rejects.toThrow(/not in the tenant's scope/);
       expect(await snapshot(y)).toEqual(untouched);
     } finally {
-      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay_action(jsonb, text, text[], text[], jsonb, boolean), studio_redact_replay(jsonb, text, text[], text[]),
         studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]), studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   }, 30_000);
@@ -886,7 +894,7 @@ describe("the sweeps leave other tenants' rows and kinds alone", () => {
   const DAY = 86_400_000;
   const now = async () => NOW;
   const at = (offset: number) => new Date(NOW + offset).toISOString();
-  const tables = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", `"RateLimitBucket"`];
+  const tables = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", "journal_entry", `"RateLimitBucket"`];
 
   beforeAll(async () => {
     await setup.$transaction(async (tx) => {

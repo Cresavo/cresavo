@@ -257,8 +257,8 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     await Promise.all(clients.filter((c) => c !== admin).map((c) => c.$disconnect()));
     await runSql(Object.values(LOGINS).map((login) => `DROP ROLE IF EXISTS ${login}`).join(";"));
     if (eraseSubjectInstalled) {
-      await runSql(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_redact_replay(jsonb, text, text[], text[]),
-        studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
+      await runSql(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+        studio_redact_replay_action(jsonb, text, text[], text[], jsonb, boolean), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
   }, 30_000);
@@ -268,7 +268,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
   it("reports every store table enabled, forced and with exactly its policies, and no login that can bypass them", async () => {
     const [tables, problems] = await runSql(grant("verify-rls.sql"));
     expect(tables.map((r) => [r.table, r.enabled, r.forced, r.missing, r.unexpected, r.changed])).toEqual(
-      [...STORE].sort().map((table) => [table, true, true, "", "", ""]));
+      [...STORE, "journal_entry"].sort().map((table) => [table, true, true, "", "", ""]));
     expect(problems).toEqual([]);
     const [roleProblems] = await runSql(grant("verify-roles.sql")
       .replaceAll(":'app_login'", `'${LOGINS.app}'`).replaceAll(":'sweeper_login'", `'${LOGINS.sweeper}'`)
@@ -443,7 +443,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
       VALUES ('${B}', 99, '{}'::jsonb, 'owner', 'button', now(), 99)`)).toBe("rls");
     expect(await attempt(app, a, `INSERT INTO tenant_state (tenant_id, kind, doc) VALUES ('${PREFIX}-intruder', 'salon', '{}'::jsonb)`)).toBe("rls");
     // The erase function runs as its own role under the same policy: it cannot reach another tenant either.
-    await expect(scoped(app, a, (db) => db.$queryRaw`SELECT erase_subject(${B}, 'anyone')`)).rejects.toThrow(/unknown tenant/);
+    await expect(scoped(app, a, (db) => db.$queryRaw`SELECT erase_subject(${B}, 'anyone')`)).rejects.toThrow(/not in the tenant's scope/);
     // The store itself never reads across: A's history and B's load stay apart.
     const store = appStore();
     expect((await store.history(B, { limit: 10 })).entries.map((e) => e.tenantId)).toEqual([B, B]);

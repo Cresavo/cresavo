@@ -17,7 +17,7 @@ const schema = `store_retention_${randomUUID().replaceAll("-", "")}`;
 const connection = new URL(process.env.DATABASE_URL!);
 connection.searchParams.set("options", `${connection.searchParams.get("options") ?? ""} -c search_path=${schema}`.trim());
 const db = createDatabaseClient(connection.href);
-const tables = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", `"RateLimitBucket"`];
+const tables = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", "journal_entry", `"RateLimitBucket"`];
 let schemaCreated = false;
 const hmacSecret = randomBytes(32).toString("hex");
 

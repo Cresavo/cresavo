@@ -4,7 +4,7 @@
 // such as the assistant's proposals behind MCP, asks here instead of importing
 // the client-only store; with nothing registered every id is settled.
 
-export type RecordCollection = "bookings" | "log";
+export type RecordCollection = "bookings" | "log" | "journals";
 type Check = (collection: RecordCollection, id: string) => boolean;
 
 let check: Check = () => true;

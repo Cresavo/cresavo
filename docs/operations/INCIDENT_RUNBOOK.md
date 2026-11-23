@@ -212,6 +212,66 @@ second step. Accounts without two-step sign-in are unaffected.
   every enrolled owner out. `OWNER_MFA_REQUIRED` can be set back to `0` at any
   time; it only stops making two-step sign-in mandatory.
 
+### `JOURNAL_ENCRYPTION_KEY`
+
+Used with `JOURNALS_ON_SERVER=1` (server-side journals, off by default;
+[STUDIO_STORE](../design/STUDIO_STORE.md#server-side-journals)), and for every
+erasure in a salon that has encrypted journal rows, whatever the flag says. It
+encrypts every version of every journal entry in `journal_entry` (AES-256-GCM,
+a fresh IV per version, associated data `tenant|customer|entry|version`). The
+value is `v<N>:` plus 32 random bytes in base64; `N` is stored on each row as
+`key_version`. Keep it in the secret store, never in a backup next to the
+database.
+
+**Wrong key.** The first worker that uses a key version stores a verifier for
+it (`journal_key`, a known value encrypted under the key). A different key with
+the same version is refused before it reads or writes anything: journal routes
+answer 503, nothing is written under it, and the salon is served with its stubs.
+Give a new key a new version number.
+
+**What the move removes.** Once a salon is marked (`tenant_state.journals_sealed_at`),
+its document holds stubs only, its stored replays hold no journal text, and its
+audit rows from before the move were stripped of the text
+(`store_journal_redact_audit`; a `journal/add` keeps the entry id only where the
+original commit recorded one). Replays are cleaned in small batches; the salon
+is marked only when a final check under its lock finds all three clean, and a
+load that runs out of batches leaves the rest to the next load. Any write that
+brings journal text back clears the mark. Copies
+outside the database are not touched: backups taken before the move keep the
+text until they age out (30 days), and a restore of such a backup needs the move
+again (it runs on the first load with the flag on).
+
+**Loss.** After the move there is no other copy of the text in the database. A
+lost key makes every stored journal entry unreadable for good: the journal route
+answers 503 `journals_unreadable`, the salon still loads with its stubs, new
+entries cannot be written, and an erasure is refused with 503 until the key is
+configured again. Restoring the key from the secret store's history makes
+everything readable again at once.
+
+**Rotation.** No rotation tool yet (follow-up): a new value makes every stored
+version unreadable, exactly like a loss. Rotate only after a leak of the key
+*together with* the database. The follow-up is to accept the old key next to
+the new one by its `key_version`, re-encrypt each version under the new key in
+the row-locked store transaction, and only then retire the old one.
+
+**Off switch.** Setting `JOURNALS_ON_SERVER` back to 0 does not bring the text
+back into the documents: salons whose journals moved then show empty entries.
+Keep the flag on once it has been on; a key problem is fixed by restoring the
+key, not by turning the flag off. Keep `JOURNAL_ENCRYPTION_KEY` set even then:
+erasure needs it (`npm run store:erase` too, after a restore), and without it an
+erasure in a salon with encrypted rows answers 503 and erases nothing. Journal
+text written while the flag is off clears the salon's mark, so it moves again
+when the flag comes back.
+
+### Rollout note: owner tabs from the previous build
+
+Since server-side journals, every owner save (`/api/owner/salon/actions`), the
+journal routes and erasure require `x-cresavo-session` for the login. A studio
+tab still running the previous build sends none, so each of its saves answers
+409 until the tab is reloaded; the new build reloads the page by itself on a
+login change. Owner accounts are not live yet, so this affects no one today; once
+they are, tell owners to reload open tabs after such a deploy.
+
 ### Other secrets
 
 Provider keys (`RESEND_API_KEY`, `POSTMARK_SERVER_TOKEN`, payment and

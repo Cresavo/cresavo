@@ -99,7 +99,8 @@ export type DemoAction =
   | { type: "campaign/launch"; campaign: NewCampaign; today: DateKey }
   | { type: "campaign/ad"; id: string; ad: CampaignAd }
   | { type: "journal/add"; entry: Omit<JournalEntry, "id"> }
-  | { type: "journal/edit"; id: string; content: JournalContent; on: DateKey }
+  /** `customerId`: the customer the editor showed the entry for; an entry of anyone else is left alone. */
+  | { type: "journal/edit"; id: string; content: JournalContent; on: DateKey; customerId?: string }
   | { type: "service/recall"; id: string; weeks: number }
   | { type: "customers/import"; customers: Omit<Customer, "id">[] }
   | { type: "stock/adjust"; id: string; delta: number }
@@ -661,7 +662,8 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "customers/import":
       return importCustomers(state, action.customers);
     case "journal/edit":
-      return { ...state, journals: updateBy(state.journals, action.id, (j) => editJournalEntry(j, action.content, action.on)) };
+      return { ...state, journals: updateBy(state.journals, action.id, (j) =>
+        (action.customerId !== undefined && j.customerId !== action.customerId ? j : editJournalEntry(j, action.content, action.on))) };
     case "journal/add": {
       const { customerId, staffId, bookingId } = action.entry;
       if (!state.customers.some(c => c.id === customerId) || !state.staff.some(s => s.id === staffId)) return state;

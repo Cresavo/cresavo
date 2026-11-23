@@ -2,11 +2,13 @@ import type { Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { idempotencyKeySchema } from "@/lib/validation";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionOwner, withRenewedSession } from "@/lib/owner-http";
+import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionKey, sessionOwner, withRenewedSession } from "@/lib/owner-http";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
 import { ownerAction, ownerStore } from "@/lib/owner-store";
-import { SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
+import { JOURNALS_UNAVAILABLE, SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
+import { journalsOnServer, salonForBrowser } from "@/lib/owner-journals";
 import { checkPageLogo, PageLogoGone, publishPageLogo } from "@/lib/media/library";
 
 const bodySchema = z.object({
@@ -31,6 +33,12 @@ export function POST(request: NextRequest) {
     if (body.success && actionTooLarge(body.data.action)) return ownerError("too_large", 413);
     const action = body.success ? ownerAction(body.data.action) : null;
     if (!body.success || !action) return ownerError("invalid", 400);
+    // With server-side journals, journal text is only accepted by /api/owner/journals (its own limits), and a read is
+    // only logged where the server hands the text out: a read the studio reports is refused.
+    if (journalsOnServer() && (action.type === "journal/add" || action.type === "journal/edit" || action.type === "journal/view")) return ownerError("journal_route", 400);
+    // Bound to the login the change was made in (`x-cresavo-session`, from the salon load): a change queued in a tab
+    // that still shows another salon or an earlier sign-in is refused before anything is read or applied.
+    if (request.headers.get(UPLOAD_SESSION_HEADER) !== sessionKey(owner)) return ownerError("session_changed", 409);
     const store = ownerStore();
     // The page's logo: a library logo of this business, published in the same transaction as the save.
     const logo = action.type === "page/set" ? action.page.theme?.logo ?? null : undefined;
@@ -48,7 +56,8 @@ export function POST(request: NextRequest) {
       if (error instanceof PageLogoGone) return ownerError("logo_unknown", 409);
       throw error;
     }
+    if (!result.ok && result.detail === JOURNALS_UNAVAILABLE) return ownerError(JOURNALS_UNAVAILABLE, 503);
     if (!result.ok) return ownerError(result.detail === SLUG_TAKEN ? SLUG_TAKEN : result.reason, STATUS[result.reason]);
-    return withRenewedSession(ownerOk({ state: result.state, version: result.version, replayed: result.replayed }), request);
+    return withRenewedSession(ownerOk({ state: salonForBrowser(result.state), version: result.version, replayed: result.replayed, session: sessionKey(owner) }), request);
   });
 }

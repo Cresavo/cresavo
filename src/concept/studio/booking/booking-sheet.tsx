@@ -28,6 +28,7 @@ import { EditBookingContact } from "./edit-booking-contact";
 import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
+import { isStub } from "../../journals/sealed";
 
 type Mode = "details" | "move" | "cancel" | "giftcard";
 
@@ -63,8 +64,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const finished = booking.status === "booked" && !upcoming;
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
   // A visit booked for someone else: the note, the advice and the journal are the booker's, not the visitor's.
+  // An entry whose text the server keeps has none here; its advice is read on the customer's page.
   const lastJournal = state.modules.journal && !booking.visitFor
-    ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date).at(-1)
+    ? state.journals.filter((j) => j.customerId === booking.customerId && j.date < booking.date && !isStub(j)).at(-1)
     : undefined;
   const waitlist = waitlistCount(state, booking);
   const pkg = moduleEnabled(state.modules, "packages") ? packageFor(state, booking) : undefined;

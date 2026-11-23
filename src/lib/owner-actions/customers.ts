@@ -56,5 +56,6 @@ export const customerSchemas = {
     type: z.literal("journal/add"),
     entry: journalContent.extend({ customerId: id, bookingId: id.optional(), date, staffId }),
   }),
-  "journal/edit": z.strictObject({ type: z.literal("journal/edit"), id, content: journalContent, on: date }),
+  // The customer the editor showed the entry for: required, so an edit under a reused id never lands in someone else's journal.
+  "journal/edit": z.strictObject({ type: z.literal("journal/edit"), id, content: journalContent, on: date, customerId: id }),
 };

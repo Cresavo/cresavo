@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // The owner actions route with the session and the store replaced: the size caps are per action type.
 
 const apply = vi.fn(async () => ({ ok: true, state: {}, version: 1, replayed: false }));
-vi.mock("@/lib/owner-session", async (original) => ({ ...(await original<typeof import("@/lib/owner-session")>()), ownerFromCookie: async () => ({ tenantId: "t-1" }) }));
+vi.mock("@/lib/owner-session", async (original) => ({ ...(await original<typeof import("@/lib/owner-session")>()), ownerFromCookie: async () => ({ tenantId: "t-1", accountId: "a-1", credentialVersion: 1, sessionTag: "0123456789abcdef" }) }));
 vi.mock("@/lib/owner-store", async (original) => ({ ...(await original<typeof import("@/lib/owner-store")>()), ownerStore: () => ({ apply }) }));
 
 const origin = "http://localhost";
@@ -14,7 +14,7 @@ async function send(action: unknown) {
   const { POST } = await import("@/app/api/owner/salon/actions/route");
   return POST(new NextRequest(`${origin}/api/owner/salon/actions`, {
     method: "POST", body: JSON.stringify({ action, idempotencyKey: key }),
-    headers: { origin, host: "localhost", cookie: "owner=x", "content-type": "application/json" },
+    headers: { origin, host: "localhost", cookie: "owner=x", "content-type": "application/json", "x-cresavo-session": "a-1.1.0123456789abcdef" },
   }));
 }
 

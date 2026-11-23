@@ -1,7 +1,9 @@
 "use client";
 
 import { Check, ChevronRight, Download, MessageCircle, ShieldCheck, Upload } from "lucide-react";
+import { journalsOnServer } from "@/concept/account/sync";
 import { t } from "@/concept/i18n";
+import { withoutJournalText } from "@/concept/journals/sealed";
 import { bookingsCsv, customersCsv, download } from "@/concept/studio/more/export";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { DEVELOPERS_PAGE } from "@/concept/studio/nav";
@@ -57,7 +59,11 @@ export default function DataPage() {
   const pairing = usePairing();
   const saved = useDemo() ?? state;
   const exports = [
-    { label: t("data.export.all"), file: () => ({ name: `${state.salon.slug}-${today}.json`, content: JSON.stringify(saved, null, 2), type: "application/json" }), after: () => {
+    { label: t("data.export.all"), file: () => ({
+      name: `${state.salon.slug}-${today}.json`,
+      // While the server keeps journals, the file never holds their text: not even a change still on its way.
+      content: JSON.stringify(journalsOnServer() ? withoutJournalText(saved) : saved, null, 2), type: "application/json",
+    }), after: () => {
       // The file holds every journal: that is a read of all of them.
       // A signed-in salon's journals were logged by the server when it loaded.
       if (saved.journals.length && currentTarget()?.workspace !== "account") dispatch({ type: "journal/view", actor: "owner" });
