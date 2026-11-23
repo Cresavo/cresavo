@@ -16,6 +16,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **New booking in the studio is shorter on a phone.** Once a treatment is chosen the list folds to that one treatment with a Change button, so the day and time follow straight after it, and while no customer is chosen the sheet says so beside the greyed-out Book button.
+
 - **Server log lines are structured JSON.** `src/lib/log.ts` writes one line per event with level, event code, time and an allowlist of non-personal fields; the existing codes (for example `BOOKING_INTERNAL_ERROR`) are kept. The two free-text warnings about e-mail that was not sent are now the codes `OWNER_RESET_EMAIL_NOT_SENT` and `BOOKING_EMAIL_WAITING` with a reason field.
 
 ## [0.8.0] - 2026-11-22
