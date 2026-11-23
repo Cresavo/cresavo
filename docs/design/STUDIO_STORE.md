@@ -392,11 +392,72 @@ The periods live in `src/concept/privacy/retention.ts`. They are defaults: the s
 
 ### Journal read log
 
-`journal/view` records one read of a journal in `state.journalAccess` (who, when, which customer, no content). It is not an activity entry. The studio sends it when a journal is shown (the customer's journal tab, the history list, the last advice on a booking and on Today). The owner salon load (`GET /api/owner/salon`) logs one entry without a customer when the salon holds journal entries, because the document delivers every journal to the browser; it is logged at most every ten minutes. Missing: the journals still travel with the document, so a modified client can read without reporting. Logging every read on the server needs a route that returns one customer's journal.
+`journal/view` records one read of a journal in `state.journalAccess` (who, when, which customer, no content). It is not an activity entry. The studio sends it when a journal is shown (the customer's journal tab, the history list, the last advice on a booking and on Today). The owner salon load (`GET /api/owner/salon`) logs one entry without a customer when the salon holds journal entries, because the document delivers every journal to the browser; it is logged at most every ten minutes. Missing while the flag below is off: the journals travel with the document, so a modified client can read without reporting. With [server-side journals](#server-side-journals) on, the load logs nothing and the journal route logs each customer's read on the server.
 
 The lifecycle integration tests cover notification delivery and reconnect,
 privileged replacement, demo-only reset and retention, sandbox expiry and
 simulated delivery, and refusal of oversized writes.
+
+### Server-side journals
+
+Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
+(`v<N>:` plus 32 bytes of base64), for the owner store of account salons only
+(`src/lib/owner-journals.ts`). The demo and browser salons are untouched.
+
+- **Table.** Migration `20261123090000_server_journals` adds `journal_entry`
+  (`tenant_id, customer_id, id, version, created_at, author, ciphertext, iv,
+  key_version, replaces, deleted_at`, primary key `(tenant_id, id, version)`).
+  Each row is one version of one entry, AES-256-GCM under a fresh IV, the tag
+  appended, the associated data `cresavo-journal:v1|tenant|customer|id|version`
+  (`src/concept/store/journal-crypto.ts`).
+- **Stubs.** The document keeps every entry, wherever it is (the list, a deleted
+  customer's trash bundle, the undo data of the activity log), as a stub: empty
+  text and `sealed: { versions, replacedOn }`, the stored versions in order
+  (`src/concept/journals/sealed.ts`). The browser only ever receives stubs
+  (`withoutJournalText` on every owner route that returns the salon).
+- **Apply.** `PostgresStudioStore` with `journals` (a `JournalVault`) decrypts
+  only what the rules read (the edited entry; every live entry for `memory/*`,
+  which refuses notes that copy a journal), runs the reducer as before, then
+  seals the result: content that is already stored keeps its version, anything
+  else is queued as a new version. The queue is written just before the
+  document, so a refused change stores nothing. Versions are append-only: an
+  undo moves the stub back to its earlier versions and the rows stay. The audit
+  row and the replay keep `journal/add` with the entry id and `journal/edit`
+  with id and day, never the text. A customer leaving the live list (trash,
+  undo of an add) sets `deleted_at` on their rows; coming back clears it.
+- **Read.** `readJournals(tenant, customer)` locks the salon, applies
+  `journal/view` for that customer (a repeat within a minute is the read
+  already logged), decrypts the customer's live entries and returns them, in one
+  transaction. `GET /api/owner/journals?customer=` serves it; `POST` takes
+  `journal/add` and `journal/edit` (the actions route refuses them with the flag
+  on). Rate limits `journal-read` (300) and `journal-write` (120) per salon and
+  15 minutes.
+- **Lazy move.** Text still in a document (a salon from before the flag) moves
+  into the table on the first load (`sealJournals`, a `system/seal-journals`
+  audit row and a new version) or the first save, in one transaction under the
+  row lock; a second run finds stubs only. Replays of the last day lose the text
+  in the same transaction. Audit rows written before the flag keep their journal
+  text: the application cannot update them, so the 13-month redaction or an
+  erasure removes it (a one-off operator redaction is a follow-up).
+- **Erasure.** Before the table half, every stored version of another
+  customer's entry that names the erased customer gets a scrubbed copy
+  (`replaces` = the version it replaces) and the document's stubs are
+  renumbered. `erase_subject` (and the statements mode) then deletes the
+  customer's rows and every replaced version. The export reads the customer's
+  journal through the same route.
+- **Without a key.** The store runs with `"unavailable"`: journal writes,
+  `memory/*` and erasure are refused (503 on the routes), the salon is served
+  without journal text, and a document that still holds text is not moved.
+- **Grants and RLS.** `roles.sql`: the app gets `SELECT, INSERT, UPDATE
+  (deleted_at)`; `erase-subject.sql`: the eraser gets the key columns and
+  `DELETE`; support and the sweeper get nothing. `rls-enable.sql` adds
+  `store_owner` and `store_tenant` (app and eraser) on the table, no support
+  read. No sweep function: journal retention stays the owner's review.
+- **Known gaps.** The whole-salon JSON download carries stubs; the Today and
+  booking views show no last advice for a stub; the return-visit suggestion
+  from a journal's next visit and the assistant's journal check in the browser
+  see no text (the server still checks memory notes). Rows of an undone add stay
+  until the customer is erased. Key rotation: not built.
 
 ### Row-level security
 

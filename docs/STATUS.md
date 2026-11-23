@@ -82,7 +82,7 @@ Also in place:
 Still open before real customer data:
 - staff authentication (owners have two-step sign-in; set `OWNER_MFA_REQUIRED=1` for the pilot);
 - database-level tenant enforcement (RLS): policies and scopes are prepared, enforcement is one operator step (`prisma/grants/rls-enable.sql`);
-- encryption and server-side access control for journals;
+- encryption and server-side access control for journals (prepared behind `JOURNALS_ON_SERVER`, off until enabled; key rotation not built);
 - staff roles;
 - monitoring;
 - an external security review;

@@ -212,6 +212,35 @@ second step. Accounts without two-step sign-in are unaffected.
   every enrolled owner out. `OWNER_MFA_REQUIRED` can be set back to `0` at any
   time; it only stops making two-step sign-in mandatory.
 
+### `JOURNAL_ENCRYPTION_KEY`
+
+Only used with `JOURNALS_ON_SERVER=1` (server-side journals, off by default;
+[STUDIO_STORE](../design/STUDIO_STORE.md#server-side-journals)). It encrypts
+every version of every journal entry in `journal_entry` (AES-256-GCM, a fresh
+IV per version, associated data `tenant|customer|entry|version`). The value is
+`v<N>:` plus 32 random bytes in base64; `N` is stored on each row as
+`key_version`. Keep it in the secret store, never in a backup next to the
+database.
+
+**Loss.** There is no copy of the text anywhere else once a salon's journals
+have moved into the table (the document keeps stubs, the audit log the entry
+id). A lost key makes every stored journal entry unreadable for good: the
+journal route answers 503 `journals_unreadable`, the salon still loads with
+its stubs, new entries cannot be written, and an erasure is refused with 503
+until a key is configured. Restoring the key from the secret store's history
+makes everything readable again at once.
+
+**Rotation.** No rotation tool yet (follow-up): a new value makes every stored
+version unreadable, exactly like a loss. Rotate only after a leak of the key
+*together with* the database. The follow-up is to accept the old key next to
+the new one by its `key_version`, re-encrypt each version under the new key in
+the row-locked store transaction, and only then retire the old one.
+
+**Off switch.** Setting `JOURNALS_ON_SERVER` back to 0 does not bring the text
+back into the documents: salons whose journals moved then show empty entries.
+Keep the flag on once it has been on; a key problem is fixed by restoring the
+key, not by turning the flag off.
+
 ### Other secrets
 
 Provider keys (`RESEND_API_KEY`, `POSTMARK_SERVER_TOKEN`, payment and

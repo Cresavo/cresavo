@@ -158,6 +158,10 @@ Security
 - [x] Owner studio changes (`/api/owner/salon/actions`) validated field by
       field per action type, not only by an allowlist of action types.
 - [ ] Encryption at rest for journal entries and other sensitive fields.
+      Journal entries: prepared, off until enabled (`JOURNALS_ON_SERVER=1`
+      with `JOURNAL_ENCRYPTION_KEY`; AES-256-GCM per version in
+      `journal_entry`, [STUDIO_STORE](design/STUDIO_STORE.md#server-side-journals)).
+      Open: a key rotation tool, and other sensitive fields.
 - [x] Secret scanning and code scanning (e.g. GitHub secret scanning and
       CodeQL) enabled; no high/critical dependency findings.
 - [x] Security headers (CSP with nonce, HSTS in production, `frame-ancestors`
@@ -174,10 +178,14 @@ Privacy (GDPR)
 - [ ] Journal entries may be health data (special category): DPIA done,
       access restricted and logged, retention rules set. Code: reads are
       logged (who, when, which customer, never content) and visible to the
-      owner, and the owner sets a review period. Open: the DPIA is a draft
-      ([DPIA_JOURNAL](legal/DPIA_JOURNAL.md)), access is not restricted on the
-      server, and journals still travel to the browser with the whole salon, so
-      the log relies on the studio reporting each read.
+      owner, and the owner sets a review period. Server-side journals are
+      prepared, off until enabled (`JOURNALS_ON_SERVER=1`): the salon the
+      browser receives carries no journal text, one customer's journal is
+      handed out per signed-in request and that read is logged on the server in
+      the same transaction. Open: the DPIA is a draft
+      ([DPIA_JOURNAL](legal/DPIA_JOURNAL.md)), and until the flag is on,
+      journals travel to the browser with the whole salon and the log relies on
+      the studio reporting each read.
 - [x] Customer rights: export, correction, deletion, implemented and tested.
       (Studio, per customer: JSON and spreadsheet export, every personal field
       editable, permanent erasure with a confirmation. Legal sign-off on what
