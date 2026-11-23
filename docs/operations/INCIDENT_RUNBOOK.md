@@ -232,8 +232,11 @@ Give a new key a new version number.
 **What the move removes.** Once a salon is marked (`tenant_state.journals_sealed_at`),
 its document holds stubs only, its stored replays hold no journal text, and its
 audit rows from before the move were stripped of the text
-(`store_journal_redact_audit`; a `journal/add` keeps its entry id). The salon is
-marked only when all three were checked clean, in the same transaction. Copies
+(`store_journal_redact_audit`; a `journal/add` keeps the entry id only where the
+original commit recorded one). Replays are cleaned in small batches; the salon
+is marked only when a final check under its lock finds all three clean, and a
+load that runs out of batches leaves the rest to the next load. Any write that
+brings journal text back clears the mark. Copies
 outside the database are not touched: backups taken before the move keep the
 text until they age out (30 days), and a restore of such a backup needs the move
 again (it runs on the first load with the flag on).

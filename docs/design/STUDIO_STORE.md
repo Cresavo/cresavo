@@ -426,39 +426,54 @@ Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
   with id and day, never the text. A customer leaving the live list (trash,
   undo of an add) sets `deleted_at` on their rows; coming back clears it.
 - **Key.** `journal_key` keeps one verifier per key version (a known value
-  encrypted under it), stored by the first use. A key that does not decrypt its
-  version's verifier is treated as no key at all.
+  encrypted under it), stored by the first use. Every transaction that uses the
+  key checks it again (nothing is remembered across transactions, so a verifier
+  that rolled back proves nothing). A key that does not decrypt its version's
+  verifier is treated as no key at all.
 - **Read.** `readJournals(tenant, customer)` locks the salon, applies
   `journal/view` for that customer with `served` (a repeat within a minute of
   another server read is that read; a read the studio reported never counts),
   decrypts the customer's live entries and returns them, in one transaction.
   `GET /api/owner/journals?customer=` serves it; `POST` takes `journal/add` and
   `journal/edit`. The actions route refuses those and `journal/view` with the
-  flag on. Both journal routes need `x-cresavo-session` equal to the session
-  (the salon load returns it): the studio binds its journal requests, retries
-  and cache to the session it loaded the salon in, and drops text read for an
-  earlier one. Rate limits `journal-read` (300) and `journal-write` (120) per
+  flag on. Both journal routes and the erase route need `x-cresavo-session`
+  equal to the session key (account, credential version and a tag of the login
+  itself, so a new sign-in gets a new key; the salon load returns it), checked
+  before anything is looked up. The studio binds its journal requests, retries,
+  erasures and cache to the login it loaded the salon in, drops text read for an
+  earlier one, and drops it too on the session signals (another tab signing in
+  or out) and on sign-out. An export fixes its mode and login with its snapshot:
+  a browser salon's export never asks the server. Rate limits `journal-read` (300) and `journal-write` (120) per
   salon and 15 minutes.
 - **Lazy move.** Until a salon is marked (`tenant_state.journals_sealed_at`),
-  the first load (`sealJournals`) or save moves its journals, in one transaction
-  under the row lock: text in the document becomes stubs (a
-  `system/seal-journals` audit row and a new version when it changed), every
-  stored replay loses journal text in its state copy and its action (whatever
-  the document holds now), and the audit rows from before lose it through
-  `store_journal_redact_audit(tenant, ids)` (migration server_journals, SECURITY
-  DEFINER, the tenant's own scope only; `journal/add` keeps its entry metadata
-  and gains the entry id the old document shows, `journal/edit` keeps id and
-  day). The mark is set only after the document, the replays and the audit rows
-  are checked clean; otherwise the transaction fails. `replaceState` finishes
-  the move the same way. Journal text written with the flag off clears the mark.
+  every load runs `sealJournals` in three steps, so nothing holds the salon for
+  long: (1) under the row lock, text in the document becomes stubs (a
+  `system/seal-journals` audit row and a new version when it changed) and the
+  audit rows from before lose it through `store_journal_redact_audit(tenant)`
+  (migration server_journals, SECURITY DEFINER, the tenant's own scope only;
+  `journal/add` keeps its entry metadata, and an entry id only where the original
+  commit recorded one: none is guessed; `journal/edit` keeps id and day); (2) the
+  stored replays lose journal text, in their state copy and their action, in
+  batches of 25, each its own short transaction without the row lock (a cleaned
+  row no longer matches, so progress survives a failure); (3) under the row lock
+  again the document, the audit rows and the replays are checked, and only when
+  all three are clean is the salon marked. The first save with the flag on does
+  step 1 in its own transaction. Any write that leaves journal text in the
+  document (with the flag off, `replaceState` included) clears the mark in the
+  same transaction.
 - **Erasure.** A salon with encrypted rows is only erased with a working key,
   whatever the flag says (`erasureVault`, from `JOURNAL_ENCRYPTION_KEY`):
   otherwise `unavailable` (503) and nothing changes. Each stored version of
   another customer's entry that names the erased customer is replaced by a
   scrubbed copy, encrypted for the next version and keeping its trash mark,
-  through `studio_erase_journal_mentions` (erase-subject.sql, owned by the
-  eraser: it writes `replaces` and deletes the replaced version in the same
-  step, and only while the customer is still in the document); the application
+  through `erase_subject(tenant, customer, copies)`, which runs
+  `studio_erase_journal_mentions` as the eraser (no other role may execute it):
+  it holds to the tenant's own scope whether RLS is on or not, writes `replaces`
+  and deletes the replaced version in the same step, and only while the customer
+  is still in the document with an identifier long enough to scrub. Whether the
+  replaced version really named the customer cannot be checked there, since it
+  is ciphertext; that is why it runs only inside the erasure, which the
+  application can already ask for any customer of its tenant. The application
   may not write `replaces`. `erase_subject` (and the statements mode) then
   deletes the customer's own rows. The document's stubs are renumbered. The
   export always reads the customer's journal through the route while the server
@@ -472,7 +487,7 @@ Prepared, off by default: `JOURNALS_ON_SERVER=1` with `JOURNAL_ENCRYPTION_KEY`
   column but `replaces`, and `UPDATE (deleted_at)`, plus `SELECT, INSERT` on
   `journal_key`; `studio-store.sql` grants it `store_journal_redact_audit`;
   `erase-subject.sql` gives the eraser `SELECT, INSERT, DELETE` and the app
-  `studio_erase_journal_mentions`; support and the sweeper get nothing. `rls-enable.sql` adds
+  `erase_subject(text, text, jsonb)`; support and the sweeper get nothing. `rls-enable.sql` adds
   `store_owner` and `store_tenant` (app and eraser) on the table, no support
   read. No sweep function: journal retention stays the owner's review.
 - **Known gaps.** The whole-salon JSON download carries stubs (it is cleaned at
