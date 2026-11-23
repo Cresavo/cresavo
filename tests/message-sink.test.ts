@@ -49,49 +49,49 @@ const merge = (patch: Record<string, unknown>) => {
   stored = merged as DeliveryState;
 };
 const open = (attempt: number) => row.status === "pending" && !row.erased && row.attempts === attempt;
-// Interprets the few statements the sink makes, by their text.
+// Interprets the store_outbox_* function calls the sink makes (migration store_rls_policies), by their text.
 const database = {
   $queryRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = sql(strings);
-    if (text.includes("FROM tenant_state")) {
-      if (text.includes("FOR SHARE")) beforeDispatch?.();
-      return doc ? [{ doc }] : [];
-    }
     if (text.includes("set_config")) return [];
-    if (text.includes("RETURNING payload->'delivery'")) {
-      const [first, , attempt] = values as [string, string, number];
-      if (!open(attempt)) return [];
+    if (text.includes("store_outbox_message_view")) {
+      // Read under the share lock just before `dispatched` is committed: where an erasure can win.
+      if (text.includes(", true)")) beforeDispatch?.();
+      return [{ doc: doc ?? null }];
+    }
+    if (text.includes("store_outbox_freeze")) {
+      const [, attempt, first] = values as [string, number, string];
+      if (!open(attempt)) return [{ delivery: null }];
       if (!("from" in stored)) merge(JSON.parse(first));
       return [{ delivery: structuredClone(stored) }];
     }
-    if (text.includes("AS open")) return [{ open: row.status === "pending" && !row.erased }];
-    throw new Error(`unexpected query: ${text}`);
-  },
-  $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
-    const text = sql(strings);
-    if (text.includes("jsonb_build_object('dispatched'")) {
-      const [provider, account, , submittedAt, , attempt] = values as [string, string | undefined, string | undefined, number, string, number];
-      if (!open(attempt)) return 0;
+    if (text.includes("store_outbox_open")) return [{ open: row.status === "pending" && !row.erased }];
+    if (text.includes("store_outbox_dispatch")) {
+      const [, attempt, provider, account, submittedAt] = values as [string, number, string, string | null, number];
+      if (!open(attempt)) return [{ n: 0 }];
       merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }), submittedAt: stored.submittedAt ?? submittedAt });
-      return 1;
+      return [{ n: 1 }];
     }
     // Drops this claim's marker when nothing left; guarded by the claim, not by the status.
-    if (text.includes("status IN ('pending', 'failed')")) {
-      const [drop, , attempt] = values as [string[], string, number];
-      if (row.attempts !== attempt || row.erased || stored.sent) return 0;
+    if (text.includes("store_outbox_release")) {
+      const [, attempt, drop] = values as [string, number, string[]];
+      if (row.attempts !== attempt || row.erased || stored.sent) return [{ n: 0 }];
       merge(Object.fromEntries(drop.map((key) => [key, null])));
-      return 1;
+      return [{ n: 1 }];
     }
-    if (text.includes("status = 'delivered'")) {
-      merge(JSON.parse(values[0] as string));
+    if (text.includes("store_outbox_delivered")) {
+      merge(JSON.parse(values[2] as string));
       row.status = "delivered";
-      return 1;
+      return [{ n: 1 }];
     }
-    // A write for the latest claim of a pending effect.
-    const [patch, , attempt] = values as [string, string, number];
-    if (!open(attempt)) return 0;
-    merge(JSON.parse(patch));
-    return 1;
+    // A note for the latest claim of a pending effect.
+    if (text.includes("store_outbox_note")) {
+      const [, attempt, patch] = values as [string, number, string];
+      if (!open(attempt)) return [{ n: 0 }];
+      merge(JSON.parse(patch));
+      return [{ n: 1 }];
+    }
+    throw new Error(`unexpected query: ${text}`);
   },
   $transaction: async (work: (tx: unknown) => unknown) => work(database),
 };

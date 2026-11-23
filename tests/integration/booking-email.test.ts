@@ -344,7 +344,7 @@ describe("a delivery racing an erasure or another claim", () => {
       for (let waited = 0; waited < 50; waited++) {
         // Not through `tx`: a transaction sees the activity view as it was at its first look.
         const [{ n }] = await db.$queryRaw<Array<{ n: number }>>`
-          SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%FOR SHARE%'`;
+          SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%store_outbox_message_view%'`;
         if (n) break;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }

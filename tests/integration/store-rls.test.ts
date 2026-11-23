@@ -290,15 +290,28 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     try {
       expect(await refusal(`ALTER POLICY store_tenant ON tenant_state USING (true)`)).toMatch(/tenant_state\.store_tenant \(changed\)/);
       expect(await refusal(`ALTER POLICY store_tenant ON tenant_effect TO PUBLIC`)).toMatch(/tenant_effect\.store_tenant \(changed\)/);
-      expect(await refusal(`DROP POLICY store_sweep_delete ON tenant_action`)).toMatch(/tenant_action\.store_sweep_delete \(missing\)/);
+      expect(await refusal(`DROP POLICY store_support_read ON tenant_action`)).toMatch(/tenant_action\.store_support_read \(missing\)/);
       expect(await refusal(`CREATE POLICY extra ON tenant_idempotency FOR SELECT USING (true)`)).toMatch(/tenant_idempotency\.extra \(unexpected\)/);
       // A login that may SET ROLE to the table owner, without inheriting it, is reported.
       await connection.query("BEGIN");
       try {
         const owner = (await connection.query("SELECT tableowner FROM pg_tables WHERE tablename = 'tenant_state'")).rows[0].tableowner as string;
         await connection.query(`GRANT "${owner}" TO ${LOGINS.app} WITH INHERIT FALSE, SET TRUE`);
+        // ADMIN on a group role lets a login grant it to itself: reported. An admin-only grant (what a CREATEROLE
+        // creator receives) does not make a runtime login of its holder.
+        await connection.query(`GRANT cresavo_support TO ${LOGINS.outbox} WITH ADMIN TRUE, INHERIT FALSE, SET FALSE`);
+        await connection.query(`CREATE ROLE ${LOGINS.app}_creator LOGIN`);
+        await connection.query(`GRANT cresavo_app TO ${LOGINS.app}_creator WITH ADMIN TRUE, INHERIT FALSE, SET FALSE`);
+        // A login that reaches a runtime group only through another role is found too.
+        await connection.query(`CREATE ROLE ${LOGINS.app}_middle NOLOGIN IN ROLE cresavo_sweeper`);
+        await connection.query(`CREATE ROLE ${LOGINS.app}_indirect LOGIN BYPASSRLS IN ROLE ${LOGINS.app}_middle`);
         const results = await connection.query(grant("verify-rls.sql")) as unknown as Array<{ rows: Array<{ problem: string }> }>;
-        expect(results[1].rows.map((r) => r.problem).join("\n")).toContain(`login ${LOGINS.app} can become`);
+        const problems = results[1].rows.map((r) => r.problem).join("\n");
+        expect(problems).toContain(`login ${LOGINS.app} can SET ROLE to`);
+        expect(problems).toContain(`login ${LOGINS.app} can SET ROLE to the owner of tenant_state`);
+        expect(problems).toContain(`login ${LOGINS.outbox} holds ADMIN OPTION on cresavo_support`);
+        expect(problems).toContain(`login ${LOGINS.app}_indirect is superuser, createrole, replication or bypasses row-level security`);
+        expect(problems).not.toContain(`${LOGINS.app}_creator`);
         throw new Error(ROLLBACK);
       } catch (error) {
         if ((error as Error).message !== ROLLBACK) throw error;
@@ -396,9 +409,10 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     for (const table of STORE) {
       expect(await count(admin, table, ours), table).toBeGreaterThan(0);
       expect(await count(app, table), table).toBe(0);
-      expect(await count(sweeper, table), table).toBe(0);
+      // The poller and the sweeper have no table privilege at all.
+      await expect(count(sweeper, table), table).rejects.toThrow(/permission denied/);
+      await expect(count(outbox, table), table).rejects.toThrow(/permission denied/);
     }
-    for (const table of ["tenant_state", "tenant_effect"]) expect(await count(outbox, table), table).toBe(0);
     expect(await app.$executeRawUnsafe(`UPDATE tenant_state SET version = version WHERE ${ours}`)).toBe(0);
   });
 
@@ -426,31 +440,42 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     store.close();
   });
 
-  it("limits the outbox scope to the poller's login and the poller's work", async () => {
-    const read = (db: PrismaClient, scope: StoreScope, sql: string) => scoped(db, scope, (tx) => tx.$queryRawUnsafe<Array<{ n: number }>>(sql));
-    // Effects and tenant kind across tenants, read.
-    expect((await read(outbox, OUTBOX_SCOPE, `SELECT count(DISTINCT tenant_id)::int AS n FROM tenant_effect WHERE ${ours}`))[0].n).toBeGreaterThanOrEqual(2);
-    expect((await read(outbox, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_state WHERE ${ours}`))[0].n).toBeGreaterThanOrEqual(3);
-    // Nothing of the log or the replay results, and no fingerprint: not granted at all.
-    await expect(read(outbox, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_action`)).rejects.toThrow(/permission denied/);
-    await expect(read(outbox, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_idempotency`)).rejects.toThrow(/permission denied/);
-    await expect(read(outbox, OUTBOX_SCOPE, `SELECT fingerprint FROM tenant_effect LIMIT 1`)).rejects.toThrow(/permission denied/);
-    // An undelivered row may be claimed; a delivered one is final; no document changes, nothing is inserted or deleted.
-    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-waiting'`)).toBe(1);
-    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-settled'`)).toBe(0);
-    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_state SET updated_at = now() WHERE ${ours}`)).toBe(0);
-    expect(await attempt(outbox, { tenant: B }, `UPDATE tenant_state SET updated_at = now() WHERE tenant_id = '${B}'`)).toBe("rls");
-    expect(await attempt(outbox, OUTBOX_SCOPE, `UPDATE tenant_effect SET erased_at = now() WHERE id = '${PREFIX}-waiting'`)).toBe("denied");
-    expect(await attempt(outbox, OUTBOX_SCOPE, `INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload)
-      VALUES ('${B}', 9, 0, '${PREFIX}-forged', 'f', 'message', '{}'::jsonb)`)).toBe("denied");
-    expect(await attempt(outbox, OUTBOX_SCOPE, `DELETE FROM tenant_effect WHERE id = '${PREFIX}-waiting'`)).toBe("denied");
-    // The web login gets nothing in the outbox scope, and neither does the sweeper; the poller nothing in the sweep scope.
-    for (const db of [app, sweeper]) {
-      expect(await read(db, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_effect`)).toEqual([{ n: 0 }]);
-      expect(await read(db, OUTBOX_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_state`)).toEqual([{ n: 0 }]);
+  it("gives the poller login only the outbox functions, and those only for the claim they hand out", async () => {
+    const call = (db: PrismaClient, scope: StoreScope, sql: string) => scoped(db, scope, (tx) => tx.$queryRawUnsafe<Array<Record<string, unknown>>>(sql));
+    // No direct read or write of a store table, in any scope.
+    for (const scope of [OUTBOX_SCOPE, { tenant: B }] as StoreScope[]) {
+      for (const table of STORE) await expect(call(outbox, scope, `SELECT count(tenant_id) FROM ${table}`), table).rejects.toThrow(/permission denied/);
+      expect(await attempt(outbox, scope, `UPDATE tenant_effect SET attempts = attempts WHERE tenant_id = '${B}'`)).toBe("denied");
     }
-    expect(await attempt(app, OUTBOX_SCOPE, `UPDATE tenant_effect SET attempts = attempts WHERE id = '${PREFIX}-waiting'`)).toBe(0);
-    expect(await read(outbox, SWEEP_SCOPE, `SELECT count(tenant_id)::int AS n FROM tenant_effect`)).toEqual([{ n: 0 }]);
+    // A due message of salon B: the web login claims nothing in the outbox scope, the sweeper may not call the claim.
+    await admin.$executeRaw`
+      INSERT INTO tenant_effect (tenant_id, seq, n, id, fingerprint, kind, payload, next_attempt_at)
+      VALUES (${B}, 3, 0, ${`${PREFIX}-due`}, 'f', 'message', ${JSON.stringify({ port: "email", body: "Fictional", to: "customer:c-1", reference: "bk-1-confirmation-email-1" })}::jsonb,
+              now() - interval '1 hour')`;
+    const claim = `SELECT id, attempts FROM store_outbox_claim(now(), 60000, 60000, ARRAY['${B}'], NULL, false)`;
+    expect(await call(app, OUTBOX_SCOPE, claim)).toEqual([]);
+    await expect(call(sweeper, OUTBOX_SCOPE, claim)).rejects.toThrow(/permission denied/);
+    // The poller claims it; with that claim it sees the salon only through the message view, and only for the booking
+    // the message names.
+    expect(await call(outbox, OUTBOX_SCOPE, claim)).toEqual([{ id: `${PREFIX}-due`, attempts: 1 }]);
+    const [{ view }] = await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_message_view('${PREFIX}-due', 1, 'bk-1', false) AS view`);
+    const doc = view as { customers: unknown[]; bookings: unknown[]; journals: unknown[]; inbox: unknown[]; log: unknown[]; salon: object; services: unknown[] };
+    expect(doc.salon).toBeTruthy();
+    expect(doc.services.length).toBeGreaterThan(0);
+    for (const list of [doc.customers, doc.bookings, doc.journals, doc.inbox, doc.log]) expect(list).toEqual([]);
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_message_view('${PREFIX}-due', 1, 'other', false) AS view`)).toEqual([{ view: null }]);
+    // Without a claim (attempt 0) or for a row it does not hold, nothing changes.
+    for (const sql of [
+      `SELECT store_outbox_note('${PREFIX}-waiting', 0, '{"x": 1}') AS r`,
+      `SELECT store_outbox_skip('${PREFIX}-waiting', 0, now()) AS r`,
+      `SELECT store_outbox_delivered('${PREFIX}-settled', 1, now(), NULL) AS r`,
+      `SELECT store_outbox_freeze('${PREFIX}-waiting', 0, '{"from": "x"}') AS r`,
+    ]) expect(await call(outbox, OUTBOX_SCOPE, sql), sql).toEqual([{ r: sql.includes("freeze") ? null : 0 }]);
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_fail('${PREFIX}-waiting', 0, '{}', '{}', false, true, now()) AS r`)).toEqual([{ r: null }]);
+    // Its own claim it can settle.
+    expect(await call(outbox, OUTBOX_SCOPE, `SELECT store_outbox_skip('${PREFIX}-due', 1, now()) AS r`)).toEqual([{ r: 1 }]);
+    expect(await admin.$queryRaw`SELECT status, payload ->> 'body' AS body FROM tenant_effect WHERE id = ${`${PREFIX}-waiting`}`)
+      .toEqual([{ status: "pending", body: "Fictional body" }]);
   });
 
   it("delivers booking e-mails of two salons through the real message sink: the poller as its login, a web worker in its tenant", async () => {
@@ -482,26 +507,16 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     expect(mails.map((m) => m.idempotencyKey).sort()).toEqual(ids.map((row) => row.id).sort());
   });
 
-  it("lets the sweeper login run every sweep and nothing beyond them", async () => {
-    // Narrow first, before the sweeps remove the rows these statements aim at.
-    const sweep = (sql: string) => attempt(sweeper, SWEEP_SCOPE, sql);
-    // A live salon's state, history, keys and pending effects are out of reach in the sweep scope and with its tenant id set.
+  it("lets the sweeper login sweep only through the fixed functions, with their own retention cutoffs", async () => {
+    // No direct privilege on a store table, in the sweep scope or with a live salon's tenant id set.
     for (const scope of [SWEEP_SCOPE, { tenant: B }] as StoreScope[]) {
-      for (const statement of [
-        `DELETE FROM tenant_state WHERE tenant_id = '${B}'`,
-        `DELETE FROM tenant_action WHERE tenant_id = '${B}' AND seq = 2`,
-        `DELETE FROM tenant_idempotency WHERE tenant_id = '${B}' AND key = 'live'`,
-        `DELETE FROM tenant_effect WHERE tenant_id = '${B}'`,
-        `UPDATE tenant_effect SET payload = '{}'::jsonb WHERE tenant_id = '${B}' AND seq = 2 AND n = 1`,
-      ]) expect(await attempt(sweeper, scope, statement), `${statement} in ${JSON.stringify(scope)}`).toBe(0);
+      for (const table of STORE) expect(await attempt(sweeper, scope, `DELETE FROM ${table} WHERE tenant_id = '${B}'`), `${table} ${JSON.stringify(scope)}`).toBe("denied");
     }
-    // A sandbox that has not expired is no sweep's.
-    expect(await sweep(`DELETE FROM tenant_state WHERE kind = 'sandbox' AND expires_at > now() AND ${ours}`)).toBe(0);
-    expect(await sweep(`DELETE FROM tenant_action WHERE tenant_id = '${B}' AND seq = 2`)).toBe(0);
-    expect(await sweep(`DELETE FROM tenant_idempotency WHERE tenant_id = '${B}' AND key = 'live'`)).toBe(0);
-    expect(await sweep(`UPDATE tenant_effect SET payload = '{}'::jsonb WHERE tenant_id = '${B}' AND seq = 2 AND n = 1`)).toBe(0);
-    expect(await sweep(`UPDATE tenant_action SET idempotency_key = 'replaced' WHERE tenant_id = '${B}' AND seq = 2`)).toBe("rls");
-    expect(await sweep(`UPDATE tenant_idempotency SET expires_at = expires_at WHERE tenant_id = '${B}'`)).toBe("rls");
+    // The functions run only in the sweep scope, and only for the sweeper.
+    const sweepCall = (db: PrismaClient, scope: StoreScope, sql: string) => scoped(db, scope, (tx) => tx.$queryRawUnsafe<Array<{ n: number }>>(sql));
+    await expect(sweepCall(sweeper, { tenant: B }, `SELECT store_sweep_idempotency(now(), 10) AS n`)).rejects.toThrow(/sweep scope/);
+    await expect(sweepCall(app, SWEEP_SCOPE, `SELECT store_sweep_idempotency(now(), 10) AS n`)).rejects.toThrow(/permission denied/);
+    await expect(sweepCall(outbox, SWEEP_SCOPE, `SELECT store_sweep_sandboxes(now(), 10) AS n`)).rejects.toThrow(/permission denied/);
 
     const sandbox = await sweepExpiredSandboxes({ prisma: sweeper });
     expect(sandbox.tenants).toBeGreaterThanOrEqual(1);
@@ -518,6 +533,21 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     expect(await admin.$queryRaw`SELECT seq, idempotency_key FROM tenant_action WHERE tenant_id = ${B} ORDER BY seq`).toEqual([{ seq: 2n, idempotency_key: null }]);
     expect(await admin.$queryRaw`SELECT payload ->> 'body' AS body FROM tenant_effect WHERE id = ${`${PREFIX}-settled`}`).toEqual([{ body: "[redacted]" }]);
     expect(await admin.$queryRaw`SELECT payload ->> 'body' AS body FROM tenant_effect WHERE id = ${`${PREFIX}-waiting`}`).toEqual([{ body: "Fictional body" }]);
+    // A live sandbox is no sweep's.
+    expect(await count(admin, "tenant_state", `kind = 'sandbox' AND expires_at > now() AND tenant_id IN (${createdTenants.map((t) => `'${t}'`).join(", ")})`)).toBe(1);
+
+    // A clock in the future does not let the sweeper purge early: the functions never judge by a later time than the database's.
+    await admin.$executeRaw`
+      INSERT INTO tenant_idempotency (tenant_id, key, fingerprint_hmac, seq, result, expires_at)
+      VALUES (${B}, 'soon', '00', 1, '{}'::jsonb, now() + interval '1 hour')`;
+    await admin.$executeRaw`
+      INSERT INTO tenant_action (tenant_id, seq, action, actor, source, at, resulting_version)
+      VALUES (${DEMO}, 9, '{"type": "card/dismiss", "id": "recent"}'::jsonb, 'owner', 'button', now() - interval '1 day', 9)`;
+    const later = async () => Date.now() + 400 * 86_400_000;
+    expect(await sweepExpiredIdempotency({ prisma: sweeper, now: later })).toBe(0);
+    expect(await sweepDemoActions({ prisma: sweeper, now: later })).toBe(0);
+    expect(await admin.$queryRaw`SELECT key FROM tenant_idempotency WHERE tenant_id = ${B} ORDER BY key`).toEqual([{ key: "live" }, { key: "soon" }]);
+    expect(await count(admin, "tenant_action", `tenant_id = '${DEMO}'`)).toBe(1);
   });
 
   it("gives the support login its diagnostic columns across tenants, read only", async () => {

@@ -176,7 +176,7 @@ describe("pausing booking e-mail", () => {
         if (key === "$queryRaw") {
           return async (strings: TemplateStringsArray, ...values: unknown[]) => {
             const rows = await target.$queryRaw(strings, ...values);
-            if (strings.join("").includes("WITH next AS")) vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+            if (strings.join("").includes("store_outbox_claim")) vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
             return rows;
           };
         }

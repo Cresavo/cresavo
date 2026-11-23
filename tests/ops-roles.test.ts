@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 // prisma/grants/roles.sql is documentation for operators, so nothing else runs it. This test parses its GRANT
-// statements and holds them to the code: every table and column the sweepers touch must be granted to the sweep
-// role, the support role must not see payloads, the application gets only the operations its code performs, and
-// every Prisma table is accounted for. The effective privileges of real logins are checked by verify-roles.sql.
+// statements and holds them to the code: the sweep and outbox roles touch the store only through the migration's
+// functions, the support role must not see payloads, the application gets only the operations its code performs,
+// every Prisma table is accounted for, and verify-roles.sql checks real logins against exactly these grants.
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const sql = read("prisma/grants/roles.sql");
@@ -58,66 +58,46 @@ describe("prisma/grants/roles.sql", () => {
     expect(code.match(/\bCOMMIT;/g)).toHaveLength(1);
   });
 
-  it("grants the sweep role every table and column the sweepers read, lock, change and delete", () => {
+  it("gives the sweep role no store table and the rate-limit table only what its two sweeps use", () => {
     const body = sweepers.replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-    const mentioned = [...body.matchAll(/(?:FROM|JOIN|UPDATE|DELETE FROM)\s+"?(\w+)"?/g)].map((m) => m[1]);
-    const tables = new Set(mentioned.filter((t) => /^(tenant_\w+|RateLimitBucket)$/.test(t)));
-    expect([...tables].sort()).toEqual(["RateLimitBucket", ...STORE.slice(1), "tenant_state"].sort());
-    for (const table of tables) expect(grants.get("cresavo_sweeper")?.has(table), `${table} is not granted to cresavo_sweeper`).toBe(true);
-    for (const table of new Set([...body.matchAll(/DELETE FROM\s+"?(\w+)"?/g)].map((m) => m[1]))) expect(can("cresavo_sweeper", table, "DELETE"), `DELETE on ${table}`).toBe(true);
-
-    // Columns named in the sweepers' predicates, joins, locks and updates.
-    const selected: Record<string, string[]> = {
-      tenant_state: ["tenant_id", "kind", "expires_at"],
-      tenant_action: ["tenant_id", "seq", "at", "action", "idempotency_key", "redacted_at"],
-      tenant_idempotency: ["tenant_id", "key", "expires_at"],
-      tenant_effect: ["tenant_id", "seq", "n", "kind", "status", "payload", "delivered_at", "next_attempt_at"],
-      RateLimitBucket: ["key", "expiresAt"],
-    };
-    for (const [table, columns] of Object.entries(selected)) {
-      for (const column of columns) {
-        expect(body, `${column} is no longer used by the sweepers`).toContain(column);
-        expect(can("cresavo_sweeper", table, "SELECT", column), `SELECT ${table}.${column}`).toBe(true);
-      }
+    // The store sweeps are fixed SECURITY DEFINER functions (migration store_rls_policies): no direct statement on a store table.
+    expect(body).not.toMatch(/(FROM|JOIN|UPDATE|DELETE FROM|INSERT INTO)\s+"?tenant_\w+/);
+    for (const sweep of ["idempotency", "demo_actions", "sandboxes", "outbox_bodies", "activity_keys", "activity_redact", "journal_views"]) {
+      expect(body, sweep).toContain(`store_sweep_${sweep}(`);
     }
-    for (const column of ["action", "idempotency_key", "redacted_at"]) expect(can("cresavo_sweeper", "tenant_action", "UPDATE", column), `UPDATE tenant_action.${column}`).toBe(true);
-    expect(can("cresavo_sweeper", "tenant_effect", "UPDATE", "payload")).toBe(true);
-    // FOR UPDATE [OF a] [SKIP LOCKED] needs UPDATE on a column of each locked table.
-    for (const table of tables) expect(anyColumn("cresavo_sweeper", table, "UPDATE"), `UPDATE ${table}`).toBe(true);
-    expect(body.match(/FOR UPDATE/g)?.length, "a new row lock or update needs a grant: update roles.sql").toBe(8);
-  });
-
-  it("never lets the sweep role read documents or replay results, call erase_subject or touch other tables", () => {
-    for (const [table, column] of [["tenant_state", "doc"], ["tenant_idempotency", "result"], ["tenant_idempotency", "fingerprint_hmac"], ["tenant_effect", "fingerprint"]]) {
-      expect(can("cresavo_sweeper", table, "SELECT", column), `${table}.${column}`).toBe(false);
-    }
-    expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])].sort()).toEqual(["RateLimitBucket", ...STORE].sort());
+    expect([...(grants.get("cresavo_sweeper")?.keys() ?? [])]).toEqual(["RateLimitBucket"]);
+    for (const column of ["key", "expiresAt"]) expect(can("cresavo_sweeper", "RateLimitBucket", "SELECT", column), column).toBe(true);
+    expect(can("cresavo_sweeper", "RateLimitBucket", "DELETE")).toBe(true);
+    expect(body.match(/FOR UPDATE/g)?.length, "a new row lock or update needs a grant: update roles.sql").toBe(1);
     expect(code).not.toMatch(/GRANT EXECUTE/i);
   });
 
-  it("gives the outbox poller role only what claiming, acknowledging and rendering a message needs", () => {
-    const outbox = grants.get("cresavo_outbox")!;
-    expect([...outbox.keys()].sort()).toEqual(["tenant_effect", "tenant_state"]);
-    for (const table of ["tenant_effect", "tenant_state"]) {
-      expect(can("cresavo_outbox", table, "INSERT"), `INSERT ${table}`).toBe(false);
-      expect(can("cresavo_outbox", table, "DELETE"), `DELETE ${table}`).toBe(false);
+  it("gives the outbox poller role no table at all: it works through the store_outbox functions", () => {
+    expect(grants.has("cresavo_outbox")).toBe(false);
+    expect(code).toContain("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_outbox;");
+    const outboxCode = (read("src/concept/store/effect-outbox.ts") + read("src/lib/message-sink.ts")).replace(/^\s*(\/\/|\*).*$/gm, "");
+    expect(outboxCode).not.toMatch(/(FROM|JOIN|UPDATE|DELETE FROM|INSERT INTO)\s+"?tenant_\w+/);
+    const migration = read("prisma/migrations/20261122160000_store_rls_policies/migration.sql");
+    for (const fn of new Set([...outboxCode.matchAll(/store_outbox_\w+/g)].map((m) => m[0]))) {
+      expect(migration, fn).toMatch(new RegExp(`CREATE FUNCTION ${fn}\\(`));
+      expect(migration, `${fn} is granted to the poller`).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION[^;]*\\b${fn}\\([^;]*TO cresavo_app, cresavo_outbox;`));
     }
-    // The claim, retry and acknowledgement of effect-outbox.ts and the writes of message-sink.ts.
-    const outboxCode = read("src/concept/store/effect-outbox.ts") + read("src/lib/message-sink.ts");
-    for (const column of ["id", "tenant_id", "seq", "n", "kind", "payload", "status", "attempts", "next_attempt_at", "leased_until", "erased_at", "delivered_at"]) {
-      expect(outboxCode, column).toContain(column);
-      expect(can("cresavo_outbox", "tenant_effect", "SELECT", column), `SELECT tenant_effect.${column}`).toBe(true);
+  });
+
+  it("lists in verify-roles.sql exactly the grants of roles.sql and studio-store.sql as its allowlist", () => {
+    const kinds: Record<string, string> = { cresavo_app: "app", cresavo_sweeper: "sweeper", cresavo_support: "support", cresavo_outbox: "outbox" };
+    const expected = new Set<string>();
+    const all = parseGrants(code + read("prisma/grants/studio-store.sql").replace(/^--.*$/gm, ""));
+    for (const [role, tables] of all) {
+      if (!kinds[role]) continue;
+      for (const [table, privileges] of tables) for (const [privilege, columns] of privileges) for (const column of columns) {
+        expected.add(`${kinds[role]}|${table}|${column}|${privilege}`);
+      }
     }
-    for (const column of ["payload", "status", "attempts", "next_attempt_at", "leased_until", "delivered_at"]) {
-      expect(can("cresavo_outbox", "tenant_effect", "UPDATE", column), `UPDATE tenant_effect.${column}`).toBe(true);
-    }
-    for (const column of ["id", "tenant_id", "seq", "n", "kind", "erased_at", "fingerprint"]) {
-      expect(can("cresavo_outbox", "tenant_effect", "UPDATE", column), `no UPDATE tenant_effect.${column}`).toBe(false);
-    }
-    expect(can("cresavo_outbox", "tenant_effect", "SELECT", "fingerprint")).toBe(false);
-    for (const column of ["tenant_id", "kind", "expires_at", "doc"]) expect(can("cresavo_outbox", "tenant_state", "SELECT", column), column).toBe(true);
-    // One column for the share lock of the dispatch check; the policy refuses any real update.
-    expect([...(outbox.get("tenant_state")?.get("UPDATE") ?? [])]).toEqual(["updated_at"]);
+    const verify = read("prisma/grants/verify-roles.sql");
+    const listed = [...verify.slice(verify.indexOf("allowed(kind, tbl, col, priv)"), verify.indexOf("allowed_functions"))
+      .matchAll(/\('(\w+)', '([^']+)', '([^']+)', '(\w+)'\)/g)].map(([, kind, table, column, privilege]) => `${kind}|${table}|${column}|${privilege}`);
+    expect(listed.sort()).toEqual([...expected].sort());
   });
 
   it("gives the application only the operations its code performs", () => {
