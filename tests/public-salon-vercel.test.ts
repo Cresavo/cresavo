@@ -6,7 +6,7 @@ import { GET } from "@/app/api/public/salons/[slug]/route";
 
 const rate = vi.hoisted(() => ({ check: vi.fn(async () => 1) }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: rate.check }));
-vi.mock("@/lib/db", () => ({ db: { $queryRaw: async () => [] } }));
+vi.mock("@/lib/db", async () => ({ db: (await import("./helpers/scoped-db")).withStoreScopes({ $queryRaw: async () => [] }) }));
 
 afterEach(() => vi.unstubAllEnvs());
 

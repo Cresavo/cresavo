@@ -176,7 +176,7 @@ describe("the booking confirmation e-mail", () => {
     const at = CLOCK + 3_600_000;
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => at, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
+      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 2 }]);
@@ -195,7 +195,7 @@ describe("the booking confirmation e-mail", () => {
     const hang = { ...sinks, payment: () => new Promise<never>(() => {}) };
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => at, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId],
+      leaseMs: 1_000, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 50, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     const [row] = await db.$queryRaw<Array<{ due: number; leased: boolean }>>`
@@ -214,7 +214,7 @@ describe("the booking confirmation e-mail", () => {
     const began = performance.now();
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => CLOCK + 10 * 3_600_000, sinks: hang, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 10_000, budgetMs: 300, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, sinkTimeoutMs: 10_000, budgetMs: 300, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(performance.now() - began).toBeLessThan(3_000);
@@ -242,7 +242,7 @@ describe("the booking confirmation e-mail", () => {
     expect((await book(900)).status).toBe(201);
     const report = await deliverDue({
       db: db as unknown as PrismaClient, clock: async () => CLOCK + 10 * 3_600_000, sinks, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, budgetMs: 0, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, budgetMs: 0, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 0, failed: 0 });
     expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
@@ -283,7 +283,7 @@ describe("a delivery racing an erasure or another claim", () => {
     SELECT id FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`)[0].id;
   const drainWith = (message: EffectSink, at = CLOCK + 3_600_000) => deliverDue({
     db: db as unknown as PrismaClient, clock: async () => at, sinks: { ...SIMULATED_SINKS, message }, simulatedSinks: SIMULATED_SINKS,
-    leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, tenants: [tenantId],
+    leaseMs: EFFECT_LEASE_MS, maxAttempts: EFFECT_MAX_ATTEMPTS, tenants: [tenantId], scope: { tenant: tenantId },
   }, 10);
   /** A booking whose e-mail the first attempt left pending, frozen. */
   const pendingBooking = async (start: number, phone: string) => {
@@ -297,7 +297,8 @@ describe("a delivery racing an erasure or another claim", () => {
     const before = await pendingBooking(540, "0735551701");
     const id = await emailId();
     const stale: EffectSink = async (delivery, signal) => {
-      await db.$executeRaw`UPDATE tenant_effect SET attempts = attempts + 1 WHERE id = ${id}`;
+      // Another deliverer's claim: a new attempt and a new token.
+      await db.$executeRaw`UPDATE tenant_effect SET attempts = attempts + 1, claim_token = gen_random_uuid() WHERE id = ${id}`;
       return realSink(delivery, signal);
     };
     expect(await drainWith(stale)).toEqual({ delivered: 0, retried: 1, failed: 0 });
@@ -344,7 +345,7 @@ describe("a delivery racing an erasure or another claim", () => {
       for (let waited = 0; waited < 50; waited++) {
         // Not through `tx`: a transaction sees the activity view as it was at its first look.
         const [{ n }] = await db.$queryRaw<Array<{ n: number }>>`
-          SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%FOR SHARE%'`;
+          SELECT count(*)::int AS n FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%store_outbox_message_view%'`;
         if (n) break;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
@@ -359,7 +360,7 @@ describe("a delivery racing an erasure or another claim", () => {
     await db.$executeRaw`UPDATE tenant_state SET doc = ${JSON.stringify(doc)}::jsonb WHERE tenant_id = ${tenantId}`;
   });
 
-  it("lets an erasure that comes after the dispatch finish, reports the send in flight and records it delivered", async () => {
+  it("lets an erasure that comes after the dispatch finish, reports the send in flight and records the late confirmation apart", async () => {
     const before = await pendingBooking(720, "0735551704");
     const { state } = (await holder.store.load(tenantId))!;
     const customer = state.customers.find((c) => c.phone.replace(/\D/g, "").endsWith("735551704"))!;
@@ -374,7 +375,10 @@ describe("a delivery racing an erasure or another claim", () => {
     release();
     expect(await draining).toEqual({ delivered: 1, retried: 0, failed: 0 });
     expect(mails).toHaveLength(before + 1);
-    expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 2 }]);
-    expect((await delivery())[0].delivery).not.toHaveProperty("mail");
+    // The erasure settled the row; the provider's confirmation for this claim is kept apart and the status stays.
+    expect(await emailEffects()).toEqual([{ status: "cancelled", attempts: 2 }]);
+    const [late] = await db.$queryRaw<Array<{ late: { status: string; sent: boolean } | null; token: string | null }>>`
+      SELECT late_confirmation AS late, claim_token AS token FROM tenant_effect WHERE tenant_id = ${tenantId} AND payload->>'port' = 'email' ORDER BY seq DESC LIMIT 1`;
+    expect(late).toMatchObject({ late: { status: "cancelled", sent: true }, token: null });
   });
 });

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { promisify } from "node:util";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/app/api/public/salons/[slug]/bookings/route";
@@ -170,24 +170,30 @@ describe("pausing booking e-mail", () => {
     const id = await book(540, "2026-11-27");
     vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
     // The pause is switched on in the instant between this deliverer's claim and its sink.
-    const claimThenPause = new Proxy(prisma, {
+    // Every statement runs in a scoped transaction (tenant-scope.ts), so the claim is watched inside it.
+    const watch = <T extends Pick<PrismaClient, "$queryRaw">>(client: T): T => new Proxy(client, {
       get(target, key) {
         if (key === "$queryRaw") {
           return async (strings: TemplateStringsArray, ...values: unknown[]) => {
             const rows = await target.$queryRaw(strings, ...values);
-            if (strings.join("").includes("WITH next AS")) vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+            if (strings.join("").includes("store_outbox_claim")) vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
             return rows;
           };
+        }
+        if (key === "$transaction") {
+          return (work: (tx: Prisma.TransactionClient) => Promise<unknown>, options?: object) =>
+            (target as unknown as PrismaClient).$transaction((tx) => work(watch(tx)), options);
         }
         const value = Reflect.get(target, key);
         return typeof value === "function" ? value.bind(target) : value;
       },
     });
+    const claimThenPause = watch(prisma);
     let ran = 0;
     const simulated: EffectSink = () => { ran++; };
     const report = await deliverDue({
       db: claimThenPause, clock: async () => CLOCK + HOUR, sinks: { ...SIMULATED_SINKS, message: simulated }, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(ran).toBe(0);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
@@ -346,7 +352,7 @@ describe("reconcile safety", () => {
     // The last attempt: a marker left behind would make an unsent message uncertain for good.
     const report = await deliverDue({
       db: prisma, clock: async () => CLOCK + HOUR, sinks: held, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, sinkTimeoutMs: 10_000, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, sinkTimeoutMs: 10_000, tenants: [tenantId], scope: { tenant: tenantId },
     }, 10);
     expect(report).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(mails).toHaveLength(0);
@@ -371,7 +377,7 @@ describe("reconcile safety", () => {
     const watched: EffectSink = (delivery, signal) => (stale = Promise.resolve(sinks.message(delivery, signal)));
     const report = await deliverDue({
       db: prisma, clock: async () => CLOCK + HOUR, sinks: { ...sinks, message: watched }, simulatedSinks: SIMULATED_SINKS,
-      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, sinkTimeoutMs: 1_000, tenants: [tenantId],
+      leaseMs: EFFECT_LEASE_MS, maxAttempts: 1, sinkTimeoutMs: 1_000, tenants: [tenantId], scope: { tenant: tenantId },
     }, 1);
     expect(report).toEqual({ delivered: 0, retried: 0, failed: 1 });
     expect(await effect(id)).toMatchObject({ status: "failed", attempts: 1, delivery: { dispatched: true, lastError: "STUDIO_STORE_SINK_TIMEOUT" } });

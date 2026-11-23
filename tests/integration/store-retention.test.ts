@@ -6,6 +6,7 @@ import { PostgresStudioStore } from "@/concept/store/postgres-studio-store";
 import { sweepActivityPersonalData, sweepJournalAccessRows, sweepOutboxBodies, sweepRateLimits } from "@/concept/store/store-sweepers";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { withOwnSlug } from "./own-slug";
+import { installStoreFunctions } from "./store-functions";
 
 // The retention sweeps (src/concept/privacy/retention.ts) and the journal read
 // log against a disposable local database. The tables are cloned into a private
@@ -31,6 +32,7 @@ beforeAll(async () => {
     for (const table of tables) await tx.$executeRawUnsafe(`CREATE TABLE ${schema}.${table} (LIKE ${table} INCLUDING ALL)`);
   });
   schemaCreated = true;
+  await installStoreFunctions(schema);
 });
 
 afterEach(async () => {

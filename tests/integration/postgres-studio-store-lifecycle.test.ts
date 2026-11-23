@@ -13,6 +13,7 @@ import { sweepDemoActions, sweepExpiredIdempotency, sweepExpiredSandboxes } from
 import type { StoreChange } from "@/concept/store/studio-store";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { withOwnSlug } from "./own-slug";
+import { installStoreFunctions } from "./store-functions";
 
 const setupDb = createDatabaseClient();
 const schema = `studio_lifecycle_${randomUUID().replaceAll("-", "")}`;
@@ -36,6 +37,7 @@ beforeAll(async () => {
     }
   });
   schemaCreated = true;
+  await installStoreFunctions(schema);
 });
 
 function store(options: Partial<PostgresStudioStoreOptions> = {}) {

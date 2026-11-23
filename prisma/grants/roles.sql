@@ -1,7 +1,10 @@
 -- Least-privilege Postgres roles for a Cresavo installation (pilot operations
 -- groundwork, docs/QUALITY_SECURITY.md "Operations"). Documentation for
 -- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner
--- and the repository's migrations do not create roles. Safe to run again; the
+-- and the repository's migrations do not create or name roles. The group
+-- roles are created here, or beforehand by an admin with bootstrap-roles.sql
+-- (same block; needed before rls-enable.sql and a restore that carries
+-- policies, never before migrate deploy). Safe to run again; the
 -- whole file is one transaction, so a failed run changes nothing and never
 -- leaves the live application without grants.
 --
@@ -31,13 +34,20 @@
 --          -c 'REVOKE CREATE ON SCHEMA public FROM cresavo_eraser' \
 --          -c 'REVOKE cresavo_eraser FROM CURRENT_USER'
 --      (Run the last command even when the second fails.)
---   5. Create the logins (below), then check what they can really do:
+--   5. Create the logins (below, one per group role), then check what they can really do:
 --        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-studio-store.sql -v app_role=<app login>
 --        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-roles.sql \
---          -v app_login=<..> -v sweeper_login=<..> -v support_login=<..>
+--          -v app_login=<..> -v sweeper_login=<..> -v support_login=<..> -v outbox_login=<..>
 --      Both must return no rows.
+--   6. Row-level security on the store tables (docs/design/STUDIO_STORE.md,
+--      "Row-level security"), once the deployed application sets its scopes,
+--      as the table owner:
+--        psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql
+--        psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql
+--      It creates the policies and enables and forces RLS in one transaction.
+--      Rollback: prisma/grants/rls-disable.sql (drops the policies again).
 --
--- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The four roles below are NOLOGIN
+-- NO PASSWORDS HERE OR IN ANY COMMAND LINE. The five roles below are NOLOGIN
 -- group roles. The operator creates one login per use without a password and
 -- sets the password interactively, so it never enters a script, a shell history
 -- or the server log (psql hashes it client-side):
@@ -45,10 +55,15 @@
 --   CREATE ROLE cresavo_app_login     LOGIN IN ROLE cresavo_app;
 --   CREATE ROLE cresavo_sweeper_login LOGIN IN ROLE cresavo_sweeper;
 --   CREATE ROLE cresavo_support_login LOGIN IN ROLE cresavo_support;
---   \password cresavo_app_login        (and the same for the other two)
+--   CREATE ROLE cresavo_outbox_login  LOGIN IN ROLE cresavo_outbox;
+--   \password cresavo_app_login        (and the same for the other three)
 --
+-- Each login is a member of exactly one of these roles and of nothing else:
+-- never of the table owner, another group role or a BYPASSRLS role
+-- (verify-roles.sql and verify-rls.sql check what each login can SET ROLE to).
 -- DATABASE_URL of the web app uses the app login; the cron job of
--- `npm run store:sweep` the sweeper login; support staff the support login.
+-- `npm run store:sweep` the sweeper login; the cron job or worker of
+-- `npm run effects:drain` the outbox login; support staff the support login.
 -- The app's pairing tables may live in a separate database
 -- (PAIRING_DATABASE_URL): run this file there too, for its own app login.
 -- Support access ends by `REVOKE cresavo_support FROM <login>` plus
@@ -67,7 +82,7 @@ DECLARE
   r text;
   bad text;
 BEGIN
-  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support'] LOOP
+  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
       EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', r);
     END IF;
@@ -87,7 +102,7 @@ DO $connect$
 DECLARE
   r text;
 BEGIN
-  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_sweeper', 'cresavo_support'] LOOP
+  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox'] LOOP
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), r);
   END LOOP;
 END
@@ -95,8 +110,8 @@ $connect$;
 
 -- Nobody but the schema owner creates objects (PostgreSQL before 15 lets PUBLIC), and no table is open to PUBLIC.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-REVOKE CREATE ON SCHEMA public FROM cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support;
-GRANT USAGE ON SCHEMA public TO cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support;
+REVOKE CREATE ON SCHEMA public FROM cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support, cresavo_outbox;
+GRANT USAGE ON SCHEMA public TO cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support, cresavo_outbox;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 
 -- ---------------------------------------------------------------------------
@@ -179,24 +194,21 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "PairGrantToken" TO cresavo_app;
 
 -- ---------------------------------------------------------------------------
 -- cresavo_sweeper: `npm run store:sweep` (scripts/sweep-store.mts and the
--- sweepers in src/concept/store/store-sweepers.ts). Column-level grants: it
--- reads and changes only what retention needs. It cannot read a salon document
--- or a stored replay result.
+-- sweepers in src/concept/store/store-sweepers.ts). No privilege on the four
+-- store tables or the rate-limit table: those sweeps are the fixed SECURITY
+-- DEFINER functions store_sweep_* of migration store_rls_policies (EXECUTE
+-- granted below), with their cutoffs inside. The photo library's sweep keeps
+-- its own column grants on media_asset (below).
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_sweeper;
--- Sandbox expiry and demo retention: tenant kind and expiry; rows deleted. FOR UPDATE needs one UPDATE column.
-GRANT SELECT ("tenant_id", "kind", "expires_at"), UPDATE ("updated_at"), DELETE ON "tenant_state" TO cresavo_sweeper;
--- Demo retention, journal-view pruning, the age-based redaction of personal fields (sweepActivityPersonalData:
--- action, idempotency_key, redacted_at; it reads redacted_at to keep the first value) and the join of sweepOutboxBodies on the action's time.
-GRANT SELECT ("tenant_id", "seq", "at", "action", "idempotency_key", "redacted_at"),
-      UPDATE ("action", "idempotency_key", "redacted_at"), DELETE ON "tenant_action" TO cresavo_sweeper;
--- Expired keys (sweepExpiredIdempotency) and sandbox cleanup.
-GRANT SELECT ("tenant_id", "key", "expires_at"), UPDATE ("expires_at"), DELETE ON "tenant_idempotency" TO cresavo_sweeper;
--- sweepOutboxBodies blanks body, subject, address and the stored mail copy of settled messages; sandbox cleanup deletes.
-GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_at", "next_attempt_at"),
-      UPDATE ("payload"), DELETE ON "tenant_effect" TO cresavo_sweeper;
--- sweepOwnerGuardBuckets and sweepRateLimits.
-GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
+GRANT EXECUTE ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
+  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
+  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
+  store_sweep_journal_views(timestamptz, integer), store_sweep_rate_limits(timestamptz, integer),
+  store_sweep_owner_guard(timestamptz, integer)
+  TO cresavo_sweeper;
+-- sweepOwnerGuardBuckets and sweepRateLimits are the store_sweep_rate_limits and store_sweep_owner_guard functions
+-- above, with their cutoffs inside (an active lock-out is never removed): no direct grant on "RateLimitBucket".
 -- sweepDeletedMedia (src/lib/media/sweep.ts): which pictures are due (deleted long enough, a replaced logo never
 -- published, an upload left pending) and where their bytes are, checked against tenant and id; the rows are
 -- deleted under a row lock (FOR UPDATE needs one UPDATE column: status, which serves nothing deleted). Never the
@@ -205,6 +217,24 @@ GRANT SELECT ("id", "tenant_id", "kind", "storage", "storage_key", "status", "cr
       UPDATE ("status"), DELETE ON "media_asset" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
 -- checks the effective privilege; the function is owned by cresavo_eraser, so this file cannot touch it).
+
+-- ---------------------------------------------------------------------------
+-- cresavo_outbox: the effect poller, `npm run effects:drain` (drainPendingEffects
+-- in src/concept/store/effect-outbox.ts and the message sink, src/lib/message-sink.ts).
+-- No table privilege at all: it claims, retries, fails and acknowledges effects
+-- and reads what a claimed message needs of its salon only through the fixed
+-- SECURITY DEFINER functions store_outbox_* of migration store_rls_policies
+-- (EXECUTE granted below), each of which acts on the effect its claim names.
+-- ---------------------------------------------------------------------------
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_outbox;
+GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
+  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
+  store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
+  store_outbox_skip(text, uuid), store_outbox_delivered(text, uuid, boolean), store_outbox_note(text, uuid, text, boolean, boolean),
+  store_outbox_release(text, uuid, boolean), store_outbox_open(text),
+  store_outbox_freeze(text, uuid, float8, text, text, text, text, text, text, float8),
+  store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean)
+  TO cresavo_outbox;
 
 -- ---------------------------------------------------------------------------
 -- cresavo_support: read-only diagnostics. No salon document (journal entries
