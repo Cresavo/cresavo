@@ -17,13 +17,15 @@ const migration = code(rawMigration);
 const rawEnable = read("prisma/grants/rls-enable.sql");
 const enableCode = code(rawEnable);
 const STORE = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect"];
+/** The tables under row-level security: the store's and the server-side journal table. */
+const PROTECTED = [...STORE, "journal_entry"];
 
 const statements = [...enableCode.matchAll(/CREATE POLICY "(\w+)" ON "(\w+)" FOR (\w+)(?: TO ([\w, ]+?))?\s+(?:USING|WITH)[^;]*;/g)]
   .map(([text, policy, table, command, roles]) => ({ text, policy, table, command, roles: roles?.split(",").map((r) => r.trim()) ?? [] }));
 const policies = statements.map(({ table, policy }) => `${table}.${policy}`).sort();
 const GROUPS = ["cresavo_app", "cresavo_eraser", "cresavo_sweeper", "cresavo_support", "cresavo_outbox"];
 /** (table, policy, digest) triples of an operator script's expected list. */
-const expectedList = (sql: string) => [...sql.matchAll(/\('(tenant_\w+)', '(\w+)', '([0-9a-f]{32})'\)/g)].map(([, table, policy, digest]) => `${table}.${policy}:${digest}`).sort();
+const expectedList = (sql: string) => [...sql.matchAll(/\('((?:tenant|journal)_\w+)', '(\w+)', '([0-9a-f]{32})'\)/g)].map(([, table, policy, digest]) => `${table}.${policy}:${digest}`).sort();
 
 describe("store row-level security files", () => {
   it("the migration creates only the store functions: no policy, grant, role or table change", () => {
@@ -43,17 +45,19 @@ describe("store row-level security files", () => {
     const order = ["$roles$", "LOCK TABLE", "CREATE POLICY", "$check$", "ENABLE ROW LEVEL SECURITY"].map((mark) => enableCode.indexOf(mark));
     for (const at of order) expect(at).toBeGreaterThan(-1);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(enableCode).toContain('LOCK TABLE "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect" IN ACCESS EXCLUSIVE MODE;');
+    expect(enableCode).toContain('LOCK TABLE "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", "journal_entry" IN ACCESS EXCLUSIVE MODE;');
     for (const role of GROUPS) expect(enableCode).toContain(`'${role}'`);
     expect(statements).toHaveLength(enableCode.match(/CREATE POLICY/g)!.length);
-    expect(new Set(policies.map((p) => p.split(".")[0]))).toEqual(new Set(STORE));
+    expect(new Set(policies.map((p) => p.split(".")[0]))).toEqual(new Set(PROTECTED));
     // Every policy it creates is dropped first (a second run replaces them) and again by rls-disable.sql.
     const dropped = (sql: string) => [...sql.matchAll(/DROP POLICY IF EXISTS "(\w+)" ON "(\w+)";/g)].map(([, policy, table]) => `${table}.${policy}`).sort();
     expect(dropped(enableCode)).toEqual(policies);
     expect(dropped(code(read("prisma/grants/rls-disable.sql")))).toEqual(policies);
     // Every table has the owner's, the tenant's and support's policy; every tenant policy checks new rows too.
     for (const table of STORE) for (const policy of ["store_owner", "store_tenant", "store_support_read"]) expect(policies).toContain(`${table}.${policy}`);
-    expect(enableCode.match(/CREATE POLICY "store_tenant"[^;]+WITH CHECK \("tenant_id" = nullif\(current_setting\('cresavo\.tenant_id', true\), ''\)\);/g)).toHaveLength(4);
+    // Journal entries may be health data: the owner's and the tenant's policy only, no support read.
+    expect(policies.filter((p) => p.startsWith("journal_entry."))).toEqual(["journal_entry.store_owner", "journal_entry.store_tenant"]);
+    expect(enableCode.match(/CREATE POLICY "store_tenant"[^;]+WITH CHECK \("tenant_id" = nullif\(current_setting\('cresavo\.tenant_id', true\), ''\)\);/g)).toHaveLength(5);
     // Only the owner's policy applies to every role; the poller and the sweeper have none (they use the functions).
     for (const { policy, table, roles } of statements) {
       if (policy === "store_owner") { expect(roles, `${table}.${policy}`).toEqual([]); continue; }
@@ -110,10 +114,10 @@ describe("store row-level security files", () => {
     const enable = code(read("prisma/grants/rls-enable.sql"));
     const disable = code(read("prisma/grants/rls-disable.sql"));
     const switched = (sql: string, what: string) => [...sql.matchAll(new RegExp(`ALTER TABLE "(\\w+)" ${what} ROW LEVEL SECURITY;`, "g"))].map((m) => m[1]).sort();
-    expect(switched(enable, "ENABLE")).toEqual([...STORE].sort());
-    expect(switched(enable, "FORCE")).toEqual([...STORE].sort());
-    expect(switched(disable, "DISABLE")).toEqual([...STORE].sort());
-    expect(switched(disable, "NO FORCE")).toEqual([...STORE].sort());
+    expect(switched(enable, "ENABLE")).toEqual([...PROTECTED].sort());
+    expect(switched(enable, "FORCE")).toEqual([...PROTECTED].sort());
+    expect(switched(disable, "DISABLE")).toEqual([...PROTECTED].sort());
+    expect(switched(disable, "NO FORCE")).toEqual([...PROTECTED].sort());
     expect(enable.indexOf("LOCK TABLE")).toBeLessThan(enable.indexOf("pg_policies"));
     for (const sql of [enable, disable]) {
       expect(sql.trim().startsWith("BEGIN;")).toBe(true);

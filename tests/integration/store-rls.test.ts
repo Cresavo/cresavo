@@ -268,7 +268,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
   it("reports every store table enabled, forced and with exactly its policies, and no login that can bypass them", async () => {
     const [tables, problems] = await runSql(grant("verify-rls.sql"));
     expect(tables.map((r) => [r.table, r.enabled, r.forced, r.missing, r.unexpected, r.changed])).toEqual(
-      [...STORE].sort().map((table) => [table, true, true, "", "", ""]));
+      [...STORE, "journal_entry"].sort().map((table) => [table, true, true, "", "", ""]));
     expect(problems).toEqual([]);
     const [roleProblems] = await runSql(grant("verify-roles.sql")
       .replaceAll(":'app_login'", `'${LOGINS.app}'`).replaceAll(":'sweeper_login'", `'${LOGINS.sweeper}'`)

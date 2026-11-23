@@ -692,3 +692,27 @@ model MediaAsset {
   @@index([tenantId, kind, createdAt])
   @@map("media_asset")
 }
+
+/// One version of one journal entry, encrypted with AES-256-GCM by the application (JOURNALS_ON_SERVER;
+/// src/concept/store/journal-crypto.ts). The associated data binds the ciphertext to tenant, customer, entry and
+/// version. Append-only for the application: rows are inserted and marked trashed (`deleted_at`), never changed.
+/// Erasure deletes a customer's rows and the versions it replaced by a scrubbed copy (`replaces`).
+model JournalEntryVersion {
+  tenantId   String    @map("tenant_id")
+  customerId String    @map("customer_id")
+  id         String
+  version    Int
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// owner
+  author     String    @default("owner")
+  /// The encrypted content followed by the 16-byte GCM tag.
+  ciphertext Bytes
+  iv         Bytes
+  keyVersion Int       @map("key_version")
+  /// Set on the scrubbed copy an erasure makes: the version it replaces, which the erasure then deletes.
+  replaces   Int?
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  @@id([tenantId, id, version])
+  @@index([tenantId, customerId], map: "journal_entry_customer_idx")
+  @@map("journal_entry")
+}

@@ -97,6 +97,9 @@ allowed(kind, tbl, col, priv) AS (VALUES
   ('app', 'Staff', '*', 'UPDATE'),
   ('app', 'WorkspaceRequest', '*', 'INSERT'),
   ('app', 'WorkspaceRequest', '*', 'SELECT'),
+  ('app', 'journal_entry', '*', 'INSERT'),
+  ('app', 'journal_entry', '*', 'SELECT'),
+  ('app', 'journal_entry', 'deleted_at', 'UPDATE'),
   ('app', 'media_asset', '*', 'INSERT'),
   ('app', 'media_asset', '*', 'SELECT'),
   ('app', 'media_asset', 'alt_text', 'UPDATE'),
@@ -253,7 +256,7 @@ subjects AS (
 runtime AS (SELECT kind || ' login ' || login AS who, login FROM present),
 store AS (
   SELECT c.relname, c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+  WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'journal_entry')
 ),
 definer AS (
   SELECT 'erase_subject definer ' || o.rolname AS who, o.rolname AS login

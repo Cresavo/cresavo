@@ -32,6 +32,9 @@ GRANT SELECT, UPDATE ("action", "idempotency_key", "redacted_at") ON "tenant_act
 GRANT SELECT, UPDATE ("payload", "status", "erased_at") ON "tenant_effect" TO :"eraser_role";
 -- statement
 GRANT SELECT, UPDATE ("key", "result") ON "tenant_idempotency" TO :"eraser_role";
+-- statement
+-- Server-side journals: the customer's encrypted versions and the versions the store replaced by a scrubbed copy.
+GRANT SELECT ("tenant_id", "customer_id", "id", "version", "replaces"), DELETE ON "journal_entry" TO :"eraser_role";
 
 -- statement
 CREATE OR REPLACE FUNCTION studio_phone_digits(p text) RETURNS text
@@ -183,6 +186,7 @@ DECLARE
   v_pending_payments integer := 0;
   v_in_flight integer := 0;
   v_keys integer;
+  v_journals integer;
 BEGIN
   -- The caller holds the row lock (SELECT ... FOR UPDATE in the same transaction).
   SELECT s.doc INTO v_doc FROM tenant_state s WHERE s.tenant_id = p_tenant;
@@ -300,7 +304,15 @@ BEGIN
     -- A row that is already redacted (a repeated erasure) is left alone and not counted.
     AND (key ILIKE ANY(v_key_patterns) OR public.studio_redact_replay(public.studio_redact_replay_action(result, p_customer, v_digit_list, v_contact_patterns, v_fields), p_customer, v_identifiers, v_digit_list) IS DISTINCT FROM result);
   GET DIAGNOSTICS v_keys = ROW_COUNT;
-  RETURN jsonb_build_object('actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys,
+
+  -- Server-side journals: every version of the customer's entries, and every version of another customer's entry
+  -- that named them, which the store replaced by a scrubbed copy (`replaces`) in this transaction before the call.
+  -- Ciphertext needs no reading: rows are found by their columns alone.
+  DELETE FROM journal_entry o WHERE o.tenant_id = p_tenant
+    AND (o.customer_id = p_customer OR EXISTS (
+      SELECT 1 FROM journal_entry n WHERE n.tenant_id = o.tenant_id AND n.id = o.id AND n.replaces = o.version));
+  GET DIAGNOSTICS v_journals = ROW_COUNT;
+  RETURN jsonb_build_object('actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys, 'journalEntries', v_journals,
                             'pendingPayments', v_pending_payments, 'inFlightMessages', v_in_flight);
 END $fn$;
 
