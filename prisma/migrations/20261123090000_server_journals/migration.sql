@@ -35,6 +35,9 @@ CREATE TABLE "journal_entry" (
 -- One customer's entries (the journal route, erasure).
 CREATE INDEX "journal_entry_customer_idx" ON "journal_entry" ("tenant_id", "customer_id");
 
+-- The locked step of the journal move checks only the replays past a high-water mark of the log (seq): kept short.
+CREATE INDEX "tenant_idempotency_tenant_seq_idx" ON "tenant_idempotency" ("tenant_id", "seq");
+
 -- Set once a salon's journals live only in journal_entry: the document, the stored replays and the audit log hold
 -- no journal text any more (src/concept/store/postgres-studio-store.ts). Cleared again if journal text is written
 -- while the flag is off, so the next start moves it again.

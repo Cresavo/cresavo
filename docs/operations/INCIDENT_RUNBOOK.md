@@ -263,6 +263,15 @@ erasure in a salon with encrypted rows answers 503 and erases nothing. Journal
 text written while the flag is off clears the salon's mark, so it moves again
 when the flag comes back.
 
+### Rollout note: owner tabs from the previous build
+
+Since server-side journals, every owner save (`/api/owner/salon/actions`), the
+journal routes and erasure require `x-cresavo-session` for the login. A studio
+tab still running the previous build sends none, so each of its saves answers
+409 until the tab is reloaded; the new build reloads the page by itself on a
+login change. Owner accounts are not live yet, so this affects no one today; once
+they are, tell owners to reload open tabs after such a deploy.
+
 ### Other secrets
 
 Provider keys (`RESEND_API_KEY`, `POSTMARK_SERVER_TOKEN`, payment and

@@ -563,6 +563,7 @@ model TenantIdempotency {
   expiresAt       DateTime @map("expires_at") @db.Timestamptz(3)
   @@id([tenantId, key])
   @@index([expiresAt])
+  @@index([tenantId, seq], map: "tenant_idempotency_tenant_seq_idx")
   @@map("tenant_idempotency")
 }
 

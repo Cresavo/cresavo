@@ -194,16 +194,16 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const added = await (await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "v-add" })).json();
     const id = (added.state as DemoState).journals[0].id;
     const content = { treatment: "Fictional foot care", observations: LATER, advice: ADVICE };
-    const edited = await write(a, { action: { type: "journal/edit", id, content, on: "2026-11-23" }, idempotencyKey: "v-edit" });
+    const edited = await write(a, { action: { type: "journal/edit", id, content, on: "2026-11-23", customerId: a.vera.id }, idempotencyKey: "v-edit" });
     expect(edited.status).toBe(200);
     expect((await edited.json()).state.journals[0].sealed).toEqual({ versions: [1, 2], replacedOn: ["2026-11-23"] });
     const entries = (await (await journalOf(a, a.vera.id)).json()).entries;
     expect(entries[0]).toMatchObject({ observations: LATER, versions: [{ observations: SECRET, replacedOn: "2026-11-23" }] });
     expect((await rows(a.tenantId)).map((r) => r.version)).toEqual([1, 2]);
     const audit = await db.$queryRaw<Array<{ action: unknown }>>`SELECT action FROM tenant_action WHERE tenant_id = ${a.tenantId} AND action->>'type' = 'journal/edit'`;
-    expect(audit.map((r) => r.action)).toEqual([{ type: "journal/edit", id, on: "2026-11-23" }]);
+    expect(audit.map((r) => r.action)).toEqual([{ type: "journal/edit", id, on: "2026-11-23", customerId: a.vera.id }]);
     // An edit that changes nothing is refused and stores nothing.
-    expect((await write(a, { action: { type: "journal/edit", id, content, on: "2026-11-23" }, idempotencyKey: "v-same" })).status).toBe(422);
+    expect((await write(a, { action: { type: "journal/edit", id, content, on: "2026-11-23", customerId: a.vera.id }, idempotencyKey: "v-same" })).status).toBe(422);
     expect(await rows(a.tenantId)).toHaveLength(2);
 
     // Undo goes back to version 1; the rows stay (append-only).
@@ -261,7 +261,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
       await send(target.cookie, { action: add(target.vera.id, target.staffId), idempotencyKey: "m-add-vera" });
       const withOlle = await (await send(target.cookie, { action: add(target.olle.id, target.staffId, { advice: "Olle advice" }), idempotencyKey: "m-add-olle" })).json();
       const id = (withOlle.state as DemoState).journals.find((j) => j.customerId === target.vera.id)!.id;
-      await send(target.cookie, { action: { type: "journal/edit", id, content: { treatment: "Fictional foot care", observations: LATER, advice: ADVICE }, on: "2026-11-21" }, idempotencyKey: "m-edit" });
+      await send(target.cookie, { action: { type: "journal/edit", id, content: { treatment: "Fictional foot care", observations: LATER, advice: ADVICE }, on: "2026-11-21", customerId: target.vera.id }, idempotencyKey: "m-edit" });
       await send(target.cookie, { action: { type: "customer/delete", id: target.olle.id }, idempotencyKey: "m-delete" });
       expect(await storedText(target.tenantId)).toContain(SECRET);
     }
@@ -293,7 +293,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect(auditRows.map((r) => r.action)).toEqual([
       { type: "journal/add", entry: { customerId: a.vera.id, date: "2026-11-20", staffId: a.staffId } },
       { type: "journal/add", entry: { customerId: a.olle.id, date: "2026-11-20", staffId: a.staffId } },
-      { type: "journal/edit", id: veraId, on: "2026-11-21" },
+      { type: "journal/edit", id: veraId, on: "2026-11-21", customerId: a.vera.id },
     ]);
     expect(await ownerStore().journalsSealed(a.tenantId)).toBe(true);
     expect(await ownerStore().journalsSealed(b.tenantId)).toBe(false);
@@ -370,6 +370,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const entryId = (loaded.state as DemoState).journals.find((j) => j.customerId === a.vera.id)!.id;
     const content = { treatment: "x", observations: "y", advice: "z" };
     expect((await write(a, { action: { type: "journal/edit", id: entryId, content, on: "2026-11-23", customerId: a.olle.id }, idempotencyKey: "s-wrong-customer" })).status).toBe(422);
+    expect((await write(a, { action: { type: "journal/edit", id: entryId, content, on: "2026-11-23" }, idempotencyKey: "s-no-customer" })).status).toBe(400);
     expect((await write(a, { action: { type: "journal/edit", id: entryId, content, on: "2026-11-23", customerId: a.vera.id }, idempotencyKey: "s-right-customer" })).status).toBe(200);
     // An erasure asked in another login is refused before anything is looked up, and the customer stays.
     const name = `${a.vera.firstName} ${a.vera.lastName}`;
@@ -429,7 +430,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const added = await (await send(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "r-add" })).json();
     const id = (added.state as DemoState).journals.find((j) => j.customerId === a.vera.id)!.id;
     const edited = `Edited note without a name ${run}`;
-    await send(a.cookie, { action: { type: "journal/edit", id, content: { treatment: "t", observations: edited, advice: "a" }, on: "2026-11-21" }, idempotencyKey: "r-edit" });
+    await send(a.cookie, { action: { type: "journal/edit", id, content: { treatment: "t", observations: edited, advice: "a" }, on: "2026-11-21", customerId: a.vera.id }, idempotencyKey: "r-edit" });
     expect(await storedText(a.tenantId)).toContain(edited);
     expect((await erase(a.cookie, { customerId: a.vera.id, name: `${a.vera.firstName} ${a.vera.lastName}` })).status).toBe(200);
     expect(await storedText(a.tenantId)).not.toContain(edited);
@@ -469,7 +470,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const id = (added.state as DemoState).journals.find((j) => j.customerId === onlyA.id)!.id;
     // B's session names A's customer and A's entry: not found, refused; nothing of A's is read or written.
     expect((await journalOf(b, onlyA.id)).status).toBe(404);
-    expect((await write(b, { action: { type: "journal/edit", id, content: { treatment: "x", observations: "y", advice: "z" }, on: "2026-11-23" }, idempotencyKey: "x-edit" })).status).toBe(422);
+    expect((await write(b, { action: { type: "journal/edit", id, content: { treatment: "x", observations: "y", advice: "z" }, on: "2026-11-23", customerId: onlyA.id }, idempotencyKey: "x-edit" })).status).toBe(422);
     expect((await write(b, { action: add(onlyA.id, b.staffId), idempotencyKey: "x-add-b" })).status).toBe(422);
     expect(await rows(b.tenantId)).toEqual([]);
     expect(await rows(a.tenantId)).toHaveLength(1);

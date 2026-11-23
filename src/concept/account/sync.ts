@@ -56,6 +56,31 @@ function bindSession(session: string | null) {
   newEpoch();
 }
 
+const RELOAD_MARK = "cresavo-login-reload";
+
+/**
+ * The login changed under this tab (the server refused a request as `session_changed`, or another tab signed in or
+ * out): the page is loaded again from scratch, so no open draft, sheet or queued change of the old login carries over
+ * into the new one. At most once per detected change: the marker names the login that was refused, and a second
+ * refusal of the same login does not reload again. Without session storage nothing reloads; the salon closes instead.
+ */
+function reloadForNewLogin(stale: string | null) {
+  const mark = `stale:${stale ?? ""}`;
+  let again = true;
+  try {
+    again = sessionStorage.getItem(RELOAD_MARK) === mark;
+    if (!again) sessionStorage.setItem(RELOAD_MARK, mark);
+  } catch {
+    again = true;
+  }
+  bindSession(null);
+  if (again || typeof location === "undefined") {
+    closeAccountSalon();
+    return;
+  }
+  location.reload();
+}
+
 /** Signed out or switched away: nothing read or queued for the old session is used any more. */
 function closeSalon() {
   bindSession(null);
@@ -67,7 +92,7 @@ if (typeof window !== "undefined" && typeof window.addEventListener === "functio
   onAccountChange(newEpoch);
   // Another tab signed in, out or switched accounts: drop what was read, and send nothing more under the old login
   // until this tab loads its salon again (the server refuses it, and the studio reloads).
-  onSessionSignal(() => bindSession(null));
+  onSessionSignal(() => { if (salonSession !== null) reloadForNewLogin(salonSession); });
 }
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
@@ -165,6 +190,10 @@ export async function readCustomerJournals(customerId: string): Promise<JournalE
   try {
     const response = await request(`${JOURNALS}?customer=${encodeURIComponent(customerId)}`, { cache: "no-store", headers: { [UPLOAD_SESSION_HEADER]: salonSession ?? "" } });
     if (bound !== journalSessionKey() || !journalsOnServer()) return null;
+    if (response.status === 409 && response.body?.error === "session_changed") {
+      reloadForNewLogin(salonSession);
+      return null;
+    }
     if (response.status === 401) {
       closeSalon();
       showToast(t("account.sync.signedOut"));
@@ -201,6 +230,11 @@ function send(action: DemoAction, change: AccountChange) {
       if (response.status === 401) {
         closeSalon();
         showToast(t("account.sync.signedOut"));
+        return;
+      }
+      if (response.status === 409 && response.body?.error === "session_changed") {
+        answer = { ok: false, reason: "conflict" };
+        reloadForNewLogin(session);
         return;
       }
       const body = response.body;
@@ -254,6 +288,10 @@ export function eraseAccountCustomer(customerId: string, name: string): Promise<
       if (response.status === 401) {
         closeSalon();
         showToast(t("account.sync.signedOut"));
+        return null;
+      }
+      if (response.status === 409 && response.body?.error === "session_changed") {
+        reloadForNewLogin(session || null);
         return null;
       }
       if (!response.ok || !response.body?.state) return null;
