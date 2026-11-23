@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { readBoundedBytes } from "@/lib/bounded-json";
 import { listMedia, uploadMedia } from "@/lib/media/library";
 import { MAX_MEDIA_BYTES, MEDIA_KINDS, type MediaKind } from "@/lib/media/limits";

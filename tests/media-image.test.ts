@@ -1,3 +1,4 @@
+import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { prepareImage } from "../src/lib/media/library";
 import { sniffImage } from "../src/lib/media/sniff";
@@ -162,4 +163,40 @@ it("hashes the rebuilt bytes, so two copies with different metadata are one pict
   const a = prepareImage(phoneJpeg());
   const b = prepareImage(Buffer.concat([SOI, segment(0xfe, [0x61, 0x62]), phoneJpeg().subarray(2)]));
   expect(a.ok && b.ok && a.sha256 === b.sha256).toBe(true);
+});
+
+describe("decode budget and empty images", () => {
+  it("refuses a second colour profile before inflating it, and one after the image data", () => {
+    const parts = pngParts();
+    expect(() => stripPng(Buffer.concat([PNG_SIGNATURE, parts.ihdr, parts.iccp, parts.iccp, parts.idat, parts.iend]))).toThrow(CorruptImageError);
+    expect(() => stripPng(Buffer.concat([PNG_SIGNATURE, parts.ihdr, parts.idat, parts.iccp, parts.iend]))).toThrow(CorruptImageError);
+  });
+
+  it("inflates at most one megabyte of a profile, so a compression bomb is only dropped", () => {
+    const parts = pngParts();
+    const bomb = pngChunk("iCCP", Buffer.concat([Buffer.from("bomb\0\0", "latin1"), deflateSync(Buffer.alloc(64 * 1024 * 1024))]));
+    const started = performance.now();
+    expect(stripPng(Buffer.concat([PNG_SIGNATURE, parts.ihdr, bomb, parts.idat, parts.iend]))).toEqual(Buffer.concat([PNG_SIGNATURE, parts.ihdr, parts.idat, parts.iend]));
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  it("refuses an empty PNG image, an empty JPEG scan and a WebP with only a frame header", () => {
+    const parts = pngParts();
+    expect(() => stripPng(Buffer.concat([PNG_SIGNATURE, parts.ihdr, pngChunk("IDAT", Buffer.alloc(0)), parts.iend]))).toThrow(CorruptImageError);
+    const p = jpegPicture();
+    expect(() => stripJpeg(jpeg(p.dqt, p.sof, p.dht, p.sos, p.eoi))).toThrow(CorruptImageError);
+    const header = Buffer.from([0x50, 0x01, 0x00, 0x9d, 0x01, 0x2a, 0x90, 0x01, 0x2c, 0x01]);
+    expect(() => stripWebp(riff(webpChunk("VP8 ", header)))).toThrow(CorruptImageError);
+    expect(() => stripWebp(riff(webpChunk("VP8L", Buffer.from([0x2f, 0, 0, 0, 0]))))).toThrow(CorruptImageError);
+  });
+
+  it("rebuilds a logo without its colour profile", () => {
+    const parts = pngParts();
+    const logo = prepareImage(metadataPng(), { kind: "logo" });
+    expect(logo.ok && logo.bytes).toEqual(Buffer.concat([PNG_SIGNATURE, parts.ihdr, parts.idat, parts.iend]));
+    const jpegLogo = prepareImage(phoneJpeg(), { kind: "logo" });
+    expect(jpegLogo.ok && has(jpegLogo.bytes, "ICC_PROFILE")).toBe(false);
+    const webpLogo = prepareImage(metadataWebp(), { kind: "logo" });
+    expect(webpLogo.ok && has(webpLogo.bytes, "ICCP")).toBe(false);
+  });
 });

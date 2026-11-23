@@ -6,6 +6,8 @@ import type { MediaType } from "./sniff";
 // (including the one a JFIF header may carry), provenance manifests (C2PA, JUMBF, PNG caBX), time stamps
 // and the extra pictures a phone appends. The picture data is copied byte for byte, never re-encoded.
 //
+// A logo is rebuilt without its ICC profile too: it is published, and a logo needs none.
+//
 // - JPEG: the tables, the frame, every scan and the end marker; a minimal JFIF header (no thumbnail) when the
 //   file had one; a valid ICC profile; Adobe's colour transform byte for a three- or four-component frame,
 //   in a minimal APP14; and, for a rotated photo, an EXIF block holding only the orientation.
@@ -36,6 +38,11 @@ export const MAX_SEGMENTS = 512;
 export const MAX_PNG_CHUNKS = 4096;
 /** An ICC profile larger than this is not a colour profile a photo needs. */
 const MAX_ICC_BYTES = 1024 * 1024;
+
+export interface RebuildOptions {
+  /** Keep a valid ICC colour profile. Off for a logo, which is published and needs none. */
+  icc?: boolean;
+}
 
 function fail(): never {
   throw new CorruptImageError();
@@ -126,7 +133,7 @@ function entropyEnd(bytes: Uint8Array, from: number): number {
   return fail();
 }
 
-export function stripJpeg(bytes: Uint8Array): { bytes: Buffer; orientation: number } {
+export function stripJpeg(bytes: Uint8Array, { icc: keepIcc = true }: RebuildOptions = {}): { bytes: Buffer; orientation: number } {
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) fail();
   // First pass: where the kept segments are (offsets only, in fixed arrays) and what the rebuilt header needs.
   const starts = new Int32Array(MAX_SEGMENTS);
@@ -169,6 +176,8 @@ export function stripJpeg(bytes: Uint8Array): { bytes: Buffer; orientation: numb
       if (marker === 0xda) {
         scans++;
         ends[kept] = entropyEnd(bytes, end);
+        // A scan without any coded data draws nothing.
+        if (ends[kept] === end) fail();
       }
       at = ends[kept++];
       continue;
@@ -185,7 +194,7 @@ export function stripJpeg(bytes: Uint8Array): { bytes: Buffer; orientation: numb
   const count = icc[0]?.count ?? 0;
   const ordered = [...icc].sort((a, b) => a.seq - b.seq);
   const iccComplete = count > 0 && icc.length === count && ordered.every((chunk, n) => chunk.seq === n + 1 && chunk.count === count);
-  if (iccComplete) {
+  if (keepIcc && iccComplete) {
     const profile = Buffer.concat(ordered.map((chunk) => bytes.subarray(chunk.start + 18, chunk.end)));
     if (validIcc(profile)) for (const chunk of ordered) out.write(bytes.subarray(chunk.start, chunk.end));
   }
@@ -201,9 +210,13 @@ const PNG_SIGNATURE = "\x89PNG\r\n\x1a\n";
 const PNG_KEPT = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND", "gAMA", "cHRM", "sRGB", "cICP", "sBIT"]);
 const PNG_ANIMATION = new Set(["acTL", "fcTL", "fdAT"]);
 
+/**
+ * Whether an iCCP chunk holds a valid profile. It is the one decompression of the whole upload: the parser
+ * refuses a second iCCP before inflating anything, and this inflates at most MAX_ICC_BYTES.
+ */
 function validIccp(data: Uint8Array): boolean {
-  const nul = data.indexOf(0);
-  if (nul < 1 || nul > 79 || data[nul + 1] !== 0) return false;
+  const nul = data.subarray(0, 81).indexOf(0);
+  if (nul < 1 || data[nul + 1] !== 0) return false;
   try {
     return validIcc(inflateSync(data.subarray(nul + 2), { maxOutputLength: MAX_ICC_BYTES }));
   } catch {
@@ -211,11 +224,11 @@ function validIccp(data: Uint8Array): boolean {
   }
 }
 
-export function stripPng(bytes: Uint8Array): Buffer {
+export function stripPng(bytes: Uint8Array, { icc: keepIcc = true }: RebuildOptions = {}): Buffer {
   if (ascii(bytes, 0, 8) !== PNG_SIGNATURE) fail();
   const out = new Output(bytes.length);
   out.write(bytes.subarray(0, 8));
-  let at = 8, chunks = 0, sawData = false, sawIccp = false;
+  let at = 8, chunks = 0, sawData = false, imageBytes = 0, sawIccp = false;
   for (;;) {
     if (++chunks > MAX_PNG_CHUNKS || at + 12 > bytes.length) fail();
     const length = u32be(bytes, at);
@@ -226,15 +239,20 @@ export function stripPng(bytes: Uint8Array): Buffer {
     if ((chunks === 1) !== (type === "IHDR") || (type === "IHDR" && length !== 13)) fail();
     if (crc32(bytes.subarray(at + 4, at + 8 + length)) >>> 0 !== u32be(bytes, at + 8 + length)) fail();
     if (PNG_ANIMATION.has(type)) throw new AnimatedImageError();
-    if (type === "IDAT") sawData = true;
-    const keep = PNG_KEPT.has(type) || (type === "iCCP" && !sawIccp && !sawData && validIccp(bytes.subarray(at + 8, at + 8 + length)));
-    if (type === "iCCP" && keep) sawIccp = true;
+    if (type === "IDAT") {
+      sawData = true;
+      imageBytes += length;
+    }
+    // At most one colour profile, before the image data (as the format requires); a second one is refused before anything is inflated.
+    if (type === "iCCP" && (sawIccp || sawData)) fail();
+    if (type === "iCCP") sawIccp = true;
+    const keep = PNG_KEPT.has(type) || (type === "iCCP" && keepIcc && validIccp(bytes.subarray(at + 8, at + 8 + length)));
     if (keep) out.write(bytes.subarray(at, end));
     at = end;
     // Anything after the end chunk is not part of the image.
     if (type === "IEND") break;
   }
-  if (!sawData) fail();
+  if (!sawData || imageBytes === 0) fail();
   return out.done();
 }
 
@@ -246,10 +264,11 @@ const VP8X_ALPHA = 0x10;
 /** The size a VP8 (lossy key frame) or VP8L (lossless) bitstream declares, and whether VP8L uses alpha. */
 function bitstreamSize(type: string, data: Uint8Array): { width: number; height: number; alpha: boolean } | null {
   if (type === "VP8 ") {
-    if (data.length < 10 || (data[0] & 1) !== 0 || data[3] !== 0x9d || data[4] !== 0x01 || data[5] !== 0x2a) return null;
+    // A key frame header, then at least one byte of coded data.
+    if (data.length <= 10 || (data[0] & 1) !== 0 || data[3] !== 0x9d || data[4] !== 0x01 || data[5] !== 0x2a) return null;
     return { width: u16le(data, 6) & 0x3fff, height: u16le(data, 8) & 0x3fff, alpha: false };
   }
-  if (data.length < 5 || data[0] !== 0x2f) return null;
+  if (data.length <= 5 || data[0] !== 0x2f) return null;
   const bits = u32le(data, 1);
   if (bits >= 2 ** 29) return null; // version bits must be 0
   return { width: 1 + (bits & 0x3fff), height: 1 + (Math.floor(bits / 2 ** 14) & 0x3fff), alpha: (bits & 2 ** 28) !== 0 };
@@ -266,7 +285,7 @@ function writeChunk(out: Output, type: string, data: Uint8Array) {
   if (data.length % 2) out.write([0]);
 }
 
-export function stripWebp(bytes: Uint8Array): Buffer {
+export function stripWebp(bytes: Uint8Array, { icc: keepIcc = true }: RebuildOptions = {}): Buffer {
   if (ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP") fail();
   const total = 8 + u32le(bytes, 4);
   if (total > bytes.length || total < 20) fail();
@@ -288,7 +307,7 @@ export function stripWebp(bytes: Uint8Array): Buffer {
       if (image) fail();
       image = { type, data };
     } else if (canvas && type === "ICCP" && !icc && !image) {
-      icc = validIcc(data) ? data : null;
+      icc = keepIcc && validIcc(data) ? data : null;
     } else if (canvas && type === "ALPH" && !alpha && !image) {
       alpha = data;
     }
@@ -321,7 +340,7 @@ export function stripWebp(bytes: Uint8Array): Buffer {
 }
 
 /** The image rebuilt without its metadata, and the orientation it should be shown in (1 = as stored). */
-export function stripMetadata(type: MediaType, bytes: Uint8Array): { bytes: Buffer; orientation: number } {
-  if (type === "image/jpeg") return stripJpeg(bytes);
-  return { bytes: type === "image/png" ? stripPng(bytes) : stripWebp(bytes), orientation: 1 };
+export function stripMetadata(type: MediaType, bytes: Uint8Array, options: RebuildOptions = {}): { bytes: Buffer; orientation: number } {
+  if (type === "image/jpeg") return stripJpeg(bytes, options);
+  return { bytes: type === "image/png" ? stripPng(bytes, options) : stripWebp(bytes, options), orientation: 1 };
 }

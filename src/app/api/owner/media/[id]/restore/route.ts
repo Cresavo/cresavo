@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { restoreMedia } from "@/lib/media/library";
 import { MEDIA_ID } from "@/lib/media/limits";
 import { ownerError, ownerOk, ownerRoute, sessionKey, fullOwner, refusedOwner, sessionOwner } from "@/lib/owner-http";

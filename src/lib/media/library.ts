@@ -55,12 +55,12 @@ const lockTenant = (tx: Tx, tenantId: string) => tx.$executeRaw`SELECT pg_adviso
 const READY = { status: "ready", deletedAt: null } as const;
 
 /** The picture as it will be stored: its real type, its size as shown (EXIF rotation applied) and its rebuilt bytes. */
-export function prepareImage(raw: Uint8Array): { ok: true; type: MediaType; width: number; height: number; bytes: Buffer; sha256: string } | { ok: false; reason: UploadRefusal } {
+export function prepareImage(raw: Uint8Array, { kind = "photo" }: { kind?: MediaKind } = {}): { ok: true; type: MediaType; width: number; height: number; bytes: Buffer; sha256: string } | { ok: false; reason: UploadRefusal } {
   const sniffed = sniffImage(raw);
   if (!sniffed.ok) return sniffed;
   let stripped: { bytes: Buffer; orientation: number };
   try {
-    stripped = stripMetadata(sniffed.type, raw);
+    stripped = stripMetadata(sniffed.type, raw, { icc: kind !== "logo" });
   } catch (error) {
     if (error instanceof CorruptImageError) return { ok: false, reason: "corrupt" };
     if (error instanceof AnimatedImageError) return { ok: false, reason: "animated" };
@@ -87,7 +87,7 @@ async function retainedBytes(tx: Tx, tenantId: string): Promise<number> {
  * so a failed or abandoned upload is always found and cleaned up by the sweep.
  */
 export async function uploadMedia(tenantId: string, kind: MediaKind, raw: Uint8Array, options: MediaOptions = {}): Promise<UploadResult> {
-  const image = prepareImage(raw);
+  const image = prepareImage(raw, { kind });
   if (!image.ok) return image;
   const client = clientOf(options);
   const twinOf = { tenantId, kind, sha256: image.sha256, deletedAt: null };
