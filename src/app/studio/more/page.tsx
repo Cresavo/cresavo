@@ -12,7 +12,7 @@ import { ThemeControl } from "@/concept/ui/theme-control";
 function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
   return (
     <Section title={title}>
-      <Card className="divide-y divide-hairline overflow-hidden">
+      <Card className="overflow-hidden py-1">
         {items.map((item) => {
           const Icon = item.icon;
           return (

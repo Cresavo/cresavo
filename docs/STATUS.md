@@ -53,8 +53,10 @@ Start with the [demo and product tour](../README.md) or see the
   - **Layout guard:** a test renders every template, format and text size and
     checks the margins, Instagram's story bars and the face area of
     portraits.
-  - **Not yet:** a stored photo library and logo upload, which need file
-    storage.
+  - **Photo library:** signed-in owners upload their own photos and logo
+    (metadata such as GPS removed, stored in Postgres or an S3-compatible
+    bucket) and use library photos on posters. The public demo shows sample
+    photos only. See [photo library storage](operations/MEDIA_STORAGE.md).
 - Owner accounts and a salon stored on the server (`StudioStore` on Postgres)
   exist behind `OWNER_ACCOUNTS_ENABLED`; the public demo keeps them off.
 - Security step 1 is complete (November 2026). CodeQL analyses the code and

@@ -14,7 +14,9 @@ log. The pilot gate item is in
 The salon documents (`tenant_state.doc`, which may hold journal entries and
 therefore health data), the audit log (`tenant_action`), the idempotency keys,
 the effect outbox (`tenant_effect`, including queued e-mails), owner accounts
-and sessions, and the legacy booking tables. Treat every dump as personal data:
+and sessions, the photo library (`media_asset`, with the bytes when the default
+Postgres store is used; see [photo library storage](MEDIA_STORAGE.md#backups) for
+S3) and the legacy booking tables. Treat every dump as personal data:
 encrypt it, restrict who can read it, and delete it on schedule.
 
 Not in the database, so not in any backup: `SESSION_SECRET`,

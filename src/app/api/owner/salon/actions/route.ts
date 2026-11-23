@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { idempotencyKeySchema } from "@/lib/validation";
@@ -6,6 +7,7 @@ import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
 import { ownerAction, ownerStore } from "@/lib/owner-store";
 import { SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
+import { checkPageLogo, PageLogoGone, publishPageLogo } from "@/lib/media/library";
 
 const bodySchema = z.object({
   action: z.unknown(),
@@ -29,8 +31,23 @@ export function POST(request: NextRequest) {
     if (body.success && actionTooLarge(body.data.action)) return ownerError("too_large", 413);
     const action = body.success ? ownerAction(body.data.action) : null;
     if (!body.success || !action) return ownerError("invalid", 400);
-    const result = await ownerStore().apply(owner.tenantId, action, { actor: "owner", source: "button" },
-      { expectedVersion: body.data.expectedVersion, idempotencyKey: body.data.idempotencyKey });
+    const store = ownerStore();
+    // The page's logo: a library logo of this business, published in the same transaction as the save.
+    const logo = action.type === "page/set" ? action.page.theme?.logo ?? null : undefined;
+    if (logo !== undefined) {
+      const refused = await checkPageLogo(owner.tenantId, logo, (await store.load(owner.tenantId))?.state.page?.theme?.logo ?? null);
+      if (refused) return ownerError(refused, 422);
+    }
+    let result;
+    try {
+      result = await store.apply(owner.tenantId, action, { actor: "owner", source: "button" }, {
+        expectedVersion: body.data.expectedVersion, idempotencyKey: body.data.idempotencyKey,
+        ...(logo !== undefined && { beforeCommit: (tx?: unknown) => publishPageLogo(tx as Prisma.TransactionClient, owner.tenantId, logo) }),
+      });
+    } catch (error) {
+      if (error instanceof PageLogoGone) return ownerError("logo_unknown", 409);
+      throw error;
+    }
     if (!result.ok) return ownerError(result.detail === SLUG_TAKEN ? SLUG_TAKEN : result.reason, STATUS[result.reason]);
     return withRenewedSession(ownerOk({ state: result.state, version: result.version, replayed: result.replayed }), request);
   });

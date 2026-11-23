@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 import { Field, Select, TextInput } from "../ui/controls";
 import { Notice } from "../ui/notice";
 import { SecondStep } from "./second-step";
+import { signalSessionChange } from "./session-signal";
 
 type Mode = "signup" | "login";
 
@@ -45,6 +46,7 @@ export function AccountForm({ mode, language }: { mode: Mode; language: Locale }
         return;
       }
       if (response.ok) {
+        signalSessionChange();
         router.push("/account");
         router.refresh();
         return;
@@ -107,6 +109,7 @@ export function SignOutButton({ language }: { language: Locale }) {
   async function signOut() {
     setBusy(true);
     await fetch("/api/owner/logout", { method: "POST" }).catch(() => undefined);
+    signalSessionChange();
     router.push("/account/login");
     router.refresh();
   }
@@ -129,6 +132,7 @@ export function SignOutEverywhereButton({ language }: { language: Locale }) {
       return;
     }
     closeAccountSalon();
+    signalSessionChange();
     router.push("/account/login");
     router.refresh();
   }

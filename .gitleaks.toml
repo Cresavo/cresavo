@@ -98,18 +98,33 @@ paths = ['''^tests/concept-connections-secrets\.test\.ts$''']
 regexTarget = "match"
 regexes = ['''TWILIO_AUTH_TOKEN: "SECRETother01234567ab"''']
 
-# Structured log scrub test (monitoring work, 2026-11-22): a fictional token
-# fed to the logger to prove it is dropped. The value is made up
-# ("sk-secret-123456", ascending digits, no real provider format), was written
-# in a sandbox with no credentials, and is scoped to the one commit that
-# introduced it AND this file AND this literal, so it is reported anywhere else.
+# Log redaction test (branch claude/cresavo-product-architecture-n4rznl,
+# 2026-11-22): a hostile fixture object feeds a made-up "token=..." string,
+# next to a fictional name, e-mail address and phone number, to prove that
+# the structured logger never writes such values. Verified by reading the
+# line: the value has no real credential format and contains an ascending
+# digit run. Scoped to the one commit that introduced it AND this file AND
+# this literal, so it is reported anywhere else.
 [[allowlists]]
-description = "Fictional token in the log scrub test"
+description = "Fictional token string in the log redaction test"
 condition = "AND"
 commits = ["97b53cb0c2d61344c533f25a172b3f6603f09e67"]
 paths = ['''^tests/log\.test\.ts$''']
-regexTarget = "match"
-regexes = ['''token=sk-secret-123456''']
+regexTarget = "line"
+regexes = ['''task: "token=sk-secret-123456"''']
+
+# S3 adapter test (photo library, 2026-11-23): invented credentials for an
+# in-test fake S3 server that checks SigV4 signatures. The values say so
+# ("AKIDFICTIONAL", "fictional-secret-0123..."), have no real AWS format and
+# were written in a sandbox with no cloud credentials. Scoped to the commit
+# that introduced them AND this file AND this literal.
+[[allowlists]]
+description = "Fictional S3 secret in the media adapter test"
+condition = "AND"
+commits = ["3c70fa0fd0c868d943e5c244131d1d3bcff7e8e6"]
+paths = ['''^tests/media-s3\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''const SECRET = "fictional-secret-0123456789abcdefghijklmnop";''']
 
 # Store row-level security test (branch feat/store-rls-policies, 2026-11-22):
 # the first version of the test signed up a fictional owner with the made-up

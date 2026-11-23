@@ -1,9 +1,12 @@
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { reviewSummary } from "../../booking/reviews";
 import { Download, ImagePlus, Share2 } from "lucide-react";
 import { draftLink, resolvePoster, type Draft } from "../../campaigns/draft";
 import { downloadBlob, posterToPng, sharePoster } from "../../campaigns/export-png";
 import { isOwnPhoto, ownPhotoUrl } from "../../campaigns/own-photo";
+import { photosOf, useLibrary } from "../../media/library-client";
+import { useActiveWorkspace } from "../../store";
 import { NEUTRAL_TONE } from "../../campaigns/poster-engine/tone";
 import { GOAL_STYLES } from "../../campaigns/goals";
 import { BACKDROPS, type Backdrop } from "../../campaigns/poster-engine/backdrops";
@@ -16,6 +19,7 @@ import { Notice } from "../../ui/notice";
 import { Checkbox, Field, Segmented, Switch, TextInput } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
 import { FeedPreview } from "./feed-preview";
+import { PHOTOS_PAGE } from "../photos/photo-library";
 import { PosterView } from "./poster-view";
 import { ToneControls } from "./tone-controls";
 
@@ -227,9 +231,16 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
 
 const ROOM_PHOTOS = POSTER_IMAGES.map((src) => ({ src, label: src.includes("massage") ? "campaigns.photo.massage" as const : "campaigns.photo.salon" as const }));
 
-/** The demo photos (each with its accessible name) and the owner's own photo, for one photo slot on the poster. */
+/**
+ * The demo photos (each with its accessible name), a signed-in owner's library photos and the owner's own
+ * photo, for one photo slot on the poster. A library photo is saved with the campaign; a photo picked here
+ * only stays for this poster.
+ */
 function PhotoPicker({ label, value, onPick, images }: { label: string; value: string | undefined; onPick: (image: string) => void; images?: { src: string; label: string }[] }) {
-  const choices = images ?? ROOM_PHOTOS.map((photo) => ({ src: photo.src, label: t(photo.label) }));
+  const account = useActiveWorkspace() === "account";
+  const library = photosOf(useLibrary(account))
+    .map((photo, index) => ({ src: photo.url, label: photo.altText || t("campaigns.photo.library", { number: index + 1 }) }));
+  const choices = [...(images ?? ROOM_PHOTOS.map((photo) => ({ src: photo.src, label: t(photo.label) }))), ...library];
   const pick = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -258,6 +269,7 @@ function PhotoPicker({ label, value, onPick, images }: { label: string; value: s
           <TextInput type="file" accept="image/*" className="sr-only" onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
         </label>
       </div>
+      {account && <Link href={PHOTOS_PAGE} className="inline-flex min-h-target items-center text-meta font-medium text-action hover:underline">{t("campaigns.photo.manage")}</Link>}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import type { DemoAction } from "../actions";
 import type { DemoState } from "../data/types";
-import { t } from "../i18n";
+import { t, type MessageKey } from "../i18n";
 import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
 import { showToast } from "../ui/toast";
@@ -15,6 +15,8 @@ import { ownerHintPresent } from "./hint";
 // that must know the outcome of one change waits for its answer by request id.
 
 const SALON = "/api/owner/salon";
+/** Refusals the owner can act on, by the code the server sent. */
+const REFUSAL_TEXT: Record<string, MessageKey> = { slug_taken: "address.slug.taken", logo_inline: "photos.error.logoInline", logo_unknown: "photos.error.logoUnknown" };
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
 
@@ -129,7 +131,7 @@ function send(action: DemoAction, change: AccountChange) {
       }
       answer = { ok: false, reason: body?.error === "idempotency-mismatch" ? "idempotency-mismatch" : REFUSALS[response.status] ?? "rejected" };
       await reload(change);
-      showToast(t(body?.error === "slug_taken" ? "address.slug.taken" : "account.sync.refused"));
+      showToast(t(REFUSAL_TEXT[String(body?.error)] ?? "account.sync.refused"));
     } catch {
       await reload(change);
       showToast(t("account.sync.offline"));

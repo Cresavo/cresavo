@@ -111,6 +111,8 @@ export interface OwnerContext {
   tenantId: string;
   /** Two-step sign-in is on for the account. */
   mfaEnabled: boolean;
+  /** Raised by a password reset, a change to two-step sign-in and "sign out everywhere". */
+  credentialVersion: number;
 }
 
 /** The signed-in owner for a cookie value; null for anything else. */
@@ -128,7 +130,7 @@ export async function ownerFromCookie(cookie: string | undefined, now = Date.now
   // A session that did not pass the second step never counts for an account with two-step sign-in on.
   if (session.account.totpEnabledAt && !session.mfaVerifiedAt) return null;
   const { account } = session;
-  return { accountId: account.id, email: account.email, tenantId: account.tenantId, mfaEnabled: account.totpEnabledAt !== null };
+  return { accountId: account.id, email: account.email, tenantId: account.tenantId, mfaEnabled: account.totpEnabledAt !== null, credentialVersion: account.credentialVersion };
 }
 
 export async function closeOwnerSession(cookie: string | undefined, now = Date.now()) {

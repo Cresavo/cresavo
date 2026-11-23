@@ -61,6 +61,12 @@ for (const theme of themes) {
       // The next free time is preselected; "Choose another time" is the time step.
       await expect(page.getByLabel("Your name", { exact: true })).toBeVisible();
       await audit(page, "booking: time and contact form");
+      // The demo day is always open, so the preselected time can be today, inside the 24-hour change cutoff.
+      // Pick the first time two days ahead so the manage page still offers online cancellation.
+      const times = page.getByRole("combobox", { name: "Choose another time" });
+      // A day can be full, and its only option then opens the waiting list: take the first real time from there on.
+      const later = await times.locator("optgroup:nth-of-type(n+3) option:not([value$='/wait'])").first().getAttribute("value");
+      await times.selectOption(later!);
 
       await page.getByLabel("Your name", { exact: true }).fill("Access Demo");
       await page.getByLabel("Mobile number").fill("070-000 99 33");
@@ -99,6 +105,9 @@ for (const theme of themes) {
       await page.goto("/studio/more/settings?lang=en");
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await audit(page, "studio settings");
+      await page.goto("/studio/more/photos?lang=en");
+      await expect(page.getByRole("heading", { level: 1, name: "Photos" })).toBeVisible();
+      await audit(page, "studio photos (demo)");
 
       await page.goto("/studio?lang=en");
       await page.locator('[data-help="help-button"]:visible').first().click();

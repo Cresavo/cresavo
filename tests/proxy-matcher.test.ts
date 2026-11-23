@@ -39,3 +39,17 @@ it("refuses an owner action body that declares more than the route reads, before
   // Other routes keep their own caps.
   expect(post("/api/concept/poster", OWNER_ACTIONS_MAX_BODY_BYTES + 1).status).not.toBe(413);
 });
+
+it("refuses a photo upload that declares more than one picture may be, at the entry point and in the proxy", async () => {
+  const { ownerActionRefusal, OWNER_MEDIA_MAX_BODY_BYTES: cap } = await import("../scripts/owner-body-limit.mjs");
+  const { MAX_MEDIA_BYTES } = await import("../src/lib/media/limits");
+  expect(cap).toBe(MAX_MEDIA_BYTES);
+  expect(ownerActionRefusal("POST", "/api/owner/media?kind=logo", { "content-length": String(cap + 1) })).toBe(413);
+  expect(ownerActionRefusal("POST", "/api/owner/media", { "transfer-encoding": "chunked" })).toBe(411);
+  expect(ownerActionRefusal("POST", "/api/owner/media", { "content-length": String(cap) })).toBe(0);
+  expect(ownerActionRefusal("GET", "/api/owner/media", {})).toBe(0);
+  expect(post("/api/owner/media", cap + 1).status).toBe(413);
+  expect(post("/api/owner/media/", cap + 1).status).toBe(413);
+  expect(post("/api/owner/media", cap).status).not.toBe(413);
+  expect(post("/api/owner/salon/actions", cap).status).toBe(413);
+});
