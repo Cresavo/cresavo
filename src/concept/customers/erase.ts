@@ -147,22 +147,25 @@ const JOURNAL_FIELDS = [...JOURNAL_TEXT, ...JOURNAL_TEXT.map((field) => `version
 
 /**
  * The free-text fields of the document that can mention a customer who is not
- * their owner: other customers' notes and journals, inbox text, reviews,
- * assistant memory, gift card recipients, support tickets, and the same
- * fields inside other customers' trash bundles. Only these are scrubbed;
+ * their owner: other customers' notes and journals, the name of the person a
+ * visit or a checkout in progress is for, inbox text, reviews,
+ * assistant memory, gift card recipients, support tickets, the booking page's
+ * About text, and the same fields inside other customers' trash bundles. Only these are scrubbed;
  * ids, slugs, settings and other customers' contact fields never are.
  */
 export const DOCUMENT_FREE_TEXT: Partial<Record<keyof DemoState, readonly string[]>> = {
   customers: ["*.note"],
-  bookings: ["*.note", "*.cancelReason", "*.protection.decision.reason"],
+  bookings: ["*.note", "*.cancelReason", "*.protection.decision.reason", "*.visitFor"],
+  checkoutHolds: ["*.guest.visitFor"],
   journals: JOURNAL_FIELDS.map((field) => `*.${field}`),
   reviews: ["*.text", "*.reply"],
   inbox: INBOX_TEXT.map((field) => `*.${field}`),
   memory: ["*.text"],
   giftCards: ["*.recipient", "*.message"],
   tickets: ["*.question", "*.screen.*", "*.activity.*.summary"],
+  page: ["about.heading", "about.text"],
   trash: [
-    "*.customer.note", "*.bookings.*.note", "*.bookings.*.cancelReason", "*.reviews.*.text", "*.reviews.*.reply",
+    "*.customer.note", "*.bookings.*.note", "*.bookings.*.cancelReason", "*.bookings.*.visitFor", "*.reviews.*.text", "*.reviews.*.reply",
     ...JOURNAL_FIELDS.map((field) => `*.journals.*.${field}`), ...INBOX_TEXT.map((field) => `*.inbox.*.${field}`),
   ],
 };

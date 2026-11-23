@@ -45,6 +45,8 @@ export interface Pack {
   salon: Salon;
   /** The demo business's own booking page colours; none means the neutral default look. */
   palette?: PaletteId;
+  /** The demo business's own words for its booking page; none means no About section. */
+  about?: string;
   staff: [Staff, Staff];
   services: Service[];
   stock: StockItem[];

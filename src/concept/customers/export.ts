@@ -136,7 +136,9 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     else other[key] = items;
   }
   const namesOther = (value: unknown) => otherNames.some((o) => mentionsCustomer(value, "", o.identifiers, ""));
-  const isForeign = (b: Booking) => !!b.publicRef && !!b.contactEmail && !ownAddresses.has(b.contactEmail.trim().toLowerCase());
+  // A visit with another address, or one booked for someone else: it names a second person, so the owner reads it first.
+  const isForeign = (b: Booking) => !!b.visitFor || (!!b.publicRef && !!b.contactEmail && !ownAddresses.has(b.contactEmail.trim().toLowerCase()));
+  const ownHold = (hold: CheckoutHold) => holdIsTheirs(hold, profile);
   const bookings = (sections.bookings as Booking[]).filter((b) => !isForeign(b));
   const journalAll = sections.journal as JournalEntry[];
   const messagesAll = sections.messages as InboxItem[];
@@ -165,7 +167,7 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
     productSales: sections.productSales as ProductSale[],
     packages: sections.packages as ServicePackage[],
     journalAccess: sections.journalAccess as JournalAccess[],
-    checkoutHolds: state.checkoutHolds.filter((hold) => holdIsTheirs(hold, profile)),
+    checkoutHolds: state.checkoutHolds.filter((hold) => ownHold(hold) && !hold.guest.visitFor),
     giftCardMentions: state.giftCards
       .filter((card) => mentionsCustomer({ recipient: card.recipient, message: card.message }, "", identifiers, ""))
       .map(({ id: cardId, soldOn, recipient, message }) => ({ id: cardId, soldOn, recipient, message })),
@@ -175,7 +177,7 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
       journal: journalAll.filter(reviewed),
       messages: messagesAll.filter(reviewed),
       bookings: (sections.bookings as Booking[]).filter(isForeign),
-      checkoutHolds: state.checkoutHolds.filter((hold) => !holdIsTheirs(hold, profile) && customerPhoneDigits(profile).has(phoneDigits(hold.guest.phone))),
+      checkoutHolds: state.checkoutHolds.filter((hold) => (ownHold(hold) ? !!hold.guest.visitFor : customerPhoneDigits(profile).has(phoneDigits(hold.guest.phone)))),
     },
     activity: state.log
       .filter((entry) => mentionsCustomer(entry, id, identifiers, customerPhoneDigits(profile)) && !otherNames.some((o) => mentionsCustomer(entry, o.id, o.identifiers, o.digits)))

@@ -13,7 +13,7 @@ import { GiftCardBalance } from "./gift-card-balance";
 import { Hero } from "./hero";
 import { usePage } from "./page-context";
 import { CancellationPolicy, FindUs, OpeningHours, Reviews } from "./salon-info";
-import { FaqSection, GallerySection, InstagramSection, StaffSection } from "./sections";
+import { AboutSection, FaqSection, GallerySection, InstagramSection, StaffSection } from "./sections";
 import { Treatments } from "./treatments";
 import { Confirmation } from "./confirmation";
 import { BookingWizard } from "./wizard";
@@ -30,7 +30,7 @@ export function SalonPage() {
   const now = useSalonNow();
   const params = useSearchParams();
   const fromLink = params?.get("service") ?? undefined;
-  const { sections, instagram, theme } = usePage();
+  const { sections, instagram, about, theme } = usePage();
   const [inFlow, setInFlow] = useState(false);
   const [preset, setPreset] = useState<{ serviceId: string; count: number }>();
   // On a salon's own page there is no page for a booking to go to yet, so the receipt replaces the flow here.
@@ -57,6 +57,8 @@ export function SalonPage() {
         );
       case "staff":
         return <StaffSection state={state} variant={variant} />;
+      case "about":
+        return about.text ? <AboutSection about={about} name={state.salon.name} variant={variant} /> : null;
       case "reviews":
         return state.modules.reviews ? <Reviews state={state} variant={variant} /> : null;
       case "gallery":

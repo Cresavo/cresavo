@@ -6,7 +6,8 @@ import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
 import type { DemoState } from "./data/types";
-import { forgetDemoSends, stageDemoSends, withDemoChannels } from "./connections/demo";
+import { forgetDemoSends, redactDemoSends, stageDemoSends, withDemoChannels } from "./connections/demo";
+import { customerIdentifiers, findErasable, scrubText } from "./customers/erase";
 import type { OutboxEntry } from "./connections/simulated/outbox";
 import { prepareAction, defaultMeta } from "./log/capture";
 import type { LogMeta } from "./log/types";
@@ -519,6 +520,11 @@ export function dispatchWithLog(
     let published: OutboxEntry[] = [];
     // The server sends what an account salon's change sends; this tab only shows it.
     if (!setState(next, recheck, () => { published = workspace === "account" ? [] : batch.publish(); })) continue;
+    // The erased customer is out of the saved salon; the messages this tab keeps as sent must not name them either.
+    if (action.type === "customer/erase" && workspace !== "account") {
+      const erased = findErasable(current, action.id);
+      if (erased) redactDemoSends(workspace, action.id, customerIdentifiers(erased), scrubText);
+    }
     const logId = next.log[0]?.id;
     const localLogId = logId !== current.log[0]?.id ? logId ?? null : null;
     if (workspace === "account") {

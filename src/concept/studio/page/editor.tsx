@@ -70,7 +70,8 @@ export function PageEditor() {
             <div className="space-y-6">
               <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
               <Block title={t("pageEditor.sections.title")}>
-                <SectionControls sections={visibleSections} reviewsEnabled={state.modules.reviews} instagram={draft.instagram} onChange={changeSections} onInstagram={(instagram) => change({ instagram })} />
+                <SectionControls sections={visibleSections} reviewsEnabled={state.modules.reviews} instagram={draft.instagram} about={draft.about} name={state.salon.name}
+                  onChange={changeSections} onInstagram={(instagram) => change({ instagram })} onAbout={(about) => change({ about })} />
               </Block>
               <p className="text-meta text-text-secondary">
                 {t("pageEditor.cssMoved")} <Link href={`${ADVANCED_PAGE}#styling`} className="inline-flex min-h-target min-w-target items-center font-medium text-text underline">{t("nav.advanced")}</Link>

@@ -84,8 +84,11 @@ export interface Service {
   duration: number;
   price: number;
   description: string;
+  /** Longer plain text customers open with "More info": what is included and what to expect. Line breaks are kept. */
+  details?: string;
   /** Recommended weeks between visits, used for recall reminders. */
   recallWeeks: number;
+  /** A photo shown with `details`: one of the page's own photos (a `PhotoId`). */
   image?: string;
   /** Products used up by one visit; lowers the stock when the visit is marked done. */
   consumption?: StockUse[];
@@ -187,6 +190,8 @@ export interface Booking extends VisitTiming {
   contactEmail?: string;
   /** What the public booking page shows the guest as the visit's reference. Random, so it says nothing about the salon's other records. */
   publicRef?: string;
+  /** Who the visit is for when the customer booked for someone else. The customer stays the contact; this name goes when they are erased. */
+  visitFor?: string;
   note?: string;
   cancelReason?: string;
   /** A fictional sample a new salon starts with; never counts as the salon's own first booking. */

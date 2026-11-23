@@ -20,6 +20,7 @@ import { acceptedTerms, type AcceptedTerms } from "./booking/public-terms";
 import { addDays } from "./data/dates";
 import { cleanSignOff } from "./campaigns/channels";
 import { addAdResults, simulateStats } from "./campaigns/simulate";
+import { isVisitForValid, visitForName, withinGuestLimits } from "./booking/visit-for";
 import { textWaitlistAboutSlot } from "./booking/waitlist-offer";
 import { demoPayments, sendDemoCampaign } from "./connections/demo";
 import { editJournalEntry } from "./customers/journal";
@@ -184,6 +185,8 @@ export interface PublicChange {
 }
 
 export interface OnlineGuest extends GuestContact {
+  /** The person the visit is for when the guest books for someone else; the guest stays the contact. */
+  visitFor?: string;
   at: { date: DateKey; time: number };
 }
 
@@ -215,7 +218,7 @@ function updateBy<T extends { id: string }>(list: T[], id: string, patch: (item:
 
 function createBooking(
   state: DemoState,
-  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource; contactEmail?: string; publicRef?: string },
+  input: { id?: string; customerId: string; serviceId: string; staffId: StaffId; date: DateKey; start: number; source: BookingSource; contactEmail?: string; publicRef?: string; visitFor?: string },
   protection?: BookingProtection,
   /** The timing the slot was checked with; a paid hold keeps the one it reserved. */
   timing?: VisitTiming,
@@ -242,6 +245,7 @@ function createBooking(
     resourceId: pickResource(state, need, input.date, input.start),
     ...(input.contactEmail ? { contactEmail: input.contactEmail } : {}),
     ...(input.publicRef ? { publicRef: input.publicRef } : {}),
+    ...(input.visitFor ? { visitFor: input.visitFor } : {}),
   };
   return { state: { ...state, seq: state.seq + 1, bookings: [...state.bookings, booking] }, booking };
 }
@@ -300,8 +304,11 @@ function bookOnline(state: DemoState, action: OnlineRequest, now: number): DemoS
   if (action.date < at.date || action.date > addDays(at.date, PUBLIC_WINDOW_DAYS) || action.start < earliestBookingStart(action.date, at.date, at.time, now)) return state;
   if (action.type === "online/book" && atOnlineLimit(state, action.guest.phone, at)) return state;
   const service = bookableServices(state).find(s => s.id === action.serviceId);
-  if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
+  if (!service || !service.staffIds.includes(action.staffId) || !action.guest.name.trim() || !withinGuestLimits(action.guest) || !isMobilePhone(action.guest.phone) || !isFree(state, action.staffId, action.date, action.start, needOf(service))) return state;
   const publicBooking = action.type === "online/book" ? action.public : undefined;
+  // A guest's name is personal data the server's erasure does not cover yet, so a salon's public page cannot send one.
+  const { visitFor } = action.guest;
+  if (visitFor !== undefined && (publicBooking || typeof visitFor !== "string" || !isVisitForValid(visitFor))) return state;
   if (publicBooking && (publicBooking.slug !== state.salon.slug || !jsonEqual(publicBooking.terms, acceptedTerms(state, service)))) return state;
   const terms = quote(state.cancellationPolicy, service, state.localization.currency, publicBooking ? true : !findCustomerByPhone(state, action.guest.phone));
   if (action.type === "online/book") {
@@ -378,11 +385,16 @@ function payHold(state: DemoState, action: Extract<DemoAction, { type: "online/p
   return confirmOnline(released, { ...hold, guest }, service, { terms: hold.terms, deposit: { id, method: action.method } }, timingOf(hold));
 }
 
+/** The guest's name whenever the booker chose "for someone else": two people can share a name. Absent means the visit is the booker's own. */
+function visitForOf(guest: OnlineGuest): string | undefined {
+  return guest.visitFor === undefined ? undefined : visitForName(guest.visitFor) || undefined;
+}
+
 type OnlineConfirmation = Pick<OnlineRequest, "guest" | "staffId" | "date" | "start"> & { notice: OnlineNotice; publicRef?: string };
 
 function confirmOnline(state: DemoState, action: OnlineConfirmation, service: DemoState["services"][number], protection: BookingProtection, timing?: VisitTiming): DemoState {
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId, false);
-  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online", contactEmail: action.guest.email?.trim(), publicRef: action.publicRef }, protection, timing);
+  const created = createBooking(withCustomer, { customerId: customer.id, serviceId: service.id, staffId: action.staffId, date: action.date, start: action.start, source: "online", contactEmail: action.guest.email?.trim(), publicRef: action.publicRef, visitFor: visitForOf(action.guest) }, protection, timing);
   if (!created) return state;
   const bookingId = created.booking.id;
   const notified = reduce(created.state, {
@@ -404,7 +416,7 @@ function confirmOnline(state: DemoState, action: OnlineConfirmation, service: De
 
 function joinWaitlist(state: DemoState, action: Extract<DemoAction, { type: "online/waitlist" }>): DemoState {
   const service = bookableServices(state).find((s) => s.id === action.serviceId);
-  if (!service || !action.guest.name.trim() || !isMobilePhone(action.guest.phone)) return state;
+  if (!service || !action.guest.name.trim() || !withinGuestLimits(action.guest) || !isMobilePhone(action.guest.phone)) return state;
   if (action.staffId && !service.staffIds.includes(action.staffId)) return state;
   const { state: withCustomer, customer } = ensureCustomer(state, action.guest, action.guest.at.date, service.category, action.staffId ?? service.staffIds[0], true);
   return reduce(withCustomer, {
