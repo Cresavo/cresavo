@@ -238,9 +238,21 @@ describe("routines", () => {
     expect(dueRun({ ...routine, lastRun: "2026-11-16 08:00" }, { today: "2026-11-18", minutes: 0 })).toBeNull();
     expect(dueRun({ ...routine, enabled: false }, { today: "2026-11-23", minutes: 9 * 60 })).toBeNull();
     let state = reduce(base, { type: "routine/add", routine });
-    state = reduce(state, { type: "routine/toggle", id: routine.id, at: "2026-11-16 09:00" });
-    state = reduce(state, { type: "routine/toggle", id: routine.id, at: "2026-11-30 09:00" });
+    state = reduce(state, { type: "routine/toggle", id: routine.id, at: "2026-11-16 09:00" }, Date.parse("2026-11-16T08:00:00Z"));
+    state = reduce(state, { type: "routine/toggle", id: routine.id, at: "2026-11-30 09:00" }, Date.parse("2026-11-30T08:00:00Z"));
     expect(dueRun(state.routines[0], { today: "2026-11-30", minutes: 10 * 60 })).toBeNull();
+  });
+
+  it("never keeps a run stamp later than the store's clock from switching on or adding a routine", () => {
+    // 2026-11-16 09:00 in Stockholm (08:00 UTC).
+    const now = Date.parse("2026-11-16T08:00:00Z");
+    const routine = { ...newRoutine("monday-reminders", { today: "2026-11-09", minutes: 7 * 60 }), lastRun: "2030-01-01 08:00" };
+    const added = reduce(base, { type: "routine/add", routine }, now);
+    expect(added.routines[0].lastRun).toBe("2026-11-16 09:00");
+    const off = reduce(added, { type: "routine/toggle", id: routine.id, at: "2026-11-16 09:00" }, now);
+    const on = reduce(off, { type: "routine/toggle", id: routine.id, at: "2030-01-01 08:00" }, now);
+    expect(on.routines[0].lastRun).toBe("2026-11-16 09:00");
+    expect(dueRun(on.routines[0], { today: "2026-11-23", minutes: 8 * 60 })).toBe("2026-11-23 08:00");
   });
 
   it("stamps a run only for the latest due slot by the store's clock, so a fast client clock cannot silence later runs", () => {

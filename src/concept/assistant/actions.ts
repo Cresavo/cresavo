@@ -2,7 +2,7 @@ import { sendDemoMessage } from "../connections/demo";
 import type { DateKey, DemoState } from "../data/types";
 import { alreadyRemembered, memoryRejection, type NewMemory } from "./memory";
 import { salonClock } from "../tools/clock";
-import { latestSlot, type Routine } from "./routines";
+import { latestSlot, slotKey, type Routine } from "./routines";
 
 // Store actions for the assistant's memory, routines and the texts it drafts.
 // The memory filter runs here too, so nothing the filter rejects is ever
@@ -26,6 +26,13 @@ export type AssistantAction =
   | { type: "routine/ran"; id: string; at: string }
   | { type: "customers/message"; texts: OutgoingText[]; at: { date: DateKey; time: number } };
 
+/** A run stamp from the client, never later than the store's clock: a future stamp would silence the routine's next runs. */
+function stampAt(at: string, now: number): string {
+  const clock = salonClock(new Date(now));
+  const current = slotKey(clock.today, clock.minutes);
+  return at > current ? current : at;
+}
+
 export function applyAssistant(state: DemoState, action: AssistantAction, now: number): DemoState {
   switch (action.type) {
     case "memory/add": {
@@ -42,12 +49,14 @@ export function applyAssistant(state: DemoState, action: AssistantAction, now: n
     case "memory/forget":
       return state.memory.some((m) => m.id === action.id) ? { ...state, memory: state.memory.filter((m) => m.id !== action.id) } : state;
     case "routine/add":
-      return state.routines.some((r) => r.id === action.routine.id) ? state : { ...state, routines: [...state.routines, action.routine] };
+      return state.routines.some((r) => r.id === action.routine.id)
+        ? state
+        : { ...state, routines: [...state.routines, { ...action.routine, lastRun: stampAt(action.routine.lastRun, now) }] };
     case "routine/toggle":
       return {
         ...state,
         // Switching on starts from now, so a run that was missed while off is not replayed.
-        routines: state.routines.map((r) => (r.id === action.id ? { ...r, enabled: !r.enabled, lastRun: r.enabled ? r.lastRun : action.at } : r)),
+        routines: state.routines.map((r) => (r.id === action.id ? { ...r, enabled: !r.enabled, lastRun: r.enabled ? r.lastRun : stampAt(action.at, now) } : r)),
       };
     case "routine/ran": {
       // Only the routine's latest due slot by the store's clock counts: a stamp from a fast client clock would silence its later runs.
