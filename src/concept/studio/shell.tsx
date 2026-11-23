@@ -131,8 +131,8 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
       data-help={item.href}
       aria-current={active ? "page" : undefined}
       className={cx(
-        "flex min-h-target items-center gap-3 rounded-md px-3 text-body transition-colors",
-        active ? "studio-nav-active bg-surface-2 font-semibold text-text" : "text-text-secondary hover:bg-surface-2 hover:text-text",
+        "studio-nav-link flex min-h-target items-center gap-3 rounded-sm px-3 text-body transition-colors",
+        active ? "studio-nav-active font-semibold" : "text-text-secondary hover:text-text",
       )}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
