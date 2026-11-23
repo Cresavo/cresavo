@@ -63,7 +63,7 @@ describe("owner login and sessions", () => {
     const result = await signup("session");
     if (!result.ok) throw new Error("sign-up failed");
     const session = await openOwnerSession(result.identity);
-    expect(await ownerFromCookie(session?.value)).toEqual({ accountId: result.identity.id, email: email("session"), tenantId: result.tenantId, mfaEnabled: false });
+    expect(await ownerFromCookie(session?.value)).toEqual({ accountId: result.identity.id, email: email("session"), tenantId: result.tenantId, mfaEnabled: false, credentialVersion: 1 });
     await closeOwnerSession(session?.value);
     expect(await ownerFromCookie(session?.value)).toBeNull();
   });

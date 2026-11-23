@@ -6,7 +6,8 @@ import { openSlots } from "../booking/suggest";
 import { publicName, recentReviews } from "../booking/reviews";
 import { salonClock } from "../tools/clock";
 import type { Goal } from "./goals";
-import { isEngineStyle, POSTER_IMAGES } from "./poster-layout";
+import { isEngineStyle, POSTER_IMAGES, usesPhoto } from "./poster-layout";
+import { MEDIA_ID, ownerMediaUrl } from "../../lib/media/limits";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { CHANNELS, cleanSignOff } from "./channels";
 import { listServices, offerText, rulesCopy } from "./copy";
@@ -41,6 +42,15 @@ export interface Draft extends CampaignPrefill {
  * A new campaign. With `last`, the poster starts from the owner's latest one: its style,
  * text size and photo crop, so the choices they keep making need not be made again.
  */
+/**
+ * A draft that starts with a library photo ("Use in campaign" on the Photos page, `?photo=<id>`). A style
+ * without a photo becomes Full photo, so the chosen photo shows. Anything that is not a library id is ignored.
+ */
+export function withLibraryPhoto(draft: Draft, id: string | null | undefined): Draft {
+  if (!id || !MEDIA_ID.test(id)) return draft;
+  return { ...draft, style: usesPhoto(draft.style) ? draft.style : "fullphoto", posterEdits: { ...draft.posterEdits, image: ownerMediaUrl(id) } };
+}
+
 export function newDraft(prefill: CampaignPrefill, last?: CampaignPoster, signOff?: string): Draft {
   const posterEdits: Draft["posterEdits"] = {
     ...(last?.textSize && { textSize: last.textSize }),

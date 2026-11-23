@@ -112,3 +112,16 @@ commits = ["97b53cb0c2d61344c533f25a172b3f6603f09e67"]
 paths = ['''^tests/log\.test\.ts$''']
 regexTarget = "line"
 regexes = ['''task: "token=sk-secret-123456"''']
+
+# S3 adapter test (photo library, 2026-11-23): invented credentials for an
+# in-test fake S3 server that checks SigV4 signatures. The values say so
+# ("AKIDFICTIONAL", "fictional-secret-0123..."), have no real AWS format and
+# were written in a sandbox with no cloud credentials. Scoped to the commit
+# that introduced them AND this file AND this literal.
+[[allowlists]]
+description = "Fictional S3 secret in the media adapter test"
+condition = "AND"
+commits = ["3c70fa0fd0c868d943e5c244131d1d3bcff7e8e6"]
+paths = ['''^tests/media-s3\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''const SECRET = "fictional-secret-0123456789abcdefghijklmnop";''']

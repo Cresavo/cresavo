@@ -5,9 +5,9 @@
  * booking page's theme CSS need it, and a nonce does not cover attributes.
  */
 
-/** The OAuth consent handler sends its own narrower policy. */
+/** The OAuth consent handler and the photo library's picture responses (src/lib/media/respond.ts) send their own narrower policy. */
 export function cspExempt(pathname: string): boolean {
-  return /^\/oauth\/authorize\/?$/.test(pathname);
+  return /^\/oauth\/authorize\/?$/.test(pathname) || /^\/api\/(?:owner\/media\/[^/]+|public\/media\/[^/]+\/[^/]+)\/?$/.test(pathname);
 }
 
 // The page editor frames the booking page on its own origin; only the widget may be embedded elsewhere.
