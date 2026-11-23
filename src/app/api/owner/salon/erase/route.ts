@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionOwner } from "@/lib/owner-http";
 import { id } from "@/lib/owner-actions/primitives";
+import { salonForBrowser } from "@/lib/owner-journals";
 import { ownerStore } from "@/lib/owner-store";
 import { findErasable } from "@/concept/customers/erase";
 import { fullName } from "@/concept/selectors";
@@ -32,9 +33,9 @@ export function POST(request: NextRequest) {
     const target = current && findErasable(current.state, body.data.customerId);
     if (target && fullName(target).trim().toLowerCase() !== body.data.name.trim().toLowerCase()) return ownerError("mismatch", 409);
     const result = await store.eraseSubject(owner.tenantId, body.data.customerId, { actor: "owner", source: "button" });
-    if (!result.ok) return ownerError(result.reason, result.reason === "conflict" ? 409 : 404);
+    if (!result.ok) return ownerError(result.reason, result.reason === "conflict" ? 409 : result.reason === "unavailable" ? 503 : 404);
     const snapshot = await store.load(owner.tenantId);
     if (!snapshot) return ownerError("not_found", 404);
-    return ownerOk({ state: snapshot.state, version: snapshot.version, pendingPayments: result.pendingPayments, inFlightMessages: result.inFlightMessages });
+    return ownerOk({ state: salonForBrowser(snapshot.state), version: snapshot.version, pendingPayments: result.pendingPayments, inFlightMessages: result.inFlightMessages });
   });
 }

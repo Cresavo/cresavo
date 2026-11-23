@@ -6,7 +6,8 @@ import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwn
 import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
 import { ownerAction, ownerStore } from "@/lib/owner-store";
-import { SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
+import { JOURNALS_UNAVAILABLE, SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
+import { journalsOnServer, salonForBrowser } from "@/lib/owner-journals";
 import { checkPageLogo, PageLogoGone, publishPageLogo } from "@/lib/media/library";
 
 const bodySchema = z.object({
@@ -31,6 +32,8 @@ export function POST(request: NextRequest) {
     if (body.success && actionTooLarge(body.data.action)) return ownerError("too_large", 413);
     const action = body.success ? ownerAction(body.data.action) : null;
     if (!body.success || !action) return ownerError("invalid", 400);
+    // With server-side journals, journal text is only accepted by /api/owner/journals (its own limits).
+    if (journalsOnServer() && (action.type === "journal/add" || action.type === "journal/edit")) return ownerError("journal_route", 400);
     const store = ownerStore();
     // The page's logo: a library logo of this business, published in the same transaction as the save.
     const logo = action.type === "page/set" ? action.page.theme?.logo ?? null : undefined;
@@ -48,7 +51,8 @@ export function POST(request: NextRequest) {
       if (error instanceof PageLogoGone) return ownerError("logo_unknown", 409);
       throw error;
     }
+    if (!result.ok && result.detail === JOURNALS_UNAVAILABLE) return ownerError(JOURNALS_UNAVAILABLE, 503);
     if (!result.ok) return ownerError(result.detail === SLUG_TAKEN ? SLUG_TAKEN : result.reason, STATUS[result.reason]);
-    return withRenewedSession(ownerOk({ state: result.state, version: result.version, replayed: result.replayed }), request);
+    return withRenewedSession(ownerOk({ state: salonForBrowser(result.state), version: result.version, replayed: result.replayed }), request);
   });
 }
