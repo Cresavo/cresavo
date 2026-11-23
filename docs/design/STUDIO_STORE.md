@@ -402,11 +402,22 @@ simulated delivery, and refusal of oversized writes.
 
 Prepared, not enforced. Migration `20261122160000_store_rls_policies` creates
 only what the code needs whether or not RLS is on: the fixed functions the
-effect poller and the sweeps work through. They are closed to PUBLIC, name no
+effect poller, the sweeps and the booking address lookup work through, and two
+outbox columns (the claim token and a late confirmation). They are closed to PUBLIC, name no
 role and need none, so the migration runs on a fresh cluster without any
 `cresavo_*` role (developer volumes, CI, a first deploy). The policies belong to
 the operator step `prisma/grants/rls-enable.sql`. Until it runs, isolation rests
 on the code's `tenant_id` conditions alone, as before.
+
+**Threat model.** Row-level security here is defence in depth against query
+bugs, not against a compromised application credential. The web login sets
+`cresavo.tenant_id` itself and may set it to any tenant; a policy cannot tell a
+correct tenant from a forged one. What RLS catches is a query that forgets its
+tenant condition, or a code path that never enters a scope: those see and
+change nothing. A compromised web login still reaches every tenant's rows
+through its own scope. What the roles and functions add on top is that no
+login reaches another role's work: the web login cannot act as the poller or the
+sweeper, and the poller and the sweeper have no table privileges at all.
 
 `prisma/grants/bootstrap-roles.sql` creates the five NOLOGIN group roles. An
 admin runs it before `roles.sql` (which repeats the same block) and before
@@ -421,11 +432,20 @@ next request (`tests/integration/store-rls.test.ts` checks this).
 | Scope | Who | What it allows |
 | --- | --- | --- |
 | `cresavo.tenant_id` | `cresavo_app`, `cresavo_eraser` (policy `store_tenant`) | Every operation on that tenant's rows; a new or changed row must belong to it. Used by apply, load, history, erasure, sign-up, owner pages, `effects:reconcile --tenant`, and a web worker's drain after its commit, which delivers only the tenant it wrote. |
-| `cresavo.cross_tenant = 'outbox'` | `cresavo_outbox` (`npm run effects:drain`), through the `store_outbox_*` functions only | Claim the next due effect. Settle, retry or fail only the effect a claim names, by its id and attempt, and only its delivery fields. Read the salon a claimed message is for as a view: the salon, its settings, services and staff, the one booking and its customer, every other list empty. No table privilege at all. |
-| `cresavo.cross_tenant = 'sweep'` | `cresavo_sweeper` (`npm run store:sweep`), through the `store_sweep_*` functions only | The retention sweeps, with their cutoffs fixed inside the functions: expired keys and sandboxes (with their rows), a demo's log after 168 hours, outbox bodies after 90 days, redaction after 13 months, journal reads after 24 months. A clock the sweeper passes can only make a sweep do less. No table privilege at all. |
+| `cresavo.cross_tenant = 'outbox'` | `cresavo_outbox` (`npm run effects:drain`), through the `store_outbox_*` functions only | Claim the next due effect; the claim gets a random token. Every later read and write needs that exact token and finds nothing once the claim is over (settled, retried, or replaced by another claim): it settles, retries or fails only that effect. Each write takes typed values for its own delivery fields (a reason code, a deferral, an error code, the frozen message's parts), never a JSON patch. Read the salon a claimed message is for as a view: the salon's name, address, phone, e-mail and booking address, its language settings and cancellation terms, the exact booking the stored reference names, that booking's service, its customer's first name and contact, and its staff's first name. No other customer or booking, no staff phone or absence, no journal. No table privilege at all. |
+| `cresavo.cross_tenant = 'sweep'` | `cresavo_sweeper` (`npm run store:sweep`), through the `store_sweep_*` functions only | The retention sweeps, with their cutoffs fixed inside the functions: expired keys and sandboxes (with their rows), a demo's log after 168 hours, outbox bodies after 90 days, redaction after 13 months, journal reads after 24 months, rate-limit rows a day after they expire, and owner sign-in lock state and reset quotas (`acct:`, `strike:`, `lock:`, `mbx:`) only once expired, so an active lock-out is never lifted. A clock the sweeper passes can only make a sweep do less. Each batch is 1 to 10000 rows. No privilege on the store tables or the rate-limit table. |
 | `cresavo.sandbox_key` | `cresavo_app` | Read the one sandbox row whose key is the full `sbx_` + 32-hex hash of the token; the transaction then switches to the tenant. |
-| `cresavo.salon_slug` | `cresavo_app` | Read the one salon row with that booking address (unique by `tenant_state_salon_slug_key`). |
 | none | `cresavo_support` | Read its diagnostic columns across tenants; the column grants keep documents and payloads out. |
+
+A booking address resolves through `store_salon_by_slug`, which returns the
+tenant id and nothing of the salon's row; the public page then reads the salon in
+that tenant's scope, every condition checked again in that one read. The message
+sink checks a frozen booking link against the booking before every send: its
+scheme, host and path must equal what `bookingLinkBase` derives from the
+booking, or the message fails as `link_mismatch` for a person and no token is
+attached. A provider confirmation that arrives for a claim whose row was settled
+meanwhile (an erasure cancelled it, or its timeout failed it) leaves the status
+alone and is kept in `late_confirmation`.
 
 The functions are SECURITY DEFINER, owned by the table owner (whose
 `store_owner` policy keeps every row under FORCE), with
@@ -435,19 +455,16 @@ is looked up by name then, so a role that does not exist simply grants nothing.
 `studio-store.sql` grants EXECUTE on the outbox functions to `cresavo_app`, and
 `roles.sql` grants the outbox functions to `cresavo_outbox` and the sweep
 functions to `cresavo_sweeper`; the table owner, which owns them, may always
-call them (development and tests). The outbox functions accept the poller in the
+call them (development and tests). Every check is `IS TRUE`, so an unset setting
+never passes. Expiry, leases and backoff are measured from the database clock
+(the table owner may pass its own), leases are held between 1 second and an hour
+and a retry is never set more than two hours ahead. The outbox functions accept the poller in the
 outbox scope, and the app or the poller's sink in a tenant's own scope. The
 sweep functions accept only the sweeper in the sweep scope. The table owner may
 call either kind; tests and operators replay a fixed clock that way. Every
-write needs a claim's id and attempt, which only `store_outbox_claim` hands
+write needs a claim's id and token, which only `store_outbox_claim` hands
 out. The `PERSONAL_FIELDS` map in the redaction function is kept identical to
 `src/concept/store/erasure.ts` by `tests/store-rls-files.test.ts`.
-
-A setting is not a boundary against arbitrary SQL from a login: within its own
-role, a login can set any tenant. What the roles and functions add is that no
-login reaches another role's work. What RLS adds is that a query which forgets
-its tenant condition, or a scope that is never entered, sees and changes
-nothing.
 
 Notifications: the `tenant_changes` channel is readable and writable by every
 login, so a commit sends only an opaque wake-up tag, an HMAC of the tenant id
@@ -469,7 +486,7 @@ Order, once per environment, after the application code that sets scopes is
 deployed:
 
 1. `npx prisma migrate deploy` (creates the functions; nothing else changes), then `bootstrap-roles.sql` as an admin, once per cluster.
-2. `roles.sql`, `studio-store.sql`, `erase-subject.sql` and one login per group role (`cresavo_outbox_login` for `effects:drain`), as in the header of `roles.sql`. Then run `verify-roles.sql` with all four logins. It compares every effective table, column and function privilege of each login with a complete allowlist, and checks what each login can SET ROLE to, inherit or administer.
+2. `roles.sql`, `studio-store.sql`, `erase-subject.sql` and one login per group role (`cresavo_outbox_login` for `effects:drain`), as in the header of `roles.sql`. Then run `verify-roles.sql` with all four logins. It compares every effective table, column and function privilege of each login, and of every role it can SET ROLE to, with a complete allowlist, flags any of them that can create objects in the functions' schema, and checks what each login can SET ROLE to, inherit or administer.
 3. `psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql` as the table owner, in one transaction: it refuses unless the five roles exist, locks the four tables in ACCESS EXCLUSIVE mode, creates the policies (replacing an earlier copy of each), refuses unless the policies on the tables are then exactly the expected set (names, commands, roles and predicates, by digest of PostgreSQL 16's rendering with the default search_path; a policy added by hand stops it), and enables and forces RLS.
 4. `psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql`. Every table must be enabled and forced, with nothing missing, unexpected or changed, and there must be no problem rows. verify-rls finds the runtime logins itself, transitively through memberships that grant INHERIT or SET. An ADMIN-only grant, such as a CREATEROLE creator's, does not count. None of them, and not the erase definer, may be or SET ROLE to a superuser, a BYPASSRLS role or a table's owner, inherit ownership, or hold ADMIN OPTION.
 5. Rollback at any time: `prisma/grants/rls-disable.sql` turns RLS off and drops the policies again, leaving the tables as the migrations made them.

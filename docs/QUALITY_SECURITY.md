@@ -107,7 +107,11 @@ Security
       inside). Enforcement is one SQL step
       away (`prisma/grants/rls-enable.sql`, rollback `rls-disable.sql`, state
       `verify-rls.sql`; order in docs/design/STUDIO_STORE.md, "Row-level
-      security"). Still open: running that step in production. Until then
+      security"). Threat model: RLS here is defence in depth against query
+      bugs (a missing tenant condition, a code path without a scope), not
+      against a compromised web credential, which sets its own tenant and so
+      still reaches every tenant; the separate poller and sweeper roles have
+      no table access at all. Still open: running that step in production. Until then
       isolation rests on the application's `tenant_id` conditions, which these
       tests guard.
 - [ ] Roles and permissions (owner, staff, support with time-limited access).
