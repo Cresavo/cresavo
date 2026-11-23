@@ -185,8 +185,9 @@
 /* "soft": borderless cards in a tint of the accent, with larger headings. The
    practical facts (hours, address) are flat lists, so not every block has the
    same silhouette. */
+/* Half the accent tint: secondary text keeps 4.5:1 on it (tests/concept-page-design.test.ts). */
 .booking-theme[data-style="soft"] .ui-card:not([data-booking-flow] .ui-card) {
-  background: var(--ui-action-bg);
+  background: color-mix(in srgb, var(--ui-action-bg) 50%, var(--ui-surface));
   box-shadow: none;
 }
 

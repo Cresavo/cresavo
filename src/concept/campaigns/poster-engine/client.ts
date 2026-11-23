@@ -155,7 +155,7 @@ export const qrTarget = (link: string | undefined, slug: string, origin: string 
  */
 export const qrFor = (format: PosterFormat, social: boolean, link: string | undefined, slug: string, origin: string | undefined) =>
   format === "window" || social ? qrTarget(link, slug, origin) : undefined;
-const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.elegant.heading]);
+const SERIF_FONTS = new Set<string>([FONT_PAIRS.classic.heading, FONT_PAIRS.elegant.heading, FONT_PAIRS.couture.heading]);
 
 /**
  * A library photo the renderer may read itself (`media:<id>`): the owner's untouched photo, unless a tone is

@@ -43,6 +43,7 @@ export function PageProvider({ children }: { children: ReactNode }) {
   }, [fromServer]);
   const design = useSearchParams()?.get(DESIGN_PARAM);
   const saved = state?.page ?? DEFAULT_PAGE;
-  const shown = useMemo(() => (isTemplateId(design) ? applyTemplate(saved, design) : saved), [design, saved]);
+  // The server's salon carries only what its saved layout shows and its CSS already scoped, so a design is not previewed on it either.
+  const shown = useMemo(() => (!fromServer && isTemplateId(design) ? applyTemplate(saved, design) : saved), [fromServer, design, saved]);
   return <PageContext.Provider value={(!fromServer && draft) || shown}>{children}</PageContext.Provider>;
 }

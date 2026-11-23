@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Save, Undo2 } from "lucide-react";
+import { jsonEqual } from "../../data/json-equal";
 import { t } from "../../i18n";
 import { normalizePage, type PageConfig } from "../../page/config";
 import { applyTemplate } from "../../page/templates";
@@ -27,7 +28,8 @@ export function PageEditor() {
   const [draft, setDraft] = useState<PageConfig>(state.page);
   const [view, setView] = useState<"edit" | "preview">("edit");
   const saved = JSON.stringify(state.page);
-  const dirty = JSON.stringify(normalizePage(draft)) !== saved;
+  // Compared by value: a migrated page can hold the same theme with its keys in another order.
+  const dirty = !jsonEqual(normalizePage(draft), state.page);
   const change = (patch: Partial<PageConfig>) => setDraft((current) => ({ ...current, ...patch }));
   const theme = (patch: Partial<PageTheme>) => setDraft((current) => ({ ...current, theme: { ...current.theme, ...patch } }));
   const hiddenReview = state.modules.reviews ? -1 : draft.sections.findIndex((section) => section.kind === "reviews");

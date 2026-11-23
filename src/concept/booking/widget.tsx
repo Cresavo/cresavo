@@ -24,7 +24,8 @@ export function BookingWidget() {
   const [repeat, setRepeat] = useState<Booking>();
   if (!state) return null;
   const booking = state.bookings.find(booking => booking.id === bookedId);
-  return <div className="mx-auto max-w-2xl space-y-5">
+  // The whole widget is the booking flow: section styles (tenant-theme.css) leave its cards and headings alone.
+  return <div data-booking-flow className="mx-auto max-w-2xl space-y-5">
     <PageHeader title={t("widget.title", { salon: state.salon.name })} subtitle={t("widget.help")} />
     {booking ? <Card className="space-y-4 p-5">
       <h2 className="text-h2 font-semibold text-action">{t("booking.confirmation.title")}</h2>

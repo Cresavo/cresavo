@@ -20,7 +20,8 @@ export function TemplatePicker({ page, onPick }: Props) {
       <ul className="grid grid-cols-2 gap-3">
         {TEMPLATE_IDS.map((id) => {
           const name = t(`page.template.${id}.name`);
-          const { className, ...theme } = themeAttributes(applyTemplate(DEFAULT_PAGE, id).theme);
+          // Without data-scheme: that attribute sets the whole document's colour scheme (tenant-theme.css), and the dark design would turn the studio dark. The swatch keeps its own through its style.
+          const { className, "data-scheme": scheme, style, ...theme } = themeAttributes(applyTemplate(DEFAULT_PAGE, id).theme);
           return (
             <li key={id}>
               <button
@@ -29,7 +30,7 @@ export function TemplatePicker({ page, onPick }: Props) {
                 onClick={() => onPick(id)}
                 className={cx("ui-press block h-full w-full overflow-hidden rounded-md bg-surface text-left ring-inset", current === id ? "ring-2 ring-action" : "hover:bg-surface-2")}
               >
-                <span {...theme} className={cx(className, "flex min-h-20 items-end justify-between gap-2 p-3")}>
+                <span {...theme} style={{ ...style, colorScheme: scheme }} className={cx(className, "flex min-h-20 items-end justify-between gap-2 p-3")}>
                   <span className="studio-template-name text-h2 font-semibold leading-none">{name}</span>
                   <span className="rounded-sm bg-action px-2 py-1 text-xs font-semibold text-on-action">{t("booking.book")}</span>
                 </span>

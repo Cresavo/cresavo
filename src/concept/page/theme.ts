@@ -19,6 +19,12 @@ export const FONT_PAIRS = {
   friendly: { heading: `var(--font-outfit), ${INTER}`, body: `var(--font-outfit), ${INTER}` },
 } as const;
 
+/**
+ * A font stack for an image that is drawn and exported on its own (a poster): without the web font
+ * the layouts load, which a standalone SVG or PNG cannot carry, so preview and export show the same face.
+ */
+export const standaloneFont = (stack: string): string => stack.replace(/^var\(--font-[a-z]+\),\s*/, "");
+
 export type FontPairId = keyof typeof FONT_PAIRS;
 export const FONT_PAIR_IDS = Object.keys(FONT_PAIRS) as FontPairId[];
 

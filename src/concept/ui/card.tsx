@@ -1,11 +1,12 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { cx } from "./cx";
 
+// `ui-card` marks a drawn card: the booking page's section styles (tenant-theme.css) restyle it.
 const surfaces = {
   /** A plain paper surface on the canvas: the default for lists and forms. No outline. */
-  paper: "rounded-lg bg-surface",
+  paper: "ui-card rounded-lg bg-surface",
   /** The one surface a screen is about: lifted off the canvas, no outline. */
-  raised: "studio-raised rounded-lg bg-surface",
+  raised: "ui-card studio-raised rounded-lg bg-surface",
   /** Content that sits straight on the canvas: no box and no rules, set apart by space alone. */
   flat: "",
 };

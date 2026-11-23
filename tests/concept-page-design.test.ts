@@ -17,7 +17,8 @@ import { changedAspects } from "@/concept/page/diff";
 import { resolveHost } from "@/concept/page/resolve";
 import { addSectionAfter } from "@/concept/page/sections";
 import { applyTemplate, isTemplateId, TEMPLATE_IDS, TEMPLATES, templateIdOf } from "@/concept/page/templates";
-import { FONT_PAIRS, PALETTES, PHOTOS } from "@/concept/page/theme";
+import { buildTokens, contrast, mix } from "@/concept/page/colour";
+import { FONT_PAIRS, PALETTES, PHOTOS, standaloneFont } from "@/concept/page/theme";
 
 const today = "2026-11-17";
 const clock = { today, minutes: 10 * 60 };
@@ -98,6 +99,23 @@ describe("ready-made designs", () => {
     const next = applyTemplate(own, "noir");
     expect(next.theme).toMatchObject({ logo, logoColors: ["#8a3b5c"], colors: PALETTES.ink, corners: "sharp" });
     expect(next).toMatchObject({ instagram: "salong.eko", css: "h1 { color: red }" });
+  });
+
+  it("keep secondary text and the accent readable on the soft style's tinted cards", () => {
+    // tenant-theme.css draws a soft card as half the accent tint over the surface.
+    for (const id of Object.keys(PALETTES) as (keyof typeof PALETTES)[]) {
+      const { tokens } = buildTokens(PALETTES[id]);
+      const card = mix(tokens.accentSoft, tokens.surface, 0.5);
+      expect(contrast(tokens.muted, card), `${id} muted`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(tokens.accent, card), `${id} accent`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(tokens.ink, card), `${id} text`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("give posters a heading font they can carry on their own", () => {
+    for (const id of Object.keys(FONT_PAIRS) as (keyof typeof FONT_PAIRS)[]) expect(standaloneFont(FONT_PAIRS[id].heading)).not.toContain("var(");
+    expect(standaloneFont(FONT_PAIRS.couture.heading)).toBe('"Didot", "Bodoni MT", Georgia, serif');
+    expect(standaloneFont(FONT_PAIRS.classic.heading)).toBe(FONT_PAIRS.classic.heading);
   });
 
   it("keep the owner's About section and text, after the team", () => {
