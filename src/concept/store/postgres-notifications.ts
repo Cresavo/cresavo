@@ -1,11 +1,23 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import pg from "pg";
 import type { Prisma } from "@prisma/client";
-import type { StoreChange, TenantId } from "./studio-store";
+import type { TenantId } from "./studio-store";
 import { assertDatabaseMode } from "../../../scripts/database.mjs";
+
+// Change notifications carry an opaque wake-up tag, never a tenant id or a
+// version: every database login may LISTEN on a channel and send to it. The tag
+// is an HMAC of the tenant id under the store secret, so only a process that
+// already subscribes to that tenant recognises it; the version is then read in
+// the tenant's own scope. A forged or replayed tag only causes that read.
 
 const CHANNEL = "tenant_changes";
 const RETRY_MS = 250;
+const TAG = /^[0-9a-f]{32}$/;
+
+/** The wake-up tag of a tenant: stable per tenant and secret, so it identifies nothing to other logins. */
+export function wakeTag(secret: string, tenantId: TenantId): string {
+  return createHmac("sha256", secret).update(`tenant-change:${tenantId}`).digest("hex").slice(0, 32);
+}
 
 interface Session {
   client: pg.Client;
@@ -20,7 +32,7 @@ export class PostgresNotifications {
 
   constructor(
     private readonly connectionString: string,
-    private readonly fanOut: (change: StoreChange) => void,
+    private readonly onWake: (tag: string) => void,
     private readonly onReady: () => void,
   ) {}
 
@@ -42,16 +54,15 @@ export class PostgresNotifications {
     client.on("end", reconnect);
     client.on("notification", ({ channel, payload }) => {
       if (this.session !== session || channel !== CHANNEL || !payload) return;
-      let change: { tenantId?: unknown; version?: unknown; sender?: unknown } | null;
+      let change: { tag?: unknown; sender?: unknown } | null;
       try {
         change = JSON.parse(payload);
       } catch {
         return;
       }
-      if (typeof change?.tenantId !== "string" || !change.tenantId ||
-          typeof change.version !== "number" || !Number.isSafeInteger(change.version) || change.version < 1) return;
+      if (typeof change?.tag !== "string" || !TAG.test(change.tag)) return;
       if (change.sender === this.sender) return;
-      this.fanOut({ tenantId: change.tenantId, version: change.version, effects: [] });
+      this.onWake(change.tag);
     });
     void (async () => {
       try {
@@ -82,8 +93,8 @@ export class PostgresNotifications {
   }
 }
 
-/** PostgreSQL releases this notification only if and when the transaction commits. */
-export async function notifyTenantChange(tx: Prisma.TransactionClient, tenantId: TenantId, version: number, sender?: string) {
-  const payload = JSON.stringify({ tenantId, version, sender });
+/** PostgreSQL releases this notification only if and when the transaction commits. `tag` is the tenant's `wakeTag`. */
+export async function notifyTenantChange(tx: Prisma.TransactionClient, tag: string, sender?: string) {
+  const payload = JSON.stringify({ tag, sender });
   await tx.$queryRaw`SELECT 1 FROM pg_notify(${CHANNEL}, ${payload})`;
 }

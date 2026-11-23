@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { scoped } from "@/concept/store/tenant-scope";
 import { db } from "../db";
 import { checkedKey, mediaKey, mediaStore, MediaStoreError, storeFor, type MediaStore } from "../media-store";
 import { MAX_PHOTOS, MAX_TENANT_MEDIA_BYTES, ownerMediaUrl, PUBLIC_LOGO_URL, publicLogoUrl, RESTORE_WINDOW_MS, type MediaKind } from "./limits";
@@ -186,10 +187,11 @@ export async function findLogo(id: string, sha256: string, options: MediaOptions
   const row = await client.mediaAsset.findFirst({ where: { id, sha256, kind: "logo", ...READY }, select: { ...STORED, publishedAt: true } });
   if (!row) return null;
   // The booking page's own conditions (loadPublicTenant): an active owner account and a salon that has not expired.
-  const used = row.publishedAt ? await client.$queryRaw<{ used: boolean }[]>`
+  // Read in the logo's own tenant scope (row-level security, src/concept/store/tenant-scope.ts).
+  const used = row.publishedAt ? await scoped(client, { tenant: row.tenantId }, (tx) => tx.$queryRaw<{ used: boolean }[]>`
     SELECT true AS used FROM tenant_state t JOIN owner_account a ON a.tenant_id = t.tenant_id
     WHERE t.tenant_id = ${row.tenantId} AND t.kind = 'salon' AND a.active AND (t.expires_at IS NULL OR t.expires_at > ${options.now ?? new Date()})
-      AND t.doc #>> '{page,theme,logo}' = ${publicLogoUrl(id, sha256)}` : [];
+      AND t.doc #>> '{page,theme,logo}' = ${publicLogoUrl(id, sha256)}`) : [];
   return { media: stored(client, row), published: used.length > 0 };
 }
 

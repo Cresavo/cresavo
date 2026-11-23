@@ -1,6 +1,7 @@
 import type { Locale } from "@/lib/locale";
 import { holidayCopy } from "../data/holidays";
 import type { DemoState, Service, Staff, StockItem } from "../data/types";
+import type { PageAbout } from "../page/about";
 import { getPack } from "../packs";
 import { translate, type MessageKey } from ".";
 import { en } from "./en";
@@ -20,6 +21,12 @@ const serviceKeys: Partial<Record<string, ServiceLabel>> = {
   "foot-calf-massage": "fixture.eko.service.footCalf",
 };
 
+/** The two demo treatments that come with a longer text behind "More info". */
+const detailsKeys: Partial<Record<string, MessageKey>> = {
+  "spa-foot-care": "fixture.eko.service.spa.details",
+  "classic-60": "fixture.eko.service.classic60.details",
+};
+
 function fixtureField(value: string, key: MessageKey, language: Locale): string {
   return value === translate("en", key) || value === translate("sv", key) ? translate(language, key) : value;
 }
@@ -29,7 +36,10 @@ export function serviceCopy(service: Service, language: Locale): Service {
   if (!key) return service;
   const name = fixtureField(service.name, `${key}.name`, language);
   const description = fixtureField(service.description, `${key}.description`, language);
-  return name === service.name && description === service.description ? service : { ...service, name, description };
+  const detailsKey = detailsKeys[service.id];
+  const details = service.details && detailsKey ? fixtureField(service.details, detailsKey, language) : service.details;
+  if (name === service.name && description === service.description && details === service.details) return service;
+  return { ...service, name, description, ...(details ? { details } : {}) };
 }
 
 function staffCopy(person: Staff, language: Locale): Staff {
@@ -86,6 +96,7 @@ export function salonCopy(state: DemoState, language: Locale): DemoState {
     ...state,
     categories,
     salon: { ...state.salon, tagline: fixtureField(state.salon.tagline, "fixture.eko.tagline", language) },
+    page: { ...state.page, about: { ...state.page.about, text: fixtureField(state.page.about.text, "fixture.eko.about", language) } },
     staff: state.staff.map((person) => staffCopy(person, language)),
     services: state.services.map((service) => serviceCopy(service, language)),
     retiredServices: state.retiredServices.map((service) => serviceCopy(service, language)),
@@ -95,6 +106,18 @@ export function salonCopy(state: DemoState, language: Locale): DemoState {
       reply: review.reply && lookupCopy(review.reply, reviewReply, language),
     } : review),
   };
+}
+
+/**
+ * The About text as it is stored when a page is saved from a translated view:
+ * the demo text in another language is the same text, so it stays as stored
+ * and the save is not an edit of it. The owner's own words are saved as typed.
+ */
+export function fixtureAbout(state: DemoState, about: PageAbout): PageAbout {
+  const stored = state.page.about?.text;
+  if (state.industry || state.pack !== eko.id || typeof stored !== "string" || about.text === stored) return about;
+  const copies = [translate("en", "fixture.eko.about"), translate("sv", "fixture.eko.about")];
+  return copies.includes(stored) && copies.includes(about.text) ? { ...about, text: stored } : about;
 }
 
 export function studioSalonCopy(state: DemoState, language: Locale): DemoState {

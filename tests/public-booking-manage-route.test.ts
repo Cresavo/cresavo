@@ -19,7 +19,7 @@ const REF = "0b7e2c1a-4d5f-4a6b-9c8d-1e2f3a4b5c6d";
 
 const query = vi.hoisted(() => vi.fn());
 const apply = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/db", () => ({ db: { $queryRaw: query } }));
+vi.mock("@/lib/db", async () => ({ db: (await import("./helpers/scoped-db")).withStoreScopes({ $queryRaw: query }) }));
 vi.mock("@/lib/owner-store", () => ({ ownerStore: () => ({ apply }) }));
 
 const base = createDemoState("2026-11-16");

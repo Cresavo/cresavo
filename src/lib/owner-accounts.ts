@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { createSalon, salonDraft, suggestedSlug } from "@/concept/onboarding/salon";
 import { checkSlug, SLUG_MAX } from "@/concept/page/slug";
+import { enterScope } from "@/concept/store/tenant-scope";
 import { salonClock } from "@/concept/tools/clock";
 import { db } from "./db";
 import { loginGuard } from "./owner-guard-store";
@@ -70,6 +71,7 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
     const salon = createSalon(salonClock(now).today, { ...draft, slug });
     try {
       const account = await db.$transaction(async (tx) => {
+        await enterScope(tx, { tenant: tenantId });
         await tx.tenantState.create({ data: { tenantId, kind: "salon", doc: salon as unknown as Prisma.InputJsonValue } });
         return tx.ownerAccount.create({ data: { email, passwordHash, tenantId }, select: { id: true, credentialVersion: true } });
       });

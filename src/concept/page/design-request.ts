@@ -32,6 +32,7 @@ const SECTION_WORDS: [SectionKind, RegExp][] = [
   ["map", /\b(map|location|opening hours|hours|find us|address)\b/],
   ["faq", /\b(faq|questions)\b/],
   ["instagram", /\binstagram\b/],
+  ["about", /\babout (?:us|section|text|the (?:salon|business|company))\b|\bour story\b/],
 ];
 
 const sectionIn = (text: string) => SECTION_WORDS.find(([, word]) => word.test(text))?.[0];
@@ -62,6 +63,7 @@ const SWEDISH_SECTIONS = [
   ["kartan?|öppettider(?:na)?|hitta hit", "map"],
   ["vanliga frågor", "faq"],
   ["instagram", "instagram"],
+  ["om oss|om företaget|om salongen", "about us"],
 ].map(([words, name]) => [new RegExp(`(?<![\\p{L}])(?:${words})(?![\\p{L}])`, "u"), name] as const);
 const swedishSection = (text: string) => SWEDISH_SECTIONS.find(([pattern]) => pattern.test(text))?.[1];
 

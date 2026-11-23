@@ -1,8 +1,9 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { parseMessageReference } from "../concept/booking/messages";
 import { ERROR_CODES } from "../concept/connections/core";
 import type { DeliveryState, OutboxEntry } from "../concept/connections/simulated/outbox";
 import { EFFECT_ERROR_CODES } from "../concept/store/effect-outbox";
+import { enterScope } from "../concept/store/tenant-scope";
 import type { ListedEffect, ReconcileAction } from "./effect-reconcile-cli";
 import { maskAddress } from "./effect-reconcile-cli";
 import { messageAddress, messageDeliverable } from "./message-sink";
@@ -147,6 +148,8 @@ export async function reconcileEffect(
   options: { tenantId: string; apply: boolean; forceMaybeDuplicate?: boolean },
 ): Promise<ReconcileResult> {
   const decision = await prisma.$transaction(async (tx) => {
+    // The named tenant's row-level security scope (src/concept/store/tenant-scope.ts): nothing of another tenant.
+    await enterScope(tx, { tenant: options.tenantId });
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${LOCK_TIMEOUT}, true)`;
     // The tenant first, in the order a deliverer takes them: the booking is judged after any erasure that finished.
     const [state] = action === "retry"
@@ -181,9 +184,20 @@ interface FailedRow {
   age_ms: number | null;
 }
 
-/** Failed and uncertain effects, per tenant in commit order, shown without content. */
+/**
+ * Failed and uncertain effects, per tenant in commit order, shown without content. With a tenant it runs in that
+ * tenant's scope; the list across tenants needs the schema owner once row-level security is on (the application
+ * login then sees none).
+ */
 export async function listUnsettled(prisma: PrismaClient, options: { tenantId?: string; limit: number }): Promise<ListedEffect[]> {
   const tenant = options.tenantId ?? null;
+  return prisma.$transaction(async (tx) => {
+    if (tenant !== null) await enterScope(tx, { tenant });
+    return listIn(tx, tenant, options.limit);
+  });
+}
+
+async function listIn(prisma: Prisma.TransactionClient, tenant: string | null, limit: number): Promise<ListedEffect[]> {
   const rows = await prisma.$queryRaw<FailedRow[]>`
     SELECT e.id, e.tenant_id, e.kind, e.attempts, e.payload,
       (extract(epoch FROM clock_timestamp()) * 1000 - coalesce(extract(epoch FROM a.at) * 1000, (e.payload #>> '{delivery,firstAttemptAt}')::float8))::float8 AS age_ms
@@ -191,7 +205,7 @@ export async function listUnsettled(prisma: PrismaClient, options: { tenantId?: 
     LEFT JOIN tenant_action a ON a.tenant_id = e.tenant_id AND a.seq = e.seq
     WHERE e.status = 'failed' AND (${tenant}::text IS NULL OR e.tenant_id = ${tenant})
     ORDER BY e.tenant_id, e.seq, e.n
-    LIMIT ${options.limit}`;
+    LIMIT ${limit}`;
   const tenants = [...new Set(rows.filter((row) => row.payload?.port === "email").map((row) => row.tenant_id))];
   const docs = new Map<string, unknown>();
   if (tenants.length) {

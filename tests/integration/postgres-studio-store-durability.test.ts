@@ -582,7 +582,7 @@ describe("erasure (item 7)", () => {
     }
   });
 
-  it("records a send that succeeded during the erasure as delivered, with the payload redacted", async () => {
+  it("records a send that succeeded during the erasure apart from the cancelled row, with the payload redacted", async () => {
     const id = tenantIds("erase-in-flight-ok");
     const state = createDemoState(today);
     await seed(id, state);
@@ -599,8 +599,10 @@ describe("erasure (item 7)", () => {
     release();
     expect(await sending).toMatchObject({ delivered: 1 });
     const [row] = await effectRows(id);
-    expect(row).toMatchObject({ status: "delivered" });
+    // The erasure settled it; the confirmation of the claim that was in flight is kept apart.
+    expect(row).toMatchObject({ status: "cancelled" });
     expect(row.payload).toMatchObject({ to: "[redacted]", body: "[redacted]" });
+    expect(await db.$queryRaw`SELECT late_confirmation ->> 'status' AS late FROM tenant_effect WHERE tenant_id = ${id}`).toEqual([{ late: "cancelled" }]);
   });
 
   it("refuses customer/erase through apply, so the log is never left unredacted", async () => {

@@ -136,7 +136,7 @@ describe("sections", () => {
     const withFaq = addSection(DEFAULT_SECTIONS, "faq");
     expect(withFaq.at(-1)).toEqual({ kind: "faq", variant: "open" });
     expect(addSection(withFaq, "faq")).toEqual(withFaq);
-    expect(availableKinds(DEFAULT_SECTIONS)).toEqual(["gallery", "faq", "instagram"]);
+    expect(availableKinds(DEFAULT_SECTIONS)).toEqual(["about", "gallery", "faq", "instagram"]);
     expect(availableKinds(withFaq)).not.toContain("faq");
   });
 

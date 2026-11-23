@@ -1,118 +1,342 @@
 -- Verifies the EFFECTIVE privileges of the real logins created for the roles of
--- roles.sql: has_*_privilege follows role membership, PUBLIC and inheritance, so
--- a grant that reached a login another way shows up here, and a second run of
--- roles.sql can be checked the same way. Run as any role that can read the
--- catalogs, after studio-store.sql and erase-subject.sql:
+-- roles.sql: has_*_privilege and pg_has_role follow role membership, PUBLIC and
+-- inheritance, so a grant that reached a login another way shows up here, and a
+-- second run of roles.sql can be checked the same way. Run as any role that
+-- can read the catalogs, after studio-store.sql and erase-subject.sql:
 --
 --   psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-roles.sql \
---     -v app_login=cresavo_app_login -v sweeper_login=cresavo_sweeper_login -v support_login=cresavo_support_login
+--     -v app_login=cresavo_app_login -v sweeper_login=cresavo_sweeper_login -v support_login=cresavo_support_login \
+--     -v outbox_login=cresavo_outbox_login
 --
--- Every row is a problem; no rows means the logins can do what they need and
--- nothing the least-privilege design forbids. verify-studio-store.sql checks
--- the audit log for the app login in more detail.
-WITH logins(kind, login) AS (VALUES ('app', :'app_login'::text), ('sweeper', :'sweeper_login'::text), ('support', :'support_login'::text)),
+-- Every row is a problem; no rows means each login can do exactly what the
+-- allowlist below says (the grants of roles.sql and studio-store.sql, kept
+-- equal by tests/ops-roles.test.ts) and execute exactly its functions, and
+-- none can reach a role that sees every row. verify-studio-store.sql checks
+-- the audit log for the app login in more detail; verify-rls.sql finds runtime
+-- logins that are not named here.
+WITH logins(kind, login) AS (VALUES ('app', :'app_login'::text), ('sweeper', :'sweeper_login'::text), ('support', :'support_login'::text),
+  ('outbox', :'outbox_login'::text)),
+-- Table-level grants have column '*'.
+allowed(kind, tbl, col, priv) AS (VALUES
+  ('app', 'AdminSession', '*', 'DELETE'),
+  ('app', 'AdminSession', '*', 'INSERT'),
+  ('app', 'AdminSession', '*', 'SELECT'),
+  ('app', 'AdminSession', '*', 'UPDATE'),
+  ('app', 'AdminUser', '*', 'SELECT'),
+  ('app', 'AdminUser', 'active', 'UPDATE'),
+  ('app', 'AgentApiEvent', '*', 'INSERT'),
+  ('app', 'AgentApiEvent', '*', 'SELECT'),
+  ('app', 'AgentApiKey', '*', 'INSERT'),
+  ('app', 'AgentApiKey', '*', 'SELECT'),
+  ('app', 'AgentApiKey', '*', 'UPDATE'),
+  ('app', 'AgentAuditEvent', '*', 'INSERT'),
+  ('app', 'AgentAuditEvent', '*', 'SELECT'),
+  ('app', 'AgentBooking', '*', 'INSERT'),
+  ('app', 'AgentBooking', '*', 'SELECT'),
+  ('app', 'AgentClient', '*', 'INSERT'),
+  ('app', 'AgentClient', '*', 'SELECT'),
+  ('app', 'AgentClient', 'active', 'UPDATE'),
+  ('app', 'AgentMandate', '*', 'INSERT'),
+  ('app', 'AgentMandate', '*', 'SELECT'),
+  ('app', 'AgentMandate', 'revokedAt', 'UPDATE'),
+  ('app', 'AgentProposal', '*', 'INSERT'),
+  ('app', 'AgentProposal', '*', 'SELECT'),
+  ('app', 'AgentProposal', '*', 'UPDATE'),
+  ('app', 'Booking', '*', 'INSERT'),
+  ('app', 'Booking', '*', 'SELECT'),
+  ('app', 'Booking', '*', 'UPDATE'),
+  ('app', 'BookingEvent', '*', 'INSERT'),
+  ('app', 'BookingEvent', '*', 'SELECT'),
+  ('app', 'Campaign', '*', 'INSERT'),
+  ('app', 'Campaign', '*', 'SELECT'),
+  ('app', 'Campaign', '*', 'UPDATE'),
+  ('app', 'CapacityDecision', '*', 'INSERT'),
+  ('app', 'CapacityDecision', '*', 'SELECT'),
+  ('app', 'Customer', '*', 'INSERT'),
+  ('app', 'Customer', '*', 'SELECT'),
+  ('app', 'Customer', '*', 'UPDATE'),
+  ('app', 'CustomerDataAction', '*', 'INSERT'),
+  ('app', 'CustomerDataAction', '*', 'SELECT'),
+  ('app', 'PairBudget', '*', 'DELETE'),
+  ('app', 'PairBudget', '*', 'INSERT'),
+  ('app', 'PairBudget', '*', 'SELECT'),
+  ('app', 'PairBudget', '*', 'UPDATE'),
+  ('app', 'PairClient', '*', 'DELETE'),
+  ('app', 'PairClient', '*', 'INSERT'),
+  ('app', 'PairClient', '*', 'SELECT'),
+  ('app', 'PairCode', '*', 'DELETE'),
+  ('app', 'PairCode', '*', 'INSERT'),
+  ('app', 'PairCode', '*', 'SELECT'),
+  ('app', 'PairCode', '*', 'UPDATE'),
+  ('app', 'PairGrant', '*', 'INSERT'),
+  ('app', 'PairGrant', '*', 'SELECT'),
+  ('app', 'PairGrant', '*', 'UPDATE'),
+  ('app', 'PairGrantToken', '*', 'DELETE'),
+  ('app', 'PairGrantToken', '*', 'INSERT'),
+  ('app', 'PairGrantToken', '*', 'SELECT'),
+  ('app', 'PairGrantToken', '*', 'UPDATE'),
+  ('app', 'PairProposal', '*', 'INSERT'),
+  ('app', 'PairProposal', '*', 'SELECT'),
+  ('app', 'PairProposal', '*', 'UPDATE'),
+  ('app', 'PairWorkspace', '*', 'DELETE'),
+  ('app', 'PairWorkspace', '*', 'INSERT'),
+  ('app', 'PairWorkspace', '*', 'SELECT'),
+  ('app', 'PairWorkspace', '*', 'UPDATE'),
+  ('app', 'PartnerBookingAttempt', '*', 'DELETE'),
+  ('app', 'PartnerBookingAttempt', '*', 'INSERT'),
+  ('app', 'PartnerBookingAttempt', '*', 'SELECT'),
+  ('app', 'RateLimitBucket', '*', 'DELETE'),
+  ('app', 'RateLimitBucket', '*', 'INSERT'),
+  ('app', 'RateLimitBucket', '*', 'SELECT'),
+  ('app', 'RateLimitBucket', '*', 'UPDATE'),
+  ('app', 'Service', '*', 'INSERT'),
+  ('app', 'Service', '*', 'SELECT'),
+  ('app', 'Service', '*', 'UPDATE'),
+  ('app', 'Staff', '*', 'INSERT'),
+  ('app', 'Staff', '*', 'SELECT'),
+  ('app', 'Staff', '*', 'UPDATE'),
+  ('app', 'WorkspaceRequest', '*', 'INSERT'),
+  ('app', 'WorkspaceRequest', '*', 'SELECT'),
+  ('app', 'media_asset', '*', 'INSERT'),
+  ('app', 'media_asset', '*', 'SELECT'),
+  ('app', 'media_asset', 'alt_text', 'UPDATE'),
+  ('app', 'media_asset', 'deleted_at', 'UPDATE'),
+  ('app', 'media_asset', 'published_at', 'UPDATE'),
+  ('app', 'media_asset', 'status', 'UPDATE'),
+  ('app', 'owner_account', '*', 'INSERT'),
+  ('app', 'owner_account', '*', 'SELECT'),
+  ('app', 'owner_account', '*', 'UPDATE'),
+  ('app', 'owner_mfa_challenge', '*', 'DELETE'),
+  ('app', 'owner_mfa_challenge', '*', 'INSERT'),
+  ('app', 'owner_mfa_challenge', '*', 'SELECT'),
+  ('app', 'owner_recovery_code', '*', 'DELETE'),
+  ('app', 'owner_recovery_code', '*', 'INSERT'),
+  ('app', 'owner_recovery_code', '*', 'SELECT'),
+  ('app', 'owner_recovery_code', 'used_at', 'UPDATE'),
+  ('app', 'owner_session', '*', 'DELETE'),
+  ('app', 'owner_session', '*', 'INSERT'),
+  ('app', 'owner_session', '*', 'SELECT'),
+  ('app', 'owner_session', '*', 'UPDATE'),
+  ('app', 'tenant_action', '*', 'INSERT'),
+  ('app', 'tenant_action', '*', 'SELECT'),
+  ('app', 'tenant_effect', '*', 'INSERT'),
+  ('app', 'tenant_effect', '*', 'SELECT'),
+  ('app', 'tenant_effect', '*', 'UPDATE'),
+  ('app', 'tenant_idempotency', '*', 'DELETE'),
+  ('app', 'tenant_idempotency', '*', 'INSERT'),
+  ('app', 'tenant_idempotency', '*', 'SELECT'),
+  ('app', 'tenant_idempotency', '*', 'UPDATE'),
+  ('app', 'tenant_state', '*', 'DELETE'),
+  ('app', 'tenant_state', '*', 'INSERT'),
+  ('app', 'tenant_state', '*', 'SELECT'),
+  ('app', 'tenant_state', '*', 'UPDATE'),
+  ('support', 'RateLimitBucket', 'count', 'SELECT'),
+  ('support', 'RateLimitBucket', 'expiresAt', 'SELECT'),
+  ('support', '_prisma_migrations', 'applied_steps_count', 'SELECT'),
+  ('support', '_prisma_migrations', 'finished_at', 'SELECT'),
+  ('support', '_prisma_migrations', 'id', 'SELECT'),
+  ('support', '_prisma_migrations', 'migration_name', 'SELECT'),
+  ('support', '_prisma_migrations', 'rolled_back_at', 'SELECT'),
+  ('support', '_prisma_migrations', 'started_at', 'SELECT'),
+  ('support', 'media_asset', 'byte_size', 'SELECT'),
+  ('support', 'media_asset', 'content_type', 'SELECT'),
+  ('support', 'media_asset', 'created_at', 'SELECT'),
+  ('support', 'media_asset', 'deleted_at', 'SELECT'),
+  ('support', 'media_asset', 'height', 'SELECT'),
+  ('support', 'media_asset', 'id', 'SELECT'),
+  ('support', 'media_asset', 'kind', 'SELECT'),
+  ('support', 'media_asset', 'published_at', 'SELECT'),
+  ('support', 'media_asset', 'status', 'SELECT'),
+  ('support', 'media_asset', 'storage', 'SELECT'),
+  ('support', 'media_asset', 'tenant_id', 'SELECT'),
+  ('support', 'media_asset', 'width', 'SELECT'),
+  ('support', 'owner_account', 'active', 'SELECT'),
+  ('support', 'owner_account', 'created_at', 'SELECT'),
+  ('support', 'owner_account', 'credential_version', 'SELECT'),
+  ('support', 'owner_account', 'id', 'SELECT'),
+  ('support', 'owner_account', 'tenant_id', 'SELECT'),
+  ('support', 'owner_account', 'totp_enabled_at', 'SELECT'),
+  ('support', 'owner_session', 'account_id', 'SELECT'),
+  ('support', 'owner_session', 'created_at', 'SELECT'),
+  ('support', 'owner_session', 'credential_version', 'SELECT'),
+  ('support', 'owner_session', 'expires_at', 'SELECT'),
+  ('support', 'owner_session', 'mfa_verified_at', 'SELECT'),
+  ('support', 'owner_session', 'revoked_at', 'SELECT'),
+  ('support', 'tenant_action', 'actor', 'SELECT'),
+  ('support', 'tenant_action', 'at', 'SELECT'),
+  ('support', 'tenant_action', 'redacted_at', 'SELECT'),
+  ('support', 'tenant_action', 'resulting_version', 'SELECT'),
+  ('support', 'tenant_action', 'seq', 'SELECT'),
+  ('support', 'tenant_action', 'source', 'SELECT'),
+  ('support', 'tenant_action', 'tenant_id', 'SELECT'),
+  ('support', 'tenant_effect', 'attempts', 'SELECT'),
+  ('support', 'tenant_effect', 'delivered_at', 'SELECT'),
+  ('support', 'tenant_effect', 'erased_at', 'SELECT'),
+  ('support', 'tenant_effect', 'id', 'SELECT'),
+  ('support', 'tenant_effect', 'kind', 'SELECT'),
+  ('support', 'tenant_effect', 'leased_until', 'SELECT'),
+  ('support', 'tenant_effect', 'n', 'SELECT'),
+  ('support', 'tenant_effect', 'next_attempt_at', 'SELECT'),
+  ('support', 'tenant_effect', 'seq', 'SELECT'),
+  ('support', 'tenant_effect', 'status', 'SELECT'),
+  ('support', 'tenant_effect', 'tenant_id', 'SELECT'),
+  ('support', 'tenant_idempotency', 'expires_at', 'SELECT'),
+  ('support', 'tenant_idempotency', 'seq', 'SELECT'),
+  ('support', 'tenant_idempotency', 'tenant_id', 'SELECT'),
+  ('support', 'tenant_state', 'expires_at', 'SELECT'),
+  ('support', 'tenant_state', 'kind', 'SELECT'),
+  ('support', 'tenant_state', 'tenant_id', 'SELECT'),
+  ('support', 'tenant_state', 'updated_at', 'SELECT'),
+  ('support', 'tenant_state', 'version', 'SELECT'),
+  ('sweeper', 'media_asset', '*', 'DELETE'),
+  ('sweeper', 'media_asset', 'created_at', 'SELECT'),
+  ('sweeper', 'media_asset', 'deleted_at', 'SELECT'),
+  ('sweeper', 'media_asset', 'id', 'SELECT'),
+  ('sweeper', 'media_asset', 'kind', 'SELECT'),
+  ('sweeper', 'media_asset', 'published_at', 'SELECT'),
+  ('sweeper', 'media_asset', 'status', 'SELECT'),
+  ('sweeper', 'media_asset', 'status', 'UPDATE'),
+  ('sweeper', 'media_asset', 'storage', 'SELECT'),
+  ('sweeper', 'media_asset', 'storage_key', 'SELECT'),
+  ('sweeper', 'media_asset', 'tenant_id', 'SELECT')
+),
+allowed_functions(kind, fn) AS (VALUES
+  ('app', 'store_outbox_cancel_erased'),
+  ('app', 'store_outbox_claim'),
+  ('app', 'store_outbox_fail'),
+  ('app', 'store_outbox_skip'),
+  ('app', 'store_outbox_delivered'),
+  ('app', 'store_outbox_note'),
+  ('app', 'store_outbox_release'),
+  ('app', 'store_outbox_open'),
+  ('app', 'store_outbox_freeze'),
+  ('app', 'store_outbox_dispatch'),
+  ('app', 'store_outbox_message_view'),
+  ('app', 'erase_subject'),
+  ('app', 'store_salon_by_slug'),
+  ('outbox', 'store_outbox_cancel_erased'),
+  ('outbox', 'store_outbox_claim'),
+  ('outbox', 'store_outbox_fail'),
+  ('outbox', 'store_outbox_skip'),
+  ('outbox', 'store_outbox_delivered'),
+  ('outbox', 'store_outbox_note'),
+  ('outbox', 'store_outbox_release'),
+  ('outbox', 'store_outbox_open'),
+  ('outbox', 'store_outbox_freeze'),
+  ('outbox', 'store_outbox_dispatch'),
+  ('outbox', 'store_outbox_message_view'),
+  ('sweeper', 'store_sweep_idempotency'),
+  ('sweeper', 'store_sweep_demo_actions'),
+  ('sweeper', 'store_sweep_sandboxes'),
+  ('sweeper', 'store_sweep_outbox_bodies'),
+  ('sweeper', 'store_sweep_activity_keys'),
+  ('sweeper', 'store_sweep_activity_redact'),
+  ('sweeper', 'store_sweep_journal_views'),
+  ('sweeper', 'store_sweep_rate_limits'),
+  ('sweeper', 'store_sweep_owner_guard')
+),
 tables AS (
-  SELECT c.relname AS tbl FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  SELECT c.oid, c.relname AS tbl FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p')
 ),
-privs(p) AS (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER'))
--- Any login: no power attributes, no ownership, no object creation, no login that is not a plain login.
-SELECT l.kind || ': ' || l.login || ' is missing or is superuser/createrole/bypassrls/replication' AS problem
+table_privs(priv) AS (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')),
+column_privs(priv) AS (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')),
+present AS (SELECT l.kind, l.login FROM logins l JOIN pg_roles r ON r.rolname = l.login),
+-- What each login can act as: itself and every role it can SET ROLE to (with or without INHERIT). Each is held to
+-- the login's allowlist. A superuser target is reported by the reach checks and skipped here.
+subjects AS (
+  SELECT p.kind, p.login, p.login AS role FROM present p
+  UNION
+  SELECT p.kind, p.login, r.rolname FROM present p JOIN pg_roles l ON l.rolname = p.login JOIN pg_roles r ON r.oid <> l.oid
+  WHERE NOT l.rolsuper AND NOT r.rolsuper AND pg_has_role(l.oid, r.oid, 'SET')
+),
+runtime AS (SELECT kind || ' login ' || login AS who, login FROM present),
+store AS (
+  SELECT c.relname, c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+),
+definer AS (
+  SELECT 'erase_subject definer ' || o.rolname AS who, o.rolname AS login
+  FROM pg_proc f JOIN pg_namespace fn ON fn.oid = f.pronamespace JOIN pg_roles o ON o.oid = f.proowner
+  WHERE fn.nspname = current_schema() AND f.proname = 'erase_subject'
+),
+checked AS (SELECT who, login FROM runtime UNION SELECT who, login FROM definer)
+SELECT l.kind || ': ' || l.login || ' does not exist or cannot log in' AS problem
 FROM logins l LEFT JOIN pg_roles r ON r.rolname = l.login
-WHERE r.oid IS NULL OR r.rolsuper OR r.rolcreaterole OR r.rolbypassrls OR r.rolreplication
+WHERE r.oid IS NULL OR NOT r.rolcanlogin
 UNION ALL
-SELECT l.kind || ' owns or can become the owner of ' || c.relname
-FROM logins l, pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = current_schema() AND c.relkind IN ('r', 'p') AND pg_has_role(l.login, c.relowner, 'USAGE')
+SELECT x.who || ' is superuser, createrole, replication or bypasses row-level security' AS problem
+FROM checked x JOIN pg_roles r ON r.rolname = x.login
+WHERE r.rolsuper OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
 UNION ALL
-SELECT l.kind || ' can create objects in schema ' || current_schema()
-FROM logins l WHERE has_schema_privilege(l.login, current_schema(), 'CREATE')
+-- SET ROLE: what a login can switch to is what it can do (with or without INHERIT).
+SELECT x.who || ' can SET ROLE to ' || r.rolname || ', which is superuser, createrole or bypasses row-level security'
+FROM checked x JOIN pg_roles l ON l.rolname = x.login JOIN pg_roles r ON r.oid <> l.oid AND NOT l.rolsuper
+WHERE pg_has_role(l.oid, r.oid, 'SET') AND (r.rolsuper OR r.rolcreaterole OR r.rolbypassrls)
 UNION ALL
-SELECT l.kind || ' can ' || p.p || ' ' || t.tbl
-FROM logins l, tables t, privs p
-WHERE p.p IN ('TRUNCATE', 'REFERENCES', 'TRIGGER') AND has_table_privilege(l.login, quote_ident(t.tbl), p.p)
+SELECT x.who || ' can SET ROLE to the owner of ' || s.relname
+FROM checked x JOIN pg_roles l ON l.rolname = x.login, store s
+WHERE NOT l.rolsuper AND pg_has_role(l.oid, s.relowner, 'SET')
 UNION ALL
--- App: the audit log is append-only; read-only history stays so; unused tables stay closed.
-SELECT 'app can ' || p.p || ' ' || t.tbl
-FROM logins l, privs p, (VALUES ('tenant_action'), ('BookingEvent'), ('CustomerDataAction'), ('WorkspaceRequest'), ('CapacityDecision'),
-  ('AgentApiEvent'), ('AgentAuditEvent'), ('AgentBooking')) AS t(tbl)
-WHERE l.kind = 'app' AND p.p IN ('UPDATE', 'DELETE') AND has_table_privilege(l.login, quote_ident(t.tbl), p.p)
+-- Inherited ownership: the owner's rights without any SET ROLE.
+SELECT x.who || ' inherits the owner of ' || s.relname
+FROM checked x JOIN pg_roles l ON l.rolname = x.login, store s
+WHERE NOT l.rolsuper AND pg_has_role(l.oid, s.relowner, 'USAGE')
 UNION ALL
-SELECT 'app can reach ' || t.tbl FROM logins l, (VALUES ('PairToken'), ('CardBookingAttempt'), ('_prisma_migrations')) AS t(tbl)
-WHERE l.kind = 'app' AND (has_table_privilege(l.login, quote_ident(t.tbl), 'SELECT') OR has_any_column_privilege(l.login, quote_ident(t.tbl), 'SELECT, INSERT, UPDATE'))
+-- ADMIN: a login that may grant a role may grant it to itself. A creator's automatic admin-only grant is the
+-- admin's, not a runtime login's, and an admin is never a runtime login here.
+SELECT x.who || ' holds ADMIN OPTION on ' || g.rolname
+FROM checked x JOIN pg_roles l ON l.rolname = x.login
+JOIN pg_auth_members m ON m.admin_option AND (pg_has_role(l.oid, m.member, 'USAGE') OR pg_has_role(l.oid, m.member, 'SET'))
+JOIN pg_roles g ON g.oid = m.roleid
+WHERE NOT l.rolsuper
 UNION ALL
-SELECT 'app cannot ' || t.p || ' ' || t.tbl
-FROM logins l, (VALUES ('Booking', 'SELECT'), ('Booking', 'INSERT'), ('Booking', 'UPDATE'), ('tenant_state', 'SELECT'), ('tenant_state', 'UPDATE'),
-  ('tenant_action', 'SELECT'), ('tenant_action', 'INSERT'), ('tenant_effect', 'UPDATE'), ('RateLimitBucket', 'DELETE'),
-  ('AgentApiKey', 'INSERT'), ('owner_session', 'DELETE'), ('owner_recovery_code', 'SELECT'), ('owner_recovery_code', 'INSERT'),
-  ('owner_recovery_code', 'DELETE'), ('owner_mfa_challenge', 'SELECT'), ('owner_mfa_challenge', 'INSERT'), ('owner_mfa_challenge', 'DELETE'),
-  ('media_asset', 'SELECT'), ('media_asset', 'INSERT')) AS t(tbl, p)
-WHERE l.kind = 'app' AND NOT has_table_privilege(l.login, quote_ident(t.tbl), t.p)
+-- Each login belongs to its own group role only: a second one would join two scopes.
+SELECT p.kind || ' can become ' || g.rolname || ', a group role that is not its own'
+FROM present p JOIN pg_roles g ON g.rolname IN ('cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox')
+WHERE g.rolname <> 'cresavo_' || p.kind AND (pg_has_role(p.login, g.oid, 'USAGE') OR pg_has_role(p.login, g.oid, 'SET'))
 UNION ALL
--- Photo library: the app deletes and restores (deleted_at), describes (alt_text), confirms (status) and publishes
--- (published_at) a picture; it never rewrites one or removes a row.
-SELECT 'app cannot UPDATE media_asset.' || c.col FROM logins l, (VALUES ('deleted_at'), ('alt_text'), ('status'), ('published_at')) AS c(col)
-WHERE l.kind = 'app' AND NOT has_column_privilege(l.login, 'media_asset', c.col, 'UPDATE')
+SELECT p.kind || ' is not a member of cresavo_' || p.kind
+FROM present p WHERE NOT pg_has_role(p.login, 'cresavo_' || p.kind, 'USAGE')
 UNION ALL
-SELECT 'app can ' || CASE WHEN a.attname IS NULL THEN 'DELETE media_asset' ELSE 'UPDATE media_asset.' || a.attname END
-FROM logins l LEFT JOIN pg_attribute a ON a.attrelid = to_regclass('media_asset') AND a.attnum > 0 AND NOT a.attisdropped
-  AND a.attname NOT IN ('deleted_at', 'alt_text', 'status', 'published_at') AND has_column_privilege(l.login, a.attrelid, a.attnum, 'UPDATE')
-WHERE l.kind = 'app' AND to_regclass('media_asset') IS NOT NULL AND (a.attname IS NOT NULL OR has_table_privilege(l.login, 'media_asset', 'DELETE'))
+-- The store's SECURITY DEFINER functions resolve names in this schema: no runtime role may create objects in it.
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' can create objects in schema ' || current_schema()
+FROM subjects p WHERE has_schema_privilege(p.role, current_schema(), 'CREATE')
 UNION ALL
--- Recovery codes: the app marks one used and changes nothing else; a challenge is never changed.
-SELECT 'app cannot mark a recovery code used' FROM logins l
-WHERE l.kind = 'app' AND NOT has_column_privilege(l.login, 'owner_recovery_code', 'used_at', 'UPDATE')
+-- Every effective table privilege against the allowlist.
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' has ' || tp.priv || ' on ' || t.tbl || ', which the allowlist does not grant'
+FROM subjects p, tables t, table_privs tp
+WHERE has_table_privilege(p.role, t.oid, tp.priv)
+  AND NOT EXISTS (SELECT 1 FROM allowed a WHERE a.kind = p.kind AND a.tbl = t.tbl AND a.col = '*' AND a.priv = tp.priv)
 UNION ALL
-SELECT 'app can UPDATE ' || c.relname || '.' || a.attname
-FROM logins l, pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid
-WHERE l.kind = 'app' AND n.nspname = current_schema() AND c.relname IN ('owner_recovery_code', 'owner_mfa_challenge')
-  AND a.attnum > 0 AND NOT a.attisdropped AND NOT (c.relname = 'owner_recovery_code' AND a.attname = 'used_at')
-  AND has_column_privilege(l.login, c.oid, a.attnum, 'UPDATE')
+-- Every effective column privilege (beyond a table-level one) against the allowlist.
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' has ' || cp.priv || ' on ' || t.tbl || '.' || att.attname || ', which the allowlist does not grant'
+FROM subjects p, tables t JOIN pg_attribute att ON att.attrelid = t.oid AND att.attnum > 0 AND NOT att.attisdropped, column_privs cp
+WHERE has_column_privilege(p.role, t.oid, att.attnum, cp.priv)
+  AND NOT EXISTS (SELECT 1 FROM allowed a WHERE a.kind = p.kind AND a.tbl = t.tbl AND a.priv = cp.priv AND a.col IN ('*', att.attname))
 UNION ALL
-SELECT 'app cannot execute erase_subject' FROM logins l
-WHERE l.kind = 'app' AND to_regprocedure('erase_subject(text, text)') IS NOT NULL AND NOT has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
+-- And what the allowlist grants must be there.
+SELECT p.kind || ' lacks ' || a.priv || ' on ' || a.tbl || CASE WHEN a.col = '*' THEN '' ELSE '.' || a.col END
+FROM present p JOIN allowed a ON a.kind = p.kind
+WHERE to_regclass(quote_ident(a.tbl)) IS NULL
+  OR (a.col = '*' AND NOT has_table_privilege(p.login, quote_ident(a.tbl), a.priv))
+  OR (a.col <> '*' AND NOT has_column_privilege(p.login, quote_ident(a.tbl), a.col, a.priv))
 UNION ALL
--- Sweeper: no document, replay result or fingerprint; only the six tables it works on (media_asset without its bytes); no erase_subject.
-SELECT 'sweeper can read ' || c.tbl || '.' || c.col
-FROM logins l, (VALUES ('tenant_state', 'doc'), ('tenant_state', 'version'), ('tenant_idempotency', 'result'), ('tenant_idempotency', 'fingerprint_hmac'),
-  ('tenant_effect', 'fingerprint'), ('tenant_effect', 'id'), ('tenant_action', 'actor'), ('owner_account', 'password_hash'), ('owner_account', 'email'),
-  ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'), ('owner_recovery_code', 'code_hash'),
-  ('media_asset', 'bytes'), ('media_asset', 'alt_text'), ('media_asset', 'sha256')) AS c(tbl, col)
-WHERE l.kind = 'sweeper' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'SELECT')
+-- The store's functions: each login executes exactly its own; PUBLIC executes none.
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' can execute ' || f.proname || ', which the allowlist does not grant'
+FROM subjects p, pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+WHERE n.nspname = current_schema() AND (f.proname LIKE 'store\_%' OR f.proname LIKE 'studio\_%' OR f.proname = 'erase_subject')
+  AND has_function_privilege(p.role, f.oid, 'EXECUTE')
+  AND NOT EXISTS (SELECT 1 FROM allowed_functions a WHERE a.kind = p.kind AND a.fn = f.proname)
 UNION ALL
-SELECT 'sweeper can touch ' || t.tbl
-FROM logins l, tables t
-WHERE l.kind = 'sweeper' AND t.tbl NOT IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'RateLimitBucket', 'media_asset')
-  AND has_any_column_privilege(l.login, quote_ident(t.tbl), 'SELECT, INSERT, UPDATE, REFERENCES')
+-- A function that is not installed (erase_subject before erase-subject.sql) is that step's to report.
+SELECT p.kind || ' cannot execute ' || a.fn
+FROM present p JOIN allowed_functions a ON a.kind = p.kind
+WHERE EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace WHERE n.nspname = current_schema() AND f.proname = a.fn)
+  AND NOT EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+  WHERE n.nspname = current_schema() AND f.proname = a.fn AND has_function_privilege(p.login, f.oid, 'EXECUTE'))
 UNION ALL
-SELECT 'sweeper cannot ' || t.p || ' ' || t.tbl
-FROM logins l, (VALUES ('tenant_state', 'DELETE'), ('tenant_action', 'DELETE'), ('tenant_effect', 'DELETE'), ('tenant_idempotency', 'DELETE'),
-  ('RateLimitBucket', 'DELETE'), ('media_asset', 'DELETE')) AS t(tbl, p)
-WHERE l.kind = 'sweeper' AND NOT has_table_privilege(l.login, quote_ident(t.tbl), t.p)
-UNION ALL
-SELECT 'sweeper or support can execute erase_subject' FROM logins l
-WHERE l.kind IN ('sweeper', 'support') AND to_regprocedure('erase_subject(text, text)') IS NOT NULL
-  AND has_function_privilege(l.login, 'erase_subject(text, text)', 'EXECUTE')
-UNION ALL
--- Support: read only, and only the diagnostic columns.
-SELECT 'support can ' || p.p || ' ' || t.tbl
-FROM logins l, tables t, privs p
-WHERE l.kind = 'support' AND p.p IN ('INSERT', 'UPDATE', 'DELETE') AND (has_table_privilege(l.login, quote_ident(t.tbl), p.p) OR (p.p IN ('INSERT', 'UPDATE') AND has_any_column_privilege(l.login, quote_ident(t.tbl), p.p)))
-UNION ALL
-SELECT 'support can read ' || c.tbl || '.' || c.col
-FROM logins l, (VALUES ('tenant_state', 'doc'), ('tenant_action', 'action'), ('tenant_action', 'idempotency_key'), ('tenant_effect', 'payload'),
-  ('tenant_effect', 'fingerprint'), ('tenant_idempotency', 'result'), ('tenant_idempotency', 'key'), ('owner_account', 'password_hash'),
-  ('owner_account', 'email'), ('owner_account', 'totp_secret_enc'), ('owner_account', 'totp_pending_enc'), ('owner_session', 'id'),
-  ('owner_recovery_code', 'code_hash'), ('_prisma_migrations', 'logs'), ('_prisma_migrations', 'checksum'),
-  ('media_asset', 'bytes'), ('media_asset', 'alt_text'), ('media_asset', 'sha256')) AS c(tbl, col)
-WHERE l.kind = 'support' AND has_column_privilege(l.login, quote_ident(c.tbl), c.col, 'SELECT')
-UNION ALL
-SELECT 'support can read ' || t.tbl FROM logins l, (VALUES ('Customer'), ('Booking'), ('Service'), ('Staff'), ('AdminUser'), ('PairGrantToken'),
-  ('owner_mfa_challenge')) AS t(tbl)
-WHERE l.kind = 'support' AND has_any_column_privilege(l.login, quote_ident(t.tbl), 'SELECT')
-UNION ALL
--- The function and its helpers: only the app executes erase_subject; PUBLIC executes none of them.
-SELECT 'PUBLIC can execute ' || p.proname
-FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = current_schema() AND p.proname IN ('erase_subject', 'studio_phone_digits', 'studio_redact_path', 'studio_scrub_text', 'studio_scrub',
-  'studio_redact_replay', 'studio_redact_replay_action') AND has_function_privilege('public', p.oid, 'EXECUTE');
+SELECT 'PUBLIC can execute ' || f.proname
+FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+WHERE n.nspname = current_schema() AND (f.proname LIKE 'store\_%' OR f.proname LIKE 'studio\_%' OR f.proname = 'erase_subject')
+  AND has_function_privilege('public', f.oid, 'EXECUTE');
