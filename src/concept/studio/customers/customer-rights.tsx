@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { journalsOnServer, readCustomerJournals } from "../../account/sync";
+import { journalSessionKey, journalsOnServer, readCustomerJournals } from "../../account/sync";
 import { customerExport, customerExportCsv, customerExportFilename, customerExportJson, reviewCount } from "../../customers/export";
 import type { Customer, DemoState } from "../../data/types";
 import { isStub } from "../../journals/sealed";
@@ -22,10 +22,12 @@ import { EraseCustomer } from "./erase-customer";
  * journal is always read from the server (and the read logged there), whatever the browser holds, and it replaces
  * the customer's entries here. Null when it could not be read, so an export never leaves the journal out silently.
  */
-async function withJournalText(state: DemoState, customerId: string): Promise<DemoState | null> {
-  if (!journalsOnServer() && !state.journals.some((entry) => entry.customerId === customerId && isStub(entry))) return state;
+async function withJournalText(state: DemoState, customerId: string, fromServer: boolean, session: string): Promise<DemoState | null> {
+  // A browser workspace exports what it holds and never asks a server; stubs without a server to read are no export.
+  if (!fromServer) return state.journals.some((entry) => entry.customerId === customerId && isStub(entry)) ? null : state;
   const entries = await readCustomerJournals(customerId);
-  if (!entries) return null;
+  // The text belongs to the snapshot only if the same login still shows the same signed-in salon.
+  if (!entries || journalSessionKey() !== session || !journalsOnServer()) return null;
   return { ...state, journals: [...state.journals.filter((entry) => entry.customerId !== customerId), ...entries] };
 }
 
@@ -36,7 +38,8 @@ export function CustomerRights({ customer }: { customer: Customer }) {
   const router = useRouter();
 
   const save = async (extension: "json" | "csv") => {
-    const source = await withJournalText(saved, customer.id);
+    // Mode and login are fixed with the snapshot, when the owner asks for the file.
+    const source = await withJournalText(saved, customer.id, journalsOnServer(), journalSessionKey());
     if (!source) {
       showToast(t("customer.export.journalFailed"));
       return;

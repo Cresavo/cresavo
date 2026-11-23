@@ -3,11 +3,12 @@
 import type { DemoAction } from "../actions";
 import type { DemoState, JournalEntry } from "../data/types";
 import { t, type MessageKey } from "../i18n";
-import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
+import { closeAccountSalon, currentTarget, onAccountChange, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
 import { showToast } from "../ui/toast";
 import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
 import { ownerHintPresent } from "./hint";
+import { onSessionSignal } from "./session-signal";
 
 // Keeps a signed-in owner's salon in step with the server. Changes show at
 // once in the studio and are sent one at a time; the server runs the same
@@ -30,8 +31,8 @@ let salonSession: string | null = null;
 /** Bumped whenever the session changes, so journal text read for an earlier session is never shown. */
 let sessionEpoch = 0;
 
-/** True when the signed-in salon's journals are read from the server, one customer at a time. */
-export const journalsOnServer = () => journalsServer;
+/** True when the salon shown is a signed-in salon whose journals are read from the server, one customer at a time. */
+export const journalsOnServer = () => journalsServer && currentTarget()?.workspace === "account";
 
 /** What journal text read from the server belongs to: the session it was read in. Changes on every account change. */
 export const journalSessionKey = () => `${sessionEpoch}:${salonSession ?? ""}`;
@@ -46,6 +47,14 @@ function bindSession(session: string | null) {
 function closeSalon() {
   bindSession(null);
   closeAccountSalon();
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  // This tab opened or closed an account salon: journal text read before is not shown again.
+  onAccountChange(() => { sessionEpoch++; });
+  // Another tab signed in, out or switched accounts: drop what was read, and send nothing more under the old login
+  // until this tab loads its salon again (the server refuses it, and the studio reloads).
+  onSessionSignal(() => bindSession(null));
 }
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
@@ -138,10 +147,11 @@ async function readSalon(): Promise<{ state: DemoState } | null> {
  * loaded in; null when they could not be read, or when the session changed while the request was out.
  */
 export async function readCustomerJournals(customerId: string): Promise<JournalEntry[] | null> {
+  if (!journalsOnServer() || !salonSession) return null;
   const bound = journalSessionKey();
   try {
     const response = await request(`${JOURNALS}?customer=${encodeURIComponent(customerId)}`, { cache: "no-store", headers: { [UPLOAD_SESSION_HEADER]: salonSession ?? "" } });
-    if (bound !== journalSessionKey()) return null;
+    if (bound !== journalSessionKey() || !journalsOnServer()) return null;
     if (response.status === 401) {
       closeSalon();
       showToast(t("account.sync.signedOut"));
@@ -216,10 +226,12 @@ export interface ErasureReport {
  * (`customer/erase` is not accepted as a plain change). Null when nothing could be confirmed: erasing again is safe.
  */
 export function eraseAccountCustomer(customerId: string, name: string): Promise<ErasureReport | null> {
+  // Bound to the login the owner asked in: the server refuses it for any other session, also after a switch meanwhile.
+  const session = salonSession ?? "";
   const run = queue.then(async (): Promise<ErasureReport | null> => {
     try {
       const response = await request(`${SALON}/erase`, {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId, name }),
+        method: "POST", headers: { "content-type": "application/json", [UPLOAD_SESSION_HEADER]: session }, body: JSON.stringify({ customerId, name }),
       });
       if (response.status === 401) {
         closeSalon();
