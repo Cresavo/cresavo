@@ -6,9 +6,10 @@ import { configFromEnv, meantLive } from "../connections/server/config";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { createDemoState } from "../data/generate";
 import { withSlotClock } from "../data/slots";
-import type { Customer, DateKey, DemoState } from "../data/types";
-import { customerIdentifiers, customerPhoneDigits, findErasable, mentionsCustomer, scrubDeep, scrubText } from "../customers/erase";
+import type { Customer, DateKey, DemoState, JournalEntry } from "../data/types";
+import { customerIdentifiers, customerPhoneDigits, erasedMarker, findErasable, mentionsCustomer, scrubDeep, scrubText } from "../customers/erase";
 import { withTenantPresentation } from "../i18n/presentation";
+import { auditAction, holdsJournalText, remapVersions } from "../journals/sealed";
 import { defaultMeta, prepareAction } from "../log/capture";
 import { salonClock } from "../tools/clock";
 import {
@@ -34,6 +35,7 @@ import {
   redactReplay,
 } from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
+import { deleteErasedJournals, JOURNAL_TEXT_ACTIONS, JournalVault, type JournalSession, type StoredReplay } from "./journal-vault";
 import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
 import { notifyTenantChange, PostgresNotifications, wakeTag } from "./postgres-notifications";
 import { DOCUMENT_SIZE_REFUSAL, MAX_DOCUMENT_BYTES, StoreMetrics } from "./store-metrics";
@@ -114,11 +116,11 @@ export type EraseResult =
       /** The `customer/erase` log entry, when the document changed. */
       entry?: TenantAction;
     } & EraseCounts
-  | { ok: false; reason: "not-found" | "conflict" };
+  | { ok: false; reason: "not-found" | "conflict" | "unavailable" };
 
 interface EraseCounts {
-  /** `tenant_action` rows redacted, `tenant_effect` rows redacted or cancelled, idempotency keys deleted. */
-  redacted: { actions: number; effects: number; idempotencyKeys: number };
+  /** `tenant_action` rows redacted, `tenant_effect` rows redacted or cancelled, idempotency keys deleted, `journal_entry` rows deleted. */
+  redacted: { actions: number; effects: number; idempotencyKeys: number; journalEntries?: number };
   /** Payments still pending for the customer: they keep their payload until delivered (see STUDIO_STORE.md). */
   pendingPayments: number;
   /** Messages to the customer a deliverer was sending during the erasure: stopped for retries, outcome recorded by the deliverer. */
@@ -154,7 +156,21 @@ export interface PostgresStudioStoreOptions {
   maxAttempts?: number;
   /** Direct connection to Prisma's database for LISTEN. Defaults to DATABASE_URL. */
   listenerConnectionString?: string;
+  /**
+   * Server-side journals (JOURNALS_ON_SERVER): the vault keeps journal text encrypted in `journal_entry` and only
+   * stubs in the document. "unavailable" (the flag without a valid key) refuses every change that needs the text
+   * and writes text nowhere. Absent: journals stay in the document, as before.
+   */
+  journals?: JournalVault | "unavailable";
 }
+
+/** The `detail` of a `rejected` result when server-side journals are on but their key is missing. */
+export const JOURNALS_UNAVAILABLE = "journals_unavailable";
+
+/** One customer's journal, read on the server. */
+export type JournalRead =
+  | { ok: true; entries: JournalEntry[]; version: number }
+  | { ok: false; reason: "not-found" | "conflict" | "unavailable" };
 
 interface LockedRow {
   doc: unknown;
@@ -283,6 +299,7 @@ export class PostgresStudioStore implements StudioStore {
   private readonly waking = new Map<TenantId, { queued: boolean }>();
   private readonly notifications?: PostgresNotifications;
   private readonly metrics = new StoreMetrics();
+  private readonly journals?: JournalVault | "unavailable";
 
   constructor(options: PostgresStudioStoreOptions) {
     if (typeof options.hmacSecret !== "string" || options.hmacSecret.length < 32) throw new Error("STUDIO_STORE_SECRET_INVALID");
@@ -300,6 +317,7 @@ export class PostgresStudioStore implements StudioStore {
     this.maxAttempts = whole(options.maxAttempts, EFFECT_MAX_ATTEMPTS);
     this.erasure = options.erasure === "function" ? "function" : "statements";
     this.liveMessage = options.liveMessage ?? ((record) => record.port === "email" && meantLive(configFromEnv(), "email"));
+    this.journals = options.journals instanceof JournalVault || options.journals === "unavailable" ? options.journals : undefined;
     const listenerConnectionString = options.listenerConnectionString ?? process.env.DATABASE_URL;
     if (listenerConnectionString) {
       this.notifications = new PostgresNotifications(
@@ -536,11 +554,16 @@ export class PostgresStudioStore implements StudioStore {
       }
       const fixture = action.type === "system/reset" ? createDemoState(action.payload.generatedFor) : migrateSaved(replacement);
       if (!fixture) return { replaced: { ok: false, reason: "rejected", version: locked.version } };
-      const document = JSON.stringify({ ...fixture, seq: Math.max(fixture.seq, before?.seq ?? 0) });
+      if (this.journals === "unavailable" && holdsJournalText(fixture)) return { replaced: { ok: false, reason: "rejected", version: locked.version, detail: JOURNALS_UNAVAILABLE } };
+      const journals = this.journalSession(tx, tenantId, clock);
+      const replacing = journals ? await journals.seal(fixture) : fixture;
+      const document = JSON.stringify({ ...replacing, seq: Math.max(fixture.seq, before?.seq ?? 0) });
       const documentBytes = Buffer.byteLength(document);
       if (exceedsDocumentLimit(documentBytes, locked.doc)) {
         return { replaced: { ok: false, reason: "rejected", version: locked.version, detail: DOCUMENT_SIZE_REFUSAL } };
       }
+      if (journals && before) journals.recordPlaces(before, replacing);
+      await journals?.flush();
       const version = locked.version + 1;
       const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, clock);
       const entry: TenantAction = { tenantId, seq, at, actor: "system", source: "system", action, resultingVersion: version };
@@ -577,7 +600,10 @@ export class PostgresStudioStore implements StudioStore {
   }
 
   /** Steps 2–6 of an apply, under the row lock. */
-  private async applyLocked(tx: Tx, tenantId: TenantId, locked: LockedRow, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<ApplyOutcome> {
+  private async applyLocked(
+    tx: Tx, tenantId: TenantId, locked: LockedRow, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions,
+    prepare?: (state: DemoState) => DemoState,
+  ): Promise<ApplyOutcome> {
 
     // 2. The clock, after the lock. `at` (the event stamp) never goes before the previous entry.
     const clock = await this.clock(tx);
@@ -611,9 +637,18 @@ export class PostgresStudioStore implements StudioStore {
       return { done: { ok: false, reason: "conflict", version: locked.version } };
     }
 
+    // Server-side journals without their key: nothing that reads or writes journal text runs.
+    if (this.journals === "unavailable" && JOURNAL_TEXT_ACTIONS.has(requested.type)) {
+      return { done: { ok: false, reason: "rejected", detail: JOURNALS_UNAVAILABLE, version: locked.version } };
+    }
+
     // 5. The reducer. Times that decide eligibility or access come from the store clock.
-    const state = migrateSaved(locked.doc);
-    if (!state) return { done: { ok: false, reason: "not-found" } };
+    const saved = migrateSaved(locked.doc);
+    if (!saved) return { done: { ok: false, reason: "not-found" } };
+    // With server-side journals the reducer sees the text of the entries its rules read, and nothing else.
+    const journals = this.journalSession(tx, tenantId, clock);
+    const prepared = prepare ? prepare(saved) : saved;
+    const state = journals ? await journals.hydrateFor(prepared, requested) : prepared;
     // The reducer's `now` (hold expiry, fees, grants) is the clock itself unless the caller's clock is trusted;
     // only the tenant_action stamp is clamped.
     const action = this.trustCallerClock ? requested : withTrustedTimes(requested, clock);
@@ -627,7 +662,10 @@ export class PostgresStudioStore implements StudioStore {
     if (isThenable(next)) throw new Error("STUDIO_STORE_ASYNC_REDUCER");
     const reduced = next as DemoState;
     if (reduced === state || sameContent(reduced, state)) return { done: { ok: false, reason: "rejected", version: locked.version } };
-    const document = JSON.stringify(reduced);
+    // The stored document holds stubs only; new versions of journal text are queued for the table.
+    const stored = journals ? await journals.seal(reduced) : reduced;
+    journals?.recordPlaces(state, stored);
+    const document = JSON.stringify(stored);
     const documentBytes = Buffer.byteLength(document);
     // Erasure and access revocation must work even when their audit data grows the document.
     if (!isErasure(action) && action.type !== "support/revoke" && exceedsDocumentLimit(documentBytes, locked.doc)) {
@@ -656,11 +694,17 @@ export class PostgresStudioStore implements StudioStore {
 
     // 6. Commit: state, log entry, effects and the key in one transaction.
     await options.beforeCommit?.(tx);
+    if (journals) {
+      await journals.flush();
+      // The first change after the flag went on moved the document's text into the table: replays lose it too.
+      if (holdsJournalText(saved)) await this.sealReplays(tx, tenantId, journals, stored);
+    }
     const version = locked.version + 1;
     const entry: TenantAction = {
       seq,
       tenantId,
-      action,
+      // The audit log never holds journal text while the server keeps it: the entry id stands in for it.
+      action: journals ? auditAction(action, state, reduced) : action,
       actor: logMeta.actor,
       source: logMeta.source,
       at,
@@ -746,6 +790,8 @@ export class PostgresStudioStore implements StudioStore {
   async eraseSubject(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<EraseResult> {
     const start = performance.now();
     if (typeof customerId !== "string" || !customerId) return { ok: false, reason: "not-found" };
+    // Other customers' journals are searched for the customer's name, which needs the key.
+    if (this.journals === "unavailable") return { ok: false, reason: "unavailable" };
     const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ erased: EraseResult; commit?: DocumentCommit }> => {
       const locked = await this.lock(tx, tenantId);
       if (!locked) return { erased: { ok: false, reason: "not-found" } };
@@ -753,12 +799,18 @@ export class PostgresStudioStore implements StudioStore {
       if (locked.expires_ms !== null && locked.expires_ms <= clock) return { erased: { ok: false, reason: "not-found" } };
       const state = migrateSaved(locked.doc);
       const customer = state ? findErasable(state, customerId) : undefined;
+      // A sealed journal of another customer that names them gets a scrubbed copy first; the table half below deletes what it replaced.
+      const journals = this.journalSession(tx, tenantId, clock);
+      const remap = journals && state && customer
+        ? await journals.scrubMentions(customerId, customerIdentifiers(customer), withTenantPresentation(state, erasedMarker))
+        : new Map<string, Map<number, number>>();
+      await journals?.flush();
       // Before the document changes: erase_subject reads the customer's identifiers from it.
       const counts = this.erasure === "function"
         ? await this.eraseWithFunction(tx, tenantId, customerId)
         : await this.redactLog(tx, tenantId, customerId, customer, clock);
       if (!customer) return { erased: { ok: true, version: locked.version, ...counts } };
-      const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {});
+      const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {}, (doc) => remapVersions(doc, remap));
       if ("done" in committed) throw new Error("STUDIO_STORE_ERASE_REFUSED");
       const { commit } = committed;
       return { erased: { ok: true, version: commit.version, entry: commit.entry, ...counts }, commit };
@@ -861,7 +913,84 @@ export class PostgresStudioStore implements StudioStore {
         WHERE tenant_id = ${tenantId} AND key = ${replay.key}`;
       idempotencyKeys++;
     }
-    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
+    const journalEntries = await deleteErasedJournals(tx, tenantId, customerId);
+    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys, journalEntries }, pendingPayments, inFlightMessages };
+  }
+
+  /** After the document's journal text moved into the table: the tenant's stored replays lose it too. */
+  private async sealReplays(tx: Tx, tenantId: TenantId, journals: JournalSession, stored: DemoState) {
+    const replays = await tx.$queryRaw<Array<{ key: string; result: StoredReplay }>>`
+      SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId} FOR UPDATE`;
+    for (const replay of replays) {
+      const result = journals.replayWithoutText(replay.result, stored);
+      if (!result) continue;
+      await tx.$executeRaw`
+        UPDATE tenant_idempotency SET result = ${JSON.stringify(result)}::jsonb WHERE tenant_id = ${tenantId} AND key = ${replay.key}`;
+    }
+  }
+
+  /** A journal session for this transaction when the server keeps journals and has the key. */
+  private journalSession(tx: Tx, tenantId: TenantId, clock: number): JournalSession | undefined {
+    return this.journals instanceof JournalVault ? this.journals.open(tx, tenantId, clock) : undefined;
+  }
+
+  /**
+   * One customer's live journal entries with their text, for the signed-in owner (JOURNALS_ON_SERVER). The read
+   * is logged as `journal/view` for that customer in the same transaction, under the row lock; the same reader
+   * opening it again within a minute is the read already logged. Refused for a customer the salon does not have.
+   */
+  async readJournals(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<JournalRead> {
+    if (!(this.journals instanceof JournalVault)) return { ok: false, reason: "unavailable" };
+    const start = performance.now();
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ read: JournalRead; commit?: DocumentCommit }> => {
+      const locked = await this.lock(tx, tenantId);
+      const current = locked && migrateSaved(locked.doc);
+      if (!locked || !current || !current.customers.some((c) => c.id === customerId)) return { read: { ok: false, reason: "not-found" } };
+      const logged = await this.applyLocked(tx, tenantId, locked, { type: "journal/view", customerId, actor: "owner" }, { ...meta, actor: "owner" }, {});
+      if ("done" in logged) {
+        if (logged.done.ok || logged.done.reason !== "rejected" || logged.done.detail) {
+          return { read: { ok: false, reason: logged.done.ok ? "conflict" : logged.done.reason === "not-found" ? "not-found" : "conflict" } };
+        }
+      }
+      const state = "commit" in logged && logged.commit ? logged.commit.state : current;
+      const version = "commit" in logged && logged.commit ? logged.commit.version : locked.version;
+      const entries = await this.journalSession(tx, tenantId, await this.clock(tx))!.readCustomer(state, customerId);
+      return { read: { ok: true, entries, version }, ...("commit" in logged && logged.commit ? { commit: logged.commit } : {}) };
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if (result.commit) await this.published(tenantId, result.commit, start);
+    return detach(result.read);
+  }
+
+  /**
+   * Moves journal text still in the document into the table, under the row lock, in one transaction: the first
+   * load with JOURNALS_ON_SERVER on. A new version and a `system/seal-journals` audit entry; stored replays lose
+   * the text too. Does nothing when the document holds stubs only.
+   */
+  async sealJournals(tenantId: TenantId): Promise<{ ok: true; changed: boolean } | { ok: false; reason: "not-found" | "conflict" | "unavailable" }> {
+    if (!(this.journals instanceof JournalVault)) return { ok: false, reason: "unavailable" };
+    const start = performance.now();
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ sealed: { ok: true; changed: boolean } | { ok: false; reason: "not-found" }; commit?: DocumentCommit }> => {
+      const locked = await this.lock(tx, tenantId);
+      const clock = await this.clock(tx);
+      const state = locked && migrateSaved(locked.doc);
+      if (!locked || !state || (locked.expires_ms !== null && locked.expires_ms <= clock)) return { sealed: { ok: false, reason: "not-found" } };
+      if (!holdsJournalText(state)) return { sealed: { ok: true, changed: false } };
+      const journals = this.journalSession(tx, tenantId, clock)!;
+      const stored = await journals.seal(state);
+      journals.recordPlaces(state, stored);
+      await journals.flush();
+      await this.sealReplays(tx, tenantId, journals, stored);
+      const document = JSON.stringify(stored);
+      const version = locked.version + 1;
+      const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, clock);
+      const entry: TenantAction = { tenantId, seq, at, actor: "system", source: "system", action: { type: "system/seal-journals", payload: {} }, resultingVersion: version };
+      const written = await this.writeDocumentAndAction(tx, document, entry, clock, []);
+      return { sealed: { ok: true, changed: true }, commit: { state: written, version, entry, effects: [], documentBytes: Buffer.byteLength(document) } };
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if (result.commit) await this.published(tenantId, result.commit, start);
+    return result.sealed;
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void, { onRefresh }: { onRefresh?: () => void | Promise<void> } = {}): () => void {

@@ -221,6 +221,15 @@ export interface JournalEntry extends JournalContent {
   staffId: StaffId;
   /** Earlier versions, oldest first. */
   versions?: JournalVersion[];
+  /** Set when the text is kept encrypted on the server (JOURNALS_ON_SERVER); the text fields are then empty. */
+  sealed?: SealedJournal;
+}
+
+/** Where a sealed entry's text is: its stored versions (`journal_entry.version`), oldest first, the last one current. */
+export interface SealedJournal {
+  versions: number[];
+  /** The day each earlier version was replaced; one fewer than `versions`. */
+  replacedOn: DateKey[];
 }
 
 export interface StockItem {

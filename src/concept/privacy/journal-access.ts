@@ -12,9 +12,11 @@ import { monthsBefore, RETENTION } from "./retention";
 // - The server logs a load of the salon (`GET /api/owner/salon`), which hands
 //   the whole document, every journal included, to the browser (`journal/view`
 //   without a customer).
-// What is missing: the browser holds every journal after that load, so a
-// modified client can read without reporting. True read logging needs the
-// server to hand out one customer's journal per request.
+// - With server-side journals (JOURNALS_ON_SERVER) the load carries no text and
+//   is not logged; `GET /api/owner/journals` hands out one customer's journal
+//   and logs that read on the server in the same transaction.
+// While that flag is off, the browser holds every journal after the load, so a
+// modified client can read without reporting.
 
 /** The same reader opening the same journal again within this time is one read. */
 export const SAME_READ_WINDOW_MS = 60_000;
