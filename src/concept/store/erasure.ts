@@ -108,14 +108,18 @@ export const keyHoldsIdentifier = (key: string, identifiers: readonly string[]) 
  * (their card, trash entry and checkout holds by phone) are removed from its salon snapshot and their identifiers replaced in every
  * string. The result still replays, so a retry of a change that was already committed is answered, not applied again.
  */
-export function redactReplay<T>(result: T, customerId: string, identifiers: readonly string[], phones: ReadonlySet<string> = new Set(), contacts: readonly string[] = []): T {
+export function redactReplay<T>(
+  result: T, customerId: string, identifiers: readonly string[], phones: ReadonlySet<string> = new Set(), contacts: readonly string[] = [],
+  /** The audit row the replay came from names the customer (`subject_ids`): an edit of their journal carries only the entry id. */
+  named = false,
+): T {
   const replay = result as unknown as { state?: Record<string, unknown>; entry?: { action?: DemoAction } };
   let next: unknown = result;
   // The action of the replayed entry: when it concerns the customer, every personal field of its type goes (PERSONAL_FIELDS), not only what matches an identifier.
   const action = replay?.entry?.action as (DemoAction & { id?: unknown }) | undefined;
   // As `subjectIds` names the subject of an action: a `customer/*` action targets the customer by its `id`.
   const targeted = !!action && action.type.startsWith("customer/") && action.id === customerId;
-  if (action && (targeted || mentionsCustomer(action, customerId, contacts, phones))) {
+  if (action && (named || targeted || mentionsCustomer(action, customerId, contacts, phones))) {
     next = { ...replay, entry: { ...replay.entry, action: redactAction(action) } };
   }
   const base = next as typeof replay;

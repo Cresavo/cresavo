@@ -18,7 +18,8 @@ import { MAX_PHOTOS, PURGE_AFTER_DAYS } from "../../src/lib/media/limits";
 import { sweepDeletedMedia } from "../../src/lib/media/sweep";
 import { mediaKey, type MediaStore } from "../../src/lib/media-store";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
-import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
+import { sessionKey } from "../../src/lib/owner-http";
+import { openOwnerSession, OWNER_COOKIE, ownerFromCookie } from "../../src/lib/owner-session";
 import { ownerStore } from "../../src/lib/owner-store";
 import { GPS_MARK, metadataWebp, phoneJpeg, realPng } from "../media-fixtures";
 
@@ -41,7 +42,7 @@ async function owner(label: string): Promise<Owner> {
   const result = await createOwnerAccount({ email: `${label}-${run}@example.test`, password: "a long fictional passphrase", salonName: `Salong ${label} ${run}`, language: "en" });
   if (!result.ok) throw new Error("sign-up failed");
   const session = await openOwnerSession(result.identity);
-  return { tenantId: result.tenantId, accountId: result.identity.id, cookie: `${OWNER_COOKIE}=${session!.value}`, session: `${result.identity.id}.${result.identity.credentialVersion}` };
+  return { tenantId: result.tenantId, accountId: result.identity.id, cookie: `${OWNER_COOKIE}=${session!.value}`, session: sessionKey((await ownerFromCookie(session!.value))!) };
 }
 
 const request = (path: string, { cookie, method = "GET", body, headers = {} }: { cookie?: string; method?: string; body?: BodyInit; headers?: Record<string, string> } = {}) =>
@@ -71,7 +72,7 @@ async function savePage(who: Owner, logo: string | null) {
   const { state } = (await ownerStore().load(who.tenantId))! as { state: DemoState };
   const page = { ...state.page, theme: { ...state.page.theme, logo } };
   return actionRoute(request("/api/owner/salon/actions", {
-    cookie: who.cookie, method: "POST", headers: { "content-type": "application/json" },
+    cookie: who.cookie, method: "POST", headers: { "content-type": "application/json", "x-cresavo-session": who.session },
     body: JSON.stringify({ action: { type: "page/set", page }, idempotencyKey: `media-${run}-${++keys}` }),
   }));
 }
@@ -112,7 +113,7 @@ describe("upload", () => {
     expect(response.status).toBe(200);
     const { asset, deduped, session } = await response.json();
     expect(deduped).toBe(false);
-    expect(session).toMatch(/^\w+\.\d+$/);
+    expect(session).toMatch(/^\w+\.\d+\.[0-9a-f]{16}$/);
     expect(asset).toMatchObject({ kind: "photo", contentType: "image/jpeg", width: 480, height: 640, altText: null, url: `/api/owner/media/${asset.id}` });
     expect(Object.keys(asset).sort()).toEqual(["altText", "byteSize", "contentType", "createdAt", "height", "id", "kind", "url", "width"]);
 

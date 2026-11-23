@@ -109,11 +109,21 @@ Sannolikhet och allvar: [Fylls i av salongen. Skala: låg, medel, hög.]
   utskickskön efter 90 dagar. Ägaren får påminnelse om inaktiva kunder och om journaler äldre än
   vald tid.
 
+- Förberett, avstängt tills det slås på (`JOURNALS_ON_SERVER=1` med `JOURNAL_ENCRYPTION_KEY`,
+  november 2026): journaltext krypteras i vila (AES-256-GCM per version, nyckeln utanför
+  databasen), salongen som skickas till webbläsaren bär ingen journaltext, en kunds journal
+  hämtas per inloggad begäran och läsningen loggas på servern i samma transaktion, och radering
+  av en kund tar bort kundens journalversioner (även omnämnanden i andra kunders journaler).
+  Detta är tekniska åtgärder som nu finns tillgängliga; de räknas som genomförda först när
+  flaggan är på för piloten. Förlorad nyckel gör journalerna oläsbara, och verktyg för
+  nyckelbyte saknas ännu (docs/operations/INCIDENT_RUNBOOK.md).
+
 ### 5.2 Krävs före en journalpilot (öppna)
 
-- [ ] Kryptering i vila för journalfält.
+- [ ] Kryptering i vila för journalfält. Förberett (se 5.1), avstängt tills det slås på.
 - [ ] Serversidig åtkomstkontroll per roll, med personal som bara når egna kunders journaler.
 - [ ] Journaler hämtas en i taget från servern, så att varje läsning kan loggas på servern.
+  Förberett (se 5.1), avstängt tills det slås på.
 - [ ] Flerfaktorinloggning och kontolåsning för ägarkonton.
 - [ ] Beslut om hantering av bilder, eller att bilder inte tillåts.
 - [ ] Backuprutin med raderingsåterspelning och testad återställning.

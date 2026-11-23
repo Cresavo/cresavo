@@ -3,6 +3,7 @@ import { SIMULATED_SINKS } from "@/concept/store/effect-outbox";
 import { PostgresStudioStore } from "@/concept/store/postgres-studio-store";
 import { db } from "./db";
 import { messageSink } from "./message-sink";
+import { erasureJournalVault, journalStoreOption } from "./owner-journals";
 import { parseOwnerAction } from "./owner-actions/parse";
 
 // The server store behind the owner studio. Booking e-mails go through the
@@ -26,7 +27,9 @@ export function ownerStore(): PostgresStudioStore {
   const hmacSecret = process.env.STUDIO_STORE_HMAC_SECRET;
   if (!hmacSecret || hmacSecret.length < 32) throw new Error("STUDIO_STORE_HMAC_SECRET must be at least 32 characters");
   const prisma = db as unknown as PrismaClient;
-  holder.cresavoOwnerStore ??= new PostgresStudioStore({ prisma, hmacSecret, erasure: erasureMode(), sinks: { ...SIMULATED_SINKS, message: messageSink(prisma) } });
+  holder.cresavoOwnerStore ??= new PostgresStudioStore({
+    prisma, hmacSecret, erasure: erasureMode(), sinks: { ...SIMULATED_SINKS, message: messageSink(prisma) }, journals: journalStoreOption(), erasureVault: erasureJournalVault(),
+  });
   return holder.cresavoOwnerStore;
 }
 

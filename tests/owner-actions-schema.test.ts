@@ -20,7 +20,9 @@ type Parsed = { [K in OwnerActionType]: z.output<(typeof OWNER_ACTION_SCHEMAS)[K
 // Compile-time: what a schema produces is a DemoAction member, and it accepts every member the union allows.
 type NotProduced = { [K in OwnerActionType]: Parsed[K] extends Member<K> ? never : K }[OwnerActionType];
 // `journal/view` is deliberately narrower over HTTP: an owner session reports its own read of one journal; staff reads and bulk loads are the server's.
-type NotAccepted = { [K in Exclude<OwnerActionType, "journal/view">]: Member<K> extends Parsed[K] ? never : K }[Exclude<OwnerActionType, "journal/view">];
+// `journal/edit` too: over HTTP it must name the customer the entry was shown for.
+type Narrower = "journal/view" | "journal/edit";
+type NotAccepted = { [K in Exclude<OwnerActionType, Narrower>]: Member<K> extends Parsed[K] ? never : K }[Exclude<OwnerActionType, Narrower>];
 expectTypeOf<NotProduced>().toEqualTypeOf<never>();
 expectTypeOf<NotAccepted>().toEqualTypeOf<never>();
 
@@ -85,7 +87,7 @@ const EXAMPLES: { [K in OwnerActionType]: Member<K> } = {
   "inbox/read-all": { type: "inbox/read-all" },
   "inbox/reply": { type: "inbox/reply", id: "i-4", reply: "Yes, that works", slot: { staffId: "anna", serviceId: "s-1", date: "2026-11-23", start: 600 } },
   "journal/add": { type: "journal/add", entry: { customerId: "k-7", date: "2026-11-22", staffId: "anna", ...journal } },
-  "journal/edit": { type: "journal/edit", id: "j-2", content: journal, on: "2026-11-22" },
+  "journal/edit": { type: "journal/edit", id: "j-2", content: journal, on: "2026-11-22", customerId: "k-7" },
   "log/undo": { type: "log/undo", id: "log-9" },
   "memory/add": { type: "memory/add", item: { text: "Closed on Midsummer Eve", kind: "fact", savedOn: "2026-11-22", source: "owner", customerId: "k-7", staffId: "erik" } },
   "memory/edit": { type: "memory/edit", id: "m-2", text: "Closed on Midsummer" },
@@ -194,8 +196,10 @@ describe("owner action schemas", () => {
 
   it("accepts the whole stored journal entry only as its five content fields", () => {
     const stored = { id: "j-2", customerId: "k-7", date: "2026-11-22", staffId: "anna", versions: [], ...journal };
-    expect(parse({ type: "journal/edit", id: "j-2", content: stored, on: "2026-11-23" })).toBeNull();
-    expect(parse({ type: "journal/edit", id: "j-2", content: contentOf(stored), on: "2026-11-23" })).not.toBeNull();
+    expect(parse({ type: "journal/edit", id: "j-2", content: stored, on: "2026-11-23", customerId: "k-7" })).toBeNull();
+    expect(parse({ type: "journal/edit", id: "j-2", content: contentOf(stored), on: "2026-11-23", customerId: "k-7" })).not.toBeNull();
+    // Over HTTP an edit names its customer.
+    expect(parse({ type: "journal/edit", id: "j-2", content: contentOf(stored), on: "2026-11-23" })).toBeNull();
   });
 
   it("allows the longest caption each channel allows and no more", () => {

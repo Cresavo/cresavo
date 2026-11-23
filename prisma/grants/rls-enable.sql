@@ -1,5 +1,6 @@
--- Turns on row-level security for the four studio store tables
--- (docs/design/STUDIO_STORE.md, "Row-level security"): the operator step.
+-- Turns on row-level security for the four studio store tables and the
+-- server-side journal table journal_entry (docs/design/STUDIO_STORE.md,
+-- "Row-level security" and "Server-side journals"): the operator step.
 -- Documentation for operators, NOT a migration; the migrations name no role and
 -- create no policy. Rollback: rls-disable.sql. State: verify-rls.sql.
 --
@@ -7,14 +8,14 @@
 -- them), after bootstrap-roles.sql (or roles.sql) and the rest of the order in
 -- roles.sql's header, and only once the deployed application sets its scope in
 -- every store transaction (src/concept/store/tenant-scope.ts). Safe to run
--- again. One transaction: either all four tables are enforced or none.
+-- again. One transaction: either all five tables are enforced or none.
 --
 --   psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql
 --   psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql
 --
 -- In order:
 --   1. the five group roles must exist (the policies name them);
---   2. the four tables are locked in ACCESS EXCLUSIVE mode, so nothing can
+--   2. the five tables are locked in ACCESS EXCLUSIVE mode, so nothing can
 --      change them or their policies until COMMIT (the step waits for running
 --      transactions on them);
 --   3. the policies below are created (an earlier copy of each is replaced);
@@ -28,7 +29,8 @@
 --   5. RLS is enabled and forced.
 --
 -- Scopes (set transaction-local by src/concept/store/tenant-scope.ts):
---   cresavo.tenant_id    one tenant, for cresavo_app and cresavo_eraser (store_tenant)
+--   cresavo.tenant_id    one tenant, for cresavo_app and cresavo_eraser (store_tenant);
+--                        the only policy besides the owner's on journal_entry: no support read
 --   cresavo.sandbox_key  cresavo_app resolving a sandbox token: that row only, read
 -- A booking address resolves through the function store_salon_by_slug (a tenant id only), not a policy.
 -- cresavo_support reads its diagnostic columns across tenants. The poller
@@ -56,7 +58,7 @@ BEGIN
 END
 $roles$;
 
-LOCK TABLE "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect" IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect", "journal_entry" IN ACCESS EXCLUSIVE MODE;
 
 DROP POLICY IF EXISTS "store_owner" ON "tenant_state";
 DROP POLICY IF EXISTS "store_tenant" ON "tenant_state";
@@ -71,6 +73,8 @@ DROP POLICY IF EXISTS "store_support_read" ON "tenant_idempotency";
 DROP POLICY IF EXISTS "store_owner" ON "tenant_effect";
 DROP POLICY IF EXISTS "store_tenant" ON "tenant_effect";
 DROP POLICY IF EXISTS "store_support_read" ON "tenant_effect";
+DROP POLICY IF EXISTS "store_owner" ON "journal_entry";
+DROP POLICY IF EXISTS "store_tenant" ON "journal_entry";
 
 CREATE POLICY "store_owner" ON "tenant_state" FOR ALL
   USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_state'::regclass), 'USAGE'))
@@ -109,11 +113,21 @@ CREATE POLICY "store_tenant" ON "tenant_effect" FOR ALL TO cresavo_app, cresavo_
   WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
 CREATE POLICY "store_support_read" ON "tenant_effect" FOR SELECT TO cresavo_support USING (true);
 
+-- Server-side journals: the owner, and the app and the eraser in a tenant's scope. Nobody reads across tenants.
+CREATE POLICY "store_owner" ON "journal_entry" FOR ALL
+  USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'journal_entry'::regclass), 'USAGE'))
+  WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'journal_entry'::regclass), 'USAGE'));
+CREATE POLICY "store_tenant" ON "journal_entry" FOR ALL TO cresavo_app, cresavo_eraser
+  USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
+  WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
+
 DO $check$
 DECLARE
   drift text;
 BEGIN
   WITH expected(tbl, policy, digest) AS (VALUES
+    ('journal_entry', 'store_owner', 'b96a8908fae28d7ec5bb5802493d157c'),
+    ('journal_entry', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
     ('tenant_action', 'store_owner', 'e9faebba0398f4bf24a080070171835a'),
     ('tenant_action', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
     ('tenant_action', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
@@ -131,7 +145,7 @@ BEGIN
   actual AS (
     SELECT p.tablename AS tbl, p.policyname AS policy, md5(p.cmd || '|' || p.permissive || '|' || array_to_string(p.roles, ',') || '|' || coalesce(p.qual, '') || '|' || coalesce(p.with_check, '')) AS digest
     FROM pg_policies p
-    WHERE p.schemaname = current_schema() AND p.tablename IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
+    WHERE p.schemaname = current_schema() AND p.tablename IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect', 'journal_entry')
   )
   SELECT string_agg(coalesce(a.tbl, e.tbl) || '.' || coalesce(a.policy, e.policy) || ' ('
     || CASE WHEN a.policy IS NULL THEN 'missing' WHEN e.policy IS NULL THEN 'unexpected' ELSE 'changed' END || ')', ', ')
@@ -152,5 +166,7 @@ ALTER TABLE "tenant_idempotency" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "tenant_idempotency" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "tenant_effect" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "tenant_effect" FORCE ROW LEVEL SECURITY;
+ALTER TABLE "journal_entry" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "journal_entry" FORCE ROW LEVEL SECURITY;
 
 COMMIT;

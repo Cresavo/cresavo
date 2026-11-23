@@ -15,8 +15,11 @@ const noStore = { "Cache-Control": "no-store" };
 export const ownerError = (code: string, status: number) => NextResponse.json({ error: code }, { status, headers: noStore });
 export const ownerOk = (body: Record<string, unknown> = { ok: true }) => NextResponse.json(body, { headers: noStore });
 
-/** The session an answer is for (account id and credential version): the studio keeps its caches to one session. */
-export const sessionKey = (owner: { accountId: string; credentialVersion: number }) => `${owner.accountId}.${owner.credentialVersion}`;
+/**
+ * The session an answer is for: account id, credential version and a tag of this very login, so a sign-out and a new
+ * sign-in to the same account give a new key. The studio keeps its caches, and its journal requests, to one key.
+ */
+export const sessionKey = (owner: { accountId: string; credentialVersion: number; sessionTag: string }) => `${owner.accountId}.${owner.credentialVersion}.${owner.sessionTag}`;
 
 /** The answer to send when this deployment serves no owner requests (read-only, accounts off, not configured); null when it does. */
 export function ownerDeploymentRefusal(): Response | null {

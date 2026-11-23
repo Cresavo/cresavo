@@ -1,14 +1,15 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type { DemoAction } from "../actions";
 import { DEMO_CHANNEL_CURRENCY, withDemoChannels } from "../connections/demo";
 import { configFromEnv, meantLive } from "../connections/server/config";
 import type { OutboxEntry } from "../connections/simulated/outbox";
 import { createDemoState } from "../data/generate";
 import { withSlotClock } from "../data/slots";
-import type { Customer, DateKey, DemoState } from "../data/types";
-import { customerIdentifiers, customerPhoneDigits, findErasable, mentionsCustomer, scrubDeep, scrubText } from "../customers/erase";
+import type { Customer, DateKey, DemoState, JournalEntry } from "../data/types";
+import { customerIdentifiers, customerPhoneDigits, erasedMarker, findErasable, mentionsCustomer, scrubDeep, scrubText } from "../customers/erase";
 import { withTenantPresentation } from "../i18n/presentation";
+import { auditAction, holdsJournalText, journalsIn, remapVersions, withoutJournalText } from "../journals/sealed";
 import { defaultMeta, prepareAction } from "../log/capture";
 import { salonClock } from "../tools/clock";
 import {
@@ -34,10 +35,13 @@ import {
   redactReplay,
 } from "./erasure";
 import { effectId, requestFingerprint, stagedChannels } from "./staged-channels";
+import {
+  deleteErasedJournals, JOURNAL_TEXT_ACTIONS, JournalSession, JournalVault, mentionCopiesJson, replaceMentions, type MentionCopy, type StoredReplay,
+} from "./journal-vault";
 import { IDEMPOTENCY_KEY_MAX, IDEMPOTENCY_TTL_MS } from "./idempotency";
 import { notifyTenantChange, PostgresNotifications, wakeTag } from "./postgres-notifications";
 import { DOCUMENT_SIZE_REFUSAL, MAX_DOCUMENT_BYTES, StoreMetrics } from "./store-metrics";
-import { enterScope, scoped, type StoreScope } from "./tenant-scope";
+import { enterScope, inScope, scoped, type StoreScope } from "./tenant-scope";
 import {
   actionFingerprint,
   detach,
@@ -101,6 +105,28 @@ const DRAIN_LIMIT = 100;
 /** Longest an apply's own drain keeps claiming after the commit; the poller takes what is left. */
 const DRAIN_BUDGET_MS = 5_000;
 const TRANSACTION = { maxWait: 5_000, timeout: 15_000 } as const;
+/** Stored replays one cleanup transaction rewrites at most, and batches one load runs before it tries to mark the salon. */
+const REPLAY_BATCH = 25;
+const REPLAY_MAX_BATCHES = 40;
+/**
+ * A stored replay result that still holds journal text: in its state copy an entry with text or without `sealed`,
+ * or a journal action with its text (holdsJournalText and actionHoldsText, as SQL).
+ */
+const REPLAY_TEXT = Prisma.sql`jsonb_path_exists(result, 'lax $.state.** ? (exists(@.treatment) && exists(@.observations) && exists(@.advice) && (!(exists(@.sealed)) || @.treatment != "" || @.observations != "" || @.advice != "" || exists(@.nextVisit) || exists(@.photos) || exists(@.versions)))')
+  OR jsonb_path_exists(result, 'lax $.entry.action ? ((@.type == "journal/add" && (exists(@.entry.treatment) || exists(@.entry.observations) || exists(@.entry.advice) || exists(@.entry.nextVisit) || exists(@.entry.photos) || exists(@.entry.versions))) || (@.type == "journal/edit" && exists(@.content)))')`;
+
+/** An audit row that still holds journal text: what store_journal_redact_audit removes. */
+const AUDIT_TEXT = Prisma.sql`(action ->> 'type' = 'journal/add' AND jsonb_typeof(action -> 'entry') = 'object'
+    AND jsonb_exists_any(action -> 'entry', ARRAY['treatment', 'observations', 'advice', 'nextVisit', 'photos', 'versions']))
+  OR (action ->> 'type' = 'journal/edit' AND action - ARRAY['type', 'id', 'on', 'customerId'] <> '{}'::jsonb)`;
+
+/** A replay result with every journal entry that carries text left out and its journal action without text. */
+function replayWithoutAnyText(result: StoredReplay): StoredReplay {
+  const state = result?.state && Array.isArray(result.state.journals) ? withoutJournalText(result.state) : result?.state;
+  const action = result?.entry?.action;
+  const entry = action && typeof action === "object" ? { ...result.entry, action: auditAction(action as DemoAction) } : result?.entry;
+  return { ...result, ...(state ? { state } : {}), ...(entry ? { entry } : {}) };
+}
 
 export { EFFECT_LEASE_MS, EFFECT_MAX_ATTEMPTS, type TenantKind };
 export type { EffectDelivery, EffectSink, EffectSinks } from "./effect-outbox";
@@ -114,11 +140,11 @@ export type EraseResult =
       /** The `customer/erase` log entry, when the document changed. */
       entry?: TenantAction;
     } & EraseCounts
-  | { ok: false; reason: "not-found" | "conflict" };
+  | { ok: false; reason: "not-found" | "conflict" | "unavailable" };
 
 interface EraseCounts {
-  /** `tenant_action` rows redacted, `tenant_effect` rows redacted or cancelled, idempotency keys deleted. */
-  redacted: { actions: number; effects: number; idempotencyKeys: number };
+  /** `tenant_action` rows redacted, `tenant_effect` rows redacted or cancelled, idempotency keys deleted, `journal_entry` rows deleted. */
+  redacted: { actions: number; effects: number; idempotencyKeys: number; journalEntries?: number };
   /** Payments still pending for the customer: they keep their payload until delivered (see STUDIO_STORE.md). */
   pendingPayments: number;
   /** Messages to the customer a deliverer was sending during the erasure: stopped for retries, outcome recorded by the deliverer. */
@@ -154,13 +180,35 @@ export interface PostgresStudioStoreOptions {
   maxAttempts?: number;
   /** Direct connection to Prisma's database for LISTEN. Defaults to DATABASE_URL. */
   listenerConnectionString?: string;
+  /**
+   * Server-side journals (JOURNALS_ON_SERVER): the vault keeps journal text encrypted in `journal_entry` and only
+   * stubs in the document. "unavailable" (the flag without a valid key) refuses every change that needs the text
+   * and writes text nowhere. Absent: journals stay in the document, as before.
+   */
+  journals?: JournalVault | "unavailable";
+  /**
+   * The journal key for erasure whatever the flag says: a salon whose journals are encrypted in `journal_entry`
+   * (the flag was on, or a restore brought the rows back) is only erased with a working key, since other customers'
+   * entries are searched for the customer's name. Without one such an erasure is refused, never reported done.
+   */
+  erasureVault?: JournalVault;
 }
+
+/** The `detail` of a `rejected` result when server-side journals are on but their key is missing. */
+export const JOURNALS_UNAVAILABLE = "journals_unavailable";
+
+/** One customer's journal, read on the server. */
+export type JournalRead =
+  | { ok: true; entries: JournalEntry[]; version: number }
+  | { ok: false; reason: "not-found" | "conflict" | "unavailable" };
 
 interface LockedRow {
   doc: unknown;
   version: number;
   kind: TenantKind;
   expires_ms: number | null;
+  /** The salon's journals live only in journal_entry: document, replays and audit rows hold no journal text. */
+  journals_sealed: boolean;
 }
 
 interface Replay {
@@ -283,6 +331,8 @@ export class PostgresStudioStore implements StudioStore {
   private readonly waking = new Map<TenantId, { queued: boolean }>();
   private readonly notifications?: PostgresNotifications;
   private readonly metrics = new StoreMetrics();
+  private readonly journals?: JournalVault | "unavailable";
+  private readonly erasureVault?: JournalVault;
 
   constructor(options: PostgresStudioStoreOptions) {
     if (typeof options.hmacSecret !== "string" || options.hmacSecret.length < 32) throw new Error("STUDIO_STORE_SECRET_INVALID");
@@ -300,6 +350,8 @@ export class PostgresStudioStore implements StudioStore {
     this.maxAttempts = whole(options.maxAttempts, EFFECT_MAX_ATTEMPTS);
     this.erasure = options.erasure === "function" ? "function" : "statements";
     this.liveMessage = options.liveMessage ?? ((record) => record.port === "email" && meantLive(configFromEnv(), "email"));
+    this.journals = options.journals instanceof JournalVault || options.journals === "unavailable" ? options.journals : undefined;
+    this.erasureVault = options.erasureVault instanceof JournalVault ? options.erasureVault : undefined;
     const listenerConnectionString = options.listenerConnectionString ?? process.env.DATABASE_URL;
     if (listenerConnectionString) {
       this.notifications = new PostgresNotifications(
@@ -366,7 +418,8 @@ export class PostgresStudioStore implements StudioStore {
    */
   private async lock(tx: Tx, tenantId: TenantId): Promise<LockedRow | undefined> {
     const [locked] = await tx.$queryRaw<LockedRow[]>`
-      SELECT doc, version, kind::text AS kind, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms
+      SELECT doc, version, kind::text AS kind, (extract(epoch FROM expires_at) * 1000)::float8 AS expires_ms,
+        journals_sealed_at IS NOT NULL AS journals_sealed
       FROM tenant_state WHERE tenant_id = ${tenantId} FOR UPDATE`;
     return locked;
   }
@@ -536,15 +589,27 @@ export class PostgresStudioStore implements StudioStore {
       }
       const fixture = action.type === "system/reset" ? createDemoState(action.payload.generatedFor) : migrateSaved(replacement);
       if (!fixture) return { replaced: { ok: false, reason: "rejected", version: locked.version } };
-      const document = JSON.stringify({ ...fixture, seq: Math.max(fixture.seq, before?.seq ?? 0) });
+      const access = await this.journalAccess(tx, tenantId, clock);
+      if (access === "unavailable" && (holdsJournalText(fixture) || (!!before && holdsJournalText(before)))) {
+        return { replaced: { ok: false, reason: "rejected", version: locked.version, detail: JOURNALS_UNAVAILABLE } };
+      }
+      const journals = access instanceof JournalSession ? access : undefined;
+      const replacing = journals ? await journals.seal(fixture) : fixture;
+      const document = JSON.stringify({ ...replacing, seq: Math.max(fixture.seq, before?.seq ?? 0) });
       const documentBytes = Buffer.byteLength(document);
       if (exceedsDocumentLimit(documentBytes, locked.doc)) {
         return { replaced: { ok: false, reason: "rejected", version: locked.version, detail: DOCUMENT_SIZE_REFUSAL } };
       }
+      if (journals && before) journals.recordPlaces(before, replacing);
+      await journals?.flush();
       const version = locked.version + 1;
       const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, clock);
       const entry: TenantAction = { tenantId, seq, at, actor: "system", source: "system", action, resultingVersion: version };
       const state = await this.writeDocumentAndAction(tx, document, entry, clock, []);
+      // A replacement that brings journal text in (the flag off) unmarks the salon in the same write; with the vault the
+      // old audit rows are cleaned here and the replays by the next load (sealJournals), which marks it again.
+      if (locked.journals_sealed && holdsJournalText(replacing)) await this.unmarkJournals(tx, tenantId);
+      if (journals && !locked.journals_sealed) await this.redactJournalAudit(tx, tenantId);
       return { replaced: { ok: true, version, changed: true }, commit: { state, version, entry, effects: [], documentBytes } };
     });
     if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
@@ -577,7 +642,10 @@ export class PostgresStudioStore implements StudioStore {
   }
 
   /** Steps 2–6 of an apply, under the row lock. */
-  private async applyLocked(tx: Tx, tenantId: TenantId, locked: LockedRow, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions): Promise<ApplyOutcome> {
+  private async applyLocked(
+    tx: Tx, tenantId: TenantId, locked: LockedRow, requested: DemoAction, meta: ApplyMeta, options: ApplyOptions,
+    prepare?: (state: DemoState) => DemoState,
+  ): Promise<ApplyOutcome> {
 
     // 2. The clock, after the lock. `at` (the event stamp) never goes before the previous entry.
     const clock = await this.clock(tx);
@@ -590,6 +658,14 @@ export class PostgresStudioStore implements StudioStore {
     }
     const stamp = this.trustCallerClock && meta.at !== undefined && Number.isFinite(meta.at) ? Math.floor(meta.at) : clock;
     const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, stamp);
+
+    // Server-side journals without a working key: nothing that reads or writes journal text runs, and while the
+    // saved document still holds journal text nothing is written at all (no document, no replay result).
+    const saved = migrateSaved(locked.doc);
+    const access = await this.journalAccess(tx, tenantId, clock);
+    if (access === "unavailable" && (JOURNAL_TEXT_ACTIONS.has(requested.type) || (!!saved && holdsJournalText(saved)))) {
+      return { done: { ok: false, reason: "rejected", detail: JOURNALS_UNAVAILABLE, version: locked.version } };
+    }
 
     // 3. Idempotency, judged by the clock, not by the (possibly imported or clamped) event stamp.
     const key = options.idempotencyKey;
@@ -612,8 +688,11 @@ export class PostgresStudioStore implements StudioStore {
     }
 
     // 5. The reducer. Times that decide eligibility or access come from the store clock.
-    const state = migrateSaved(locked.doc);
-    if (!state) return { done: { ok: false, reason: "not-found" } };
+    if (!saved) return { done: { ok: false, reason: "not-found" } };
+    // With server-side journals the reducer sees the text of the entries its rules read, and nothing else.
+    const journals = access instanceof JournalSession ? access : undefined;
+    const prepared = prepare ? prepare(saved) : saved;
+    const state = journals ? await journals.hydrateFor(prepared, requested) : prepared;
     // The reducer's `now` (hold expiry, fees, grants) is the clock itself unless the caller's clock is trusted;
     // only the tenant_action stamp is clamped.
     const action = this.trustCallerClock ? requested : withTrustedTimes(requested, clock);
@@ -627,7 +706,10 @@ export class PostgresStudioStore implements StudioStore {
     if (isThenable(next)) throw new Error("STUDIO_STORE_ASYNC_REDUCER");
     const reduced = next as DemoState;
     if (reduced === state || sameContent(reduced, state)) return { done: { ok: false, reason: "rejected", version: locked.version } };
-    const document = JSON.stringify(reduced);
+    // The stored document holds stubs only; new versions of journal text are queued for the table.
+    const stored = journals ? await journals.seal(reduced) : reduced;
+    journals?.recordPlaces(state, stored);
+    const document = JSON.stringify(stored);
     const documentBytes = Buffer.byteLength(document);
     // Erasure and access revocation must work even when their audit data grows the document.
     if (!isErasure(action) && action.type !== "support/revoke" && exceedsDocumentLimit(documentBytes, locked.doc)) {
@@ -656,11 +738,13 @@ export class PostgresStudioStore implements StudioStore {
 
     // 6. Commit: state, log entry, effects and the key in one transaction.
     await options.beforeCommit?.(tx);
+    await journals?.flush();
     const version = locked.version + 1;
     const entry: TenantAction = {
       seq,
       tenantId,
-      action,
+      // The audit log never holds journal text while the server keeps it: the entry id stands in for it.
+      action: journals ? auditAction(action, state, reduced) : action,
       actor: logMeta.actor,
       source: logMeta.source,
       at,
@@ -687,6 +771,11 @@ export class PostgresStudioStore implements StudioStore {
         ON CONFLICT (tenant_id, key) DO UPDATE
         SET fingerprint_hmac = EXCLUDED.fingerprint_hmac, seq = EXCLUDED.seq, result = EXCLUDED.result, expires_at = EXCLUDED.expires_at`;
     }
+    // Any write that leaves journal text in the document (the flag off) unmarks the salon in the same transaction,
+    // so the next start with the flag on moves it again. With the vault, the first change cleans the old audit rows;
+    // the replays follow in batches on the next load, which marks the salon (sealJournals).
+    if (locked.journals_sealed && holdsJournalText(stored)) await this.unmarkJournals(tx, tenantId);
+    if (journals && !locked.journals_sealed) await this.redactJournalAudit(tx, tenantId);
     return { commit: { ...commit, documentBytes } };
   }
 
@@ -753,12 +842,32 @@ export class PostgresStudioStore implements StudioStore {
       if (locked.expires_ms !== null && locked.expires_ms <= clock) return { erased: { ok: false, reason: "not-found" } };
       const state = migrateSaved(locked.doc);
       const customer = state ? findErasable(state, customerId) : undefined;
+      // Encrypted journals (whatever the flag says now) are searched for the customer's name: that needs a working key.
+      // So does a document that still holds journal text while the server is meant to keep it.
+      const [{ held }] = await tx.$queryRaw<Array<{ held: boolean }>>`SELECT EXISTS (SELECT 1 FROM journal_entry WHERE tenant_id = ${tenantId}) AS held`;
+      let journals: JournalSession | undefined;
+      if (held || (this.journals !== undefined && !!state && holdsJournalText(state))) {
+        const access = await this.journalAccess(tx, tenantId, clock, this.journals instanceof JournalVault ? this.journals : this.erasureVault ?? "unavailable");
+        if (!(access instanceof JournalSession)) return { erased: { ok: false, reason: "unavailable" } };
+        journals = access;
+      }
+      // Each version of another customer's entry that names them is replaced by a scrubbed copy, in the erasure's
+      // own step (the application may not link a copy to the version it replaces).
+      let remap = new Map<string, Map<number, number>>();
+      let copies: MentionCopy[] = [];
+      if (journals && state && customer) {
+        const scrubbed = await journals.scrubMentions(customerId, customerIdentifiers(customer), withTenantPresentation(state, erasedMarker));
+        remap = scrubbed.remap;
+        copies = scrubbed.copies;
+        // The statements mode (staging, as the table owner) stores them itself; erase_subject does it as the eraser.
+        if (copies.length && this.erasure !== "function") await replaceMentions(tx, tenantId, copies);
+      }
       // Before the document changes: erase_subject reads the customer's identifiers from it.
       const counts = this.erasure === "function"
-        ? await this.eraseWithFunction(tx, tenantId, customerId)
+        ? await this.eraseWithFunction(tx, tenantId, customerId, copies)
         : await this.redactLog(tx, tenantId, customerId, customer, clock);
       if (!customer) return { erased: { ok: true, version: locked.version, ...counts } };
-      const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {});
+      const committed = await this.applyLocked(tx, tenantId, locked, { type: "customer/erase", id: customerId }, meta, {}, (doc) => remapVersions(doc, remap));
       if ("done" in committed) throw new Error("STUDIO_STORE_ERASE_REFUSED");
       const { commit } = committed;
       return { erased: { ok: true, version: commit.version, entry: commit.entry, ...counts }, commit };
@@ -768,11 +877,14 @@ export class PostgresStudioStore implements StudioStore {
     return detach(result.erased);
   }
 
-  private async eraseWithFunction(tx: Tx, tenantId: TenantId, customerId: string): Promise<EraseCounts> {
-    const [{ counts }] = await tx.$queryRaw<Array<{ counts: { actions: number; effects: number; idempotencyKeys: number; pendingPayments: number; inFlightMessages: number } }>>`
-      SELECT erase_subject(${tenantId}, ${customerId}) AS counts`;
-    const { pendingPayments, inFlightMessages, ...redacted } = counts;
-    return { redacted, pendingPayments, inFlightMessages };
+  private async eraseWithFunction(tx: Tx, tenantId: TenantId, customerId: string, copies: MentionCopy[]): Promise<EraseCounts> {
+    type Counts = { actions: number; effects: number; idempotencyKeys: number; journalEntries?: number; pendingPayments: number; inFlightMessages: number };
+    // With scrubbed journal copies the three-argument form stores them first, as the eraser; the application cannot.
+    const [{ counts }] = copies.length
+      ? await tx.$queryRaw<Array<{ counts: Counts }>>`SELECT erase_subject(${tenantId}, ${customerId}, ${mentionCopiesJson(copies)}::jsonb) AS counts`
+      : await tx.$queryRaw<Array<{ counts: Counts }>>`SELECT erase_subject(${tenantId}, ${customerId}) AS counts`;
+    const { actions, effects, idempotencyKeys, journalEntries, pendingPayments, inFlightMessages } = counts;
+    return { redacted: { actions, effects, idempotencyKeys, journalEntries }, pendingPayments, inFlightMessages };
   }
 
   /** The table half of an erasure, inside its transaction. Mirrors erase_subject in prisma/grants/erase-subject.sql. */
@@ -846,14 +958,17 @@ export class PostgresStudioStore implements StudioStore {
     }
     // Stored results are state copies. A row is never deleted (a retry would run again): the customer is removed from its snapshot and their
     // identifiers replaced, and a key that itself holds an identifier is replaced by its hash, which a retry under the same key still finds.
-    const replays = await tx.$queryRaw<Array<{ key: string; result: unknown }>>`
-      SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId}
-        AND (key ILIKE ANY(${keyPatterns}::text[]) OR result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR result::text ILIKE ANY(${patterns}::text[]))
-      FOR UPDATE`;
+    // A replay whose audit row (same seq) names the customer by subject_ids loses every personal field of its action.
+    const replays = await tx.$queryRaw<Array<{ key: string; result: unknown; named: boolean }>>`
+      SELECT i.key, i.result, EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = ${tenantId} AND a.seq = i.seq AND a.subject_ids @> ARRAY[${customerId}]::text[]) AS named
+      FROM tenant_idempotency i WHERE i.tenant_id = ${tenantId}
+        AND (i.key ILIKE ANY(${keyPatterns}::text[]) OR i.result::text LIKE ANY(${customerIdPatterns(customerId)}::text[]) OR i.result::text ILIKE ANY(${patterns}::text[])
+          OR EXISTS (SELECT 1 FROM tenant_action a WHERE a.tenant_id = ${tenantId} AND a.seq = i.seq AND a.subject_ids @> ARRAY[${customerId}]::text[]))
+      FOR UPDATE OF i`;
     let idempotencyKeys = 0;
     for (const replay of replays) {
       const key = keyHoldsIdentifier(replay.key, identifiers) ? erasedKey(replay.key) : replay.key;
-      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts));
+      const result = JSON.stringify(redactReplay(replay.result, customerId, identifiers, phones, contacts, replay.named));
       // A row that is already redacted (a repeated erasure) is left alone and not counted.
       if (key === replay.key && result === JSON.stringify(replay.result)) continue;
       await tx.$executeRaw`
@@ -861,7 +976,176 @@ export class PostgresStudioStore implements StudioStore {
         WHERE tenant_id = ${tenantId} AND key = ${replay.key}`;
       idempotencyKeys++;
     }
-    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys }, pendingPayments, inFlightMessages };
+    const journalEntries = await deleteErasedJournals(tx, tenantId, customerId);
+    return { redacted: { actions: redactedActions, effects: redactedEffects, idempotencyKeys, journalEntries }, pendingPayments, inFlightMessages };
+  }
+
+  private unmarkJournals(tx: Tx, tenantId: TenantId) {
+    return tx.$executeRaw`UPDATE tenant_state SET journals_sealed_at = NULL WHERE tenant_id = ${tenantId}`;
+  }
+
+  /**
+   * The audit rows from before the move lose their journal text (store_journal_redact_audit: a `journal/add` keeps
+   * its entry metadata, and its entry id only where the original commit recorded one; `journal/edit` keeps id and
+   * day). Fails the transaction when any such row still holds text afterwards.
+   */
+  private async redactJournalAudit(tx: Tx, tenantId: TenantId) {
+    await tx.$queryRaw`SELECT store_journal_redact_audit(${tenantId})`;
+    const [{ left }] = await tx.$queryRaw<Array<{ left: number }>>`
+      SELECT count(*)::int AS left FROM tenant_action WHERE tenant_id = ${tenantId} AND (${AUDIT_TEXT})`;
+    if (left > 0) throw new Error("STUDIO_STORE_JOURNAL_MOVE_INCOMPLETE");
+  }
+
+  /**
+   * One bounded batch of the replay cleanup, in its own short transaction in the tenant's scope and without the
+   * tenant's row lock: up to REPLAY_BATCH stored results that still hold journal text (by REPLAY_TEXT) after `after`
+   * lose it. Progress is durable: a cleaned row no longer matches, so a later run starts with what is left. Returns
+   * the last key seen, or null when nothing was left.
+   */
+  private async sealReplayBatch(tenantId: TenantId, after: string): Promise<string | null> {
+    return inScope(this.prisma, { tenant: tenantId }, async (tx) => {
+      const journals = await this.journalAccess(tx, tenantId, await this.clock(tx));
+      if (!(journals instanceof JournalSession)) throw new Error("STUDIO_STORE_JOURNALS_UNAVAILABLE");
+      const replays = await tx.$queryRaw<Array<{ key: string; result: StoredReplay }>>`
+        SELECT key, result FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND key > ${after} AND (${REPLAY_TEXT})
+        ORDER BY key LIMIT ${REPLAY_BATCH} FOR UPDATE SKIP LOCKED`;
+      if (!replays.length) return null;
+      const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`;
+      const stored = migrateSaved(row?.doc);
+      if (!stored) return null;
+      await journals.load(replays.flatMap((replay) => (replay.result?.state && Array.isArray(replay.result.state.journals) ? journalsIn(replay.result.state).map((j) => j.id) : [])));
+      for (const replay of replays) {
+        const result = journals.replayWithoutText(replay.result, stored) ?? replayWithoutAnyText(replay.result);
+        await tx.$executeRaw`
+          UPDATE tenant_idempotency SET result = ${JSON.stringify(result)}::jsonb WHERE tenant_id = ${tenantId} AND key = ${replay.key}`;
+      }
+      return replays.at(-1)!.key;
+    }, TRANSACTION);
+  }
+
+  /**
+   * The journal session for this transaction: a vault whose key matches its stored verifier, "unavailable" when the
+   * server should keep journals but has no working key, or undefined when journals stay in the document (flag off).
+   */
+  private async journalAccess(tx: Tx, tenantId: TenantId, clock: number, vault: JournalVault | "unavailable" | undefined = this.journals): Promise<JournalSession | "unavailable" | undefined> {
+    if (vault === undefined) return undefined;
+    if (vault === "unavailable" || !(await vault.verify(tx))) return "unavailable";
+    return vault.open(tx, tenantId, clock);
+  }
+
+  /** True once the salon's journals live only in journal_entry (read without the row lock). */
+  async journalsSealed(tenantId: TenantId): Promise<boolean> {
+    const [row] = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ sealed: boolean }>>`
+      SELECT journals_sealed_at IS NOT NULL AS sealed FROM tenant_state WHERE tenant_id = ${tenantId}`);
+    return row?.sealed ?? false;
+  }
+
+  /**
+   * One customer's live journal entries with their text, for the signed-in owner (JOURNALS_ON_SERVER). The read
+   * is logged as a server read (`journal/view` with `served`) for that customer in the same transaction, under the
+   * row lock; the same reader again within a minute is the read already logged. Nothing is logged unless the text
+   * can be read. Refused for a customer the salon does not have.
+   */
+  async readJournals(tenantId: TenantId, customerId: string, meta: ApplyMeta = {}): Promise<JournalRead> {
+    if (!(this.journals instanceof JournalVault)) return { ok: false, reason: "unavailable" };
+    const start = performance.now();
+    const result = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ read: JournalRead; commit?: DocumentCommit }> => {
+      const locked = await this.lock(tx, tenantId);
+      const current = locked && migrateSaved(locked.doc);
+      if (!locked || !current || !current.customers.some((c) => c.id === customerId)) return { read: { ok: false, reason: "not-found" } };
+      const access = await this.journalAccess(tx, tenantId, await this.clock(tx));
+      if (!(access instanceof JournalSession)) return { read: { ok: false, reason: "unavailable" } };
+      const logged = await this.applyLocked(tx, tenantId, locked, { type: "journal/view", customerId, actor: "owner", served: true }, { ...meta, actor: "owner" }, {});
+      if ("done" in logged && !(!logged.done.ok && logged.done.reason === "rejected" && !logged.done.detail)) {
+        const reason = !logged.done.ok && logged.done.reason === "not-found" ? "not-found" : !logged.done.ok && logged.done.detail === JOURNALS_UNAVAILABLE ? "unavailable" : "conflict";
+        return { read: { ok: false, reason } };
+      }
+      const commit = "commit" in logged ? logged.commit : undefined;
+      const entries = await access.readCustomer(commit ? commit.state : current, customerId);
+      return { read: { ok: true, entries, version: commit ? commit.version : locked.version }, ...(commit ? { commit } : {}) };
+    });
+    if ("lockTimeout" in result) return { ok: false, reason: "conflict" };
+    if (result.commit) await this.published(tenantId, result.commit, start);
+    return detach(result.read);
+  }
+
+  /**
+   * Moves a salon's journals into the table for good: the first load with JOURNALS_ON_SERVER on, and every load
+   * until the salon is marked. Three steps, so no transaction holds the salon for long:
+   *
+   * 1. under the row lock, text still in the document becomes stubs (a new version and a `system/seal-journals`
+   *    audit entry) and the old audit rows lose their text;
+   * 2. the stored replays lose theirs in bounded batches (`sealReplayBatch`), each its own short transaction;
+   * 3. without the lock, every audit row and replay is checked up to a high-water mark of the log; then, under the row
+   *    lock, only the document and what came past the mark. Only when all are clean is the salon marked
+   *    (`journals_sealed_at`). Anything left is for the next load.
+   *
+   * Does nothing for a marked salon whose document holds stubs only. `changed`: the document was rewritten.
+   */
+  async sealJournals(tenantId: TenantId): Promise<{ ok: true; changed: boolean; sealed: boolean } | { ok: false; reason: "not-found" | "conflict" | "unavailable" }> {
+    if (!(this.journals instanceof JournalVault)) return { ok: false, reason: "unavailable" };
+    const start = performance.now();
+    type Step = { ok: true; changed: boolean; sealed: boolean } | { ok: false; reason: "not-found" | "unavailable" };
+    const first = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ step: Step; commit?: DocumentCommit }> => {
+      const locked = await this.lock(tx, tenantId);
+      const clock = await this.clock(tx);
+      const state = locked && migrateSaved(locked.doc);
+      if (!locked || !state || (locked.expires_ms !== null && locked.expires_ms <= clock)) return { step: { ok: false, reason: "not-found" } };
+      if (locked.journals_sealed && !holdsJournalText(state)) return { step: { ok: true, changed: false, sealed: true } };
+      const journals = await this.journalAccess(tx, tenantId, clock);
+      if (!(journals instanceof JournalSession)) return { step: { ok: false, reason: "unavailable" } };
+      if (locked.journals_sealed) await this.unmarkJournals(tx, tenantId);
+      let commit: DocumentCommit | undefined;
+      if (holdsJournalText(state)) {
+        const stored = await journals.seal(state);
+        journals.recordPlaces(state, stored);
+        await journals.flush();
+        const document = JSON.stringify(stored);
+        const version = locked.version + 1;
+        const { seq, at } = await this.auditPosition(tx, tenantId, locked.version, clock);
+        const entry: TenantAction = { tenantId, seq, at, actor: "system", source: "system", action: { type: "system/seal-journals", payload: {} }, resultingVersion: version };
+        const written = await this.writeDocumentAndAction(tx, document, entry, clock, []);
+        commit = { state: written, version, entry, effects: [], documentBytes: Buffer.byteLength(document) };
+      }
+      await this.redactJournalAudit(tx, tenantId);
+      return { step: { ok: true, changed: !!commit, sealed: false }, ...(commit ? { commit } : {}) };
+    });
+    if ("lockTimeout" in first) return { ok: false, reason: "conflict" };
+    if (first.commit) await this.published(tenantId, first.commit, start);
+    if (!first.step.ok || first.step.sealed) return first.step;
+    const changed = first.step.changed;
+
+    let cursor = "";
+    for (let batch = 0; batch < REPLAY_MAX_BATCHES; batch++) {
+      const last = await this.sealReplayBatch(tenantId, cursor);
+      if (last === null) break;
+      cursor = last;
+    }
+
+    // The full check runs without the row lock: every audit row and replay, up to a high-water mark of the log.
+    const checked = await inScope(this.prisma, { tenant: tenantId }, async (tx) => {
+      const [row] = await tx.$queryRaw<Array<{ mark: bigint; left: number }>>`
+        SELECT coalesce((SELECT max(seq) FROM tenant_action WHERE tenant_id = ${tenantId}), 0) AS mark,
+          (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${tenantId} AND (${AUDIT_TEXT}))
+          + (SELECT count(*)::int FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND (${REPLAY_TEXT})) AS left`;
+      return row;
+    }, TRANSACTION);
+    if (checked.left > 0) return { ok: true, changed, sealed: false };
+    // Under the lock only what may have come since: the document, and audit rows and replays past the mark.
+    const last = await this.transaction({ tenant: tenantId }, async (tx): Promise<{ sealed: boolean; commit?: never }> => {
+      const locked = await this.lock(tx, tenantId);
+      const clock = await this.clock(tx);
+      const state = locked && migrateSaved(locked.doc);
+      if (!locked || !state || holdsJournalText(state) || locked.journals_sealed) return { sealed: !!locked?.journals_sealed };
+      const [{ left }] = await tx.$queryRaw<Array<{ left: number }>>`
+        SELECT (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${tenantId} AND seq > ${checked.mark} AND (${AUDIT_TEXT}))
+          + (SELECT count(*)::int FROM tenant_idempotency WHERE tenant_id = ${tenantId} AND seq > ${checked.mark} AND (${REPLAY_TEXT})) AS left`;
+      if (left > 0) return { sealed: false };
+      await tx.$executeRaw`UPDATE tenant_state SET journals_sealed_at = to_timestamp(${clock}::float8 / 1000) WHERE tenant_id = ${tenantId}`;
+      return { sealed: true };
+    });
+    if ("lockTimeout" in last) return { ok: false, reason: "conflict" };
+    return { ok: true, changed, sealed: last.sealed };
   }
 
   subscribe(tenantId: TenantId, listener: (change: StoreChange) => void, { onRefresh }: { onRefresh?: () => void | Promise<void> } = {}): () => void {

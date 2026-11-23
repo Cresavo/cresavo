@@ -5,6 +5,7 @@ import { migrateState } from "../data/migrate";
 import { salonClock } from "../tools/clock";
 import type { DateKey, DemoState } from "../data/types";
 import type { LogActor, LogSource } from "../log/types";
+import type { JournalAuditAction } from "../journals/sealed";
 
 // The one way studio and server code reads and changes a salon's state.
 // Today the browser store sits behind it (`BrowserStudioStore`) and an
@@ -81,7 +82,8 @@ export interface TenantAction {
   /** 1, 2, 3… per tenant, in commit order, never reused. */
   seq: number;
   tenantId: TenantId;
-  action: DemoAction | SystemAction;
+  /** With server-side journals, a journal change is kept without its text (`JournalAuditAction`). */
+  action: DemoAction | SystemAction | JournalAuditAction;
   actor: LogActor | "system";
   source: LogSource | "system";
   /** Epoch milliseconds of the commit. */
@@ -93,7 +95,9 @@ export interface TenantAction {
 
 export type SystemAction =
   | { type: "system/reset"; payload: { generatedFor: DateKey } }
-  | { type: "system/replace"; payload: { reason: string } };
+  | { type: "system/replace"; payload: { reason: string } }
+  /** Journal text moved from the document into `journal_entry` (JOURNALS_ON_SERVER). */
+  | { type: "system/seal-journals"; payload: Record<string, never> };
 
 export type ApplyFailure =
   /** `expectedVersion` was stale, or (browser) this tab could not confirm it had the latest write in time. Nothing changed; reload and retry. */

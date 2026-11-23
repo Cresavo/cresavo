@@ -7,11 +7,11 @@ import { GUARD_PREFIXES } from "./owner-guard-keys";
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
 export const rateLimitDatabase = createDatabaseClient(undefined, 1);
-type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload";
+type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload" | "journal-read" | "journal-write";
 export type Reservation = { key: string; generation: string; count: number };
 
 const limitOf = (route: Route) =>
-  route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : 60;
+  route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "journal-read" ? 300 : route === "journal-write" ? 120 : 60;
 
 type Tx = Prisma.TransactionClient;
 
