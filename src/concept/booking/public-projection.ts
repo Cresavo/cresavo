@@ -48,7 +48,7 @@ const salon = (stored: Salon, bookableUntil: DateKey): Salon => ({
 
 const offering = (stored: Service): Service => ({
   id: text(stored.id), name: text(stored.name), category: text(stored.category), staffIds: list(stored.staffIds) as StaffId[],
-  duration: num(stored.duration), price: num(stored.price), description: text(stored.description), recallWeeks: 0,
+  duration: num(stored.duration), price: num(stored.price), description: text(stored.description), details: optionalText(stored.details), recallWeeks: 0,
   image: optionalText(stored.image), resourceIds: list(stored.resourceIds), ...timing(stored),
 });
 

@@ -84,8 +84,11 @@ export interface Service {
   duration: number;
   price: number;
   description: string;
+  /** Longer plain text customers open with "More info": what is included and what to expect. Line breaks are kept. */
+  details?: string;
   /** Recommended weeks between visits, used for recall reminders. */
   recallWeeks: number;
+  /** A photo shown with `details`: one of the page's own photos (a `PhotoId`). */
   image?: string;
   /** Products used up by one visit; lowers the stock when the visit is marked done. */
   consumption?: StockUse[];
