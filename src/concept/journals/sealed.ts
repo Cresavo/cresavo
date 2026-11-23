@@ -169,11 +169,11 @@ export function journalPlaces(state: DemoState): { live: Set<string>; trashed: S
 /** What the audit log keeps of a journal change: who and which entry, never the text. */
 export type JournalAuditAction =
   | { type: "journal/add"; entry: { id?: string; customerId: string; bookingId?: string; date: DateKey; staffId: string } }
-  | { type: "journal/edit"; id: string; on: DateKey };
+  | { type: "journal/edit"; id: string; on: DateKey; customerId?: string };
 
 /** The action as the audit log and the replay store keep it while journals are sealed: the text replaced by the entry id. */
 export function auditAction(action: DemoAction, before?: DemoState, after?: DemoState): DemoAction | JournalAuditAction {
-  if (action.type === "journal/edit") return { type: "journal/edit", id: action.id, on: action.on };
+  if (action.type === "journal/edit") return { type: "journal/edit", id: action.id, on: action.on, ...(action.customerId ? { customerId: action.customerId } : {}) };
   if (action.type !== "journal/add") return action;
   const known = new Set(before?.journals.map((entry) => entry.id) ?? []);
   const id = after?.journals.find((entry) => !known.has(entry.id))?.id;

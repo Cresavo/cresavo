@@ -56,5 +56,5 @@ export const customerSchemas = {
     type: z.literal("journal/add"),
     entry: journalContent.extend({ customerId: id, bookingId: id.optional(), date, staffId }),
   }),
-  "journal/edit": z.strictObject({ type: z.literal("journal/edit"), id, content: journalContent, on: date }),
+  "journal/edit": z.strictObject({ type: z.literal("journal/edit"), id, content: journalContent, on: date, customerId: id.optional() }),
 };

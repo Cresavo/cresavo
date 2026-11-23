@@ -2,6 +2,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST as postAction } from "../../src/app/api/owner/salon/actions/route";
+import { sessionKey } from "../../src/lib/owner-http";
+import { ownerFromCookie } from "../../src/lib/owner-session";
+
 import { GET } from "../../src/app/api/public/salons/[slug]/route";
 import { addressProof } from "../../scripts/client-address.mjs";
 import { db } from "../../src/lib/db";
@@ -9,6 +12,9 @@ import { createOwnerAccount } from "../../src/lib/owner-accounts";
 import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
 import { ownerStore } from "../../src/lib/owner-store";
 import { findSalonTenant } from "../../src/lib/public-booking";
+
+/** The session key of a cookie (what the salon load hands the studio for `x-cresavo-session`). */
+const keyOf = async (cookie: string) => sessionKey((await ownerFromCookie(cookie.slice(cookie.indexOf("=") + 1)))!);
 
 // Public salon lookup against a disposable local *_test database. All data is fictional.
 
@@ -80,7 +86,7 @@ describe("salon addresses", () => {
     const b = await salon(`Salong Epsilon ${run}`);
     const response = await postAction(new NextRequest("http://localhost/api/owner/salon/actions", {
       method: "POST", body: JSON.stringify({ action: { type: "salon/slug", slug: a.slug }, idempotencyKey: randomUUID().replaceAll("-", "") }),
-      headers: { cookie: b.cookie, origin: "http://localhost", host: "localhost", "content-type": "application/json" },
+      headers: { cookie: b.cookie, origin: "http://localhost", host: "localhost", "content-type": "application/json", "x-cresavo-session": await keyOf(b.cookie) },
     }));
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({ error: "slug_taken" });

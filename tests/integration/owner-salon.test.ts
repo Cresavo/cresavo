@@ -23,8 +23,9 @@ async function owner(name: string) {
 }
 
 const read = (cookie: string) => getSalon(new NextRequest(`${origin}/api/owner/salon`, { headers: { cookie } }));
-const send = (cookie: string, body: unknown) => postAction(new NextRequest(`${origin}/api/owner/salon/actions`, {
-  method: "POST", body: JSON.stringify(body), headers: { cookie, origin, host: "localhost", "content-type": "application/json" },
+const send = async (cookie: string, body: unknown, session?: string) => postAction(new NextRequest(`${origin}/api/owner/salon/actions`, {
+  method: "POST", body: JSON.stringify(body),
+  headers: { cookie, origin, host: "localhost", "content-type": "application/json", "x-cresavo-session": session ?? await keyOf(cookie) },
 }));
 
 

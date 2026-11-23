@@ -49,7 +49,8 @@ const anon: Who = { cookie: "", session: "" };
 
 const json = (body: unknown, cookie: string) => ({ method: "POST", body: JSON.stringify(body), headers: { cookie, origin, host: "localhost", "content-type": "application/json" } });
 const read = (cookie: string) => getSalon(new NextRequest(`${origin}/api/owner/salon`, { headers: { cookie } }));
-const send = (cookie: string, body: unknown) => postAction(new NextRequest(`${origin}/api/owner/salon/actions`, json(body, cookie)));
+const send = async (cookie: string, body: unknown, session?: string) =>
+  postAction(new NextRequest(`${origin}/api/owner/salon/actions`, bound({ cookie, session: session ?? await keyOf(cookie) }, json(body, cookie))));
 const bound = (who: Who, init: { method?: string; body?: string; headers: Record<string, string> }) => ({ ...init, headers: { ...init.headers, "x-cresavo-session": who.session } });
 const write = (who: Who, body: unknown) => postJournal(new NextRequest(`${origin}/api/owner/journals`, bound(who, json(body, who.cookie))));
 const journalOf = (who: Who, customerId: string) =>
@@ -361,6 +362,15 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     }
     expect(await rows(a.tenantId)).toHaveLength(1);
     expect(await views(a.tenantId)).toEqual([]);
+    // Every other change is bound the same way, and its answer names the login it is for.
+    expect((await send(a.cookie, { action: { type: "card/dismiss", id: "fictional-card" }, idempotencyKey: "s-other" }, other.session)).status).toBe(409);
+    const dismissed = await send(a.cookie, { action: { type: "card/dismiss", id: "fictional-card" }, idempotencyKey: "s-own" });
+    expect((await dismissed.json()).session).toBe(a.session);
+    // An edit names the customer it was made for: under an entry id of another customer it changes nothing.
+    const entryId = (loaded.state as DemoState).journals.find((j) => j.customerId === a.vera.id)!.id;
+    const content = { treatment: "x", observations: "y", advice: "z" };
+    expect((await write(a, { action: { type: "journal/edit", id: entryId, content, on: "2026-11-23", customerId: a.olle.id }, idempotencyKey: "s-wrong-customer" })).status).toBe(422);
+    expect((await write(a, { action: { type: "journal/edit", id: entryId, content, on: "2026-11-23", customerId: a.vera.id }, idempotencyKey: "s-right-customer" })).status).toBe(200);
     // An erasure asked in another login is refused before anything is looked up, and the customer stays.
     const name = `${a.vera.firstName} ${a.vera.lastName}`;
     expect((await erase(a.cookie, { customerId: a.vera.id, name }, other.session)).status).toBe(409);
@@ -410,6 +420,19 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect((await journalOf(legacy, legacy.vera.id)).status).toBe(503);
     expect((await db.$queryRaw<Array<{ version: number }>>`SELECT version FROM tenant_state WHERE tenant_id = ${legacy.tenantId}`)[0].version).toBe(sealedBefore);
     expect(await rows(legacy.tenantId)).toHaveLength(1);
+  });
+
+  it("redacts the stored replay of an edit of the erased customer's journal, which names them only by its audit row", async () => {
+    vi.stubEnv("JOURNALS_ON_SERVER", "");
+    freshStore();
+    const a = await salon("Salong Gammal Redigering");
+    const added = await (await send(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "r-add" })).json();
+    const id = (added.state as DemoState).journals.find((j) => j.customerId === a.vera.id)!.id;
+    const edited = `Edited note without a name ${run}`;
+    await send(a.cookie, { action: { type: "journal/edit", id, content: { treatment: "t", observations: edited, advice: "a" }, on: "2026-11-21" }, idempotencyKey: "r-edit" });
+    expect(await storedText(a.tenantId)).toContain(edited);
+    expect((await erase(a.cookie, { customerId: a.vera.id, name: `${a.vera.firstName} ${a.vera.lastName}` })).status).toBe(200);
+    expect(await storedText(a.tenantId)).not.toContain(edited);
   });
 
   it("erases a salon with encrypted journals only with a working key, whatever the flag says", async () => {

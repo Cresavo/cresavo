@@ -30,7 +30,7 @@ const STATUS = { conflict: 409, rejected: 422, "idempotency-mismatch": 409, "not
 const unavailable = () => ownerError(JOURNALS_UNAVAILABLE, 503);
 
 /** Runs a journal handler for a signed-in owner with a full session, while the flag is on. */
-function journalRoute(request: NextRequest, handler: (tenantId: string) => Promise<NextResponse>, options?: { write?: boolean }) {
+function journalRoute(request: NextRequest, handler: (tenantId: string, session: string) => Promise<NextResponse>, options?: { write?: boolean }) {
   return ownerRoute(request, async () => {
     if (!journalsOnServer()) return ownerError("not_found", 404);
     const owner = await sessionOwner(request);
@@ -39,7 +39,7 @@ function journalRoute(request: NextRequest, handler: (tenantId: string) => Promi
     // queued there) is refused before anything is read or written, as for the photo library.
     if (request.headers.get(UPLOAD_SESSION_HEADER) !== sessionKey(owner)) return ownerError("session_changed", 409);
     try {
-      return withRenewedSession(await handler(owner.tenantId), request);
+      return withRenewedSession(await handler(owner.tenantId, sessionKey(owner)), request);
     } catch (error) {
       // A version that does not decrypt (another key, a changed row): never a partial journal.
       if (error instanceof JournalUnreadable) return ownerError("journals_unreadable", 503);
@@ -67,7 +67,7 @@ export function GET(request: NextRequest) {
 
 /** Adds an entry (`journal/add`) or a new version of one (`journal/edit`). The text goes to the table, the salon gets a stub. */
 export function POST(request: NextRequest) {
-  return journalRoute(request, async (tenantId) => {
+  return journalRoute(request, async (tenantId, session) => {
     const json = await readBoundedJson(request, MAX_BODY_BYTES);
     if (json === "too_large") return ownerError("too_large", 413);
     const body = bodySchema.safeParse(json);
@@ -79,6 +79,6 @@ export function POST(request: NextRequest) {
       expectedVersion: body.data.expectedVersion, idempotencyKey: body.data.idempotencyKey,
     });
     if (!result.ok) return result.detail === JOURNALS_UNAVAILABLE ? unavailable() : ownerError(result.reason, STATUS[result.reason]);
-    return ownerOk({ state: salonForBrowser(result.state), version: result.version, replayed: result.replayed });
+    return ownerOk({ state: salonForBrowser(result.state), version: result.version, replayed: result.replayed, session });
   });
 }

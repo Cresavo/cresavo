@@ -5,6 +5,7 @@ import {
   auditAction, canonicalContent, holdsJournalText, hydrateJournal, isStub, journalPlaces, journalsIn, journalStub, mapJournals, remapVersions,
   versionCount, versionsOf, withoutJournalText,
 } from "@/concept/journals/sealed";
+import { reduce } from "@/concept/actions";
 import { applyAction } from "@/concept/log/capture";
 import { recordJournalView } from "@/concept/privacy/journal-access";
 
@@ -128,5 +129,14 @@ describe("sealed journal documents", () => {
     // A second server read within the minute is the same read; a later one is a new read.
     expect(recordJournalView(served, { customerId, actor: "owner", served: true }, at + 2000)).toBe(served);
     expect(recordJournalView(served, { customerId, actor: "owner", served: true }, at + 120_000).journalAccess).toHaveLength(served.journalAccess!.length + 1);
+  });
+
+  it("edits an entry only for the customer the edit names", () => {
+    const { state, edited } = salon();
+    const other = state.customers.find((c) => c.id !== edited.customerId)!;
+    const content = { treatment: "A fictional edit", observations: "", advice: "" };
+    expect(reduce(state, { type: "journal/edit", id: edited.id, content, on: today, customerId: other.id }).journals.find((j) => j.id === edited.id)).toBe(edited);
+    const ok = reduce(state, { type: "journal/edit", id: edited.id, content, on: today, customerId: edited.customerId });
+    expect(ok.journals.find((j) => j.id === edited.id)!.treatment).toBe("A fictional edit");
   });
 });

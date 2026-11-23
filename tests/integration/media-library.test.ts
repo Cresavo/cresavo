@@ -72,7 +72,7 @@ async function savePage(who: Owner, logo: string | null) {
   const { state } = (await ownerStore().load(who.tenantId))! as { state: DemoState };
   const page = { ...state.page, theme: { ...state.page.theme, logo } };
   return actionRoute(request("/api/owner/salon/actions", {
-    cookie: who.cookie, method: "POST", headers: { "content-type": "application/json" },
+    cookie: who.cookie, method: "POST", headers: { "content-type": "application/json", "x-cresavo-session": who.session },
     body: JSON.stringify({ action: { type: "page/set", page }, idempotencyKey: `media-${run}-${++keys}` }),
   }));
 }
