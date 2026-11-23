@@ -279,6 +279,8 @@ export class PostgresStudioStore implements StudioStore {
   /** Wake-up tag to tenant, for the tenants this store has subscribers for, and the last version handed to them. */
   private readonly tags = new Map<string, TenantId>();
   private readonly seen = new Map<TenantId, number>();
+  /** Per tenant: a version read in flight, and whether another wake-up arrived meanwhile (at most one more read). */
+  private readonly waking = new Map<TenantId, { queued: boolean }>();
   private readonly notifications?: PostgresNotifications;
   private readonly metrics = new StoreMetrics();
 
@@ -312,15 +314,40 @@ export class PostgresStudioStore implements StudioStore {
 
   /**
    * A change notification for one of this store's tenants: the version is read in the tenant's own scope, never
-   * taken from the notification, and handed on only when it is newer than the last one handed on.
+   * taken from the notification, and handed on only when it is newer than the last one handed on. Wake-ups are
+   * coalesced per tenant, at most one read in flight and one queued behind it, so replayed tags cannot pile up
+   * reads on the pool.
    */
   private async woken(tag: string) {
     const tenantId = this.tags.get(tag);
     if (!tenantId || !this.listeners.has(tenantId)) return;
-    const row = await this.live(tenantId, await this.clock(this.prisma));
-    if (!row || row.version <= (this.seen.get(tenantId) ?? 0)) return;
-    this.seen.set(tenantId, row.version);
-    notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version: row.version, effects: [] });
+    const running = this.waking.get(tenantId);
+    if (running) {
+      running.queued = true;
+      return;
+    }
+    const state = { queued: false };
+    this.waking.set(tenantId, state);
+    try {
+      do {
+        state.queued = false;
+        const version = await this.liveVersion(tenantId);
+        if (version === undefined || version <= (this.seen.get(tenantId) ?? 0)) continue;
+        this.seen.set(tenantId, version);
+        notifyAll(this.listeners.get(tenantId) ?? [], { tenantId, version, effects: [] });
+      } while (state.queued && this.listeners.has(tenantId));
+    } finally {
+      this.waking.delete(tenantId);
+    }
+  }
+
+  /** The tenant's version alone, while it exists and has not expired, in one statement of its own scope. */
+  private async liveVersion(tenantId: TenantId): Promise<number | undefined> {
+    const now = this.now ? Math.floor(await this.now()) : null;
+    const [row] = await scoped(this.prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ version: number }>>`
+      SELECT version FROM tenant_state WHERE tenant_id = ${tenantId}
+        AND (expires_at IS NULL OR expires_at > coalesce(to_timestamp(${now}::float8 / 1000), clock_timestamp()))`);
+    return row?.version;
   }
 
   private fingerprint(action: DemoAction): string {

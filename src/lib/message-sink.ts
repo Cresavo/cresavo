@@ -41,7 +41,10 @@ import { log } from "./log";
 // - The link's token is minted only for a real send, at delivery, so it is
 //   never stored or logged.
 // - Every read and write runs in the delivery's own tenant scope (row-level
-//   security, src/concept/store/tenant-scope.ts), also under the poller.
+//   security, src/concept/store/tenant-scope.ts), also under the poller, and
+//   goes through the store_outbox_* functions of migration store_rls_policies:
+//   they act only on the claimed effect, and the salon is read as a view with
+//   only that booking, its customer, the services and the staff.
 
 /** Resend keeps an idempotency key 24 hours; stop retrying a little before. */
 const RESEND_KEY_WINDOW_MS = 23 * 3_600_000;
@@ -134,33 +137,27 @@ function recipientOf(doc: unknown, message: BookingMessage): Recipient | undefin
 /** The sink for `sinks.message` of salon tenants. `registry` is the e-mail connection and `now` the clock; tests pass their own. */
 export function messageSink(prisma: PrismaClient, registry: Registry = createRegistry(), now: () => number = Date.now): EffectSink {
   /** Merges into the effect's bookkeeping, a null removing a key, but only for the latest claim of a still pending effect: a stale deliverer changes nothing. */
-  const noteClaim = ({ id, tenantId, attempt }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$executeRaw`
-    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb))
-    WHERE id = ${id} AND status = 'pending' AND attempts = ${attempt}`);
+  const noteClaim = ({ id, tenantId, attempt }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
+    SELECT store_outbox_note(${id}, ${attempt}::int, ${JSON.stringify(patch)}::jsonb) AS n`);
 
   /**
    * The provider accepted the message: recorded with the effect's status in one statement, whatever became of the
    * claim or the row since (a timeout, an erasure that cancelled it). Nothing personal is written back.
    */
-  const confirm = ({ id, tenantId }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$executeRaw`
-    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(patch)}::jsonb)),
-      status = 'delivered', leased_until = NULL, delivered_at = clock_timestamp()
-    WHERE id = ${id} AND status <> 'delivered'`);
+  const confirm = ({ id, tenantId, attempt }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
+    SELECT store_outbox_delivered(${id}, ${attempt}::int, NULL::timestamptz, ${JSON.stringify(patch)}::jsonb) AS n`);
 
   /**
    * Drops this claim's `dispatched` marker (and the first-submission time it set) when no request left after all.
    * Guarded by the claim, but not by the status: the outbox may already have made the row `failed` for this claim's
    * timeout, and a marker left there would turn a message that was never requested into an uncertain one.
    */
-  const releaseUnsent = ({ id, tenantId, attempt }: EffectDelivery, ownSubmission: boolean) => scoped(prisma, { tenant: tenantId }, (db) => db.$executeRaw`
-    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb)
-      - ${["dispatched", "provider", "account", ...(ownSubmission ? ["submittedAt"] : [])]}::text[])
-    WHERE id = ${id} AND status IN ('pending', 'failed') AND attempts = ${attempt} AND NOT coalesce((payload #>> '{delivery,sent}')::boolean, false)`);
+  const releaseUnsent = ({ id, tenantId, attempt }: EffectDelivery, ownSubmission: boolean) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
+    SELECT store_outbox_release(${id}, ${attempt}::int, ${["dispatched", "provider", "account", ...(ownSubmission ? ["submittedAt"] : [])]}::text[]) AS n`);
 
   /** Why a guarded write changed nothing. Run inside a transaction in the effect's tenant scope. */
   const standing = async (db: Pick<PrismaClient, "$queryRaw">, id: string): Promise<Standing> => {
-    const [row] = await db.$queryRaw<Array<{ open: boolean }>>`
-      SELECT (status = 'pending' AND erased_at IS NULL) AS open FROM tenant_effect WHERE id = ${id}`;
+    const [row] = await db.$queryRaw<Array<{ open: boolean | null }>>`SELECT store_outbox_open(${id}) AS open`;
     return row?.open ? "lost" : "gone";
   };
 
@@ -170,12 +167,9 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    */
   const freeze = ({ id, tenantId, attempt }: EffectDelivery, first: Frozen): Promise<Frozen | Standing> => prisma.$transaction(async (tx) => {
     await enterScope(tx, { tenant: tenantId });
-    const [row] = await tx.$queryRaw<Array<{ delivery: Frozen }>>`
-      UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}',
-        CASE WHEN payload->'delivery' ? 'from' THEN payload->'delivery' ELSE coalesce(payload->'delivery', '{}'::jsonb) || ${JSON.stringify(first)}::jsonb END)
-      WHERE id = ${id} AND status = 'pending' AND erased_at IS NULL AND attempts = ${attempt}
-      RETURNING payload->'delivery' AS delivery`;
-    return row ? row.delivery : standing(tx, id);
+    const [row] = await tx.$queryRaw<Array<{ delivery: Frozen | null }>>`
+      SELECT store_outbox_freeze(${id}, ${attempt}::int, ${JSON.stringify(first)}::jsonb) AS delivery`;
+    return row?.delivery ? row.delivery : standing(tx, id);
   });
 
   /**
@@ -187,16 +181,13 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
   const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage, provider: string, account: string | undefined, submittedAt: number) => prisma.$transaction(async (tx) => {
     await enterScope(tx, { tenant: tenantId });
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${DISPATCH_LOCK_TIMEOUT}, true)`;
-    const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId} FOR SHARE`;
-    const current = row && recipientOf(row.doc, message);
+    const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`
+      SELECT store_outbox_message_view(${id}, ${attempt}::int, ${message.bookingId}, true) AS doc`;
+    const current = row?.doc ? recipientOf(row.doc, message) : undefined;
     if (!current) return "skip" as const;
-    const marked = await tx.$executeRaw`
-      UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb)
-        || jsonb_build_object('dispatched', true, 'provider', coalesce(payload->'delivery'->>'provider', ${provider}::text))
-        || CASE WHEN payload->'delivery' ? 'provider' OR ${account}::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('account', ${account}::text) END
-        || CASE WHEN payload->'delivery' ? 'submittedAt' THEN '{}'::jsonb ELSE jsonb_build_object('submittedAt', ${submittedAt}::float8) END)
-      WHERE id = ${id} AND status = 'pending' AND erased_at IS NULL AND attempts = ${attempt}`;
-    return marked ? { to: current.to } : standing(tx, id);
+    const [marked] = await tx.$queryRaw<Array<{ n: number }>>`
+      SELECT store_outbox_dispatch(${id}, ${attempt}::int, ${provider}, ${account ?? null}::text, ${submittedAt}::float8) AS n`;
+    return marked?.n ? { to: current.to } : standing(tx, id);
   });
 
   return async (delivery, signal) => {
@@ -208,8 +199,10 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     // Paused by the operator (CONCEPT_EMAIL_PAUSED=1): a row claimed just before the switch waits, keeping its attempt.
     if (emailDeliveryPaused()) return "deferred";
     if (kept?.reason) return "failed";
-    const [row] = await scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ doc: unknown }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${tenantId}`);
-    const found = row && recipientOf(row.doc, message);
+    // Only what the message needs of its salon: the claimed booking, its customer, the services and staff (migration store_rls_policies).
+    const [row] = await scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ doc: unknown }>>`
+      SELECT store_outbox_message_view(${id}, ${delivery.attempt}::int, ${message.bookingId}, false) AS doc`);
+    const found = row?.doc ? recipientOf(row.doc, message) : undefined;
     if (!found) return "skipped";
     const { state, booking, customer, visit } = found;
     const cancelled = message.kind === "cancellation";
