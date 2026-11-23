@@ -11,41 +11,29 @@
 -- empty lists. After the migration alone (or rls-disable.sql) enabled and
 -- forced are f: the policies are prepared but not enforced.
 --
--- Second result: problems, one per row; no rows means none. For every login
--- that belongs to one of the runtime group roles, and for the definer of
--- erase_subject: a role it can SET ROLE to (MEMBER, with or without INHERIT)
--- that owns a store table, is superuser or bypasses row-level security. Any
--- of these would see every row however the policies read.
+-- Second result: problems, one per row; no rows means none. The runtime logins
+-- are found, not named: every login that reaches one of the runtime group roles
+-- through memberships that grant INHERIT or SET, directly or through other
+-- roles (an ADMIN-only grant, such as the one a CREATEROLE creator receives,
+-- does not make a runtime login). For each, and for the definer of
+-- erase_subject: no superuser, createrole, replication or BYPASSRLS attribute;
+-- no SET ROLE to such a role or to a store table's owner; no inherited
+-- ownership; no ADMIN OPTION on any role. Any of these would see every row
+-- however the policies read. verify-roles.sql checks the named logins' grants.
 WITH expected(tbl, policy, digest) AS (VALUES
   ('tenant_action', 'store_owner', 'e9faebba0398f4bf24a080070171835a'),
   ('tenant_action', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
-  ('tenant_action', 'store_sweep_delete', '3fc6296f342fd22ca9ec2729bdcc5dcd'),
-  ('tenant_action', 'store_sweep_read', '313d2a5e9ecb91bbb51ae1b01c445536'),
-  ('tenant_action', 'store_sweep_update', '04281d4e254714828fd3509e67d2cdbe'),
   ('tenant_action', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
-  ('tenant_effect', 'store_outbox_read', 'd36a751db5c124849300a81494527a2a'),
-  ('tenant_effect', 'store_outbox_update', '254883bc81995a55b29dd49018a72aa3'),
   ('tenant_effect', 'store_owner', '7b48fbc8c2f0c46f67befa959f7e9a53'),
   ('tenant_effect', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
-  ('tenant_effect', 'store_sweep_delete', '31f2f4452b9eb10acce43e08515c4035'),
-  ('tenant_effect', 'store_sweep_read', 'e9ffbe3644b4d9686af2e87d0efbf9e2'),
-  ('tenant_effect', 'store_sweep_update', 'cba059844d66162846104d7f90daa66b'),
   ('tenant_effect', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
   ('tenant_idempotency', 'store_owner', 'ba91ae228026bd121c6b7d4c27d1d904'),
   ('tenant_idempotency', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
-  ('tenant_idempotency', 'store_sweep_delete', '36956963702d4c79ea73079ea7611063'),
-  ('tenant_idempotency', 'store_sweep_lock', 'e23e492c2c674ab76d21e594cc08e831'),
-  ('tenant_idempotency', 'store_sweep_read', 'aa730b849ab81f232bf23c905a16597b'),
   ('tenant_idempotency', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
-  ('tenant_state', 'store_outbox_lock', '72c76bfc1d459da30466a4978735432c'),
-  ('tenant_state', 'store_outbox_read', 'd36a751db5c124849300a81494527a2a'),
   ('tenant_state', 'store_owner', '03899db0eb95846adb21ec3cfbb63e0e'),
   ('tenant_state', 'store_salon_slug_lookup', '75bb90c499297a854b9b948966bad46a'),
   ('tenant_state', 'store_sandbox_lookup', 'ebcc6e29a0b9b581e6ac00c0fe4c1b22'),
   ('tenant_state', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
-  ('tenant_state', 'store_sweep_delete', '0e2816121f25d90cfd7281c4541b78ca'),
-  ('tenant_state', 'store_sweep_lock', '6d320363ca1bb32d97a77f7f1401dc1b'),
-  ('tenant_state', 'store_sweep_read', '463fa3fc8bf47a14a4eb60838cbe1ab3'),
   ('tenant_state', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d')
 ),
 actual AS (
@@ -66,23 +54,52 @@ FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
 ORDER BY c.relname;
 
-WITH store AS (
+WITH RECURSIVE groups AS (
+  SELECT oid FROM pg_roles WHERE rolname IN ('cresavo_app', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox')
+),
+up(member) AS (
+  SELECT m.member FROM pg_auth_members m JOIN groups g ON g.oid = m.roleid WHERE m.inherit_option OR m.set_option
+  UNION
+  SELECT m.member FROM pg_auth_members m JOIN up ON m.roleid = up.member WHERE m.inherit_option OR m.set_option
+),
+runtime AS (
+  SELECT DISTINCT 'login ' || r.rolname AS who, r.rolname AS login FROM up JOIN pg_roles r ON r.oid = up.member WHERE r.rolcanlogin
+),
+store AS (
   SELECT c.relname, c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = current_schema() AND c.relname IN ('tenant_state', 'tenant_action', 'tenant_idempotency', 'tenant_effect')
 ),
-runtime AS (
-  SELECT DISTINCT m.rolname AS login, 'login ' || m.rolname AS who
-  FROM pg_auth_members am JOIN pg_roles g ON g.oid = am.roleid JOIN pg_roles m ON m.oid = am.member
-  WHERE g.rolname IN ('cresavo_app', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox') AND m.rolcanlogin
-  UNION
-  SELECT o.rolname, 'erase_subject definer ' || o.rolname
+definer AS (
+  SELECT 'erase_subject definer ' || o.rolname AS who, o.rolname AS login
   FROM pg_proc f JOIN pg_namespace fn ON fn.oid = f.pronamespace JOIN pg_roles o ON o.oid = f.proowner
   WHERE fn.nspname = current_schema() AND f.proname = 'erase_subject'
-)
-SELECT DISTINCT x.who || ' can become ' || r.rolname || ', which is superuser or bypasses row-level security' AS problem
-FROM runtime x JOIN pg_roles r ON pg_has_role(x.login, r.oid, 'MEMBER')
-WHERE r.rolsuper OR r.rolbypassrls
+),
+checked AS (SELECT who, login FROM runtime UNION SELECT who, login FROM definer)
+SELECT DISTINCT problem FROM (
+SELECT x.who || ' is superuser, createrole, replication or bypasses row-level security' AS problem
+FROM checked x JOIN pg_roles r ON r.rolname = x.login
+WHERE r.rolsuper OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
 UNION ALL
-SELECT DISTINCT x.who || ' owns or can become the owner of ' || s.relname
-FROM runtime x, store s WHERE pg_has_role(x.login, s.relowner, 'MEMBER')
+-- SET ROLE: what a login can switch to is what it can do (with or without INHERIT).
+SELECT x.who || ' can SET ROLE to ' || r.rolname || ', which is superuser, createrole or bypasses row-level security'
+FROM checked x JOIN pg_roles l ON l.rolname = x.login JOIN pg_roles r ON r.oid <> l.oid AND NOT l.rolsuper
+WHERE pg_has_role(l.oid, r.oid, 'SET') AND (r.rolsuper OR r.rolcreaterole OR r.rolbypassrls)
+UNION ALL
+SELECT x.who || ' can SET ROLE to the owner of ' || s.relname
+FROM checked x JOIN pg_roles l ON l.rolname = x.login, store s
+WHERE NOT l.rolsuper AND pg_has_role(l.oid, s.relowner, 'SET')
+UNION ALL
+-- Inherited ownership: the owner's rights without any SET ROLE.
+SELECT x.who || ' inherits the owner of ' || s.relname
+FROM checked x JOIN pg_roles l ON l.rolname = x.login, store s
+WHERE NOT l.rolsuper AND pg_has_role(l.oid, s.relowner, 'USAGE')
+UNION ALL
+-- ADMIN: a login that may grant a role may grant it to itself. A creator's automatic admin-only grant is the
+-- admin's, not a runtime login's, and an admin is never a runtime login here.
+SELECT x.who || ' holds ADMIN OPTION on ' || g.rolname
+FROM checked x JOIN pg_roles l ON l.rolname = x.login
+JOIN pg_auth_members m ON m.admin_option AND (pg_has_role(l.oid, m.member, 'USAGE') OR pg_has_role(l.oid, m.member, 'SET'))
+JOIN pg_roles g ON g.oid = m.roleid
+WHERE NOT l.rolsuper
+) problems
 ORDER BY 1;

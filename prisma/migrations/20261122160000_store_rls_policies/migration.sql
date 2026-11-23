@@ -1,57 +1,51 @@
--- Row-level security policies for the four studio store tables
+-- Row-level security for the four studio store tables, and the fixed functions
+-- through which the effect poller and the retention sweeps work
 -- (docs/design/STUDIO_STORE.md, "Row-level security"). PREPARED, NOT ENFORCED:
--- this migration creates policies only and does NOT enable row-level security.
--- A policy has no effect until an operator runs prisma/grants/rls-enable.sql
--- (ENABLE plus FORCE ROW LEVEL SECURITY, after checking this exact policy set);
--- rls-disable.sql undoes that and verify-rls.sql reports the state. Only the
--- store tables get policies; no data, column or other table changes.
+-- this migration creates policies and functions and does NOT enable row-level
+-- security. A policy has no effect until an operator runs
+-- prisma/grants/rls-enable.sql (ENABLE plus FORCE, after checking this exact
+-- policy set); rls-disable.sql undoes that and verify-rls.sql reports the state.
+-- Only the store tables get policies; no data, column or other table changes.
+--
+-- PREREQUISITE: the five NOLOGIN group roles, created once per cluster by an
+-- admin with prisma/grants/bootstrap-roles.sql BEFORE the first migrate deploy
+-- (the policies and grants below name them). The migration credential needs no
+-- role privileges. Without the roles this migration stops before it changes
+-- anything; Prisma then records it as failed. Recovery:
+--   psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/bootstrap-roles.sql
+--   npx prisma migrate resolve --rolled-back 20261122160000_store_rls_policies
+--   npx prisma migrate deploy
 --
 -- Every store transaction sets its scope first, transaction-local
 -- (src/concept/store/tenant-scope.ts):
---
---   cresavo.tenant_id     one tenant (cresavo_app, cresavo_eraser; the poller's sink)
---   cresavo.cross_tenant  'outbox' for the effects:drain poller (cresavo_outbox),
---                         'sweep' for store:sweep (cresavo_sweeper)
+--   cresavo.tenant_id     one tenant (cresavo_app, cresavo_eraser by policy; the outbox functions for app and poller)
+--   cresavo.cross_tenant  'outbox' for the effects:drain poller, 'sweep' for store:sweep (functions only)
 --   cresavo.sandbox_key   cresavo_app resolving a sandbox token: that row only, read
 --   cresavo.salon_slug    cresavo_app resolving a booking address: that row only, read
 --
--- Each policy names the group roles it is for. Those roles are normally created
--- by prisma/grants/roles.sql, which needs the tables and so runs after
--- migrations; a policy cannot name a role that does not exist yet. This
--- migration therefore creates any of the five group roles that is missing,
--- with every privileged attribute off and without login, exactly as roles.sql
--- does (roles.sql only checks an existing role). That needs CREATEROLE; a
--- migration role without it must have the roles created first (statements in
--- the error below).
---
--- The table owner (migrations, the admin CLI, operator scripts) keeps every row:
--- FORCE makes RLS apply to the owner too, and `store_owner` states the owner's
--- access explicitly. Superusers and BYPASSRLS roles are never subject to RLS.
---
--- Retention bounds in the sweep policies match src/concept/privacy/retention.ts
--- and store-sweepers.ts (tests/store-rls-files.test.ts keeps them equal):
--- demo log 7 days, outbox bodies 90 days, activity personal data 13 months,
--- journal reads 24 months, idempotency keys at expiry, sandboxes at expiry. The
--- sweepers compute their cutoff from the database clock before the statement,
--- so the policy, which uses the statement's transaction time, never refuses a
--- row they select.
+-- The poller (cresavo_outbox) and the sweeper (cresavo_sweeper) have no table
+-- privileges and no policies on the store tables: they call the SECURITY
+-- DEFINER functions at the end of this file, which act only on a claimed
+-- effect (the poller) or on rows a retention rule has reached (the sweeper).
+-- The functions run as the table owner, whose `store_owner` policy keeps every
+-- row under FORCE, with a fixed search_path; each checks its caller first.
+-- Superusers and BYPASSRLS roles are never subject to RLS.
 
 DO $roles$
 DECLARE
-  r text;
+  missing text;
 BEGIN
-  FOREACH r IN ARRAY ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox'] LOOP
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
-      EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', r);
-    END IF;
-  END LOOP;
-EXCEPTION WHEN insufficient_privilege THEN
-  RAISE EXCEPTION 'cannot create the store group roles: as an admin, run CREATE ROLE <name> NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS for cresavo_app, cresavo_eraser, cresavo_sweeper, cresavo_support and cresavo_outbox, then deploy again';
+  SELECT string_agg(r, ', ') INTO missing
+  FROM unnest(ARRAY['cresavo_app', 'cresavo_eraser', 'cresavo_sweeper', 'cresavo_support', 'cresavo_outbox']) r
+  WHERE NOT EXISTS (SELECT 1 FROM pg_roles x WHERE x.rolname = r);
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION 'store_rls_policies: the group roles % do not exist. As an admin run prisma/grants/bootstrap-roles.sql, then: npx prisma migrate resolve --rolled-back 20261122160000_store_rls_policies, and deploy again', missing;
+  END IF;
 END
 $roles$;
 
 -- ---------------------------------------------------------------------------
--- tenant_state
+-- Policies
 -- ---------------------------------------------------------------------------
 CREATE POLICY "store_owner" ON "tenant_state" FOR ALL
   USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_state'::regclass), 'USAGE'))
@@ -61,22 +55,6 @@ CREATE POLICY "store_tenant" ON "tenant_state" FOR ALL TO cresavo_app, cresavo_e
   WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
 -- Read-only diagnostics across tenants; the column grants of roles.sql keep documents out.
 CREATE POLICY "store_support_read" ON "tenant_state" FOR SELECT TO cresavo_support USING (true);
--- The poller joins tenant kind and expiry to the effects it claims; its sink reads (and share-locks) the one
--- tenant it delivers for. It never changes a row.
-CREATE POLICY "store_outbox_read" ON "tenant_state" FOR SELECT TO cresavo_outbox
-  USING (current_setting('cresavo.cross_tenant', true) = 'outbox'
-    OR "tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
-CREATE POLICY "store_outbox_lock" ON "tenant_state" FOR UPDATE TO cresavo_outbox
-  USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
-  WITH CHECK (false);
--- Sweeps see demo and sandbox tenants only, and lock and delete a sandbox once it has expired.
-CREATE POLICY "store_sweep_read" ON "tenant_state" FOR SELECT TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND "kind" IN ('demo', 'sandbox'));
-CREATE POLICY "store_sweep_lock" ON "tenant_state" FOR UPDATE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND "kind" = 'sandbox' AND "expires_at" <= now())
-  WITH CHECK (false);
-CREATE POLICY "store_sweep_delete" ON "tenant_state" FOR DELETE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND "kind" = 'sandbox' AND "expires_at" <= now());
 -- A sandbox token resolves to its own tenant only: the key is the full sbx_ + 32-hex hash of the token.
 CREATE POLICY "store_sandbox_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
   USING ("kind" = 'sandbox' AND current_setting('cresavo.sandbox_key', true) ~ '^sbx_[0-9a-f]{32}$'
@@ -86,9 +64,6 @@ CREATE POLICY "store_sandbox_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
 CREATE POLICY "store_salon_slug_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
   USING ("kind" = 'salon' AND ("doc" #>> '{salon,slug}') = nullif(current_setting('cresavo.salon_slug', true), ''));
 
--- ---------------------------------------------------------------------------
--- tenant_action
--- ---------------------------------------------------------------------------
 CREATE POLICY "store_owner" ON "tenant_action" FOR ALL
   USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_action'::regclass), 'USAGE'))
   WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_action'::regclass), 'USAGE'));
@@ -96,37 +71,7 @@ CREATE POLICY "store_tenant" ON "tenant_action" FOR ALL TO cresavo_app, cresavo_
   USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
   WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
 CREATE POLICY "store_support_read" ON "tenant_action" FOR SELECT TO cresavo_support USING (true);
--- Sweeps read rows old enough for one of them: outbox bodies join the action's time after 90 days.
-CREATE POLICY "store_sweep_read" ON "tenant_action" FOR SELECT TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND (
-    "at" < now() - interval '90 days'
-    OR ("at" < now() - interval '7 days' AND EXISTS (
-      SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_action"."tenant_id" AND s."kind" = 'demo'))
-    OR EXISTS (SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_action"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())));
--- Personal data is redacted after 13 months, and every changed row loses its key; rows due for deletion may be locked.
-CREATE POLICY "store_sweep_update" ON "tenant_action" FOR UPDATE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND (
-    "at" < now() - interval '13 months'
-    OR ("action" ->> 'type' = 'journal/view' AND "at" < now() - interval '24 months')
-    OR ("at" < now() - interval '7 days' AND EXISTS (
-      SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_action"."tenant_id" AND s."kind" = 'demo'))
-    OR EXISTS (SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_action"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())))
-  WITH CHECK (current_setting('cresavo.cross_tenant', true) = 'sweep' AND "at" < now() - interval '13 months'
-    AND "idempotency_key" IS NULL);
--- Deleted: journal reads after 24 months, a demo's log after 7 days, an expired sandbox's log.
-CREATE POLICY "store_sweep_delete" ON "tenant_action" FOR DELETE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND (
-    ("action" ->> 'type' = 'journal/view' AND "at" < now() - interval '24 months')
-    OR ("at" < now() - interval '7 days' AND EXISTS (
-      SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_action"."tenant_id" AND s."kind" = 'demo'))
-    OR EXISTS (SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_action"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())));
 
--- ---------------------------------------------------------------------------
--- tenant_idempotency
--- ---------------------------------------------------------------------------
 CREATE POLICY "store_owner" ON "tenant_idempotency" FOR ALL
   USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_idempotency'::regclass), 'USAGE'))
   WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_idempotency'::regclass), 'USAGE'));
@@ -134,24 +79,7 @@ CREATE POLICY "store_tenant" ON "tenant_idempotency" FOR ALL TO cresavo_app, cre
   USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
   WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
 CREATE POLICY "store_support_read" ON "tenant_idempotency" FOR SELECT TO cresavo_support USING (true);
--- Sweeps see, lock (never change) and delete expired keys and an expired sandbox's keys, nothing else.
-CREATE POLICY "store_sweep_read" ON "tenant_idempotency" FOR SELECT TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND ("expires_at" <= now() OR EXISTS (
-    SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_idempotency"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())));
-CREATE POLICY "store_sweep_lock" ON "tenant_idempotency" FOR UPDATE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND ("expires_at" <= now() OR EXISTS (
-    SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_idempotency"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())))
-  WITH CHECK (false);
-CREATE POLICY "store_sweep_delete" ON "tenant_idempotency" FOR DELETE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND ("expires_at" <= now() OR EXISTS (
-    SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_idempotency"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())));
 
--- ---------------------------------------------------------------------------
--- tenant_effect
--- ---------------------------------------------------------------------------
 CREATE POLICY "store_owner" ON "tenant_effect" FOR ALL
   USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_effect'::regclass), 'USAGE'))
   WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_effect'::regclass), 'USAGE'));
@@ -159,33 +87,458 @@ CREATE POLICY "store_tenant" ON "tenant_effect" FOR ALL TO cresavo_app, cresavo_
   USING ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''))
   WITH CHECK ("tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
 CREATE POLICY "store_support_read" ON "tenant_effect" FOR SELECT TO cresavo_support USING (true);
--- The poller reads due effects across tenants in commit order and claims, retries, fails or acknowledges rows that
--- are not yet delivered; its sink does the same for the one tenant it delivers for. It inserts and deletes nothing,
--- and a delivered row is final for it. Its column grants keep the row's identity and erasure marks fixed.
-CREATE POLICY "store_outbox_read" ON "tenant_effect" FOR SELECT TO cresavo_outbox
-  USING (current_setting('cresavo.cross_tenant', true) = 'outbox'
-    OR "tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
-CREATE POLICY "store_outbox_update" ON "tenant_effect" FOR UPDATE TO cresavo_outbox
-  USING ("status" <> 'delivered' AND (current_setting('cresavo.cross_tenant', true) = 'outbox'
-    OR "tenant_id" = nullif(current_setting('cresavo.tenant_id', true), '')))
-  WITH CHECK (current_setting('cresavo.cross_tenant', true) = 'outbox'
-    OR "tenant_id" = nullif(current_setting('cresavo.tenant_id', true), ''));
--- Retention blanks settled messages after 90 days (judged by their action's time, as the sweep does) and deletes an
--- expired sandbox's rows.
-CREATE POLICY "store_sweep_read" ON "tenant_effect" FOR SELECT TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND (
-    ("kind" = 'message' AND "status" <> 'pending' AND coalesce((SELECT a."at" FROM "tenant_action" a
-        WHERE a."tenant_id" = "tenant_effect"."tenant_id" AND a."seq" = "tenant_effect"."seq"),
-      "delivered_at", "next_attempt_at") < now() - interval '90 days')
-    OR EXISTS (SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_effect"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now())));
-CREATE POLICY "store_sweep_update" ON "tenant_effect" FOR UPDATE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND "kind" = 'message' AND "status" <> 'pending'
-    AND coalesce((SELECT a."at" FROM "tenant_action" a
-        WHERE a."tenant_id" = "tenant_effect"."tenant_id" AND a."seq" = "tenant_effect"."seq"),
-      "delivered_at", "next_attempt_at") < now() - interval '90 days')
-  WITH CHECK (current_setting('cresavo.cross_tenant', true) = 'sweep' AND "kind" = 'message' AND "status" <> 'pending');
-CREATE POLICY "store_sweep_delete" ON "tenant_effect" FOR DELETE TO cresavo_sweeper
-  USING (current_setting('cresavo.cross_tenant', true) = 'sweep' AND EXISTS (
-    SELECT 1 FROM "tenant_state" s WHERE s."tenant_id" = "tenant_effect"."tenant_id"
-      AND s."kind" = 'sandbox' AND s."expires_at" <= now()));
+
+-- STORE FUNCTIONS BEGIN
+-- ---------------------------------------------------------------------------
+-- Who is calling. `session_user` is the login: inside a SECURITY DEFINER
+-- function `current_user` is the owner.
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION store_caller_owns() RETURNS boolean
+LANGUAGE sql STABLE SET search_path = public, pg_temp AS $fn$
+  SELECT pg_has_role(session_user, (SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_effect'::regclass), 'USAGE')
+$fn$;
+
+CREATE FUNCTION store_caller_in(p_role text) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = public, pg_temp AS $fn$
+  SELECT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = p_role AND pg_has_role(session_user, r.oid, 'USAGE'))
+$fn$;
+
+-- May the caller act on this tenant's effects: in the tenant's own scope (a web worker, or the poller's sink), or
+-- in the outbox scope as the poller. The table owner counts as either (development, operator scripts).
+CREATE FUNCTION store_outbox_caller(p_tenant text) RETURNS boolean
+LANGUAGE sql STABLE SET search_path = public, pg_temp AS $fn$
+  SELECT (p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')
+      AND (store_caller_owns() OR store_caller_in('cresavo_app') OR store_caller_in('cresavo_outbox')))
+    OR (current_setting('cresavo.cross_tenant', true) = 'outbox' AND (store_caller_owns() OR store_caller_in('cresavo_outbox')))
+$fn$;
+
+-- The time a function judges by: what the caller passed, but never later than the database clock unless the caller
+-- owns the tables (tests and operators replay a fixed clock). A worker can only ever do less, never sweep early.
+CREATE FUNCTION store_effective_now(p_now timestamptz) RETURNS timestamptz
+LANGUAGE sql STABLE SET search_path = public, pg_temp AS $fn$
+  SELECT CASE WHEN store_caller_owns() THEN p_now ELSE least(p_now, clock_timestamp()) END
+$fn$;
+
+CREATE FUNCTION store_sweep_check() RETURNS void
+LANGUAGE plpgsql STABLE SET search_path = public, pg_temp AS $fn$
+BEGIN
+  IF NOT (current_setting('cresavo.cross_tenant', true) = 'sweep' AND (store_caller_owns() OR store_caller_in('cresavo_sweeper'))) THEN
+    RAISE EXCEPTION 'store sweep: not in the sweep scope of cresavo_sweeper' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+END $fn$;
+
+-- Same as redactPath in src/concept/store/erasure.ts (and studio_redact_path of erase-subject.sql).
+CREATE FUNCTION store_redact_path(v jsonb, p text[]) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path = public, pg_temp AS $fn$
+DECLARE
+  out jsonb;
+BEGIN
+  IF v IS NULL OR jsonb_typeof(v) = 'null' THEN RETURN v; END IF;
+  IF cardinality(p) = 0 THEN RETURN to_jsonb('[redacted]'::text); END IF;
+  IF p[1] = '*' THEN
+    IF jsonb_typeof(v) <> 'array' THEN RETURN v; END IF;
+    SELECT coalesce(jsonb_agg(store_redact_path(e, p[2:]) ORDER BY o), '[]'::jsonb) INTO out
+    FROM jsonb_array_elements(v) WITH ORDINALITY AS t(e, o);
+    RETURN out;
+  END IF;
+  IF jsonb_typeof(v) <> 'object' OR NOT v ? p[1] THEN RETURN v; END IF;
+  RETURN jsonb_set(v, ARRAY[p[1]], store_redact_path(v -> p[1], p[2:]));
+END $fn$;
+
+-- ---------------------------------------------------------------------------
+-- The effect outbox (src/concept/store/effect-outbox.ts, src/lib/message-sink.ts).
+-- Every write needs the claim that `store_outbox_claim` handed out (its id and
+-- attempt): a deliverer can change only the row it holds, and only the
+-- delivery fields of its payload.
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION store_outbox_cancel_erased(p_now timestamptz, p_tenants text[]) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH cancelled AS (
+    UPDATE tenant_effect SET status = 'cancelled', leased_until = NULL
+    WHERE status = 'pending' AND erased_at IS NOT NULL
+      AND (leased_until IS NULL OR leased_until <= store_effective_now(p_now))
+      AND (p_tenants IS NULL OR tenant_id = ANY(p_tenants))
+      AND store_outbox_caller(tenant_id)
+    RETURNING 1)
+  SELECT count(*)::int FROM cancelled
+$fn$;
+
+CREATE FUNCTION store_outbox_claim(p_now timestamptz, p_lease_ms float8, p_message_lease_ms float8, p_tenants text[], p_kinds text[],
+  p_paused boolean)
+RETURNS TABLE (id text, tenant_id text, seq bigint, n integer, kind text, payload jsonb, attempts integer, tenant_kind text)
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH clock AS (SELECT store_effective_now(p_now) AS t),
+  next AS (
+    SELECT e.tenant_id, e.seq, e.n
+    FROM tenant_effect e
+    LEFT JOIN tenant_state s ON s.tenant_id = e.tenant_id
+    WHERE e.status = 'pending' AND e.next_attempt_at <= (SELECT t FROM clock)
+      AND e.erased_at IS NULL
+      AND (s.expires_at IS NULL OR s.expires_at > (SELECT t FROM clock))
+      AND (p_tenants IS NULL OR e.tenant_id = ANY(p_tenants))
+      AND (p_kinds IS NULL OR s.kind::text = ANY(p_kinds))
+      AND NOT (p_paused AND e.kind = 'message' AND e.payload->>'port' = 'email')
+      AND store_outbox_caller(e.tenant_id)
+      AND (e.kind <> 'payment' OR NOT EXISTS (
+        SELECT 1 FROM tenant_effect p
+        WHERE p.tenant_id = e.tenant_id AND p.kind = 'payment' AND p.status IN ('pending', 'failed')
+          AND (p.seq, p.n) < (e.seq, e.n)))
+    ORDER BY e.tenant_id, e.seq, e.n
+    LIMIT 1
+    FOR UPDATE OF e SKIP LOCKED
+  )
+  UPDATE tenant_effect e
+  SET attempts = e.attempts + 1,
+      next_attempt_at = (SELECT t FROM clock) + make_interval(secs => CASE WHEN e.kind = 'message' THEN p_message_lease_ms ELSE p_lease_ms END / 1000),
+      leased_until = (SELECT t FROM clock) + make_interval(secs => CASE WHEN e.kind = 'message' THEN p_message_lease_ms ELSE p_lease_ms END / 1000)
+  FROM next
+  WHERE e.tenant_id = next.tenant_id AND e.seq = next.seq AND e.n = next.n AND e.status = 'pending'
+  RETURNING e.id, e.tenant_id, e.seq, e.n, e.kind, e.payload, e.attempts,
+    (SELECT s.kind::text FROM tenant_state s WHERE s.tenant_id = e.tenant_id)
+$fn$;
+
+-- A failed send of the latest claim: the caller decides the outcome (effect-outbox.ts, recordFailure).
+CREATE FUNCTION store_outbox_fail(p_id text, p_attempt integer, p_patch jsonb, p_drop text[], p_timeout boolean, p_fail boolean,
+  p_next timestamptz) RETURNS text
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  UPDATE tenant_effect SET
+    payload = CASE WHEN p_patch = '{}'::jsonb AND cardinality(p_drop) = 0 THEN payload
+      ELSE jsonb_set(payload, '{delivery}', (coalesce(payload->'delivery', '{}'::jsonb) || p_patch) - p_drop) END,
+    leased_until = CASE WHEN p_timeout THEN leased_until END,
+    status = CASE WHEN erased_at IS NOT NULL THEN 'cancelled' WHEN p_fail THEN 'failed' ELSE status END,
+    next_attempt_at = CASE WHEN p_timeout THEN next_attempt_at ELSE p_next END
+  WHERE id = p_id AND status = 'pending' AND attempts = p_attempt AND p_attempt >= 1 AND leased_until IS NOT NULL
+    AND store_outbox_caller(tenant_id)
+  RETURNING status
+$fn$;
+
+-- Nothing to send (an erased or cancelled booking): delivered only while still pending under this claim.
+CREATE FUNCTION store_outbox_skip(p_id text, p_attempt integer, p_at timestamptz) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH done AS (
+    UPDATE tenant_effect SET status = 'delivered', leased_until = NULL, delivered_at = p_at
+    WHERE id = p_id AND status = 'pending' AND attempts = p_attempt AND p_attempt >= 1 AND store_outbox_caller(tenant_id)
+    RETURNING 1)
+  SELECT count(*)::int FROM done
+$fn$;
+
+-- The send happened: recorded whatever became of the row since this claim (a lease that ran out, an erasure), with
+-- an optional patch of the delivery record (nulls remove keys).
+CREATE FUNCTION store_outbox_delivered(p_id text, p_attempt integer, p_at timestamptz, p_patch jsonb) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH done AS (
+    UPDATE tenant_effect SET
+      payload = CASE WHEN p_patch IS NULL THEN payload
+        ELSE jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || p_patch)) END,
+      status = 'delivered', leased_until = NULL, delivered_at = coalesce(p_at, clock_timestamp())
+    WHERE id = p_id AND status <> 'delivered' AND attempts >= p_attempt AND p_attempt >= 1 AND store_outbox_caller(tenant_id)
+    RETURNING 1)
+  SELECT count(*)::int FROM done
+$fn$;
+
+-- Merges into the delivery record for the latest claim of a pending effect (nulls remove keys).
+CREATE FUNCTION store_outbox_note(p_id text, p_attempt integer, p_patch jsonb) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH done AS (
+    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', jsonb_strip_nulls(coalesce(payload->'delivery', '{}'::jsonb) || p_patch))
+    WHERE id = p_id AND status = 'pending' AND attempts = p_attempt AND p_attempt >= 1 AND store_outbox_caller(tenant_id)
+    RETURNING 1)
+  SELECT count(*)::int FROM done
+$fn$;
+
+-- Drops this claim's dispatch marker when no request left after all (also once a timeout failed the row).
+CREATE FUNCTION store_outbox_release(p_id text, p_attempt integer, p_keys text[]) RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH done AS (
+    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb)
+      - (SELECT coalesce(array_agg(k), '{}') FROM unnest(p_keys) k WHERE k IN ('dispatched', 'provider', 'account', 'submittedAt')))
+    WHERE id = p_id AND status IN ('pending', 'failed') AND attempts = p_attempt AND p_attempt >= 1
+      AND NOT coalesce((payload #>> '{delivery,sent}')::boolean, false) AND store_outbox_caller(tenant_id)
+    RETURNING 1)
+  SELECT count(*)::int FROM done
+$fn$;
+
+-- Whether an effect is still open (pending, not erased): why a guarded write changed nothing.
+CREATE FUNCTION store_outbox_open(p_id text) RETURNS boolean
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  SELECT (status = 'pending' AND erased_at IS NULL) FROM tenant_effect WHERE id = p_id AND store_outbox_caller(tenant_id)
+$fn$;
+
+-- Freezes the first rendering unless an earlier attempt did; returns the stored delivery record.
+CREATE FUNCTION store_outbox_freeze(p_id text, p_attempt integer, p_first jsonb) RETURNS jsonb
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}',
+    CASE WHEN payload->'delivery' ? 'from' THEN payload->'delivery' ELSE coalesce(payload->'delivery', '{}'::jsonb) || p_first END)
+  WHERE id = p_id AND status = 'pending' AND erased_at IS NULL AND attempts = p_attempt AND p_attempt >= 1
+    AND store_outbox_caller(tenant_id)
+  RETURNING payload->'delivery'
+$fn$;
+
+-- Commits the `dispatched` marker of this claim before a real send (message-sink.ts, dispatch).
+CREATE FUNCTION store_outbox_dispatch(p_id text, p_attempt integer, p_provider text, p_account text, p_submitted_at float8)
+RETURNS integer
+LANGUAGE sql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+  WITH done AS (
+    UPDATE tenant_effect SET payload = jsonb_set(payload, '{delivery}', coalesce(payload->'delivery', '{}'::jsonb)
+      || jsonb_build_object('dispatched', true, 'provider', coalesce(payload->'delivery'->>'provider', p_provider))
+      || CASE WHEN payload->'delivery' ? 'provider' OR p_account IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('account', p_account) END
+      || CASE WHEN payload->'delivery' ? 'submittedAt' THEN '{}'::jsonb ELSE jsonb_build_object('submittedAt', p_submitted_at) END)
+    WHERE id = p_id AND status = 'pending' AND erased_at IS NULL AND attempts = p_attempt AND p_attempt >= 1
+      AND store_outbox_caller(tenant_id)
+    RETURNING 1)
+  SELECT count(*)::int FROM done
+$fn$;
+
+-- What the message sink may see of the salon a claimed message is for: the salon, its settings, services and staff,
+-- the one booking the message is about and that booking's customer. Every other list is empty (customers, journals,
+-- inbox, log, sales…). With p_lock the salon's row is share-locked to the end of the caller's transaction, the
+-- lock an erasure takes exclusively. A claim that a later one replaced still reads, and learns at its guarded write
+-- that the claim is gone.
+CREATE FUNCTION store_outbox_message_view(p_id text, p_attempt integer, p_booking text, p_lock boolean) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_tenant text;
+  v_doc jsonb;
+  v_customer text;
+  v_out jsonb;
+BEGIN
+  SELECT e.tenant_id INTO v_tenant FROM tenant_effect e
+  WHERE e.id = p_id AND e.kind = 'message' AND e.attempts >= p_attempt AND p_attempt >= 1
+    AND starts_with(coalesce(e.payload->>'reference', ''), p_booking || '-') AND store_outbox_caller(e.tenant_id);
+  IF v_tenant IS NULL THEN RETURN NULL; END IF;
+  IF p_lock THEN
+    SELECT s.doc INTO v_doc FROM tenant_state s WHERE s.tenant_id = v_tenant FOR SHARE;
+  ELSE
+    SELECT s.doc INTO v_doc FROM tenant_state s WHERE s.tenant_id = v_tenant;
+  END IF;
+  IF v_doc IS NULL THEN RETURN NULL; END IF;
+  SELECT b->>'customerId' INTO v_customer FROM jsonb_array_elements(coalesce(v_doc->'bookings', '[]')) b WHERE b->>'id' = p_booking LIMIT 1;
+  SELECT jsonb_object_agg(k, CASE
+    WHEN jsonb_typeof(v) <> 'array' THEN v
+    WHEN k IN ('staff', 'services', 'retiredServices', 'categories', 'resources', 'exceptions', 'blocks', 'holidays') THEN v
+    WHEN k = 'bookings' THEN (SELECT coalesce(jsonb_agg(b), '[]') FROM jsonb_array_elements(v) b WHERE b->>'id' = p_booking)
+    WHEN k = 'customers' THEN (SELECT coalesce(jsonb_agg(c), '[]') FROM jsonb_array_elements(v) c WHERE c->>'id' = v_customer)
+    ELSE '[]'::jsonb END) INTO v_out
+  FROM jsonb_each(v_doc) AS t(k, v);
+  RETURN v_out;
+END $fn$;
+
+-- ---------------------------------------------------------------------------
+-- Retention sweeps (src/concept/store/store-sweepers.ts). The cutoffs are fixed
+-- here and match src/concept/privacy/retention.ts (tests/store-rls-files.test.ts):
+-- demo log 168 hours, outbox bodies 2160 hours (90 days), activity personal data
+-- 13 months, journal reads 24 months (calendar months in UTC, as monthsBefore),
+-- keys and sandboxes at expiry. Each call is one batch of at most p_limit rows.
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION store_sweep_idempotency(p_now timestamptz, p_limit integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_count integer;
+BEGIN
+  PERFORM store_sweep_check();
+  WITH expired AS (
+    SELECT i.tenant_id, i.key FROM tenant_idempotency i
+    WHERE i.expires_at <= store_effective_now(p_now)
+    ORDER BY i.expires_at, i.tenant_id, i.key LIMIT p_limit
+    FOR UPDATE SKIP LOCKED
+  )
+  DELETE FROM tenant_idempotency i USING expired e WHERE i.tenant_id = e.tenant_id AND i.key = e.key;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END $fn$;
+
+CREATE FUNCTION store_sweep_demo_actions(p_now timestamptz, p_limit integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_count integer;
+BEGIN
+  PERFORM store_sweep_check();
+  WITH expired AS (
+    SELECT a.tenant_id, a.seq FROM tenant_action a JOIN tenant_state s USING (tenant_id)
+    WHERE s.kind = 'demo' AND a.at < store_effective_now(p_now) - interval '168 hours'
+    ORDER BY a.at, a.tenant_id, a.seq LIMIT p_limit
+    FOR UPDATE OF a SKIP LOCKED
+  )
+  DELETE FROM tenant_action a USING expired e WHERE a.tenant_id = e.tenant_id AND a.seq = e.seq;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END $fn$;
+
+-- Expired sandboxes and all their rows, under the tenant locks, so an apply cannot append to one left behind.
+CREATE FUNCTION store_sweep_sandboxes(p_now timestamptz, p_limit integer) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_ids text[];
+  v_tenants integer;
+  v_actions integer;
+  v_effects integer;
+  v_keys integer;
+BEGIN
+  PERFORM store_sweep_check();
+  SELECT coalesce(array_agg(tenant_id), '{}') INTO v_ids FROM (
+    SELECT s.tenant_id FROM tenant_state s
+    WHERE s.kind = 'sandbox' AND s.expires_at <= store_effective_now(p_now)
+    ORDER BY s.expires_at, s.tenant_id LIMIT p_limit
+    FOR UPDATE SKIP LOCKED) locked;
+  IF cardinality(v_ids) = 0 THEN
+    RETURN jsonb_build_object('tenants', 0, 'actions', 0, 'effects', 0, 'idempotencyKeys', 0);
+  END IF;
+  DELETE FROM tenant_action WHERE tenant_id = ANY(v_ids);
+  GET DIAGNOSTICS v_actions = ROW_COUNT;
+  DELETE FROM tenant_effect WHERE tenant_id = ANY(v_ids);
+  GET DIAGNOSTICS v_effects = ROW_COUNT;
+  DELETE FROM tenant_idempotency WHERE tenant_id = ANY(v_ids);
+  GET DIAGNOSTICS v_keys = ROW_COUNT;
+  DELETE FROM tenant_state WHERE tenant_id = ANY(v_ids);
+  GET DIAGNOSTICS v_tenants = ROW_COUNT;
+  RETURN jsonb_build_object('tenants', v_tenants, 'actions', v_actions, 'effects', v_effects, 'idempotencyKeys', v_keys);
+END $fn$;
+
+-- Blanks body, subject, address and the stored mail copy of settled messages committed 90 days ago (sweepOutboxBodies).
+CREATE FUNCTION store_sweep_outbox_bodies(p_now timestamptz, p_limit integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_count integer;
+BEGIN
+  PERFORM store_sweep_check();
+  WITH due AS (
+    SELECT e.tenant_id, e.seq, e.n FROM tenant_effect e
+    LEFT JOIN tenant_action a ON a.tenant_id = e.tenant_id AND a.seq = e.seq
+    WHERE e.kind = 'message' AND e.status <> 'pending'
+      AND coalesce(a.at, e.delivered_at, e.next_attempt_at) < store_effective_now(p_now) - interval '2160 hours'
+      AND (e.payload ->> 'body' IS DISTINCT FROM '[redacted]'
+        OR (e.payload ? 'subject' AND e.payload ->> 'subject' IS DISTINCT FROM '[redacted]')
+        OR (e.payload ? 'to' AND e.payload ->> 'to' IS DISTINCT FROM '[redacted]'
+            AND coalesce(e.payload ->> 'to', '') !~ '^customer:[A-Za-z0-9_.:-]+(, *customer:[A-Za-z0-9_.:-]+)*$')
+        OR e.payload #> '{delivery,mail}' IS NOT NULL)
+    ORDER BY e.tenant_id, e.seq, e.n LIMIT p_limit
+    FOR UPDATE OF e SKIP LOCKED
+  )
+  UPDATE tenant_effect e SET payload =
+    (e.payload - 'delivery') || jsonb_build_object('body', '[redacted]')
+    || CASE WHEN jsonb_typeof(e.payload -> 'delivery') = 'object' THEN jsonb_build_object('delivery', (e.payload -> 'delivery') - 'mail') ELSE '{}'::jsonb END
+    || CASE WHEN e.payload ? 'subject' THEN jsonb_build_object('subject', '[redacted]') ELSE '{}'::jsonb END
+    || CASE WHEN e.payload ? 'to' AND coalesce(e.payload ->> 'to', '') !~ '^customer:[A-Za-z0-9_.:-]+(, *customer:[A-Za-z0-9_.:-]+)*$'
+            THEN jsonb_build_object('to', '[redacted]') ELSE '{}'::jsonb END
+  FROM due d WHERE e.tenant_id = d.tenant_id AND e.seq = d.seq AND e.n = d.n;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END $fn$;
+
+-- Every audit row older than 13 months loses its informational idempotency key.
+CREATE FUNCTION store_sweep_activity_keys(p_now timestamptz, p_limit integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_count integer;
+BEGIN
+  PERFORM store_sweep_check();
+  WITH old AS (
+    SELECT tenant_id, seq FROM tenant_action
+    WHERE at < ((store_effective_now(p_now) AT TIME ZONE 'UTC') - interval '13 months') AT TIME ZONE 'UTC' AND idempotency_key IS NOT NULL
+    ORDER BY at, tenant_id, seq LIMIT p_limit
+    FOR UPDATE SKIP LOCKED
+  )
+  UPDATE tenant_action a SET idempotency_key = NULL FROM old o WHERE a.tenant_id = o.tenant_id AND a.seq = o.seq;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END $fn$;
+
+-- Audit rows older than 13 months: the personal fields of their type replaced, marked, key cleared (sweepActivityPersonalData).
+CREATE FUNCTION store_sweep_activity_redact(p_now timestamptz, p_limit integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  -- PERSONAL_FIELDS BEGIN (kept identical to src/concept/store/erasure.ts by a unit test)
+  v_fields constant jsonb := '{
+    "online/hold": ["guest.name","guest.phone","guest.email","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
+    "online/book": ["guest.name","guest.phone","guest.email","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
+    "online/waitlist": ["guest.name","guest.phone","guest.email","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
+    "booking/create": ["newCustomer.name","newCustomer.phone","newCustomer.email","fictionalCustomer.name"],
+    "booking/move": ["notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
+    "booking/fee": ["reason"],
+    "booking/update": ["patch.contactEmail","patch.note","patch.cancelReason"],
+    "booking/cancel": ["reason","notice.title","notice.body","notice.draftReply","notice.fromName","notice.reply"],
+    "customers/import": ["customers.*.firstName","customers.*.lastName","customers.*.phone","customers.*.email","customers.*.birthday","customers.*.note"],
+    "customer/note": ["note"],
+    "customer/update": ["patch.firstName","patch.lastName","patch.phone","patch.email","patch.birthday","patch.tags"],
+    "customers/message": ["texts.*.title","texts.*.body"],
+    "inbox/add": ["item.title","item.body","item.draftReply","item.fromName","item.reply"],
+    "inbox/reply": ["reply"],
+    "review/submit": ["text"],
+    "review/reply": ["reply"],
+    "journal/add": ["entry.treatment","entry.observations","entry.advice","entry.nextVisit","entry.photos","entry.versions"],
+    "journal/edit": ["content.treatment","content.observations","content.advice","content.nextVisit","content.photos","content.versions"],
+    "giftcard/sell": ["recipient","message"],
+    "memory/add": ["item.text"],
+    "memory/edit": ["text"],
+    "ticket/create": ["ticket.question","ticket.screen","ticket.activity.*.summary"]
+  }';
+  -- PERSONAL_FIELDS END
+  v_now timestamptz;
+  v_row record;
+  v_next jsonb;
+  v_path text;
+  v_count integer := 0;
+BEGIN
+  PERFORM store_sweep_check();
+  v_now := store_effective_now(p_now);
+  FOR v_row IN
+    SELECT tenant_id, seq, action FROM tenant_action
+    WHERE at < ((v_now AT TIME ZONE 'UTC') - interval '13 months') AT TIME ZONE 'UTC'
+      AND NOT (action ? 'retentionRedacted') AND action ->> 'type' IN (SELECT jsonb_object_keys(v_fields))
+    ORDER BY at, tenant_id, seq LIMIT p_limit
+    FOR UPDATE SKIP LOCKED
+  LOOP
+    v_next := v_row.action;
+    FOR v_path IN SELECT jsonb_array_elements_text(v_fields -> (v_row.action ->> 'type')) LOOP
+      v_next := store_redact_path(v_next, string_to_array(v_path, '.'));
+    END LOOP;
+    UPDATE tenant_action SET action = v_next || '{"retentionRedacted": true}'::jsonb, idempotency_key = NULL,
+      redacted_at = coalesce(redacted_at, v_now)
+    WHERE tenant_id = v_row.tenant_id AND seq = v_row.seq;
+    v_count := v_count + 1;
+  END LOOP;
+  RETURN v_count;
+END $fn$;
+
+-- The audit copies of journal reads older than 24 months (sweepJournalAccessRows).
+CREATE FUNCTION store_sweep_journal_views(p_now timestamptz, p_limit integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_count integer;
+BEGIN
+  PERFORM store_sweep_check();
+  WITH old AS (
+    SELECT tenant_id, seq FROM tenant_action
+    WHERE action ->> 'type' = 'journal/view' AND at < ((store_effective_now(p_now) AT TIME ZONE 'UTC') - interval '24 months') AT TIME ZONE 'UTC'
+    ORDER BY at, tenant_id, seq LIMIT p_limit
+    FOR UPDATE SKIP LOCKED
+  )
+  DELETE FROM tenant_action a USING old o WHERE a.tenant_id = o.tenant_id AND a.seq = o.seq;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END $fn$;
+
+REVOKE ALL ON FUNCTION store_caller_owns(), store_caller_in(text), store_outbox_caller(text), store_effective_now(timestamptz),
+  store_sweep_check(), store_redact_path(jsonb, text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
+  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
+  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
+  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
+  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
+  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
+  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
+  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
+  store_sweep_journal_views(timestamptz, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
+  store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
+  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
+  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
+  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
+  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean)
+  TO cresavo_app, cresavo_outbox;
+GRANT EXECUTE ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
+  store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
+  store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
+  store_sweep_journal_views(timestamptz, integer) TO cresavo_sweeper;
+-- STORE FUNCTIONS END

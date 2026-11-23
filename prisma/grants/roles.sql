@@ -1,10 +1,10 @@
 -- Least-privilege Postgres roles for a Cresavo installation (pilot operations
 -- groundwork, docs/QUALITY_SECURITY.md "Operations"). Documentation for
--- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner.
--- The one migration that touches roles (store_rls_policies) only creates a
--- missing group role with every attribute off, as below, so its row-level
--- security policies can name it; logins are never created by a migration and
--- this file still checks every group role. Safe to run again; the
+-- operators, NOT a migration: `prisma migrate deploy` runs as the schema owner
+-- and the repository's migrations do not create roles. The group roles must
+-- exist before the first migrate deploy (migration store_rls_policies names
+-- them): an admin creates them once per cluster with bootstrap-roles.sql, whose
+-- role block this file repeats and checks. Safe to run again; the
 -- whole file is one transaction, so a failed run changes nothing and never
 -- leaves the live application without grants.
 --
@@ -19,6 +19,8 @@
 -- grant on them. Not as one of the roles created here.
 --
 -- ORDER, once per environment (and again after a migration adds a table):
+--   0. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/bootstrap-roles.sql
+--                                                        (admin, once per cluster)
 --   1. npx prisma migrate deploy                          (schema owner)
 --   2. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/roles.sql
 --   3. psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/studio-store.sql
@@ -188,22 +190,12 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "PairGrantToken" TO cresavo_app;
 
 -- ---------------------------------------------------------------------------
 -- cresavo_sweeper: `npm run store:sweep` (scripts/sweep-store.mts and the
--- sweepers in src/concept/store/store-sweepers.ts). Column-level grants: it
--- reads and changes only what retention needs. It cannot read a salon document
--- or a stored replay result.
+-- sweepers in src/concept/store/store-sweepers.ts). No privilege on the four
+-- store tables: the store sweeps are the fixed SECURITY DEFINER functions
+-- store_sweep_* of migration store_rls_policies (EXECUTE granted there), with
+-- their retention cutoffs inside. Only the rate-limit table is swept directly.
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_sweeper;
--- Sandbox expiry and demo retention: tenant kind and expiry; rows deleted. FOR UPDATE needs one UPDATE column.
-GRANT SELECT ("tenant_id", "kind", "expires_at"), UPDATE ("updated_at"), DELETE ON "tenant_state" TO cresavo_sweeper;
--- Demo retention, journal-view pruning, the age-based redaction of personal fields (sweepActivityPersonalData:
--- action, idempotency_key, redacted_at; it reads redacted_at to keep the first value) and the join of sweepOutboxBodies on the action's time.
-GRANT SELECT ("tenant_id", "seq", "at", "action", "idempotency_key", "redacted_at"),
-      UPDATE ("action", "idempotency_key", "redacted_at"), DELETE ON "tenant_action" TO cresavo_sweeper;
--- Expired keys (sweepExpiredIdempotency) and sandbox cleanup.
-GRANT SELECT ("tenant_id", "key", "expires_at"), UPDATE ("expires_at"), DELETE ON "tenant_idempotency" TO cresavo_sweeper;
--- sweepOutboxBodies blanks body, subject, address and the stored mail copy of settled messages; sandbox cleanup deletes.
-GRANT SELECT ("tenant_id", "seq", "n", "kind", "status", "payload", "delivered_at", "next_attempt_at"),
-      UPDATE ("payload"), DELETE ON "tenant_effect" TO cresavo_sweeper;
 -- sweepOwnerGuardBuckets and sweepRateLimits.
 GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
 -- No sweeper calls erase_subject, so neither this role nor support is ever granted EXECUTE on it (verify-roles.sql
@@ -212,20 +204,12 @@ GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBuc
 -- ---------------------------------------------------------------------------
 -- cresavo_outbox: the effect poller, `npm run effects:drain` (drainPendingEffects
 -- in src/concept/store/effect-outbox.ts and the message sink, src/lib/message-sink.ts).
--- Column-level grants from its queries: it claims, retries, fails and
--- acknowledges effects and reads the document of the salon a message is for. It
--- never inserts or deletes, never reads the log, the replay results or a
--- fingerprint, and cannot change an effect's identity, tenant, kind or erasure
--- mark. Row-level security limits its updates to effects that are not yet
--- delivered and its tenant_state lock to one that changes nothing.
+-- No table privilege at all: it claims, retries, fails and acknowledges effects
+-- and reads what a claimed message needs of its salon only through the fixed
+-- SECURITY DEFINER functions store_outbox_* of migration store_rls_policies
+-- (EXECUTE granted there), each of which acts on the effect its claim names.
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_outbox;
--- The claim joins kind and expiry; the sink reads the salon's document under a share lock (FOR SHARE needs one
--- UPDATE column; the policy's WITH CHECK (false) refuses any real update).
-GRANT SELECT ("tenant_id", "kind", "expires_at", "doc"), UPDATE ("updated_at") ON "tenant_state" TO cresavo_outbox;
-GRANT SELECT ("id", "tenant_id", "seq", "n", "kind", "payload", "status", "attempts", "next_attempt_at", "leased_until",
-              "erased_at", "delivered_at"),
-      UPDATE ("payload", "status", "attempts", "next_attempt_at", "leased_until", "delivered_at") ON "tenant_effect" TO cresavo_outbox;
 
 -- ---------------------------------------------------------------------------
 -- cresavo_support: read-only diagnostics. No salon document (journal entries

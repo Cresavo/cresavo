@@ -133,7 +133,10 @@ Configure the following server-side variables for the preview.
 
 The Vercel build runs `npx prisma migrate deploy --config prisma.pairing.config.ts`
 before generating the client and building Next.js when `ASSISTANT_PAIRING=1`
-and `PAIRING_DATABASE_URL_UNPOOLED` is set. Otherwise it silently skips
+and `PAIRING_DATABASE_URL_UNPOOLED` is set. The shared migrations need the
+store's group roles: run `prisma/grants/bootstrap-roles.sql` once as the
+database's admin before the first such build; otherwise the
+`store_rls_policies` migration stops and names the recovery steps. Otherwise it silently skips
 migrations. This Prisma config reads only the direct pairing URL. The shared
 migration history initializes the dedicated database without seeding it.
 The grant migration copies existing token families when run on a database
