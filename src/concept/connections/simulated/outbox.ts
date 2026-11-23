@@ -10,6 +10,12 @@ export interface DeliveryState {
   provider?: string;
   /** A fingerprint of the sending account (never the key), recorded with `provider`: a repeat is safe only at the same account. */
   account?: string;
+  /**
+   * Epoch milliseconds of the first time a request may have reached the provider: set with the first `dispatched`
+   * marker that was followed by a real call, never cleared. The provider's idempotency window counts from here, not
+   * from the first rendering, so a long pause before the first request does not use it up.
+   */
+  submittedAt?: number;
   /** The provider accepted it. A retry that finds this only acknowledges. */
   sent?: boolean;
   /** Committed before the provider is called, and cleared only when nothing was sent: a request that may have left. */

@@ -3,6 +3,7 @@
 import { ListRow } from "../../ui/list-row";
 import { customerDraft, isContactPhone, phoneMatches } from "../../booking/lookup";
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { preferredStaffOf } from "../../assistant/memory";
 import { GuestFields } from "../../booking/guest-fields";
 import { isFree, needOf } from "../../data/slots";
@@ -16,6 +17,7 @@ import { newActionRequestId } from "../../support/action-reference";
 import { ActionFailure, type ActionFailureInfo } from "../../ui/action-failure";
 import { Avatar } from "../../ui/avatar";
 import { Button } from "../../ui/button";
+import { Card } from "../../ui/card";
 import { Field, SearchInput, Select, TextInput } from "../../ui/controls";
 import { cx } from "../../ui/cx";
 import { Notice } from "../../ui/notice";
@@ -164,29 +166,26 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
 
         <section className="space-y-2">
           <h3 className="text-sm font-medium">{t("newBooking.treatment")}</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {services.map((s) => (
-              <Button
-                key={s.id}
-                variant="secondary"
-                align="between"
-                aria-pressed={s.id === service.id}
-                onClick={() => { setServiceId(s.id); setFailure(undefined); }}
-                className={cx(
-                  "min-h-12",
-                  s.id === service.id && "aria-pressed:bg-action-bg aria-pressed:ring-action",
-                )}
-              >
-                <span className="min-w-0">
-                  <span className="block font-medium leading-snug">{s.name}</span>
-                  <span className="block text-xs text-text-secondary">
-                    {formatDuration(s.duration)} · {state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}
-                  </span>
-                </span>
-                <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
-              </Button>
-            ))}
-          </div>
+          <Card className="grid gap-px overflow-hidden bg-hairline sm:grid-cols-2">
+            {services.map((s) => {
+              const chosen = s.id === service.id;
+              return (
+                <ListRow
+                  key={s.id}
+                  aria-pressed={chosen}
+                  onClick={() => { setServiceId(s.id); setFailure(undefined); }}
+                  className={cx("rounded-none", chosen ? "bg-action-bg hover:bg-action-bg" : "bg-surface")}
+                  title={<span className={cx("block leading-snug", chosen && "font-semibold")}>{s.name}</span>}
+                  meta={`${formatDuration(s.duration)} · ${state.staff.filter(p => s.staffIds.includes(p.id) && (!viewer || p.id === viewer.id)).map(p => p.firstName).join(", ")}`}
+                  trailing={<>
+                    {chosen && <Check size={18} aria-hidden className="shrink-0" />}
+                    <span className="shrink-0 tabular-nums text-text-secondary">{formatMoney(s.price)}</span>
+                  </>}
+                />
+              );
+            })}
+            {services.length % 2 === 1 && <div aria-hidden className="hidden bg-surface sm:block" />}
+          </Card>
         </section>
 
         {!viewer && service.staffIds.length > 1 && <Field width="short" label={t("calendar.staff")}>

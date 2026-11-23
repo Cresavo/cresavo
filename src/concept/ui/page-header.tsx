@@ -17,7 +17,7 @@ export function PageHeader({ title, titleRef, subtitle, actions, primaryAction, 
       {back}
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 break-words">
-          <h1 ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="text-h1 font-semibold tracking-tight">{title}</h1>
+          <h1 ref={titleRef} tabIndex={titleRef ? -1 : undefined} className="w-fit max-w-full rounded-sm text-h1 font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-1 max-w-reading text-body text-text-secondary">{subtitle}</p>}
         </div>
         {(primaryAction || actions) && <div className="flex max-w-full flex-wrap items-center gap-2">

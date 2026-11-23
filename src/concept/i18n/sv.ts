@@ -883,7 +883,6 @@ const messages = {
   "today.bookingCount": "{count} bokning|{count} bokningar",
   "today.dayOff": "Ledig i dag",
   "today.closed": "Stängt i dag",
-  "today.closedText": "Salongen är stängd. Nästa kund visas till höger.",
   "today.phoneMode": "Det ringer",
   "today.schedule": "Dagens schema",
   "today.showAll": "Visa alla ({count})",

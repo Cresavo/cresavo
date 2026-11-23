@@ -242,7 +242,9 @@ idempotency key. If the provider call times out, the network drops, or the
 provider is unavailable, the message may or may not have left. What happens next:
 
 - **Retried safely.** If the provider is Resend, the account is unchanged and
-  the first attempt was less than 23 hours ago, the same request is repeated
+  the first request that may have reached it (`delivery.submittedAt`, not the
+  time the message was first rendered, so a pause before the first request
+  does not use up the window) was less than 23 hours ago, the same request is repeated
   under the same key: the provider answers with the first result instead of
   sending twice.
 - **Marked uncertain.** In every other case (another provider, a different
@@ -275,22 +277,39 @@ The support role can still count them and see time and attempts:
 
 **Reconcile each `uncertain` row:**
 
-1. Open the e-mail provider's sent log for the window around the first attempt
-   and look for a message to the customer's address (the address is in the
+1. Open the e-mail provider's sent log and search **from the row's
+   `submitted` time** (the first request that may have reached the provider;
+   `rendered` when no submission is shown) **through the last attempt** (at
+   the latest, now): after a long pause the first request can come days after
+   the rendering, and a later attempt can be the one the provider accepted.
+   Look for a message to the customer's address (the address is in the
    salon's booking, not in the outbox row; the list shows its domain). The
-   row's `id` is the idempotency key sent with the request.
+   row's `id` is the idempotency key sent with every request. Do not resend
+   before that whole window has been searched.
 2. **Sent:** `effects:reconcile -- mark-sent <id> --tenant <tenant> --apply`
    and note it in the incident record.
 3. **Not sent:** `effects:reconcile -- mark-failed <id> --tenant <tenant> --apply`.
    Then either tell the salon, who sends the confirmation or cancellation by
    hand or contacts the customer (for a cancellation it is the more important
    message), or, if a second copy reaching the customer is acceptable, resend
-   it with `retry <id> --tenant <tenant> --force-maybe-duplicate --apply`.
+   it: `retry <id> --tenant <tenant> --force-maybe-duplicate --apply`. The row
+   kept its frozen message, so the resend is the same message, link, sender
+   and reply-to as the first request, until retention blanks it after 90 days
+   (`snapshot_purged`).
 4. Count the rows and find the cause: provider outage, a deploy mid-send, or
    a limit such as the 23-hour window. If the cause is repeating, raise it as a
    SEV2.
 
 ## Reconciling the e-mail outbox
+
+> **Run one version everywhere first.** Before any `retry`, every
+> `effects:drain` worker, every web worker and the CLI itself must run the
+> version that has this tool. An older deliverer ignores
+> `delivery.attemptBase`, so it can spend a reopened row's fresh budget at
+> once, and an older CLI resets `attempts`, which is also each claim's
+> identity, so a stalled older worker could write over a newer claim. Stop or
+> upgrade the old drains, and remove the old CLI, before reopening rows. (No
+> deployment sends live e-mail yet.)
 
 `npm run effects:reconcile` (`scripts/reconcile-effects.mts`) reopens or
 settles `failed` e-mail rows by hand. Run it with `DATABASE_URL` of a login
@@ -311,8 +330,12 @@ npm run effects:reconcile -- mark-failed <id...> --tenant <tenant> [--apply]
   error code (`EMAIL_NOT_CONFIGURED` for a row that ran out of attempts while
   the connection was off, or the failure's reason), whether a request may have
   left (`dispatched`) and the recipient as `***@domain`. A row that ran out of
-  attempts after a request that may have left (`EMAIL_UNCERTAIN`, a sink
-  timeout, or a `dispatched` marker) is shown and treated as `uncertain`. Only
+  attempts after a request that may have left (`EMAIL_UNCERTAIN`, or a
+  `dispatched` marker, which a request in flight keeps and one that never
+  started gives back) is shown and treated as `uncertain`. Each row also shows
+  when its message was first `rendered` and first `submitted` (the first
+  request that may have reached the provider; a request the provider refused
+  outright does not count), in UTC: the window to search the provider's log. Only
   known codes and reasons are shown (anything else as `other`); it never prints
   a message body or an address.
 - **`retry`** puts a `failed` e-mail back to `pending` with a fresh budget of
@@ -325,14 +348,17 @@ npm run effects:reconcile -- mark-failed <id...> --tenant <tenant> [--apply]
   (`dispatched`, `uncertain`, or settled `not_sent`) unless
   `--force-maybe-duplicate` is given; that drops the marker and accepts that
   the customer may get the message twice. It is also refused when the booking
-  is gone, cancelled (except for a cancellation notice) or its customer erased
-  (`booking_gone`, checked under the salon's lock), and when retention has
-  purged the frozen message (`snapshot_purged`): that one cannot be resent as
-  it was, so the salon follows up by hand. Use this after an outage that
+  is gone, cancelled (a cancellation notice stays eligible; a move notice does
+  not) or its customer erased (`booking_gone`, checked under the salon's lock),
+  when retention has purged the frozen message (`snapshot_purged`), and when
+  the message was rendered once but is not held (`snapshot_missing`: a row
+  from before messages were frozen). Those
+  cannot be resent as they were, so the salon follows up by hand. Use this after an outage that
   outlasted the 10 attempts, once the cause is fixed.
-- **`mark-sent`** settles an `uncertain` row the provider's log shows as sent:
-  it becomes `delivered`.
-- **`mark-failed`** settles an `uncertain` row the provider's log shows as not
+- **`mark-sent`** settles an `uncertain` row, or a `reconcile` one (the
+  provider refused a reused key with another body after a request that may
+  have left), that the provider's log shows as sent: it becomes `delivered`.
+- **`mark-failed`** settles the same rows when the provider's log shows them as not
   sent: it stays `failed` with reason `not_sent`, and keeps its marker, so a
   later `retry` still needs the force flag.
 
@@ -340,9 +366,12 @@ Each id is decided and changed in its own transaction under the row's lock. A
 row a deliverer still holds, an erased or cancelled row and anything that is
 not an e-mail are refused. Running the same command again changes nothing
 (`unchanged`). Each id prints one JSON line (`event: "effect_reconcile"`, actor,
-action, tenant, effect id, dry run, outcome, reason). The actor is an opaque id
-from `--actor` (initials or a staff number; an e-mail address is rejected) or
-the shell user, else `operator`: that line is the audit record, because the tenant's own audit log
+action, tenant, effect id, dry run, outcome, reason). The actor comes
+from `--actor` or the shell user and should be a **staff handle** (`jd`,
+`ops-2`), not a person's full name: lower-case letters, digits, `-` and `_`, at
+most 32, and never six digits or more however they are separated (so a phone
+number such as `073-555-1234` is rejected, as is an e-mail address); a shell
+user that does not fit becomes `operator`: that line is the audit record, because the tenant's own audit log
 (`tenant_action`) holds the studio's changes only. Copy the lines into the
 incident record. The exit code is 1 when any id was refused.
 

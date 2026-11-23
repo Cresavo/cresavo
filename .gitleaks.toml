@@ -97,3 +97,16 @@ commits = ["c1b39fa1b4e6d2a196ba24299c96b7cd13e828d5"]
 paths = ['''^tests/concept-connections-secrets\.test\.ts$''']
 regexTarget = "match"
 regexes = ['''TWILIO_AUTH_TOKEN: "SECRETother01234567ab"''']
+
+# Structured log scrub test (monitoring work, 2026-11-22): a fictional token
+# fed to the logger to prove it is dropped. The value is made up
+# ("sk-secret-123456", ascending digits, no real provider format), was written
+# in a sandbox with no credentials, and is scoped to the one commit that
+# introduced it AND this file AND this literal, so it is reported anywhere else.
+[[allowlists]]
+description = "Fictional token in the log scrub test"
+condition = "AND"
+commits = ["97b53cb0c2d61344c533f25a172b3f6603f09e67"]
+paths = ['''^tests/log\.test\.ts$''']
+regexTarget = "match"
+regexes = ['''token=sk-secret-123456''']

@@ -83,7 +83,7 @@ export function safeFailure(error: unknown) {
     return { status: 400, message: "Check the details and try again." };
   // Never log the error, message, stack, cause, SQL, request or credentials.
   // The log line carries the code and the class name; the optional report adds file paths only.
-  log.error("BOOKING_INTERNAL_ERROR", { errorName: error instanceof Error ? error.constructor.name : undefined });
+  log.error("BOOKING_INTERNAL_ERROR", { errorName: logErrorName(error) });
   reportError(error, { code: "BOOKING_INTERNAL_ERROR" });
   return { status: 500, message: "Something went wrong. Try again." };
 }
@@ -94,4 +94,11 @@ export function pageDataFailure(error: unknown): never {
   const thrown = new Error("Something went wrong. Try again.");
   markReported(thrown); // reported above; Next's onRequestError sees this one next
   throw thrown;
+}
+
+/** The class name for the log line. Database client classes become one generic name, so the log never says which driver failed. */
+function logErrorName(error: unknown) {
+  if (!(error instanceof Error)) return undefined;
+  const name = error.constructor.name;
+  return /^Prisma|^Postgres|^Pg/.test(name) ? "DatabaseError" : name;
 }
