@@ -22,6 +22,7 @@ import { CustomerSummary } from "@/concept/studio/customers/customer-summary";
 import { CustomerRights } from "@/concept/studio/customers/customer-rights";
 import { Journal } from "@/concept/studio/customers/journal";
 import { JournalRead } from "@/concept/studio/customers/journal-read";
+import { useServerJournal } from "@/concept/studio/customers/use-server-journal";
 import { NextVisitCard } from "@/concept/studio/customers/next-visit-card";
 import { Notes } from "@/concept/studio/customers/notes";
 import { CustomerProducts } from "@/concept/studio/stock/customer-products";
@@ -48,6 +49,8 @@ export default function CustomerPage() {
   const viewer = role === "staff" ? staffViewer(state) : null;
   const customer = state.customers.find((c) => c.id === id);
   const stats = useMemo(() => buildCustomerStats(state, today), [state, today]);
+  // Opening the page reads the journal: from the server, and logged there, when it keeps the text.
+  const journal = useServerJournal(id, state.modules.journal ? state.journals.filter((j) => j.customerId === id) : []);
 
   const back = <BackLink href="/studio/customers" label={t("customer.back")} />;
   if (!customer) {
@@ -64,7 +67,7 @@ export default function CustomerPage() {
   const s = stats.get(customer.id)!;
   const late = notSeenInThreeMonths(state, stats, today).some((c) => c.id === customer.id);
   const next = nextVisitFor(state, customer, stats);
-  const journalNotes = state.journals.filter((j) => j.customerId === customer.id).sort((a, b) => b.date.localeCompare(a.date));
+  const journalNotes = [...journal.entries].sort((a, b) => b.date.localeCompare(a.date));
   const bookings = state.bookings.filter((b) => b.customerId === customer.id);
   const upcoming = bookings.filter((b) => b.status === "booked" && b.date >= today).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start);
   const history = bookings.filter((b) => b.date < today || b.status !== "booked").sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start);
@@ -184,7 +187,7 @@ export default function CustomerPage() {
               {state.modules.journal && journalNotes.length > 0 && (
                 <Section title={t("customer.journalNotes")} action={<Button size="sm" variant="ghost" onClick={() => setTab("journal")}>{t("customer.openJournal")}</Button>}>
                   <Card className="divide-y divide-hairline overflow-hidden">
-                    <JournalRead customerId={customer.id} />
+                    <JournalRead customerId={customer.id} loggedByServer={journal.fromServer} />
                     {journalNotes.slice(0, 5).map((j) => (
                       <ListRow key={j.id} onClick={() => setTab("journal")}
                         leading={<span className="text-meta text-text-secondary">{formatDate(j.date)}</span>}
@@ -195,7 +198,7 @@ export default function CustomerPage() {
               )}
             </>
           )}
-          {tab === "journal" && state.modules.journal && <><JournalRead customerId={customer.id} /><Journal customer={customer} /></>}
+          {tab === "journal" && state.modules.journal && <><JournalRead customerId={customer.id} loggedByServer={journal.fromServer} /><Journal customer={customer} journal={journal} /></>}
           {tab === "journal" && !state.modules.journal && (
             <ButtonLink href="/studio/more/features" variant="secondary">{t("customer.journalOff")}</ButtonLink>
           )}

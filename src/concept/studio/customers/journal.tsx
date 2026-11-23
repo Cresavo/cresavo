@@ -11,11 +11,15 @@ import { BLANK_ENTRY, JournalForm } from "./journal-form";
 import { JournalEntryCard } from "./journal-entry";
 import { JournalDictation } from "./journal-dictation";
 import { dispatchWithUndoToast } from "../log/undo-toast";
+import type { ShownJournal } from "./use-server-journal";
 
-/** Journal entries for a customer plus ways to add one: write (with templates and photos) or dictate. */
-export function Journal({ customer }: { customer: Customer }) {
+/**
+ * Journal entries for a customer plus ways to add one: write (with templates and photos) or dictate. `journal` is
+ * the page's copy with the text the server keeps (`useServerJournal`); without it the salon's own entries are shown.
+ */
+export function Journal({ customer, journal }: { customer: Customer; journal?: ShownJournal }) {
   const { state, today } = useStudio();
-  const entries = state.journals.filter((j) => j.customerId === customer.id).sort((a, b) => b.date.localeCompare(a.date));
+  const entries = [...(journal?.entries ?? state.journals.filter((j) => j.customerId === customer.id))].sort((a, b) => b.date.localeCompare(a.date));
   const [writing, setWriting] = useState(false);
   const [dictating, setDictating] = useState(false);
 
@@ -34,9 +38,16 @@ export function Journal({ customer }: { customer: Customer }) {
       </div>
       {dictating && <JournalDictation customer={customer} onClose={() => setDictating(false)} />}
       {writing && <JournalForm initial={BLANK_ENTRY} templatesFor={customer.category} onSubmit={save} onCancel={() => setWriting(false)} />}
+      {journal?.loading && <p role="status" className="text-meta text-text-secondary">{t("journal.loading")}</p>}
+      {journal?.failed && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 text-meta text-text-secondary">
+          <span>{t("journal.loadFailed")}</span>
+          <Button size="sm" variant="secondary" onClick={journal.retry}>{t("journal.retry")}</Button>
+        </div>
+      )}
       {entries.length ? (
         entries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} />)
-      ) : (
+      ) : journal?.loading || journal?.failed ? null : (
         <EmptyState icon={<NotebookPen size={22} />} title={t("journal.empty")} text={t("journal.emptyText")} />
       )}
     </div>

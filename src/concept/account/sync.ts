@@ -1,7 +1,7 @@
 "use client";
 
 import type { DemoAction } from "../actions";
-import type { DemoState } from "../data/types";
+import type { DemoState, JournalEntry } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
@@ -15,8 +15,17 @@ import { ownerHintPresent } from "./hint";
 // that must know the outcome of one change waits for its answer by request id.
 
 const SALON = "/api/owner/salon";
+/** Journal reads and writes while the server keeps journals (JOURNALS_ON_SERVER). */
+const JOURNALS = "/api/owner/journals";
 /** Refusals the owner can act on, by the code the server sent. */
-const REFUSAL_TEXT: Record<string, MessageKey> = { slug_taken: "address.slug.taken", logo_inline: "photos.error.logoInline", logo_unknown: "photos.error.logoUnknown" };
+const REFUSAL_TEXT: Record<string, MessageKey> = {
+  slug_taken: "address.slug.taken", logo_inline: "photos.error.logoInline", logo_unknown: "photos.error.logoUnknown", journals_unavailable: "journal.unavailable",
+};
+/** Set by the salon load: the server keeps this salon's journal text and hands it out one customer at a time. */
+let journalsServer = false;
+
+/** True when the signed-in salon's journals are read from the server, one customer at a time. */
+export const journalsOnServer = () => journalsServer;
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
 
@@ -82,7 +91,8 @@ async function request(url: string, init?: RequestInit) {
 }
 
 async function post(action: DemoAction, idempotencyKey: string) {
-  const send = () => request(`${SALON}/actions`, {
+  const url = journalsServer && (action.type === "journal/add" || action.type === "journal/edit") ? JOURNALS : `${SALON}/actions`;
+  const send = () => request(url, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, idempotencyKey }),
   });
   try {
@@ -95,7 +105,23 @@ async function post(action: DemoAction, idempotencyKey: string) {
 
 async function readSalon(): Promise<{ state: DemoState } | null> {
   const response = await request(SALON, { cache: "no-store" });
+  if (response.ok) journalsServer = response.body?.journals === "server";
   return response.ok ? response.body : null;
+}
+
+/** One customer's journal entries with their text, read (and logged) by the server; null when they could not be read. */
+export async function readCustomerJournals(customerId: string): Promise<JournalEntry[] | null> {
+  try {
+    const response = await request(`${JOURNALS}?customer=${encodeURIComponent(customerId)}`, { cache: "no-store" });
+    if (response.status === 401) {
+      closeAccountSalon();
+      showToast(t("account.sync.signedOut"));
+      return null;
+    }
+    return response.ok && Array.isArray(response.body?.entries) ? response.body.entries : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Shows the server's copy again. When it cannot be read, the change that was not saved is taken off the screen if nothing newer is shown. */

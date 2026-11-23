@@ -13,6 +13,7 @@ import type { OpenSheet } from "../booking/booking-sheets";
 import { JournalRead } from "../customers/journal-read";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
+import { isStub } from "../../journals/sealed";
 
 /** Today's current or next visit: the first booked one that has not ended yet. */
 export function nextToday(state: DemoState, today: DateKey, now: number, staffId?: StaffId): Booking | undefined {
@@ -35,7 +36,8 @@ export function NextDetails({ booking, onOpen }: { booking: Booking; onOpen: (sh
   const customer = findCustomer(state, booking.customerId);
   if (!customer) return null;
   const stats = buildCustomerStats(state, today).get(customer.id);
-  const advice = state.modules.journal ? state.journals.filter((j) => j.customerId === customer.id).at(-1)?.advice : undefined;
+  // An entry whose text the server keeps has none here; its advice is read on the customer's page.
+  const advice = state.modules.journal ? state.journals.filter((j) => j.customerId === customer.id && !isStub(j)).at(-1)?.advice : undefined;
   return (
     <div className="space-y-2 text-sm text-text-secondary">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
