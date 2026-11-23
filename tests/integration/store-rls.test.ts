@@ -192,7 +192,8 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
   beforeAll(async () => {
     const [{ exists }] = await admin.$queryRaw<Array<{ exists: boolean }>>`SELECT to_regprocedure('erase_subject(text, text)') IS NOT NULL AS exists`;
     eraseSubjectInstalled = !exists;
-    // The order of roles.sql's header: roles, store grants, the erase function, logins; then the operator step.
+    // The order of roles.sql's header: group roles, grants, the erase function, logins; then the operator step.
+    await runSql(grant("bootstrap-roles.sql"));
     await runSql(grant("roles.sql"));
     await runSql(grant("studio-store.sql"));
     await runSql("GRANT cresavo_eraser TO CURRENT_USER WITH SET TRUE; GRANT CREATE ON SCHEMA public TO cresavo_eraser");
@@ -274,24 +275,30 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     expect(roleProblems).toEqual([]);
   });
 
-  it("refuses to enable on a changed, missing or extra policy, and reports a login that can become a bypassing role", async () => {
+  it("refuses to enable beside an extra policy, reports changed or missing ones, and a login that can become a bypassing role", async () => {
     const ROLLBACK = "rollback";
     const connection = new pg.Client({ connectionString: adminUrl });
     await connection.connect();
-    const refusal = async (change: string) => {
+    /** Runs `change`, then `script` without its own BEGIN and COMMIT, in one transaction that is rolled back. */
+    const within = async (change: string, script: string) => {
       await connection.query("BEGIN");
       try {
         await connection.query(change);
-        return await connection.query(grant("rls-enable.sql").replace(/^BEGIN;$/m, "").replace(/^COMMIT;$/m, "")).then(() => "enabled", (error: Error) => error.message);
+        return await connection.query(grant(script).replace(/^BEGIN;$/m, "").replace(/^COMMIT;$/m, ""));
       } finally {
         await connection.query("ROLLBACK");
       }
     };
+    const tables = async (change: string) =>
+      ((await within(change, "verify-rls.sql")) as unknown as Array<{ rows: Array<Record<string, string>> }>)[0].rows;
     try {
-      expect(await refusal(`ALTER POLICY store_tenant ON tenant_state USING (true)`)).toMatch(/tenant_state\.store_tenant \(changed\)/);
-      expect(await refusal(`ALTER POLICY store_tenant ON tenant_effect TO PUBLIC`)).toMatch(/tenant_effect\.store_tenant \(changed\)/);
-      expect(await refusal(`DROP POLICY store_support_read ON tenant_action`)).toMatch(/tenant_action\.store_support_read \(missing\)/);
-      expect(await refusal(`CREATE POLICY extra ON tenant_idempotency FOR SELECT USING (true)`)).toMatch(/tenant_idempotency\.extra \(unexpected\)/);
+      // rls-enable.sql replaces its own policies, so a policy someone added by hand stops it.
+      await expect(within(`CREATE POLICY extra ON tenant_idempotency FOR SELECT USING (true)`, "rls-enable.sql"))
+        .rejects.toThrow(/tenant_idempotency\.extra \(unexpected\)/);
+      // Afterwards verify-rls.sql reports a changed or a dropped policy.
+      expect((await tables(`ALTER POLICY store_tenant ON tenant_state USING (true)`)).find((r) => r.table === "tenant_state")?.changed).toBe("store_tenant");
+      expect((await tables(`ALTER POLICY store_tenant ON tenant_effect TO PUBLIC`)).find((r) => r.table === "tenant_effect")?.changed).toBe("store_tenant");
+      expect((await tables(`DROP POLICY store_support_read ON tenant_action`)).find((r) => r.table === "tenant_action")?.missing).toBe("store_support_read");
       // A login that may SET ROLE to the table owner, without inheriting it, is reported.
       await connection.query("BEGIN");
       try {
@@ -300,11 +307,11 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
         // ADMIN on a group role lets a login grant it to itself: reported. An admin-only grant (what a CREATEROLE
         // creator receives) does not make a runtime login of its holder.
         await connection.query(`GRANT cresavo_support TO ${LOGINS.outbox} WITH ADMIN TRUE, INHERIT FALSE, SET FALSE`);
-        await connection.query(`CREATE ROLE ${LOGINS.app}_creator LOGIN`);
+        await connection.query(`CREATE ROLE ${LOGINS.app}_creator LOGIN PASSWORD '${password}'`);
         await connection.query(`GRANT cresavo_app TO ${LOGINS.app}_creator WITH ADMIN TRUE, INHERIT FALSE, SET FALSE`);
         // A login that reaches a runtime group only through another role is found too.
         await connection.query(`CREATE ROLE ${LOGINS.app}_middle NOLOGIN IN ROLE cresavo_sweeper`);
-        await connection.query(`CREATE ROLE ${LOGINS.app}_indirect LOGIN BYPASSRLS IN ROLE ${LOGINS.app}_middle`);
+        await connection.query(`CREATE ROLE ${LOGINS.app}_indirect LOGIN BYPASSRLS PASSWORD '${password}' IN ROLE ${LOGINS.app}_middle`);
         const results = await connection.query(grant("verify-rls.sql")) as unknown as Array<{ rows: Array<{ problem: string }> }>;
         const problems = results[1].rows.map((r) => r.problem).join("\n");
         expect(problems).toContain(`login ${LOGINS.app} can SET ROLE to`);
@@ -393,7 +400,7 @@ describe.skipIf(!able?.ok)("row-level security on the store (rls-enable.sql)", (
     expect(await attempt(app, { sandboxKey: key }, `UPDATE tenant_state SET version = version WHERE tenant_id = '${loaded!.tenantId}'`)).toBe(0);
 
     // Sign-up writes its salon in its own scope; the address scope finds exactly that salon, read only.
-    const signup = await createOwnerAccount({ email: `owner-${run}@example.test`, password: "fictional-password-long", salonName: `Rls ${run}`, language: "en" });
+    const signup = await createOwnerAccount({ email: `owner-${run}@example.test`, password: randomBytes(16).toString("hex"), salonName: `Rls ${run}`, language: "en" });
     if (!signup.ok) throw new Error(`signup refused: ${signup.reason}`);
     createdTenants.push(signup.tenantId);
     const slug = (await store.load(signup.tenantId))!.state.salon.slug;

@@ -4,20 +4,21 @@ import { describe, expect, it } from "vitest";
 import { RETENTION } from "@/concept/privacy/retention";
 import { PERSONAL_FIELDS } from "@/concept/store/erasure";
 
-// The row-level security files hold together: the migration prepares policies and the outbox and sweep functions
-// without enforcing anything, the operator scripts switch exactly the four store tables, verify-rls.sql expects
-// exactly the migration's policies, the sweep functions carry the retention periods, and every source file that
-// queries a store table goes through the scope helper. The behaviour is in tests/integration/store-rls.test.ts.
+// The row-level security files hold together: the migration creates only the outbox and sweep functions, closed to
+// PUBLIC and naming no role; rls-enable.sql creates exactly the policies its digests expect and switches exactly the
+// four store tables, rls-disable.sql undoes both; the grants files open the functions to their roles; the sweep
+// functions carry the retention periods; and every source file that queries a store table goes through the scope
+// helper. The behaviour is in tests/integration/store-rls.test.ts.
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const code = (sql: string) => sql.replace(/--.*$/gm, "");
 const rawMigration = read("prisma/migrations/20261122160000_store_rls_policies/migration.sql");
 const migration = code(rawMigration);
-/** The migration before its functions: the policies and the role check. */
-const head = code(rawMigration.slice(0, rawMigration.indexOf("-- STORE FUNCTIONS BEGIN")));
+const rawEnable = read("prisma/grants/rls-enable.sql");
+const enableCode = code(rawEnable);
 const STORE = ["tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect"];
 
-const statements = [...migration.matchAll(/CREATE POLICY "(\w+)" ON "(\w+)" FOR (\w+)(?: TO ([\w, ]+?))?\s+(?:USING|WITH)[^;]*;/g)]
+const statements = [...enableCode.matchAll(/CREATE POLICY "(\w+)" ON "(\w+)" FOR (\w+)(?: TO ([\w, ]+?))?\s+(?:USING|WITH)[^;]*;/g)]
   .map(([text, policy, table, command, roles]) => ({ text, policy, table, command, roles: roles?.split(",").map((r) => r.trim()) ?? [] }));
 const policies = statements.map(({ table, policy }) => `${table}.${policy}`).sort();
 const GROUPS = ["cresavo_app", "cresavo_eraser", "cresavo_sweeper", "cresavo_support", "cresavo_outbox"];
@@ -25,20 +26,31 @@ const GROUPS = ["cresavo_app", "cresavo_eraser", "cresavo_sweeper", "cresavo_sup
 const expectedList = (sql: string) => [...sql.matchAll(/\('(tenant_\w+)', '(\w+)', '([0-9a-f]{32})'\)/g)].map(([, table, policy, digest]) => `${table}.${policy}:${digest}`).sort();
 
 describe("store row-level security files", () => {
-  it("the migration creates policies on the store tables only and enforces nothing", () => {
-    expect(migration).not.toMatch(/ROW LEVEL SECURITY/i);
-    expect(head).not.toMatch(/\b(ALTER|DROP|INSERT|UPDATE|DELETE|GRANT|REVOKE)\s+(TABLE|ROLE|INTO|FROM|ON)\b/i);
-    expect(migration).not.toMatch(/\b(ALTER TABLE|DROP|CREATE TABLE|ALTER ROLE)\b/i);
-    expect(statements).toHaveLength(migration.match(/CREATE POLICY/g)!.length);
+  it("the migration creates only the store functions: no policy, grant, role or table change", () => {
+    expect(migration).not.toMatch(/ROW LEVEL SECURITY|CREATE POLICY|GRANT |CREATE ROLE|ALTER ROLE/i);
+    expect(migration).not.toMatch(/\b(ALTER TABLE|DROP|CREATE TABLE)\b/i);
+    expect(migration).toMatch(/REVOKE ALL ON FUNCTION/);
+    // A role is only ever looked up by name when a function runs, never needed to create one.
+    const roleMentions = [...migration.matchAll(/'(cresavo_\w+)'/g)].map((m) => m.index!);
+    for (const at of roleMentions) expect(migration.slice(at - 17, at)).toMatch(/store_caller_in\($/);
+    expect(roleMentions.length).toBeGreaterThan(0);
+  });
+
+  it("rls-enable.sql checks the roles, locks the tables, creates the policies, checks them and then enforces", () => {
+    const order = ["$roles$", "LOCK TABLE", "CREATE POLICY", "$check$", "ENABLE ROW LEVEL SECURITY"].map((mark) => enableCode.indexOf(mark));
+    for (const at of order) expect(at).toBeGreaterThan(-1);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(enableCode).toContain('LOCK TABLE "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect" IN ACCESS EXCLUSIVE MODE;');
+    for (const role of GROUPS) expect(enableCode).toContain(`'${role}'`);
+    expect(statements).toHaveLength(enableCode.match(/CREATE POLICY/g)!.length);
     expect(new Set(policies.map((p) => p.split(".")[0]))).toEqual(new Set(STORE));
-    // It creates no role: the groups come from bootstrap-roles.sql, and the migration stops without them.
-    expect(migration).not.toMatch(/CREATE ROLE/i);
-    expect(rawMigration).toContain("bootstrap-roles.sql");
-    expect(rawMigration).toContain("prisma migrate resolve --rolled-back 20261122160000_store_rls_policies");
-    for (const role of GROUPS) expect(migration).toContain(`'${role}'`);
+    // Every policy it creates is dropped first (a second run replaces them) and again by rls-disable.sql.
+    const dropped = (sql: string) => [...sql.matchAll(/DROP POLICY IF EXISTS "(\w+)" ON "(\w+)";/g)].map(([, policy, table]) => `${table}.${policy}`).sort();
+    expect(dropped(enableCode)).toEqual(policies);
+    expect(dropped(code(read("prisma/grants/rls-disable.sql")))).toEqual(policies);
     // Every table has the owner's, the tenant's and support's policy; every tenant policy checks new rows too.
     for (const table of STORE) for (const policy of ["store_owner", "store_tenant", "store_support_read"]) expect(policies).toContain(`${table}.${policy}`);
-    expect(migration.match(/CREATE POLICY "store_tenant"[^;]+WITH CHECK \("tenant_id" = nullif\(current_setting\('cresavo\.tenant_id', true\), ''\)\);/g)).toHaveLength(4);
+    expect(enableCode.match(/CREATE POLICY "store_tenant"[^;]+WITH CHECK \("tenant_id" = nullif\(current_setting\('cresavo\.tenant_id', true\), ''\)\);/g)).toHaveLength(4);
     // Only the owner's policy applies to every role; the poller and the sweeper have none (they use the functions).
     for (const { policy, table, roles } of statements) {
       if (policy === "store_owner") { expect(roles, `${table}.${policy}`).toEqual([]); continue; }
@@ -49,7 +61,7 @@ describe("store row-level security files", () => {
     }
     expect(policies.filter((p) => !/store_(owner|tenant|support_read)$/.test(p))).toEqual(["tenant_state.store_salon_slug_lookup", "tenant_state.store_sandbox_lookup"]);
     // The sandbox lookup takes only a full key.
-    expect(migration).toContain("~ '^sbx_[0-9a-f]{32}$'");
+    expect(enableCode).toContain("~ '^sbx_[0-9a-f]{32}$'");
   });
 
   it("defines every store function as SECURITY DEFINER with a fixed search_path, executable only by its roles", () => {
@@ -61,22 +73,23 @@ describe("store row-level security files", () => {
       expect(definer, `${name} SECURITY DEFINER`).toBe(/^store_(outbox|sweep)_/.test(name) && !["store_sweep_check", "store_outbox_caller"].includes(name));
       expect(migration, `${name} is revoked from PUBLIC`).toMatch(new RegExp(`REVOKE ALL ON FUNCTION[^;]*\\b${name}\\(`));
     }
-    const grantsTo = (role: string) => [...migration.matchAll(/GRANT EXECUTE ON FUNCTION ([^;]+?) TO ([a-z_, ]+);/g)]
+    const grantFiles = code(read("prisma/grants/roles.sql")) + code(read("prisma/grants/studio-store.sql"));
+    const grantsTo = (role: string) => [...grantFiles.matchAll(/GRANT EXECUTE ON FUNCTION ([^;]+?) TO ([a-z_, ]+);/g)]
       .filter(([, , roles]) => roles.split(",").map((r) => r.trim()).includes(role))
       .flatMap(([, list]) => [...list.matchAll(/(store_\w+)\(/g)].map((m) => m[1])).sort();
     expect(grantsTo("cresavo_outbox")).toEqual(functions.map(([, name]) => name).filter((n) => n.startsWith("store_outbox_") && n !== "store_outbox_caller").sort());
     expect(grantsTo("cresavo_app")).toEqual(grantsTo("cresavo_outbox"));
     expect(grantsTo("cresavo_sweeper")).toEqual(functions.map(([, name]) => name).filter((n) => n.startsWith("store_sweep_") && n !== "store_sweep_check").sort());
+    expect(grantsTo("cresavo_support")).toEqual([]);
     // The sweep functions redact with the same map as the application and erase_subject.
     const literal = rawMigration.match(/-- PERSONAL_FIELDS BEGIN[^\n]*\n\s*v_fields constant jsonb := '([\s\S]*?)';\n\s*-- PERSONAL_FIELDS END/);
     expect(JSON.parse(literal![1])).toEqual(JSON.parse(JSON.stringify(PERSONAL_FIELDS)));
   });
 
-  it("studio-store.sql repeats the migration's function privileges, so a restore without privileges gets them back", () => {
-    const privileges = (sql: string) => sql.slice(sql.indexOf("REVOKE ALL ON FUNCTION store_caller_owns()")).match(/(REVOKE ALL ON FUNCTION|GRANT EXECUTE ON FUNCTION)[^;]+;/g);
-    const fromMigration = privileges(rawMigration);
-    expect(fromMigration).toHaveLength(5);
-    expect(privileges(read("prisma/grants/studio-store.sql"))).toEqual(fromMigration);
+  it("studio-store.sql repeats the migration's revokes, so a restore without privileges closes the functions again", () => {
+    const revokes = (sql: string) => sql.match(/REVOKE ALL ON FUNCTION store_[^;]+;/g);
+    expect(revokes(rawMigration)).toHaveLength(3);
+    expect(revokes(read("prisma/grants/studio-store.sql"))).toEqual(revokes(rawMigration));
   });
 
   it("bootstrap-roles.sql and roles.sql create the same group roles in the same way", () => {
@@ -93,18 +106,18 @@ describe("store row-level security files", () => {
     expect(switched(enable, "FORCE")).toEqual([...STORE].sort());
     expect(switched(disable, "DISABLE")).toEqual([...STORE].sort());
     expect(switched(disable, "NO FORCE")).toEqual([...STORE].sort());
-    expect(enable.indexOf("LOCK TABLE")).toBeGreaterThan(-1);
     expect(enable.indexOf("LOCK TABLE")).toBeLessThan(enable.indexOf("pg_policies"));
-    expect(enable).toContain('LOCK TABLE "tenant_state", "tenant_action", "tenant_idempotency", "tenant_effect" IN ACCESS EXCLUSIVE MODE;');
     for (const sql of [enable, disable]) {
       expect(sql.trim().startsWith("BEGIN;")).toBe(true);
       expect(sql.trim().endsWith("COMMIT;")).toBe(true);
-      expect(sql).not.toMatch(/(CREATE|DROP|ALTER) POLICY|\bGRANT\b|PASSWORD/i);
+      expect(sql).not.toMatch(/ALTER POLICY|\bGRANT\b|PASSWORD/i);
+      expect(sql.match(/\bCOMMIT;/g)).toHaveLength(1);
     }
+    expect(disable).not.toMatch(/CREATE POLICY/);
   });
 
-  it("rls-enable.sql and verify-rls.sql expect exactly the migration's policies, with the same digests", () => {
-    const enable = expectedList(code(read("prisma/grants/rls-enable.sql")));
+  it("rls-enable.sql and verify-rls.sql expect exactly the policies rls-enable.sql creates, with the same digests", () => {
+    const enable = expectedList(enableCode);
     const verify = expectedList(code(read("prisma/grants/verify-rls.sql")));
     expect(enable.map((e) => e.split(":")[0])).toEqual(policies);
     expect(verify).toEqual(enable);

@@ -69,7 +69,6 @@ describe("prisma/grants/roles.sql", () => {
     for (const column of ["key", "expiresAt"]) expect(can("cresavo_sweeper", "RateLimitBucket", "SELECT", column), column).toBe(true);
     expect(can("cresavo_sweeper", "RateLimitBucket", "DELETE")).toBe(true);
     expect(body.match(/FOR UPDATE/g)?.length, "a new row lock or update needs a grant: update roles.sql").toBe(1);
-    expect(code).not.toMatch(/GRANT EXECUTE/i);
   });
 
   it("gives the outbox poller role no table at all: it works through the store_outbox functions", () => {
@@ -78,9 +77,11 @@ describe("prisma/grants/roles.sql", () => {
     const outboxCode = (read("src/concept/store/effect-outbox.ts") + read("src/lib/message-sink.ts")).replace(/^\s*(\/\/|\*).*$/gm, "");
     expect(outboxCode).not.toMatch(/(FROM|JOIN|UPDATE|DELETE FROM|INSERT INTO)\s+"?tenant_\w+/);
     const migration = read("prisma/migrations/20261122160000_store_rls_policies/migration.sql");
+    const studioStore = read("prisma/grants/studio-store.sql");
     for (const fn of new Set([...outboxCode.matchAll(/store_outbox_\w+/g)].map((m) => m[0]))) {
       expect(migration, fn).toMatch(new RegExp(`CREATE FUNCTION ${fn}\\(`));
-      expect(migration, `${fn} is granted to the poller`).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION[^;]*\\b${fn}\\([^;]*TO cresavo_app, cresavo_outbox;`));
+      expect(code, `${fn} is granted to the poller`).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION[^;]*\\b${fn}\\([^;]*TO cresavo_outbox;`));
+      expect(studioStore, `${fn} is granted to the web app`).toMatch(new RegExp(`GRANT EXECUTE ON FUNCTION[^;]*\\b${fn}\\([^;]*TO cresavo_app;`));
     }
   });
 
