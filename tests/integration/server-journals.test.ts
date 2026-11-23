@@ -21,7 +21,9 @@ import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
 
 const run = randomUUID().slice(0, 8);
 const origin = "http://localhost";
-const keyValue = `v1:${randomBytes(32).toString("base64")}`;
+// A key version of its own: journal_key keeps one verifier per version for the whole database.
+const KEY_VERSION = 100_000 + Math.floor(Math.random() * 800_000);
+const keyValue = `v${KEY_VERSION}:${randomBytes(32).toString("base64")}`;
 const key = journalKey(keyValue)!;
 const SECRET = `Fictional heel fissure ${run}`;
 const ADVICE = `Private advice ${run}`;
@@ -38,14 +40,19 @@ async function owner(name: string) {
   const result = await createOwnerAccount({ email: `${name.toLowerCase().replace(/\s+/g, "-")}-${run}@example.test`, password: "a long fictional passphrase", salonName: name, language: "en" });
   if (!result.ok) throw new Error("sign-up failed");
   const session = await openOwnerSession(result.identity);
-  return { tenantId: result.tenantId, cookie: `${OWNER_COOKIE}=${session!.value}` };
+  return { tenantId: result.tenantId, cookie: `${OWNER_COOKIE}=${session!.value}`, session: `${result.identity.id}.${result.identity.credentialVersion}` };
 }
+
+type Who = { cookie: string; session: string };
+const anon: Who = { cookie: "", session: "" };
 
 const json = (body: unknown, cookie: string) => ({ method: "POST", body: JSON.stringify(body), headers: { cookie, origin, host: "localhost", "content-type": "application/json" } });
 const read = (cookie: string) => getSalon(new NextRequest(`${origin}/api/owner/salon`, { headers: { cookie } }));
 const send = (cookie: string, body: unknown) => postAction(new NextRequest(`${origin}/api/owner/salon/actions`, json(body, cookie)));
-const write = (cookie: string, body: unknown) => postJournal(new NextRequest(`${origin}/api/owner/journals`, json(body, cookie)));
-const journalOf = (cookie: string, customerId: string) => getJournals(new NextRequest(`${origin}/api/owner/journals?customer=${encodeURIComponent(customerId)}`, { headers: { cookie } }));
+const bound = (who: Who, init: { method?: string; body?: string; headers: Record<string, string> }) => ({ ...init, headers: { ...init.headers, "x-cresavo-session": who.session } });
+const write = (who: Who, body: unknown) => postJournal(new NextRequest(`${origin}/api/owner/journals`, bound(who, json(body, who.cookie))));
+const journalOf = (who: Who, customerId: string) =>
+  getJournals(new NextRequest(`${origin}/api/owner/journals?customer=${encodeURIComponent(customerId)}`, bound(who, { headers: { cookie: who.cookie } })));
 const erase = (cookie: string, body: unknown) => postErase(new NextRequest(`${origin}/api/owner/salon/erase`, json(body, cookie)));
 
 const people = [
@@ -101,6 +108,7 @@ afterAll(async () => {
   await db.ownerAccount.deleteMany({ where: { email: { endsWith: `-${run}@example.test` } } });
   for (const table of ["journal_entry", "tenant_effect", "tenant_idempotency", "tenant_action", "tenant_state"])
     await db.$executeRawUnsafe(`DELETE FROM ${table} WHERE tenant_id = ANY($1)`, tenants);
+  await db.$executeRaw`DELETE FROM journal_key WHERE key_version = ${KEY_VERSION}`;
   vi.unstubAllEnvs();
   freshStore();
   await db.$disconnect();
@@ -118,7 +126,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const a = await salon("Salong Krypto");
     // Journal text goes to its own route only.
     expect((await send(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "via-actions" })).status).toBe(400);
-    const saved = await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "add-1" });
+    const saved = await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "add-1" });
     expect(saved.status).toBe(200);
     const body = await saved.json();
     const stub = (body.state as DemoState).journals.find((j) => j.customerId === a.vera.id)!;
@@ -131,7 +139,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const audit = await db.$queryRaw<Array<{ action: unknown }>>`SELECT action FROM tenant_action WHERE tenant_id = ${a.tenantId} AND action->>'type' = 'journal/add'`;
     expect(audit.map((row) => row.action)).toEqual([{ type: "journal/add", entry: { id: stub.id, customerId: a.vera.id, date: "2026-11-20", staffId: a.staffId } }]);
     const [row] = await rows(a.tenantId);
-    expect(row).toMatchObject({ id: stub.id, customer_id: a.vera.id, version: 1, key_version: 1, replaces: null, deleted_at: null });
+    expect(row).toMatchObject({ id: stub.id, customer_id: a.vera.id, version: 1, key_version: KEY_VERSION, replaces: null, deleted_at: null });
     expect(Buffer.from(row.ciphertext).toString("utf8")).not.toContain("Fictional");
     expect(plain(a.tenantId, row)).toMatchObject({ observations: SECRET, advice: ADVICE });
 
@@ -142,19 +150,19 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect(await views(a.tenantId)).toEqual([]);
 
     // The journal read returns the text and logs a read of that customer, once a minute per reader.
-    const first = await journalOf(a.cookie, a.vera.id);
+    const first = await journalOf(a, a.vera.id);
     expect(first.status).toBe(200);
     const read1 = await first.json();
     expect(read1.entries).toEqual([expect.objectContaining({ id: stub.id, observations: SECRET, advice: ADVICE, sealed: { versions: [1], replacedOn: [] } })]);
     expect(await views(a.tenantId)).toEqual([expect.objectContaining({ actor: "owner", customerId: a.vera.id })]);
-    const again = await (await journalOf(a.cookie, a.vera.id)).json();
+    const again = await (await journalOf(a, a.vera.id)).json();
     expect(again.entries).toEqual(read1.entries);
     expect(await views(a.tenantId)).toHaveLength(1);
-    expect((await (await journalOf(a.cookie, a.olle.id)).json()).entries).toEqual([]);
+    expect((await (await journalOf(a, a.olle.id)).json()).entries).toEqual([]);
     expect((await views(a.tenantId)).map((v: { customerId?: string }) => v.customerId)).toEqual([a.olle.id, a.vera.id]);
 
     // A replay of the same write: the same answer, no second row.
-    const replay = await (await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "add-1" })).json();
+    const replay = await (await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "add-1" })).json();
     expect(replay).toMatchObject({ replayed: true, version: body.version });
     expect(await rows(a.tenantId)).toHaveLength(1);
     // The export of the customer's data holds the decrypted journal, merged into the salon the studio holds.
@@ -164,29 +172,29 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect(JSON.stringify(customerExport(loaded.state, a.vera.id, new Date().toISOString())!.journal)).not.toContain(SECRET);
 
     // Refusals: a signed-out caller, a bad id, an unknown customer, an action that is not a journal write.
-    expect((await journalOf("", a.vera.id)).status).toBe(401);
-    expect((await journalOf(a.cookie, "../x")).status).toBe(400);
-    expect((await journalOf(a.cookie, "k-404")).status).toBe(404);
-    expect((await write(a.cookie, { action: { type: "card/dismiss", id: "x" }, idempotencyKey: "other-1" })).status).toBe(400);
-    expect((await write("", { action: add(a.vera.id, a.staffId), idempotencyKey: "anon-1" })).status).toBe(401);
+    expect((await journalOf(anon, a.vera.id)).status).toBe(401);
+    expect((await journalOf(a, "../x")).status).toBe(400);
+    expect((await journalOf(a, "k-404")).status).toBe(404);
+    expect((await write(a, { action: { type: "card/dismiss", id: "x" }, idempotencyKey: "other-1" })).status).toBe(400);
+    expect((await write(anon, { action: add(a.vera.id, a.staffId), idempotencyKey: "anon-1" })).status).toBe(401);
   });
 
   it("appends a version for every edit; undo, trash and restore move only the pointers and the trash mark", async () => {
     on();
     const a = await salon("Salong Version");
-    const added = await (await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "v-add" })).json();
+    const added = await (await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "v-add" })).json();
     const id = (added.state as DemoState).journals[0].id;
     const content = { treatment: "Fictional foot care", observations: LATER, advice: ADVICE };
-    const edited = await write(a.cookie, { action: { type: "journal/edit", id, content, on: "2026-11-23" }, idempotencyKey: "v-edit" });
+    const edited = await write(a, { action: { type: "journal/edit", id, content, on: "2026-11-23" }, idempotencyKey: "v-edit" });
     expect(edited.status).toBe(200);
     expect((await edited.json()).state.journals[0].sealed).toEqual({ versions: [1, 2], replacedOn: ["2026-11-23"] });
-    const entries = (await (await journalOf(a.cookie, a.vera.id)).json()).entries;
+    const entries = (await (await journalOf(a, a.vera.id)).json()).entries;
     expect(entries[0]).toMatchObject({ observations: LATER, versions: [{ observations: SECRET, replacedOn: "2026-11-23" }] });
     expect((await rows(a.tenantId)).map((r) => r.version)).toEqual([1, 2]);
     const audit = await db.$queryRaw<Array<{ action: unknown }>>`SELECT action FROM tenant_action WHERE tenant_id = ${a.tenantId} AND action->>'type' = 'journal/edit'`;
     expect(audit.map((r) => r.action)).toEqual([{ type: "journal/edit", id, on: "2026-11-23" }]);
     // An edit that changes nothing is refused and stores nothing.
-    expect((await write(a.cookie, { action: { type: "journal/edit", id, content, on: "2026-11-23" }, idempotencyKey: "v-same" })).status).toBe(422);
+    expect((await write(a, { action: { type: "journal/edit", id, content, on: "2026-11-23" }, idempotencyKey: "v-same" })).status).toBe(422);
     expect(await rows(a.tenantId)).toHaveLength(2);
 
     // Undo goes back to version 1; the rows stay (append-only).
@@ -194,26 +202,26 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const undone = await send(a.cookie, { action: { type: "log/undo", id: salonNow.log.find((l) => l.type === "journal/edit")!.id }, idempotencyKey: "v-undo" });
     expect(undone.status).toBe(200);
     expect((await undone.json()).state.journals[0].sealed).toEqual({ versions: [1], replacedOn: [] });
-    expect((await (await journalOf(a.cookie, a.vera.id)).json()).entries[0]).toMatchObject({ observations: SECRET });
+    expect((await (await journalOf(a, a.vera.id)).json()).entries[0]).toMatchObject({ observations: SECRET });
     expect(await rows(a.tenantId)).toHaveLength(2);
 
     // The customer to the trash: rows marked, their journal not readable; restored: unmarked and readable again.
     const deleted = await (await send(a.cookie, { action: { type: "customer/delete", id: a.vera.id }, idempotencyKey: "v-delete" })).json();
     expect((await rows(a.tenantId)).every((r) => r.deleted_at !== null)).toBe(true);
-    expect((await journalOf(a.cookie, a.vera.id)).status).toBe(404);
+    expect((await journalOf(a, a.vera.id)).status).toBe(404);
     const trashId = (deleted.state as DemoState).trash.find((t) => t.kind === "customer")!.id;
     expect((await send(a.cookie, { action: { type: "trash/restore", id: trashId }, idempotencyKey: "v-restore" })).status).toBe(200);
     expect((await rows(a.tenantId)).every((r) => r.deleted_at === null)).toBe(true);
-    expect((await (await journalOf(a.cookie, a.vera.id)).json()).entries[0]).toMatchObject({ observations: SECRET });
+    expect((await (await journalOf(a, a.vera.id)).json()).entries[0]).toMatchObject({ observations: SECRET });
     expect(await storedText(a.tenantId)).not.toMatch(new RegExp(`${SECRET}|${LATER}`));
   });
 
   it("erases a customer's rows, and replaces another customer's version that names them by a scrubbed copy", async () => {
     on();
     const a = await salon("Salong Radera Journal");
-    await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "e-vera" });
+    await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "e-vera" });
     const name = `${a.vera.firstName} ${a.vera.lastName}`;
-    await write(a.cookie, { action: add(a.olle.id, a.staffId, { observations: `Came with ${name} today` }), idempotencyKey: "e-olle" });
+    await write(a, { action: add(a.olle.id, a.staffId, { observations: `Came with ${name} today` }), idempotencyKey: "e-olle" });
     const before = await rows(a.tenantId);
     expect(before.map((r) => r.customer_id).sort()).toEqual([a.olle.id, a.vera.id].sort());
 
@@ -224,7 +232,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     const all = after.map((r) => JSON.stringify(plain(a.tenantId, r))).join(" ");
     expect(all).not.toContain(a.vera.lastName);
     expect(all).toContain("[removed]");
-    const olle = (await (await journalOf(a.cookie, a.olle.id)).json()).entries;
+    const olle = (await (await journalOf(a, a.olle.id)).json()).entries;
     expect(olle[0].observations).toBe("Came with [removed] today");
     expect(olle[0].sealed.versions).toEqual([2]);
     expect(await storedText(a.tenantId)).not.toMatch(new RegExp(`${a.vera.lastName}|${SECRET}`));
@@ -264,11 +272,23 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect(moved.sort()).toEqual(["olle v1 trashed", "vera v1 live", "vera v2 live"]);
     const seal = await db.$queryRaw<Array<{ action: unknown; actor: string }>>`SELECT action, actor FROM tenant_action WHERE tenant_id = ${a.tenantId} AND action->>'type' = 'system/seal-journals'`;
     expect(seal).toEqual([{ action: { type: "system/seal-journals", payload: {} }, actor: "system" }]);
-    // The document, and the replays of the last day, no longer hold the text (the audit rows from before the flag do: see the report).
+    // The document, the replays of the last day and the audit rows from before the flag no longer hold the text, and
+    // only then is the salon marked. An old journal/add keeps its entry without text, with the entry it made.
     const replays = await db.$queryRaw<Array<{ result: unknown }>>`SELECT result FROM tenant_idempotency WHERE tenant_id = ${a.tenantId}`;
     expect(JSON.stringify(replays)).not.toMatch(new RegExp(`${SECRET}|${LATER}|Olle advice`));
+    const auditRows = await db.$queryRaw<Array<{ action: { type: string; entry?: Record<string, unknown> } }>>`
+      SELECT action FROM tenant_action WHERE tenant_id = ${a.tenantId} AND action->>'type' IN ('journal/add', 'journal/edit') ORDER BY seq`;
+    expect(JSON.stringify(auditRows)).not.toMatch(new RegExp(`${SECRET}|${LATER}|Olle advice|Fictional foot care`));
+    const veraId = doc.journals.find((j) => j.customerId === a.vera.id)!.id;
+    expect(auditRows.map((r) => r.action)).toEqual([
+      { type: "journal/add", entry: { id: veraId, customerId: a.vera.id, date: "2026-11-20", staffId: a.staffId } },
+      { type: "journal/add", entry: { id: expect.any(String), customerId: a.olle.id, date: "2026-11-20", staffId: a.staffId } },
+      { type: "journal/edit", id: veraId, on: "2026-11-21" },
+    ]);
+    expect(await ownerStore().journalsSealed(a.tenantId)).toBe(true);
+    expect(await ownerStore().journalsSealed(b.tenantId)).toBe(false);
     expect(JSON.stringify(doc)).not.toMatch(new RegExp(`${SECRET}|${LATER}|Olle advice`));
-    const vera = (await (await journalOf(a.cookie, a.vera.id)).json()).entries;
+    const vera = (await (await journalOf(a, a.vera.id)).json()).entries;
     expect(vera[0]).toMatchObject({ observations: LATER, versions: [{ observations: SECRET, replacedOn: "2026-11-21" }] });
 
     // Idempotent: another load and a direct second run change nothing.
@@ -284,6 +304,82 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect(await rows(b.tenantId)).toHaveLength(3);
     const docB = (await db.$queryRaw<Array<{ doc: DemoState }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${b.tenantId}`)[0].doc;
     expect(journalsIn(docB).every(isStub)).toBe(true);
+    expect(await ownerStore().journalsSealed(b.tenantId)).toBe(true);
+    expect(await storedText(b.tenantId)).not.toMatch(new RegExp(`${SECRET}|${LATER}|Olle advice`));
+  });
+
+  it("binds every journal request to the session the salon was loaded in, and keeps reads the server's own", async () => {
+    on();
+    const a = await salon("Salong Session");
+    await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "s-add" });
+    const loaded = await (await read(a.cookie)).json();
+    expect(loaded.session).toBe(a.session);
+    // Another account's tab (or a change queued there) names another session: refused before anything is read or written.
+    const other = await salon("Salong Annan Session");
+    for (const who of [{ cookie: a.cookie, session: other.session }, { cookie: a.cookie, session: "" }]) {
+      expect((await journalOf(who, a.vera.id)).status).toBe(409);
+      expect((await write(who, { action: add(a.vera.id, a.staffId), idempotencyKey: `s-${who.session}` })).status).toBe(409);
+    }
+    expect(await rows(a.tenantId)).toHaveLength(1);
+    expect(await views(a.tenantId)).toEqual([]);
+    // A read the studio reports is refused while the server keeps journals: only the server's own reads are logged.
+    expect((await send(a.cookie, { action: { type: "journal/view", customerId: a.vera.id, actor: "owner" }, idempotencyKey: "s-view" })).status).toBe(400);
+    await journalOf(a, a.vera.id);
+    expect(await views(a.tenantId)).toEqual([expect.objectContaining({ customerId: a.vera.id, served: true })]);
+  });
+
+  it("refuses every change while the document still holds text and no working key is configured, and a wrong key", async () => {
+    vi.stubEnv("JOURNALS_ON_SERVER", "");
+    freshStore();
+    const legacy = await salon("Salong Fel Nyckel");
+    await send(legacy.cookie, { action: add(legacy.vera.id, legacy.staffId), idempotencyKey: "w-legacy" });
+    const before = (await db.$queryRaw<Array<{ version: number; doc: unknown }>>`SELECT version, doc FROM tenant_state WHERE tenant_id = ${legacy.tenantId}`)[0];
+    const keys = async () => (await db.$queryRaw<Array<{ n: number }>>`SELECT count(*)::int AS n FROM tenant_idempotency WHERE tenant_id = ${legacy.tenantId}`)[0].n;
+    const keysBefore = await keys();
+    const unchanged = async () => {
+      const now = (await db.$queryRaw<Array<{ version: number; doc: unknown }>>`SELECT version, doc FROM tenant_state WHERE tenant_id = ${legacy.tenantId}`)[0];
+      expect(now.version).toBe(before.version);
+      expect(await keys()).toBe(keysBefore);
+      expect(await rows(legacy.tenantId)).toEqual([]);
+    };
+    // The flag on without a key: an unrelated change is refused under the lock, the document is not written again.
+    vi.stubEnv("JOURNALS_ON_SERVER", "1");
+    freshStore();
+    expect((await send(legacy.cookie, { action: { type: "card/dismiss", id: "fictional-card" }, idempotencyKey: "w-dismiss" })).status).toBe(503);
+    await unchanged();
+    // A key of a version already used with another key: refused before it reads or writes anything.
+    vi.stubEnv("JOURNAL_ENCRYPTION_KEY", keyValue);
+    freshStore();
+    expect((await read(legacy.cookie)).status).toBe(200);
+    const sealedBefore = (await db.$queryRaw<Array<{ version: number }>>`SELECT version FROM tenant_state WHERE tenant_id = ${legacy.tenantId}`)[0].version;
+    const impostor = `v${KEY_VERSION}:${randomBytes(32).toString("base64")}`;
+    vi.stubEnv("JOURNAL_ENCRYPTION_KEY", impostor);
+    freshStore();
+    expect((await write(legacy, { action: add(legacy.vera.id, legacy.staffId, { observations: "written under the wrong key" }), idempotencyKey: "w-wrong" })).status).toBe(503);
+    expect((await journalOf(legacy, legacy.vera.id)).status).toBe(503);
+    expect((await db.$queryRaw<Array<{ version: number }>>`SELECT version FROM tenant_state WHERE tenant_id = ${legacy.tenantId}`)[0].version).toBe(sealedBefore);
+    expect(await rows(legacy.tenantId)).toHaveLength(1);
+  });
+
+  it("erases a salon with encrypted journals only with a working key, whatever the flag says", async () => {
+    on();
+    const a = await salon("Salong Utan Flagga");
+    await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "f-vera" });
+    await write(a, { action: add(a.olle.id, a.staffId, { observations: `Came with ${a.vera.firstName} ${a.vera.lastName}` }), idempotencyKey: "f-olle" });
+    const name = `${a.vera.firstName} ${a.vera.lastName}`;
+    // A restore without the flag and without the key: refused, nothing erased, never reported done.
+    vi.stubEnv("JOURNALS_ON_SERVER", "");
+    vi.stubEnv("JOURNAL_ENCRYPTION_KEY", "");
+    freshStore();
+    expect((await erase(a.cookie, { customerId: a.vera.id, name })).status).toBe(503);
+    expect(await rows(a.tenantId)).toHaveLength(2);
+    // Without the flag but with the key, the erasure scrubs the other customer's entry as with the flag on.
+    vi.stubEnv("JOURNAL_ENCRYPTION_KEY", keyValue);
+    freshStore();
+    expect((await erase(a.cookie, { customerId: a.vera.id, name })).status).toBe(200);
+    const left = await rows(a.tenantId);
+    expect(left.map((r) => [r.customer_id, r.replaces])).toEqual([[a.olle.id, 1]]);
+    expect(JSON.stringify(plain(a.tenantId, left[0]))).not.toContain(a.vera.lastName);
   });
 
   it("keeps salons apart: no read, write or row of another salon's journal", async () => {
@@ -295,26 +391,26 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
       category: "both", since: "2025-01-10", isRegular: false, tags: [], waitlist: false, preferredStaff: a.staffId }] }, idempotencyKey: "x-import" })).json();
     const onlyA = (extra.state as DemoState).customers.find((c) => c.firstName === "Cecilia")!;
     expect((await (await read(b.cookie)).json()).state.customers.some((c: { id: string }) => c.id === onlyA.id)).toBe(false);
-    const added = await (await write(a.cookie, { action: add(onlyA.id, a.staffId), idempotencyKey: "x-add" })).json();
+    const added = await (await write(a, { action: add(onlyA.id, a.staffId), idempotencyKey: "x-add" })).json();
     const id = (added.state as DemoState).journals.find((j) => j.customerId === onlyA.id)!.id;
     // B's session names A's customer and A's entry: not found, refused; nothing of A's is read or written.
-    expect((await journalOf(b.cookie, onlyA.id)).status).toBe(404);
-    expect((await write(b.cookie, { action: { type: "journal/edit", id, content: { treatment: "x", observations: "y", advice: "z" }, on: "2026-11-23" }, idempotencyKey: "x-edit" })).status).toBe(422);
-    expect((await write(b.cookie, { action: add(onlyA.id, b.staffId), idempotencyKey: "x-add-b" })).status).toBe(422);
+    expect((await journalOf(b, onlyA.id)).status).toBe(404);
+    expect((await write(b, { action: { type: "journal/edit", id, content: { treatment: "x", observations: "y", advice: "z" }, on: "2026-11-23" }, idempotencyKey: "x-edit" })).status).toBe(422);
+    expect((await write(b, { action: add(onlyA.id, b.staffId), idempotencyKey: "x-add-b" })).status).toBe(422);
     expect(await rows(b.tenantId)).toEqual([]);
     expect(await rows(a.tenantId)).toHaveLength(1);
     expect(await views(a.tenantId)).toEqual([]);
     expect(await ownerStore().readJournals(b.tenantId, onlyA.id)).toEqual({ ok: false, reason: "not-found" });
     // B's own customer with the same id as one of A's reads B's journal only.
-    const same = await (await journalOf(b.cookie, a.vera.id)).json();
+    const same = await (await journalOf(b, a.vera.id)).json();
     expect(a.vera.id).toBe(b.vera.id);
     expect(same.entries).toEqual([]);
     expect(JSON.stringify(same)).not.toContain(SECRET);
     // B's own entry reads B's row, and A's still reads A's.
-    const bAdded = await (await write(b.cookie, { action: add(b.vera.id, b.staffId, { observations: "B's own text" }), idempotencyKey: "x-b" })).json();
+    const bAdded = await (await write(b, { action: add(b.vera.id, b.staffId, { observations: "B's own text" }), idempotencyKey: "x-b" })).json();
     const bId = (bAdded.state as DemoState).journals[0].id;
-    expect((await (await journalOf(b.cookie, b.vera.id)).json()).entries).toEqual([expect.objectContaining({ id: bId, observations: "B's own text" })]);
-    expect((await (await journalOf(a.cookie, onlyA.id)).json()).entries).toEqual([expect.objectContaining({ id, observations: SECRET })]);
+    expect((await (await journalOf(b, b.vera.id)).json()).entries).toEqual([expect.objectContaining({ id: bId, observations: "B's own text" })]);
+    expect((await (await journalOf(a, onlyA.id)).json()).entries).toEqual([expect.objectContaining({ id, observations: SECRET })]);
     // A's row copied onto B's tenant does not decrypt there: the associated data names the salon and the customer.
     const [row] = await rows(a.tenantId);
     expect(() => plain(b.tenantId, row)).toThrow();
@@ -324,11 +420,11 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
   it("answers 503 without the key, and serves the salon without journal text", async () => {
     on();
     const a = await salon("Salong Utan Nyckel");
-    await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "k-add" });
+    await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "k-add" });
     vi.stubEnv("JOURNAL_ENCRYPTION_KEY", "");
     freshStore();
-    expect((await journalOf(a.cookie, a.vera.id)).status).toBe(503);
-    expect((await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "k-add-2" })).status).toBe(503);
+    expect((await journalOf(a, a.vera.id)).status).toBe(503);
+    expect((await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "k-add-2" })).status).toBe(503);
     expect((await erase(a.cookie, { customerId: a.vera.id, name: `${a.vera.firstName} ${a.vera.lastName}` })).status).toBe(503);
     const loaded = await read(a.cookie);
     expect(loaded.status).toBe(200);
@@ -349,13 +445,13 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     // A malformed key is no key.
     vi.stubEnv("JOURNAL_ENCRYPTION_KEY", randomBytes(32).toString("base64"));
     freshStore();
-    expect((await journalOf(a.cookie, a.vera.id)).status).toBe(503);
+    expect((await journalOf(a, a.vera.id)).status).toBe(503);
   });
 
   it("with the flag off, behaves as before: no journal route, text in the document, the load logged", async () => {
     const a = await salon("Salong Av");
-    expect((await journalOf(a.cookie, a.vera.id)).status).toBe(404);
-    expect((await write(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "off-1" })).status).toBe(404);
+    expect((await journalOf(a, a.vera.id)).status).toBe(404);
+    expect((await write(a, { action: add(a.vera.id, a.staffId), idempotencyKey: "off-1" })).status).toBe(404);
     expect((await send(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "off-2" })).status).toBe(200);
     const loaded = await (await read(a.cookie)).json();
     expect(loaded).not.toHaveProperty("journals");

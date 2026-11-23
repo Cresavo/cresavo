@@ -32,8 +32,9 @@ export function POST(request: NextRequest) {
     if (body.success && actionTooLarge(body.data.action)) return ownerError("too_large", 413);
     const action = body.success ? ownerAction(body.data.action) : null;
     if (!body.success || !action) return ownerError("invalid", 400);
-    // With server-side journals, journal text is only accepted by /api/owner/journals (its own limits).
-    if (journalsOnServer() && (action.type === "journal/add" || action.type === "journal/edit")) return ownerError("journal_route", 400);
+    // With server-side journals, journal text is only accepted by /api/owner/journals (its own limits), and a read is
+    // only logged where the server hands the text out: a read the studio reports is refused.
+    if (journalsOnServer() && (action.type === "journal/add" || action.type === "journal/edit" || action.type === "journal/view")) return ownerError("journal_route", 400);
     const store = ownerStore();
     // The page's logo: a library logo of this business, published in the same transaction as the save.
     const logo = action.type === "page/set" ? action.page.theme?.logo ?? null : undefined;

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { JOURNALS_UNAVAILABLE } from "@/concept/store/postgres-studio-store";
 import { JournalUnreadable } from "@/concept/store/journal-crypto";
 import { idempotencyKeySchema } from "@/lib/validation";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionOwner, withRenewedSession } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionKey, sessionOwner, withRenewedSession } from "@/lib/owner-http";
+import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { id } from "@/lib/owner-actions/primitives";
 import { MAX_ACTION_BYTES } from "@/lib/owner-actions/types";
@@ -34,6 +35,9 @@ function journalRoute(request: NextRequest, handler: (tenantId: string) => Promi
     if (!journalsOnServer()) return ownerError("not_found", 404);
     const owner = await sessionOwner(request);
     if (!fullOwner(owner)) return refusedOwner(owner);
+    // Bound to the session the studio loaded the salon in: a tab still showing another account's salon (or a change
+    // queued there) is refused before anything is read or written, as for the photo library.
+    if (request.headers.get(UPLOAD_SESSION_HEADER) !== sessionKey(owner)) return ownerError("session_changed", 409);
     try {
       return withRenewedSession(await handler(owner.tenantId), request);
     } catch (error) {

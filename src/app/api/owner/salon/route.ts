@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { holdsJournalText, withoutJournalText } from "@/concept/journals/sealed";
-import { ownerError, ownerOk, ownerRoute, fullOwner, refusedOwner, sessionOwner, withRenewedSession } from "@/lib/owner-http";
+import { ownerError, ownerOk, ownerRoute, fullOwner, refusedOwner, sessionKey, sessionOwner, withRenewedSession } from "@/lib/owner-http";
 import { journalsOnServer } from "@/lib/owner-journals";
 import { ownerStore } from "@/lib/owner-store";
 
@@ -24,12 +24,14 @@ export function GET(request: NextRequest) {
     if (!loaded) return ownerError("not_found", 404);
     if (journalsOnServer()) {
       let current = loaded;
-      if (holdsJournalText(loaded.state)) {
+      // Until the salon is marked, its replays or old audit rows may still hold journal text: the move finishes first.
+      if (holdsJournalText(loaded.state) || !(await store.journalsSealed(owner.tenantId))) {
         const sealed = await store.sealJournals(owner.tenantId);
         if (!sealed.ok && sealed.reason === "conflict") return ownerError("unavailable", 503);
         current = (sealed.ok && sealed.changed ? await store.load(owner.tenantId) : null) ?? loaded;
       }
-      return withRenewedSession(ownerOk({ state: withoutJournalText(current.state), version: current.version, journals: "server" }), request);
+      // `session` binds the studio's journal requests and its cache to this session (`x-cresavo-session`).
+      return withRenewedSession(ownerOk({ state: withoutJournalText(current.state), version: current.version, journals: "server", session: sessionKey(owner) }), request);
     }
     const holdsJournals = loaded.state.journals.length > 0 || loaded.state.trash.some((entry) => entry.kind === "customer" && entry.journals.length > 0);
     if (!holdsJournals) return withRenewedSession(ownerOk({ state: loaded.state, version: loaded.version }), request);

@@ -18,5 +18,14 @@ export function journalStoreOption(): JournalVault | "unavailable" | undefined {
   return key ? new JournalVault(key) : "unavailable";
 }
 
+/**
+ * The journal key for erasure, whatever the flag says: a salon with encrypted journal rows (the flag was on, or a
+ * restore brought them back) is only erased with it. Undefined without a valid key.
+ */
+export function erasureJournalVault(): JournalVault | undefined {
+  const key = journalKey();
+  return key ? new JournalVault(key) : undefined;
+}
+
 /** The salon as a browser may receive it: with the flag on, no journal entry that carries text. */
 export const salonForBrowser = (state: DemoState): DemoState => (journalsOnServer() ? withoutJournalText(state) : state);
