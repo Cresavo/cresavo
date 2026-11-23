@@ -6,6 +6,7 @@ import { t, type MessageKey } from "../i18n";
 import { closeAccountSalon, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
 import { showToast } from "../ui/toast";
+import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
 import { ownerHintPresent } from "./hint";
 
 // Keeps a signed-in owner's salon in step with the server. Changes show at
@@ -24,8 +25,28 @@ const REFUSAL_TEXT: Record<string, MessageKey> = {
 /** Set by the salon load: the server keeps this salon's journal text and hands it out one customer at a time. */
 let journalsServer = false;
 
+/** The session the shown salon was loaded in: journal requests carry it, and the server refuses another session's. */
+let salonSession: string | null = null;
+/** Bumped whenever the session changes, so journal text read for an earlier session is never shown. */
+let sessionEpoch = 0;
+
 /** True when the signed-in salon's journals are read from the server, one customer at a time. */
 export const journalsOnServer = () => journalsServer;
+
+/** What journal text read from the server belongs to: the session it was read in. Changes on every account change. */
+export const journalSessionKey = () => `${sessionEpoch}:${salonSession ?? ""}`;
+
+function bindSession(session: string | null) {
+  if (session === salonSession) return;
+  salonSession = session;
+  sessionEpoch++;
+}
+
+/** Signed out or switched away: nothing read or queued for the old session is used any more. */
+function closeSalon() {
+  bindSession(null);
+  closeAccountSalon();
+}
 let queue: Promise<void> = Promise.resolve();
 let pending = 0;
 
@@ -90,11 +111,11 @@ async function request(url: string, init?: RequestInit) {
   }
 }
 
-async function post(action: DemoAction, idempotencyKey: string) {
-  const url = journalsServer && (action.type === "journal/add" || action.type === "journal/edit") ? JOURNALS : `${SALON}/actions`;
-  const send = () => request(url, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, idempotencyKey }),
-  });
+async function post(action: DemoAction, idempotencyKey: string, session: string | null) {
+  const journal = journalsServer && (action.type === "journal/add" || action.type === "journal/edit");
+  // A journal change goes out bound to the session it was made in, retries included: never to another account.
+  const headers: Record<string, string> = { "content-type": "application/json", ...(journal ? { [UPLOAD_SESSION_HEADER]: session ?? "" } : {}) };
+  const send = () => request(journal ? JOURNALS : `${SALON}/actions`, { method: "POST", headers, body: JSON.stringify({ action, idempotencyKey }) });
   try {
     return await send();
   } catch {
@@ -105,16 +126,24 @@ async function post(action: DemoAction, idempotencyKey: string) {
 
 async function readSalon(): Promise<{ state: DemoState } | null> {
   const response = await request(SALON, { cache: "no-store" });
-  if (response.ok) journalsServer = response.body?.journals === "server";
+  if (response.ok) {
+    journalsServer = response.body?.journals === "server";
+    bindSession(typeof response.body?.session === "string" ? response.body.session : null);
+  }
   return response.ok ? response.body : null;
 }
 
-/** One customer's journal entries with their text, read (and logged) by the server; null when they could not be read. */
+/**
+ * One customer's journal entries with their text, read (and logged) by the server for the session the salon was
+ * loaded in; null when they could not be read, or when the session changed while the request was out.
+ */
 export async function readCustomerJournals(customerId: string): Promise<JournalEntry[] | null> {
+  const bound = journalSessionKey();
   try {
-    const response = await request(`${JOURNALS}?customer=${encodeURIComponent(customerId)}`, { cache: "no-store" });
+    const response = await request(`${JOURNALS}?customer=${encodeURIComponent(customerId)}`, { cache: "no-store", headers: { [UPLOAD_SESSION_HEADER]: salonSession ?? "" } });
+    if (bound !== journalSessionKey()) return null;
     if (response.status === 401) {
-      closeAccountSalon();
+      closeSalon();
       showToast(t("account.sync.signedOut"));
       return null;
     }
@@ -133,15 +162,16 @@ async function reload(change: AccountChange) {
 
 function send(action: DemoAction, change: AccountChange) {
   const idempotencyKey = change.requestId ?? newRequestId();
+  const session = salonSession;
   if (pending === 0) { latestAnswer = null; reconciled = false; }
   pending++;
   expectLog(idempotencyKey);
   queue = queue.then(async () => {
     let answer: Answer = { ok: false, reason: "unavailable" };
     try {
-      const response = await post(action, idempotencyKey);
+      const response = await post(action, idempotencyKey, session);
       if (response.status === 401) {
-        closeAccountSalon();
+        closeSalon();
         showToast(t("account.sync.signedOut"));
         return;
       }
@@ -192,7 +222,7 @@ export function eraseAccountCustomer(customerId: string, name: string): Promise<
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ customerId, name }),
       });
       if (response.status === 401) {
-        closeAccountSalon();
+        closeSalon();
         showToast(t("account.sync.signedOut"));
         return null;
       }

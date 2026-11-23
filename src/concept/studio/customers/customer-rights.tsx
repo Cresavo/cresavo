@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { readCustomerJournals } from "../../account/sync";
+import { journalsOnServer, readCustomerJournals } from "../../account/sync";
 import { customerExport, customerExportCsv, customerExportFilename, customerExportJson, reviewCount } from "../../customers/export";
 import type { Customer, DemoState } from "../../data/types";
 import { isStub } from "../../journals/sealed";
@@ -18,16 +18,15 @@ import { EditCustomer } from "./edit-customer";
 import { EraseCustomer } from "./erase-customer";
 
 /**
- * The salon with this customer's journal text, for their export. A salon whose server keeps journals holds stubs:
- * the text is read from the server (and the read logged there). Null when it could not be read, so an export never
- * leaves the journal out silently.
+ * The salon with this customer's journal text, for their export. While the server keeps journals the customer's
+ * journal is always read from the server (and the read logged there), whatever the browser holds, and it replaces
+ * the customer's entries here. Null when it could not be read, so an export never leaves the journal out silently.
  */
 async function withJournalText(state: DemoState, customerId: string): Promise<DemoState | null> {
-  if (!state.journals.some((entry) => entry.customerId === customerId && isStub(entry))) return state;
+  if (!journalsOnServer() && !state.journals.some((entry) => entry.customerId === customerId && isStub(entry))) return state;
   const entries = await readCustomerJournals(customerId);
   if (!entries) return null;
-  const full = new Map(entries.map((entry) => [entry.id, entry]));
-  return { ...state, journals: state.journals.map((entry) => (entry.customerId === customerId ? full.get(entry.id) ?? entry : entry)) };
+  return { ...state, journals: [...state.journals.filter((entry) => entry.customerId !== customerId), ...entries] };
 }
 
 /** What the owner can do about one customer's data: download a copy, correct it, delete it (30 days in the trash) or erase it for good. */
