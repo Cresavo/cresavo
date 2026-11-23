@@ -6,7 +6,8 @@ import { POST as postAction } from "../../src/app/api/owner/salon/actions/route"
 import { POST as postErase } from "../../src/app/api/owner/salon/erase/route";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
-import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
+import { sessionKey } from "../../src/lib/owner-http";
+import { openOwnerSession, OWNER_COOKIE, ownerFromCookie } from "../../src/lib/owner-session";
 
 // The owner salon API against a disposable local *_test database. All data is fictional.
 
@@ -26,8 +27,15 @@ const send = (cookie: string, body: unknown) => postAction(new NextRequest(`${or
   method: "POST", body: JSON.stringify(body), headers: { cookie, origin, host: "localhost", "content-type": "application/json" },
 }));
 
-const erase = (cookie: string, body: unknown) => postErase(new NextRequest(`${origin}/api/owner/salon/erase`, {
-  method: "POST", body: JSON.stringify(body), headers: { cookie, origin, host: "localhost", "content-type": "application/json" },
+
+/** The session key of a cookie (what the salon load hands the studio for `x-cresavo-session`). */
+const keyOf = async (cookie: string) => {
+  const owner = await ownerFromCookie(cookie.slice(cookie.indexOf("=") + 1));
+  return owner ? sessionKey(owner) : "";
+};
+const erase = async (cookie: string, body: unknown, session?: string) => postErase(new NextRequest(`${origin}/api/owner/salon/erase`, {
+  method: "POST", body: JSON.stringify(body),
+  headers: { cookie, origin, host: "localhost", "content-type": "application/json", "x-cresavo-session": session ?? await keyOf(cookie) },
 }));
 
 beforeAll(() => {

@@ -12,7 +12,8 @@ import { decryptJournal, journalKey } from "../../src/concept/store/journal-cryp
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
 import { ownerStore } from "../../src/lib/owner-store";
-import { openOwnerSession, OWNER_COOKIE } from "../../src/lib/owner-session";
+import { sessionKey } from "../../src/lib/owner-http";
+import { openOwnerSession, OWNER_COOKIE, ownerFromCookie } from "../../src/lib/owner-session";
 
 // Server-side journals (JOURNALS_ON_SERVER) through the owner routes, against a disposable local *_test
 // database: text only in journal_entry, encrypted; stubs in the salon; one customer's journal per read, logged;
@@ -40,7 +41,7 @@ async function owner(name: string) {
   const result = await createOwnerAccount({ email: `${name.toLowerCase().replace(/\s+/g, "-")}-${run}@example.test`, password: "a long fictional passphrase", salonName: name, language: "en" });
   if (!result.ok) throw new Error("sign-up failed");
   const session = await openOwnerSession(result.identity);
-  return { tenantId: result.tenantId, cookie: `${OWNER_COOKIE}=${session!.value}`, session: `${result.identity.id}.${result.identity.credentialVersion}` };
+  return { tenantId: result.tenantId, cookie: `${OWNER_COOKIE}=${session!.value}`, session: sessionKey((await ownerFromCookie(session!.value))!) };
 }
 
 type Who = { cookie: string; session: string };
@@ -53,7 +54,14 @@ const bound = (who: Who, init: { method?: string; body?: string; headers: Record
 const write = (who: Who, body: unknown) => postJournal(new NextRequest(`${origin}/api/owner/journals`, bound(who, json(body, who.cookie))));
 const journalOf = (who: Who, customerId: string) =>
   getJournals(new NextRequest(`${origin}/api/owner/journals?customer=${encodeURIComponent(customerId)}`, bound(who, { headers: { cookie: who.cookie } })));
-const erase = (cookie: string, body: unknown) => postErase(new NextRequest(`${origin}/api/owner/salon/erase`, json(body, cookie)));
+
+/** The session key of a cookie (what the salon load hands the studio for `x-cresavo-session`). */
+const keyOf = async (cookie: string) => {
+  const owner = await ownerFromCookie(cookie.slice(cookie.indexOf("=") + 1));
+  return owner ? sessionKey(owner) : "";
+};
+const erase = async (cookie: string, body: unknown, session?: string) =>
+  postErase(new NextRequest(`${origin}/api/owner/salon/erase`, bound({ cookie, session: session ?? await keyOf(cookie) }, json(body, cookie))));
 
 const people = [
   { firstName: "Vera", lastName: `Journalsdottir${run}`, phone: "0700001111", email: `vera-${run}@example.test` },
@@ -280,9 +288,10 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
       SELECT action FROM tenant_action WHERE tenant_id = ${a.tenantId} AND action->>'type' IN ('journal/add', 'journal/edit') ORDER BY seq`;
     expect(JSON.stringify(auditRows)).not.toMatch(new RegExp(`${SECRET}|${LATER}|Olle advice|Fictional foot care`));
     const veraId = doc.journals.find((j) => j.customerId === a.vera.id)!.id;
+    // The commit from before the flag recorded no entry id, so none is added: an id is never guessed.
     expect(auditRows.map((r) => r.action)).toEqual([
-      { type: "journal/add", entry: { id: veraId, customerId: a.vera.id, date: "2026-11-20", staffId: a.staffId } },
-      { type: "journal/add", entry: { id: expect.any(String), customerId: a.olle.id, date: "2026-11-20", staffId: a.staffId } },
+      { type: "journal/add", entry: { customerId: a.vera.id, date: "2026-11-20", staffId: a.staffId } },
+      { type: "journal/add", entry: { customerId: a.olle.id, date: "2026-11-20", staffId: a.staffId } },
       { type: "journal/edit", id: veraId, on: "2026-11-21" },
     ]);
     expect(await ownerStore().journalsSealed(a.tenantId)).toBe(true);
@@ -293,7 +302,7 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
 
     // Idempotent: another load and a direct second run change nothing.
     await read(a.cookie);
-    expect(await ownerStore().sealJournals(a.tenantId)).toEqual({ ok: true, changed: false });
+    expect(await ownerStore().sealJournals(a.tenantId)).toEqual({ ok: true, changed: false, sealed: true });
     expect(await version(a.tenantId)).toBe(startA + 2); // the journal read above logged one view
     expect(await rows(a.tenantId)).toHaveLength(3);
 
@@ -304,8 +313,38 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     expect(await rows(b.tenantId)).toHaveLength(3);
     const docB = (await db.$queryRaw<Array<{ doc: DemoState }>>`SELECT doc FROM tenant_state WHERE tenant_id = ${b.tenantId}`)[0].doc;
     expect(journalsIn(docB).every(isStub)).toBe(true);
+    // The save moved the document and cleaned the audit rows; the replays are the next load's, which marks the salon.
+    expect(await ownerStore().journalsSealed(b.tenantId)).toBe(false);
+    await read(b.cookie);
     expect(await ownerStore().journalsSealed(b.tenantId)).toBe(true);
     expect(await storedText(b.tenantId)).not.toMatch(new RegExp(`${SECRET}|${LATER}|Olle advice`));
+  });
+
+  it("cleans many replays in bounded batches, and unmarks a salon when a replacement brings text back", async () => {
+    vi.stubEnv("JOURNALS_ON_SERVER", "");
+    freshStore();
+    const a = await salon("Salong Manga Svar");
+    await send(a.cookie, { action: add(a.vera.id, a.staffId), idempotencyKey: "b-add" });
+    // Sixty keyed changes before the flag: each stored replay holds a copy of the salon with the journal text.
+    for (let i = 0; i < 60; i++) await send(a.cookie, { action: { type: "card/dismiss", id: `fictional-card-${i}` }, idempotencyKey: `b-${i}` });
+    const replaysWithText = async () => (await db.$queryRaw<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM tenant_idempotency WHERE tenant_id = ${a.tenantId} AND result::text LIKE ${`%${SECRET}%`}`)[0].n;
+    expect(await replaysWithText()).toBe(61);
+    on();
+    expect((await read(a.cookie)).status).toBe(200);
+    expect(await replaysWithText()).toBe(0);
+    expect(await ownerStore().journalsSealed(a.tenantId)).toBe(true);
+    // A keyed retry of an old change still replays, from its cleaned copy.
+    const retried = await (await send(a.cookie, { action: { type: "card/dismiss", id: "fictional-card-3" }, idempotencyKey: "b-3" })).json();
+    expect(retried.replayed).toBe(true);
+    expect(JSON.stringify(retried)).not.toContain(SECRET);
+    // With the flag off, a replacement that brings journal text back unmarks the salon in the same write.
+    vi.stubEnv("JOURNALS_ON_SERVER", "");
+    freshStore();
+    const legacy = (await (await read(a.cookie)).json()).state as DemoState;
+    const withText = { ...legacy, journals: legacy.journals.map((j) => ({ ...j, sealed: undefined, observations: SECRET })) };
+    expect((await ownerStore().replaceState(a.tenantId, withText, { actor: "system", reason: "fictional restore" })).ok).toBe(true);
+    expect(await ownerStore().journalsSealed(a.tenantId)).toBe(false);
   });
 
   it("binds every journal request to the session the salon was loaded in, and keeps reads the server's own", async () => {
@@ -322,6 +361,18 @@ describe("server-side journals (JOURNALS_ON_SERVER=1)", () => {
     }
     expect(await rows(a.tenantId)).toHaveLength(1);
     expect(await views(a.tenantId)).toEqual([]);
+    // An erasure asked in another login is refused before anything is looked up, and the customer stays.
+    const name = `${a.vera.firstName} ${a.vera.lastName}`;
+    expect((await erase(a.cookie, { customerId: a.vera.id, name }, other.session)).status).toBe(409);
+    expect((await erase(a.cookie, { customerId: a.vera.id, name }, "")).status).toBe(409);
+    expect((await (await read(a.cookie)).json()).state.customers.some((c: { id: string }) => c.id === a.vera.id)).toBe(true);
+    // A new sign-in to the same account is a new login: its key differs, and the old key is refused with the new cookie.
+    const current = (await ownerFromCookie(a.cookie.slice(a.cookie.indexOf("=") + 1)))!;
+    const again = await openOwnerSession({ id: current.accountId, credentialVersion: current.credentialVersion });
+    const relogin = { cookie: `${OWNER_COOKIE}=${again!.value}`, session: sessionKey((await ownerFromCookie(again!.value))!) };
+    expect(relogin.session).not.toBe(a.session);
+    expect((await journalOf({ cookie: relogin.cookie, session: a.session }, a.vera.id)).status).toBe(409);
+    expect((await journalOf(relogin, a.vera.id)).status).toBe(200);
     // A read the studio reports is refused while the server keeps journals: only the server's own reads are logged.
     expect((await send(a.cookie, { action: { type: "journal/view", customerId: a.vera.id, actor: "owner" }, idempotencyKey: "s-view" })).status).toBe(400);
     await journalOf(a, a.vera.id);

@@ -33,12 +33,13 @@ export function GET(request: NextRequest) {
       // `session` binds the studio's journal requests and its cache to this session (`x-cresavo-session`).
       return withRenewedSession(ownerOk({ state: withoutJournalText(current.state), version: current.version, journals: "server", session: sessionKey(owner) }), request);
     }
+    const session = sessionKey(owner);
     const holdsJournals = loaded.state.journals.length > 0 || loaded.state.trash.some((entry) => entry.kind === "customer" && entry.journals.length > 0);
-    if (!holdsJournals) return withRenewedSession(ownerOk({ state: loaded.state, version: loaded.version }), request);
+    if (!holdsJournals) return withRenewedSession(ownerOk({ state: loaded.state, version: loaded.version, session }), request);
     const logged = await store.apply(owner.tenantId, { type: "journal/view", actor: "owner" }, { actor: "owner", source: "button" });
-    if (logged.ok) return withRenewedSession(ownerOk({ state: logged.state, version: logged.version }), request);
+    if (logged.ok) return withRenewedSession(ownerOk({ state: logged.state, version: logged.version, session }), request);
     // Only a load logged a moment ago is refused without a detail. Any other refusal (a busy salon, a full document) means this load is not on the log, so it is not served.
-    if (logged.reason === "rejected" && !logged.detail) return withRenewedSession(ownerOk({ state: loaded.state, version: loaded.version }), request);
+    if (logged.reason === "rejected" && !logged.detail) return withRenewedSession(ownerOk({ state: loaded.state, version: loaded.version, session }), request);
     return ownerError("unavailable", 503);
   }, { write: false });
 }

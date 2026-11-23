@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionOwner } from "@/lib/owner-http";
+import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionKey, sessionOwner } from "@/lib/owner-http";
 import { id } from "@/lib/owner-actions/primitives";
 import { salonForBrowser } from "@/lib/owner-journals";
 import { ownerStore } from "@/lib/owner-store";
@@ -24,6 +25,9 @@ export function POST(request: NextRequest) {
   return ownerRoute(request, async () => {
     const owner = await sessionOwner(request);
     if (!fullOwner(owner)) return refusedOwner(owner);
+    // Bound to the login the erasure was asked in (`x-cresavo-session`, from the salon load): a tab left open on
+    // another salon or an earlier sign-in is refused before anything is looked up.
+    if (request.headers.get(UPLOAD_SESSION_HEADER) !== sessionKey(owner)) return ownerError("session_changed", 409);
     const json = await readBoundedJson(request, MAX_BODY_BYTES);
     if (json === "too_large") return ownerError("too_large", 413);
     const body = bodySchema.safeParse(json);
