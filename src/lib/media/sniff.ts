@@ -25,7 +25,7 @@ const isStartOfFrame = (marker: number) => marker >= 0xc0 && marker <= 0xcf && m
 
 function jpegSize(bytes: Uint8Array): { width: number; height: number } | null {
   let at = 2;
-  while (at + 4 <= bytes.length) {
+  for (let segments = 0; at + 4 <= bytes.length && segments < 512; segments++) {
     if (bytes[at] !== 0xff) return null;
     const marker = bytes[at + 1];
     if (marker === 0xff) { at++; continue; }
