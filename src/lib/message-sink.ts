@@ -56,18 +56,17 @@ const SIMULATED_ON_PURPOSE = new Set<ResolutionReason>(["public-demo", "live-off
 const LINK_MARK = "__BOOKING_LINK__";
 /** Longest the dispatch transaction waits for the tenant's lock: an apply holds it for milliseconds. */
 const DISPATCH_LOCK_TIMEOUT = "3000ms";
-/** The frozen message and what it was made with, and the last attempt's error code, dropped once the effect is settled. */
-const SETTLED = { mail: null, link: null, from: null, replyTo: null, lastError: null } as const;
 /**
- * Left for a person (`uncertain`, `reconcile`): the frozen message stays, so a send they confirm did not go out can be
- * resent exactly as it was. It goes once delivery is confirmed, or with the message body when retention expires.
+ * How a failure is noted. `settle` drops the frozen message and what it was made with (and the error code always
+ * goes). Left for a person (`uncertain`, `reconcile`), the frozen message stays, so a send they confirm did not go out
+ * can be resent exactly as it was; it goes once delivery is confirmed, or with the message body when retention expires.
  */
-const FOR_A_PERSON = { lastError: null } as const;
+const SETTLED = { settle: true } as const;
+const FOR_A_PERSON = { settle: false } as const;
 
 type BookingMessage = NonNullable<ReturnType<typeof parseMessageReference>>;
 type Registry = { resolve: (port: "email", business: string) => Promise<{ adapter: EmailPort; live: boolean; reason: ResolutionReason; account?: string }> };
 
-type Patch = { [K in keyof DeliveryState]?: DeliveryState[K] | null };
 type Frozen = DeliveryState & Required<Pick<DeliveryState, "firstAttemptAt" | "mail" | "from">>;
 /** Where an effect stands for a deliverer whose write found nothing to change: stopped for good, or claimed by someone else since. */
 type Standing = "gone" | "lost";
@@ -134,26 +133,40 @@ function recipientOf(doc: unknown, message: BookingMessage): Recipient | undefin
   return { state, booking, customer, to, visit };
 }
 
+/** True when both addresses have the same scheme, host and path (a query or fragment never decides). */
+function sameDestination(stored: string, expected: string | undefined): boolean {
+  if (!expected) return false;
+  try {
+    const a = new URL(stored);
+    const b = new URL(expected);
+    return a.protocol === b.protocol && a.host === b.host && a.pathname === b.pathname && !a.username && !a.password;
+  } catch {
+    return false;
+  }
+}
+
 /** The sink for `sinks.message` of salon tenants. `registry` is the e-mail connection and `now` the clock; tests pass their own. */
 export function messageSink(prisma: PrismaClient, registry: Registry = createRegistry(), now: () => number = Date.now): EffectSink {
-  /** Merges into the effect's bookkeeping, a null removing a key, but only for the latest claim of a still pending effect: a stale deliverer changes nothing. */
-  const noteClaim = ({ id, tenantId, attempt }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
-    SELECT store_outbox_note(${id}, ${attempt}::int, ${JSON.stringify(patch)}::jsonb) AS n`);
+  /** Notes why the effect fails, for the current claim of a still pending effect only: a stale deliverer changes nothing. */
+  const noteClaim = ({ id, tenantId, claim }: EffectDelivery, reason: string, { settle, dropSubmitted = false }: { settle: boolean; dropSubmitted?: boolean }) =>
+    scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
+      SELECT store_outbox_note(${id}, ${claim}::uuid, ${reason}, ${settle}::boolean, ${dropSubmitted}::boolean) AS n`);
 
   /**
-   * The provider accepted the message: recorded with the effect's status in one statement, whatever became of the
-   * claim or the row since (a timeout, an erasure that cancelled it). Nothing personal is written back.
+   * The provider accepted the message, recorded for this claim in one statement: `sent`, and the frozen message and
+   * dispatch marker dropped. A row an erasure cancelled (or this claim's timeout failed) meanwhile keeps its status and
+   * gets the confirmation recorded apart (store_outbox_delivered). Nothing personal is written back.
    */
-  const confirm = ({ id, tenantId, attempt }: EffectDelivery, patch: Patch) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
-    SELECT store_outbox_delivered(${id}, ${attempt}::int, NULL::timestamptz, ${JSON.stringify(patch)}::jsonb) AS n`);
+  const confirm = ({ id, tenantId, claim }: EffectDelivery) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
+    SELECT store_outbox_delivered(${id}, ${claim}::uuid, true) AS outcome`);
 
   /**
    * Drops this claim's `dispatched` marker (and the first-submission time it set) when no request left after all.
    * Guarded by the claim, but not by the status: the outbox may already have made the row `failed` for this claim's
    * timeout, and a marker left there would turn a message that was never requested into an uncertain one.
    */
-  const releaseUnsent = ({ id, tenantId, attempt }: EffectDelivery, ownSubmission: boolean) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
-    SELECT store_outbox_release(${id}, ${attempt}::int, ${["dispatched", "provider", "account", ...(ownSubmission ? ["submittedAt"] : [])]}::text[]) AS n`);
+  const releaseUnsent = ({ id, tenantId, claim }: EffectDelivery, ownSubmission: boolean) => scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw`
+    SELECT store_outbox_release(${id}, ${claim}::uuid, ${ownSubmission}::boolean) AS n`);
 
   /** Why a guarded write changed nothing. Run inside a transaction in the effect's tenant scope. */
   const standing = async (db: Pick<PrismaClient, "$queryRaw">, id: string): Promise<Standing> => {
@@ -165,10 +178,11 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    * Freezes the first rendering on the effect, unless an earlier attempt did, and returns what is stored. Only
    * while the effect is pending, not erased and this claim is the latest: erased content is never written back.
    */
-  const freeze = ({ id, tenantId, attempt }: EffectDelivery, first: Frozen): Promise<Frozen | Standing> => prisma.$transaction(async (tx) => {
+  const freeze = ({ id, tenantId, claim }: EffectDelivery, first: Frozen): Promise<Frozen | Standing> => prisma.$transaction(async (tx) => {
     await enterScope(tx, { tenant: tenantId });
     const [row] = await tx.$queryRaw<Array<{ delivery: Frozen | null }>>`
-      SELECT store_outbox_freeze(${id}, ${attempt}::int, ${JSON.stringify(first)}::jsonb) AS delivery`;
+      SELECT store_outbox_freeze(${id}, ${claim}::uuid, ${first.firstAttemptAt}::float8, ${first.mail.subject}, ${first.mail.text}, ${first.mail.html},
+        ${first.from}, ${first.replyTo ?? null}::text, ${first.link?.url ?? null}::text, ${first.link?.exp ?? null}::float8) AS delivery`;
     return row?.delivery ? row.delivery : standing(tx, id);
   });
 
@@ -178,15 +192,15 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
    * that finished and before any that has not. The marker is set only while the effect is pending, not erased and
    * this claim is the latest: a stalled deliverer whose lease ran out finds its claim gone.
    */
-  const dispatch = ({ id, tenantId, attempt }: EffectDelivery, message: BookingMessage, provider: string, account: string | undefined, submittedAt: number) => prisma.$transaction(async (tx) => {
+  const dispatch = ({ id, tenantId, claim }: EffectDelivery, message: BookingMessage, provider: string, account: string | undefined, submittedAt: number) => prisma.$transaction(async (tx) => {
     await enterScope(tx, { tenant: tenantId });
     await tx.$queryRaw`SELECT set_config('lock_timeout', ${DISPATCH_LOCK_TIMEOUT}, true)`;
     const [row] = await tx.$queryRaw<Array<{ doc: unknown }>>`
-      SELECT store_outbox_message_view(${id}, ${attempt}::int, ${message.bookingId}, true) AS doc`;
+      SELECT store_outbox_message_view(${id}, ${claim}::uuid, true) AS doc`;
     const current = row?.doc ? recipientOf(row.doc, message) : undefined;
     if (!current) return "skip" as const;
     const [marked] = await tx.$queryRaw<Array<{ n: number }>>`
-      SELECT store_outbox_dispatch(${id}, ${attempt}::int, ${provider}, ${account ?? null}::text, ${submittedAt}::float8) AS n`;
+      SELECT store_outbox_dispatch(${id}, ${claim}::uuid, ${provider}, ${account ?? null}::text, ${submittedAt}::float8) AS n`;
     return marked?.n ? { to: current.to } : standing(tx, id);
   });
 
@@ -199,9 +213,11 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     // Paused by the operator (CONCEPT_EMAIL_PAUSED=1): a row claimed just before the switch waits, keeping its attempt.
     if (emailDeliveryPaused()) return "deferred";
     if (kept?.reason) return "failed";
-    // Only what the message needs of its salon: the claimed booking, its customer, the services and staff (migration store_rls_policies).
+    // Only what the message renders of its salon, for this claim: its booking, customer, service and staff (migration store_rls_policies).
     const [row] = await scoped(prisma, { tenant: tenantId }, (db) => db.$queryRaw<Array<{ doc: unknown }>>`
-      SELECT store_outbox_message_view(${id}, ${delivery.attempt}::int, ${message.bookingId}, false) AS doc`);
+      SELECT store_outbox_message_view(${id}, ${delivery.claim}::uuid, false) AS doc`);
+    // No view: this claim is over. Another deliverer holds the row now (it retries), or it was settled meanwhile.
+    if (!row?.doc && (await scoped(prisma, { tenant: tenantId }, (db) => standing(db, id))) === "lost") throw new Error("EMAIL_CLAIM_LOST");
     const found = row?.doc ? recipientOf(row.doc, message) : undefined;
     if (!found) return "skipped";
     const { state, booking, customer, visit } = found;
@@ -225,7 +241,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     else if (kept?.dispatched && live) {
       // Written before the sender and link were frozen, and a request may already have left: it cannot be rebuilt
       // as it was, so it is not sent again.
-      await noteClaim(delivery, { reason: "uncertain", ...SETTLED });
+      await noteClaim(delivery, "uncertain", SETTLED);
       return "failed";
     } else {
       // A row written before the sender and link were frozen keeps its first time and its message.
@@ -244,7 +260,13 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     }
     // A snapshot whose message retention has purged cannot be resent as it was: it fails for a person, before anything is marked.
     if (!frozen.mail?.subject || typeof frozen.mail.text !== "string" || typeof frozen.mail.html !== "string" || !frozen.from) {
-      await noteClaim(delivery, { reason: "snapshot_purged", ...SETTLED });
+      await noteClaim(delivery, "snapshot_purged", SETTLED);
+      return "failed";
+    }
+    // A stored link must lead where this booking's link leads, whatever is in the row: a signed token is only ever
+    // attached to the booking page this booking's own data names.
+    if (frozen.link && !sameDestination(frozen.link.url, bookingLinkBase(state, visit)?.url)) {
+      await noteClaim(delivery, "link_mismatch", SETTLED);
       return "failed";
     }
     const { firstAttemptAt, mail, from, replyTo } = frozen;
@@ -258,7 +280,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     const submittedAt = kept?.submittedAt ?? (kept?.dispatched ? firstAttemptAt : now());
     const keyed = !live || (origin === "resend" && provider === "resend" && sameAccount && now() - submittedAt < RESEND_KEY_WINDOW_MS);
     if (live && kept?.dispatched && !keyed) {
-      await noteClaim(delivery, { reason: "uncertain", ...FOR_A_PERSON });
+      await noteClaim(delivery, "uncertain", FOR_A_PERSON);
       return "failed";
     }
 
@@ -291,7 +313,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
       subject: mail.subject, text: fill(mail.text), html: fill(mail.html), language: state.localization.language, idempotencyKey: id, tracking: false,
     });
     if (result.ok) {
-      await confirm(delivery, { sent: true, dispatched: null, provider: null, account: null, submittedAt: null, ...SETTLED });
+      await confirm(delivery);
       return;
     }
     const { code, providerCode } = result.error;
@@ -299,7 +321,7 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     if (UNCERTAIN.has(code) || inProgress) {
       // The request may have been carried out, or is still running. It stays dispatched: the next claim decides by provider and age.
       if (keyed) throw new Error(inProgress ? "EMAIL_RETRYABLE" : "EMAIL_UNCERTAIN");
-      await noteClaim(delivery, { reason: "uncertain", ...FOR_A_PERSON });
+      await noteClaim(delivery, "uncertain", FOR_A_PERSON);
       return "failed";
     }
     // Nothing was sent. A rate limit and a bad or missing API key will pass.
@@ -309,11 +331,11 @@ export function messageSink(prisma: PrismaClient, registry: Registry = createReg
     }
     // A same key with a changed body: an earlier request did reach the provider, so only a person can settle it.
     if (code === "conflict") {
-      await noteClaim(delivery, { reason: "reconcile", ...FOR_A_PERSON });
+      await noteClaim(delivery, "reconcile", FOR_A_PERSON);
       return "failed";
     }
     // A bad address, an unverified domain, other 4xx: refused outright, so this request starts no key window.
-    await noteClaim(delivery, { reason: code, ...SETTLED, ...(ownSubmission ? { submittedAt: null } : {}) });
+    await noteClaim(delivery, code, { ...SETTLED, dropSubmitted: ownSubmission });
     return "failed";
   };
 }

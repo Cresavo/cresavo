@@ -30,7 +30,7 @@
 -- Scopes (set transaction-local by src/concept/store/tenant-scope.ts):
 --   cresavo.tenant_id    one tenant, for cresavo_app and cresavo_eraser (store_tenant)
 --   cresavo.sandbox_key  cresavo_app resolving a sandbox token: that row only, read
---   cresavo.salon_slug   cresavo_app resolving a booking address: that row only, read
+-- A booking address resolves through the function store_salon_by_slug (a tenant id only), not a policy.
 -- cresavo_support reads its diagnostic columns across tenants. The poller
 -- (cresavo_outbox) and the sweeper (cresavo_sweeper) have no policy and no
 -- table privilege: they use the store_outbox_* and store_sweep_* functions.
@@ -62,7 +62,6 @@ DROP POLICY IF EXISTS "store_owner" ON "tenant_state";
 DROP POLICY IF EXISTS "store_tenant" ON "tenant_state";
 DROP POLICY IF EXISTS "store_support_read" ON "tenant_state";
 DROP POLICY IF EXISTS "store_sandbox_lookup" ON "tenant_state";
-DROP POLICY IF EXISTS "store_salon_slug_lookup" ON "tenant_state";
 DROP POLICY IF EXISTS "store_owner" ON "tenant_action";
 DROP POLICY IF EXISTS "store_tenant" ON "tenant_action";
 DROP POLICY IF EXISTS "store_support_read" ON "tenant_action";
@@ -86,10 +85,6 @@ CREATE POLICY "store_sandbox_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
   USING ("kind" = 'sandbox' AND current_setting('cresavo.sandbox_key', true) ~ '^sbx_[0-9a-f]{32}$'
     AND ("tenant_id" = current_setting('cresavo.sandbox_key', true)
       OR starts_with("tenant_id", current_setting('cresavo.sandbox_key', true) || '_')));
--- A booking address resolves to the one salon that has it (unique by tenant_state_salon_slug_key).
-CREATE POLICY "store_salon_slug_lookup" ON "tenant_state" FOR SELECT TO cresavo_app
-  USING ("kind" = 'salon' AND ("doc" #>> '{salon,slug}') = nullif(current_setting('cresavo.salon_slug', true), ''));
-
 CREATE POLICY "store_owner" ON "tenant_action" FOR ALL
   USING (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_action'::regclass), 'USAGE'))
   WITH CHECK (pg_has_role((SELECT c.relowner FROM pg_class c WHERE c.oid = 'tenant_action'::regclass), 'USAGE'));
@@ -129,7 +124,6 @@ BEGIN
     ('tenant_idempotency', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
     ('tenant_idempotency', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
     ('tenant_state', 'store_owner', '03899db0eb95846adb21ec3cfbb63e0e'),
-    ('tenant_state', 'store_salon_slug_lookup', '75bb90c499297a854b9b948966bad46a'),
     ('tenant_state', 'store_sandbox_lookup', 'ebcc6e29a0b9b581e6ac00c0fe4c1b22'),
     ('tenant_state', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
     ('tenant_state', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d')

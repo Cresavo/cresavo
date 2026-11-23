@@ -31,7 +31,6 @@ WITH expected(tbl, policy, digest) AS (VALUES
   ('tenant_idempotency', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
   ('tenant_idempotency', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d'),
   ('tenant_state', 'store_owner', '03899db0eb95846adb21ec3cfbb63e0e'),
-  ('tenant_state', 'store_salon_slug_lookup', '75bb90c499297a854b9b948966bad46a'),
   ('tenant_state', 'store_sandbox_lookup', 'ebcc6e29a0b9b581e6ac00c0fe4c1b22'),
   ('tenant_state', 'store_support_read', '89f337913de154d7c0a88624b31894e1'),
   ('tenant_state', 'store_tenant', '8f372e55ff03e97c17d18c6ef34a5f1d')

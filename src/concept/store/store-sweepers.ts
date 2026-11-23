@@ -1,5 +1,4 @@
 import type { PrismaClient } from "@prisma/client";
-import { RATE_LIMIT_MS } from "../privacy/retention";
 import { databaseClock } from "./effect-outbox";
 import { scoped, SWEEP_SCOPE } from "./tenant-scope";
 
@@ -8,8 +7,9 @@ import { scoped, SWEEP_SCOPE } from "./tenant-scope";
 // login has no privilege on the store tables, and a clock it passes can only
 // make a sweep do less (the functions never judge by a time later than the
 // database clock, except for the table owner, whose tests replay a fixed one).
-// Each call runs in the sweep scope and removes one batch. The rate-limit table
-// has no row-level security and is swept directly.
+// Each call runs in the sweep scope and removes one batch (1 to 10000 rows). The
+// rate-limit sweeps are functions too, so the sweeper has no direct write on that
+// table and can never remove an active lock-out.
 
 interface SweepOptions {
   prisma: PrismaClient;
@@ -19,7 +19,7 @@ interface SweepOptions {
 }
 
 function batchSize(batch = 500) {
-  if (!Number.isSafeInteger(batch) || batch <= 0) throw new RangeError("Invalid sweep batch size");
+  if (!Number.isSafeInteger(batch) || batch <= 0 || batch > 10_000) throw new RangeError("Invalid sweep batch size");
   return batch;
 }
 
@@ -33,7 +33,7 @@ async function sweepRows(limit: number, remove: () => Promise<number>) {
   return total;
 }
 
-type StoreSweep = "idempotency" | "demo_actions" | "outbox_bodies" | "activity_keys" | "activity_redact" | "journal_views";
+type StoreSweep = "idempotency" | "demo_actions" | "outbox_bodies" | "activity_keys" | "activity_redact" | "journal_views" | "rate_limits" | "owner_guard";
 
 /** Runs one store sweep function until a batch comes back short. */
 async function storeSweep(sweep: StoreSweep, { prisma, now, batch }: SweepOptions): Promise<number> {
@@ -48,6 +48,8 @@ async function storeSweep(sweep: StoreSweep, { prisma, now, batch }: SweepOption
       case "activity_keys": return db.$queryRaw<Array<{ n: number }>>`SELECT store_sweep_activity_keys(to_timestamp(${time}::float8 / 1000), ${limit}::int) AS n`;
       case "activity_redact": return db.$queryRaw<Array<{ n: number }>>`SELECT store_sweep_activity_redact(to_timestamp(${time}::float8 / 1000), ${limit}::int) AS n`;
       case "journal_views": return db.$queryRaw<Array<{ n: number }>>`SELECT store_sweep_journal_views(to_timestamp(${time}::float8 / 1000), ${limit}::int) AS n`;
+      case "rate_limits": return db.$queryRaw<Array<{ n: number }>>`SELECT store_sweep_rate_limits(to_timestamp(${time}::float8 / 1000), ${limit}::int) AS n`;
+      case "owner_guard": return db.$queryRaw<Array<{ n: number }>>`SELECT store_sweep_owner_guard(to_timestamp(${time}::float8 / 1000), ${limit}::int) AS n`;
     }
   };
   return sweepRows(limit, async () => (await scoped(prisma, SWEEP_SCOPE, call))[0].n);
@@ -111,30 +113,7 @@ export async function sweepExpiredSandboxes({ prisma, now, batch }: SweepOptions
  * Deletes expired owner sign-in lock state and reset-mail quota rows (the `acct:`, `strike:`, `lock:` and `mbx:`
  * keys of owner-guard-store.ts, kept in the shared rate-limit table). Active rows are never touched.
  */
-export async function sweepOwnerGuardBuckets({ prisma, now, batch }: SweepOptions): Promise<number> {
-  const limit = batchSize(batch);
-  const cutoff = await (now ? now() : databaseClock(prisma));
-  return sweepRows(limit, () => prisma.$executeRaw`
-    DELETE FROM "RateLimitBucket" WHERE "key" IN (
-      SELECT "key" FROM "RateLimitBucket"
-      WHERE "expiresAt" <= to_timestamp(${cutoff}::float8 / 1000)
-        AND ("key" LIKE 'acct:%' OR "key" LIKE 'strike:%' OR "key" LIKE 'lock:%' OR "key" LIKE 'mbx:%')
-      ORDER BY "expiresAt", "key" LIMIT ${limit}
-    )
-    -- Repeated in the delete itself: a row renewed since the selection survives.
-    AND "expiresAt" <= to_timestamp(${cutoff}::float8 / 1000)`);
-}
+export const sweepOwnerGuardBuckets = (options: SweepOptions) => storeSweep("owner_guard", options);
 
 /** Deletes rate-limit rows that expired more than `RETENTION.rateLimitDays` ago. */
-export async function sweepRateLimits({ prisma, now, batch }: SweepOptions): Promise<number> {
-  const limit = batchSize(batch);
-  const cutoff = await (now ? now() : databaseClock(prisma)) - RATE_LIMIT_MS;
-  return sweepRows(limit, () => prisma.$executeRaw`
-    WITH expired AS (
-      SELECT "key" FROM "RateLimitBucket"
-      WHERE "expiresAt" < to_timestamp(${cutoff}::float8 / 1000)
-      ORDER BY "expiresAt", "key" LIMIT ${limit}
-      FOR UPDATE SKIP LOCKED
-    )
-    DELETE FROM "RateLimitBucket" r USING expired e WHERE r."key" = e."key"`);
-}
+export const sweepRateLimits = (options: SweepOptions) => storeSweep("rate_limits", options);

@@ -32,30 +32,35 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "tenant_idempotency" TO cresavo_app;
 -- backoff and failed (item 4).
 GRANT SELECT, INSERT, UPDATE ON "tenant_effect" TO cresavo_app;
 
--- The outbox functions of migration store_rls_policies (store_outbox_*): the
--- web app's drain after a commit calls them in its tenant's scope. The
+-- The functions of migration store_rls_policies the web app calls: the outbox
+-- functions (store_outbox_*), from its drain after a commit in its tenant's
+-- scope, and the booking address lookup (store_salon_by_slug). The
 -- migration creates every store function closed to PUBLIC; the revokes are
 -- repeated here so a restore from a dump taken with --no-privileges
 -- (docs/operations/BACKUP_RESTORE.md), which recreates the functions open to
 -- PUBLIC, closes them again. roles.sql grants the poller and the sweeper theirs.
 REVOKE ALL ON FUNCTION store_caller_owns(), store_caller_in(text), store_outbox_caller(text), store_effective_now(timestamptz),
-  store_sweep_check(), store_redact_path(jsonb, text[]) FROM PUBLIC;
+  store_clock(timestamptz), store_bounded_ms(float8), store_sweep_check(integer), store_redact_path(jsonb, text[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
   store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
-  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
-  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
-  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
-  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean) FROM PUBLIC;
+  store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
+  store_outbox_skip(text, uuid), store_outbox_delivered(text, uuid, boolean), store_outbox_note(text, uuid, text, boolean, boolean),
+  store_outbox_release(text, uuid, boolean), store_outbox_open(text),
+  store_outbox_freeze(text, uuid, float8, text, text, text, text, text, text, float8),
+  store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean), store_salon_by_slug(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
   store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
   store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
-  store_sweep_journal_views(timestamptz, integer) FROM PUBLIC;
+  store_sweep_journal_views(timestamptz, integer), store_sweep_rate_limits(timestamptz, integer),
+  store_sweep_owner_guard(timestamptz, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
   store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
-  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
-  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
-  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
-  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean)
+  store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
+  store_outbox_skip(text, uuid), store_outbox_delivered(text, uuid, boolean), store_outbox_note(text, uuid, text, boolean, boolean),
+  store_outbox_release(text, uuid, boolean), store_outbox_open(text),
+  store_outbox_freeze(text, uuid, float8, text, text, text, text, text, text, float8),
+  store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean),
+  store_salon_by_slug(text)
   TO cresavo_app;
 
 -- Erasure (item 7): the only path that may change tenant_action is the

@@ -15,23 +15,20 @@ export type StoreScope =
   /** The effects:drain poller (store_outbox_* functions, cresavo_outbox) or the retention sweeps (store_sweep_* functions, cresavo_sweeper). */
   | { crossTenant: "outbox" | "sweep" }
   /** Resolving a sandbox token: that sandbox's tenant_state row only, read only. */
-  | { sandboxKey: string }
-  /** Resolving a booking address: that salon's tenant_state row only, read only. */
-  | { salonSlug: string };
+  | { sandboxKey: string };
 
 export const OUTBOX_SCOPE: StoreScope = { crossTenant: "outbox" };
 export const SWEEP_SCOPE: StoreScope = { crossTenant: "sweep" };
 
 type Raw = Pick<PrismaClient, "$queryRaw">;
 
-/** Sets all four settings, so the scope is exactly this one whatever the transaction set before. */
+/** Sets all three settings, so the scope is exactly this one whatever the transaction set before. */
 function setScope(db: Raw, scope: StoreScope) {
   const value = (key: string) => (key in scope ? String((scope as Record<string, string>)[key]) : "");
   return db.$queryRaw<unknown[]>`
     SELECT set_config('cresavo.tenant_id', ${value("tenant")}, true) AS tenant,
       set_config('cresavo.cross_tenant', ${value("crossTenant")}, true) AS cross_tenant,
-      set_config('cresavo.sandbox_key', ${value("sandboxKey")}, true) AS sandbox_key,
-      set_config('cresavo.salon_slug', ${value("salonSlug")}, true) AS salon_slug`;
+      set_config('cresavo.sandbox_key', ${value("sandboxKey")}, true) AS sandbox_key`;
 }
 
 /** Enters a scope inside an interactive transaction. Call it before the first store statement, and again to change scope. */
@@ -40,13 +37,13 @@ export async function enterScope(tx: Prisma.TransactionClient, scope: StoreScope
 }
 
 /** One statement in its own transaction under `scope`. Build the statement from the `db` given. */
-export function scoped<T>(prisma: PrismaClient, scope: StoreScope, statement: (db: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+export function scoped<T>(prisma: Pick<PrismaClient, "$transaction">, scope: StoreScope, statement: (db: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return inScope(prisma, scope, statement);
 }
 
 /** An interactive transaction that starts in `scope`. */
 export function inScope<T>(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient, "$transaction">,
   scope: StoreScope,
   run: (tx: Prisma.TransactionClient) => Promise<T>,
   options?: { maxWait?: number; timeout?: number },

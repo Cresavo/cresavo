@@ -195,18 +195,20 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON "PairGrantToken" TO cresavo_app;
 -- ---------------------------------------------------------------------------
 -- cresavo_sweeper: `npm run store:sweep` (scripts/sweep-store.mts and the
 -- sweepers in src/concept/store/store-sweepers.ts). No privilege on the four
--- store tables: the store sweeps are the fixed SECURITY DEFINER functions
--- store_sweep_* of migration store_rls_policies (EXECUTE granted below), with
--- their retention cutoffs inside. Only the rate-limit table is swept directly.
+-- store tables or the rate-limit table: those sweeps are the fixed SECURITY
+-- DEFINER functions store_sweep_* of migration store_rls_policies (EXECUTE
+-- granted below), with their cutoffs inside. The photo library's sweep keeps
+-- its own column grants on media_asset (below).
 -- ---------------------------------------------------------------------------
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_sweeper;
 GRANT EXECUTE ON FUNCTION store_sweep_idempotency(timestamptz, integer), store_sweep_demo_actions(timestamptz, integer),
   store_sweep_sandboxes(timestamptz, integer), store_sweep_outbox_bodies(timestamptz, integer),
   store_sweep_activity_keys(timestamptz, integer), store_sweep_activity_redact(timestamptz, integer),
-  store_sweep_journal_views(timestamptz, integer)
+  store_sweep_journal_views(timestamptz, integer), store_sweep_rate_limits(timestamptz, integer),
+  store_sweep_owner_guard(timestamptz, integer)
   TO cresavo_sweeper;
--- sweepOwnerGuardBuckets and sweepRateLimits.
-GRANT SELECT ("key", "expiresAt"), UPDATE ("expiresAt"), DELETE ON "RateLimitBucket" TO cresavo_sweeper;
+-- sweepOwnerGuardBuckets and sweepRateLimits are the store_sweep_rate_limits and store_sweep_owner_guard functions
+-- above, with their cutoffs inside (an active lock-out is never removed): no direct grant on "RateLimitBucket".
 -- sweepDeletedMedia (src/lib/media/sweep.ts): which pictures are due (deleted long enough, a replaced logo never
 -- published, an upload left pending) and where their bytes are, checked against tenant and id; the rows are
 -- deleted under a row lock (FOR UPDATE needs one UPDATE column: status, which serves nothing deleted). Never the
@@ -227,10 +229,11 @@ GRANT SELECT ("id", "tenant_id", "kind", "storage", "storage_key", "status", "cr
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM cresavo_outbox;
 GRANT EXECUTE ON FUNCTION store_outbox_cancel_erased(timestamptz, text[]),
   store_outbox_claim(timestamptz, float8, float8, text[], text[], boolean),
-  store_outbox_fail(text, integer, jsonb, text[], boolean, boolean, timestamptz), store_outbox_skip(text, integer, timestamptz),
-  store_outbox_delivered(text, integer, timestamptz, jsonb), store_outbox_note(text, integer, jsonb),
-  store_outbox_release(text, integer, text[]), store_outbox_open(text), store_outbox_freeze(text, integer, jsonb),
-  store_outbox_dispatch(text, integer, text, text, float8), store_outbox_message_view(text, integer, text, boolean)
+  store_outbox_fail(text, uuid, timestamptz, timestamptz, boolean, boolean, boolean, text, boolean, boolean),
+  store_outbox_skip(text, uuid), store_outbox_delivered(text, uuid, boolean), store_outbox_note(text, uuid, text, boolean, boolean),
+  store_outbox_release(text, uuid, boolean), store_outbox_open(text),
+  store_outbox_freeze(text, uuid, float8, text, text, text, text, text, text, float8),
+  store_outbox_dispatch(text, uuid, text, text, float8), store_outbox_message_view(text, uuid, boolean)
   TO cresavo_outbox;
 
 -- ---------------------------------------------------------------------------

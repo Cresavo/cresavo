@@ -45,8 +45,10 @@ export interface EffectDelivery {
   tenantKind: TenantKind;
   seq: number;
   n: number;
-  /** Which claim this is (the row's attempt count). A sink that must not run for a stale claim guards its writes by it. */
+  /** Which claim this is (the row's attempt count). */
   attempt: number;
+  /** The claim's random token: every read and write of the sink for this effect needs it, and a stale claim's finds nothing. */
+  claim: string;
   effect: StoreEffect;
 }
 
@@ -128,6 +130,7 @@ interface ClaimedRow {
   payload: OutboxEntry;
   attempts: number;
   tenant_kind: TenantKind | null;
+  claim_token: string;
 }
 
 export interface DeliveryContext {
@@ -210,14 +213,14 @@ async function recordFailure(ctx: DeliveryContext, row: ClaimedRow, kind: Failur
   const lastError = row.kind === "message" && code ? (EFFECT_ERROR_CODES.has(code) ? code : "OTHER_ERROR") : null;
   const base = attemptBase(row);
   const counted = row.attempts - base;
-  const patch = { ...(deferred ? { attemptBase: base + 1 } : {}), ...(lastError ? { lastError } : {}) };
-  // A held send never left: the marker this claim set goes. A first-submission time from an earlier claim stays.
-  const drop = held ? ["dispatched", "provider", "account", ...(row.payload?.delivery?.submittedAt === undefined ? ["submittedAt"] : [])] : [];
+  // A deferral adds one to `attemptBase` (store_outbox_fail). A held send never left: the marker this claim set goes,
+  // and so does a first-submission time this claim set; one from an earlier claim stays.
+  const dropSubmitted = held && row.payload?.delivery?.submittedAt === undefined;
   const fail = permanent || (!deferred && counted >= ctx.maxAttempts);
   const next = now + (deferred ? DEFER_MS : effectBackoffMs(counted));
   const [outcome] = await scoped(ctx.db, ctx.scope, (db) => db.$queryRaw<Array<{ status: string | null }>>`
-    SELECT store_outbox_fail(${row.id}, ${row.attempts}::int, ${JSON.stringify(patch)}::jsonb, ${drop}::text[], ${kind === "timeout"}::boolean,
-      ${fail}::boolean, to_timestamp(${next}::float8 / 1000)) AS status`);
+    SELECT store_outbox_fail(${row.id}, ${row.claim_token}::uuid, to_timestamp(${now}::float8 / 1000), to_timestamp(${next}::float8 / 1000),
+      ${kind === "timeout"}::boolean, ${fail}::boolean, ${deferred}::boolean, ${lastError}::text, ${held}::boolean, ${dropSubmitted}::boolean) AS status`);
   return outcome?.status === "failed" ? "failed" : "retry";
 }
 
@@ -230,7 +233,8 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   try {
     if (!sink) throw new Error("STUDIO_STORE_NO_SINK");
     const delivery: EffectDelivery = {
-      id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, attempt: row.attempts, effect: effectOf(row.payload),
+      id: row.id, tenantId: row.tenant_id, tenantKind: row.tenant_kind!, seq: Number(row.seq), n: row.n, attempt: row.attempts, claim: row.claim_token,
+      effect: effectOf(row.payload),
     };
     result = await runSink(sink, delivery, timeoutMs);
   } catch (error) {
@@ -245,17 +249,15 @@ async function deliver(ctx: DeliveryContext, row: ClaimedRow, timeoutMs: number 
   if (result === "deferred" || (result === "failed" && heldByPause(row))) return recordFailure(ctx, row, "deferred");
   if (result === "failed") return recordFailure(ctx, row, "permanent");
   if (result === "skipped") {
-    const skippedAt = await ctx.clock();
     const [changed] = await scoped(ctx.db, ctx.scope, (db) => db.$queryRaw<Array<{ n: number }>>`
-      SELECT store_outbox_skip(${row.id}, ${row.attempts}::int, to_timestamp(${skippedAt}::float8 / 1000)) AS n`);
+      SELECT store_outbox_skip(${row.id}, ${row.claim_token}::uuid) AS n`);
     // Nothing was sent, and a row that was cancelled meanwhile (an erasure) stays so.
     return changed?.n ? "delivered" : "skipped";
   }
-  // The send happened, so it is recorded as delivered whatever happened to the
-  // row meanwhile (a lease that ran out, an erasure that tried to cancel it).
-  const at = await ctx.clock();
+  // The send happened. Delivered while the row is pending under this claim; if an erasure cancelled it (or its
+  // timeout failed it) meanwhile, the status stays and the confirmation is kept apart (store_outbox_delivered).
   await scoped(ctx.db, ctx.scope, (db) => db.$queryRaw`
-    SELECT store_outbox_delivered(${row.id}, ${row.attempts}::int, to_timestamp(${at}::float8 / 1000), NULL::jsonb) AS n`);
+    SELECT store_outbox_delivered(${row.id}, ${row.claim_token}::uuid, false) AS outcome`);
   return "delivered";
 }
 

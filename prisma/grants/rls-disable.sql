@@ -24,7 +24,6 @@ DROP POLICY IF EXISTS "store_owner" ON "tenant_state";
 DROP POLICY IF EXISTS "store_tenant" ON "tenant_state";
 DROP POLICY IF EXISTS "store_support_read" ON "tenant_state";
 DROP POLICY IF EXISTS "store_sandbox_lookup" ON "tenant_state";
-DROP POLICY IF EXISTS "store_salon_slug_lookup" ON "tenant_state";
 DROP POLICY IF EXISTS "store_owner" ON "tenant_action";
 DROP POLICY IF EXISTS "store_tenant" ON "tenant_action";
 DROP POLICY IF EXISTS "store_support_read" ON "tenant_action";

@@ -97,6 +97,12 @@ allowed(kind, tbl, col, priv) AS (VALUES
   ('app', 'Staff', '*', 'UPDATE'),
   ('app', 'WorkspaceRequest', '*', 'INSERT'),
   ('app', 'WorkspaceRequest', '*', 'SELECT'),
+  ('app', 'media_asset', '*', 'INSERT'),
+  ('app', 'media_asset', '*', 'SELECT'),
+  ('app', 'media_asset', 'alt_text', 'UPDATE'),
+  ('app', 'media_asset', 'deleted_at', 'UPDATE'),
+  ('app', 'media_asset', 'published_at', 'UPDATE'),
+  ('app', 'media_asset', 'status', 'UPDATE'),
   ('app', 'owner_account', '*', 'INSERT'),
   ('app', 'owner_account', '*', 'SELECT'),
   ('app', 'owner_account', '*', 'UPDATE'),
@@ -132,6 +138,18 @@ allowed(kind, tbl, col, priv) AS (VALUES
   ('support', '_prisma_migrations', 'migration_name', 'SELECT'),
   ('support', '_prisma_migrations', 'rolled_back_at', 'SELECT'),
   ('support', '_prisma_migrations', 'started_at', 'SELECT'),
+  ('support', 'media_asset', 'byte_size', 'SELECT'),
+  ('support', 'media_asset', 'content_type', 'SELECT'),
+  ('support', 'media_asset', 'created_at', 'SELECT'),
+  ('support', 'media_asset', 'deleted_at', 'SELECT'),
+  ('support', 'media_asset', 'height', 'SELECT'),
+  ('support', 'media_asset', 'id', 'SELECT'),
+  ('support', 'media_asset', 'kind', 'SELECT'),
+  ('support', 'media_asset', 'published_at', 'SELECT'),
+  ('support', 'media_asset', 'status', 'SELECT'),
+  ('support', 'media_asset', 'storage', 'SELECT'),
+  ('support', 'media_asset', 'tenant_id', 'SELECT'),
+  ('support', 'media_asset', 'width', 'SELECT'),
   ('support', 'owner_account', 'active', 'SELECT'),
   ('support', 'owner_account', 'created_at', 'SELECT'),
   ('support', 'owner_account', 'credential_version', 'SELECT'),
@@ -170,10 +188,17 @@ allowed(kind, tbl, col, priv) AS (VALUES
   ('support', 'tenant_state', 'tenant_id', 'SELECT'),
   ('support', 'tenant_state', 'updated_at', 'SELECT'),
   ('support', 'tenant_state', 'version', 'SELECT'),
-  ('sweeper', 'RateLimitBucket', '*', 'DELETE'),
-  ('sweeper', 'RateLimitBucket', 'expiresAt', 'SELECT'),
-  ('sweeper', 'RateLimitBucket', 'expiresAt', 'UPDATE'),
-  ('sweeper', 'RateLimitBucket', 'key', 'SELECT')
+  ('sweeper', 'media_asset', '*', 'DELETE'),
+  ('sweeper', 'media_asset', 'created_at', 'SELECT'),
+  ('sweeper', 'media_asset', 'deleted_at', 'SELECT'),
+  ('sweeper', 'media_asset', 'id', 'SELECT'),
+  ('sweeper', 'media_asset', 'kind', 'SELECT'),
+  ('sweeper', 'media_asset', 'published_at', 'SELECT'),
+  ('sweeper', 'media_asset', 'status', 'SELECT'),
+  ('sweeper', 'media_asset', 'status', 'UPDATE'),
+  ('sweeper', 'media_asset', 'storage', 'SELECT'),
+  ('sweeper', 'media_asset', 'storage_key', 'SELECT'),
+  ('sweeper', 'media_asset', 'tenant_id', 'SELECT')
 ),
 allowed_functions(kind, fn) AS (VALUES
   ('app', 'store_outbox_cancel_erased'),
@@ -188,6 +213,7 @@ allowed_functions(kind, fn) AS (VALUES
   ('app', 'store_outbox_dispatch'),
   ('app', 'store_outbox_message_view'),
   ('app', 'erase_subject'),
+  ('app', 'store_salon_by_slug'),
   ('outbox', 'store_outbox_cancel_erased'),
   ('outbox', 'store_outbox_claim'),
   ('outbox', 'store_outbox_fail'),
@@ -205,7 +231,9 @@ allowed_functions(kind, fn) AS (VALUES
   ('sweeper', 'store_sweep_outbox_bodies'),
   ('sweeper', 'store_sweep_activity_keys'),
   ('sweeper', 'store_sweep_activity_redact'),
-  ('sweeper', 'store_sweep_journal_views')
+  ('sweeper', 'store_sweep_journal_views'),
+  ('sweeper', 'store_sweep_rate_limits'),
+  ('sweeper', 'store_sweep_owner_guard')
 ),
 tables AS (
   SELECT c.oid, c.relname AS tbl FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -214,6 +242,14 @@ tables AS (
 table_privs(priv) AS (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')),
 column_privs(priv) AS (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')),
 present AS (SELECT l.kind, l.login FROM logins l JOIN pg_roles r ON r.rolname = l.login),
+-- What each login can act as: itself and every role it can SET ROLE to (with or without INHERIT). Each is held to
+-- the login's allowlist. A superuser target is reported by the reach checks and skipped here.
+subjects AS (
+  SELECT p.kind, p.login, p.login AS role FROM present p
+  UNION
+  SELECT p.kind, p.login, r.rolname FROM present p JOIN pg_roles l ON l.rolname = p.login JOIN pg_roles r ON r.oid <> l.oid
+  WHERE NOT l.rolsuper AND NOT r.rolsuper AND pg_has_role(l.oid, r.oid, 'SET')
+),
 runtime AS (SELECT kind || ' login ' || login AS who, login FROM present),
 store AS (
   SELECT c.relname, c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -263,19 +299,20 @@ UNION ALL
 SELECT p.kind || ' is not a member of cresavo_' || p.kind
 FROM present p WHERE NOT pg_has_role(p.login, 'cresavo_' || p.kind, 'USAGE')
 UNION ALL
-SELECT p.kind || ' can create objects in schema ' || current_schema()
-FROM present p WHERE has_schema_privilege(p.login, current_schema(), 'CREATE')
+-- The store's SECURITY DEFINER functions resolve names in this schema: no runtime role may create objects in it.
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' can create objects in schema ' || current_schema()
+FROM subjects p WHERE has_schema_privilege(p.role, current_schema(), 'CREATE')
 UNION ALL
 -- Every effective table privilege against the allowlist.
-SELECT p.kind || ' has ' || tp.priv || ' on ' || t.tbl || ', which the allowlist does not grant'
-FROM present p, tables t, table_privs tp
-WHERE has_table_privilege(p.login, t.oid, tp.priv)
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' has ' || tp.priv || ' on ' || t.tbl || ', which the allowlist does not grant'
+FROM subjects p, tables t, table_privs tp
+WHERE has_table_privilege(p.role, t.oid, tp.priv)
   AND NOT EXISTS (SELECT 1 FROM allowed a WHERE a.kind = p.kind AND a.tbl = t.tbl AND a.col = '*' AND a.priv = tp.priv)
 UNION ALL
 -- Every effective column privilege (beyond a table-level one) against the allowlist.
-SELECT p.kind || ' has ' || cp.priv || ' on ' || t.tbl || '.' || att.attname || ', which the allowlist does not grant'
-FROM present p, tables t JOIN pg_attribute att ON att.attrelid = t.oid AND att.attnum > 0 AND NOT att.attisdropped, column_privs cp
-WHERE has_column_privilege(p.login, t.oid, att.attnum, cp.priv)
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' has ' || cp.priv || ' on ' || t.tbl || '.' || att.attname || ', which the allowlist does not grant'
+FROM subjects p, tables t JOIN pg_attribute att ON att.attrelid = t.oid AND att.attnum > 0 AND NOT att.attisdropped, column_privs cp
+WHERE has_column_privilege(p.role, t.oid, att.attnum, cp.priv)
   AND NOT EXISTS (SELECT 1 FROM allowed a WHERE a.kind = p.kind AND a.tbl = t.tbl AND a.priv = cp.priv AND a.col IN ('*', att.attname))
 UNION ALL
 -- And what the allowlist grants must be there.
@@ -286,15 +323,17 @@ WHERE to_regclass(quote_ident(a.tbl)) IS NULL
   OR (a.col <> '*' AND NOT has_column_privilege(p.login, quote_ident(a.tbl), a.col, a.priv))
 UNION ALL
 -- The store's functions: each login executes exactly its own; PUBLIC executes none.
-SELECT p.kind || ' can execute ' || f.proname || ', which the allowlist does not grant'
-FROM present p, pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+SELECT p.kind || CASE WHEN p.role = p.login THEN '' ELSE ' (as ' || p.role || ')' END || ' can execute ' || f.proname || ', which the allowlist does not grant'
+FROM subjects p, pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
 WHERE n.nspname = current_schema() AND (f.proname LIKE 'store\_%' OR f.proname LIKE 'studio\_%' OR f.proname = 'erase_subject')
-  AND has_function_privilege(p.login, f.oid, 'EXECUTE')
+  AND has_function_privilege(p.role, f.oid, 'EXECUTE')
   AND NOT EXISTS (SELECT 1 FROM allowed_functions a WHERE a.kind = p.kind AND a.fn = f.proname)
 UNION ALL
+-- A function that is not installed (erase_subject before erase-subject.sql) is that step's to report.
 SELECT p.kind || ' cannot execute ' || a.fn
 FROM present p JOIN allowed_functions a ON a.kind = p.kind
-WHERE NOT EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
+WHERE EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace WHERE n.nspname = current_schema() AND f.proname = a.fn)
+  AND NOT EXISTS (SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace
   WHERE n.nspname = current_schema() AND f.proname = a.fn AND has_function_privilege(p.login, f.oid, 'EXECUTE'))
 UNION ALL
 SELECT 'PUBLIC can execute ' || f.proname

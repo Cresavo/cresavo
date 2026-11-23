@@ -5,6 +5,7 @@ import { checkSlug } from "@/concept/page/slug";
 import { siteRequestHost } from "@/concept/site/request-host";
 import { migrateSaved } from "@/concept/store/studio-store";
 import { scoped } from "@/concept/store/tenant-scope";
+import type { PrismaClient } from "@prisma/client";
 import { issuedAtToken } from "./public-issued-at";
 import { isPublicReadonly } from "./public-readonly";
 
@@ -33,6 +34,15 @@ export function publicBookingLive(readHeader: (name: string) => string | null | 
 }
 
 /**
+ * The tenant id of the salon with this booking address, through the fixed function store_salon_by_slug: an address
+ * reveals which tenant it is and nothing of the salon's row. Then the salon is read in that tenant's scope.
+ */
+async function salonBySlug(db: PrismaClient, slug: string): Promise<string | null> {
+  const [row] = await db.$queryRaw<Array<{ tenant_id: string | null }>>`SELECT store_salon_by_slug(${slug}) AS tenant_id`;
+  return row?.tenant_id ?? null;
+}
+
+/**
  * The tenant of any salon with this booking address, or null. Used to hand out
  * addresses, so a salon whose owner account is switched off still holds its own.
  */
@@ -40,10 +50,7 @@ export async function findSalonTenant(slug: string): Promise<string | null> {
   const checked = checkSlug(slug);
   if (!checked.ok) return null;
   const { db } = await import("./db");
-  // The address scope sees the one salon row with this address, and nothing else (row-level security).
-  const [row] = await scoped(db, { salonSlug: checked.slug }, (tx) => tx.$queryRaw<Array<{ tenant_id: string }>>`
-    SELECT tenant_id FROM tenant_state WHERE kind = 'salon' AND (doc #>> '{salon,slug}') = ${checked.slug}`);
-  return row?.tenant_id ?? null;
+  return salonBySlug(db, checked.slug);
 }
 
 /**
@@ -57,9 +64,13 @@ export async function loadPublicTenant(slug: string, now = new Date()): Promise<
   const checked = checkSlug(slug);
   if (!checked.ok) return null;
   const { db } = await import("./db");
-  const [row] = await scoped(db, { salonSlug: checked.slug }, (tx) => tx.$queryRaw<Array<{ tenant_id: string; doc: unknown }>>`
+  const tenantId = await salonBySlug(db, checked.slug);
+  if (!tenantId) return null;
+  // The salon in its own scope, every condition checked again in this one read: a rename or a switched-off account
+  // since the lookup finds nothing.
+  const [row] = await scoped(db, { tenant: tenantId }, (tx) => tx.$queryRaw<Array<{ tenant_id: string; doc: unknown }>>`
     SELECT t.tenant_id, t.doc FROM tenant_state t JOIN owner_account a ON a.tenant_id = t.tenant_id
-    WHERE t.kind = 'salon' AND a.active AND (t.expires_at IS NULL OR t.expires_at > ${now})
+    WHERE t.tenant_id = ${tenantId} AND t.kind = 'salon' AND a.active AND (t.expires_at IS NULL OR t.expires_at > ${now})
       AND (t.doc #>> '{salon,slug}') = ${checked.slug}`);
   const state = row && migrateSaved(row.doc);
   return state ? { tenantId: row.tenant_id, state } : null;
