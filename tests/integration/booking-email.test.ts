@@ -229,10 +229,12 @@ describe("the booking confirmation e-mail", () => {
     vi.stubEnv("PUBLIC_BOOKING_LIVE", "");
     expect(await drain(CLOCK + 3_600_000)).toEqual({ delivered: 0, retried: 1, failed: 0 });
     expect(mails).toHaveLength(sentBefore);
-    expect(await emailEffects()).toEqual([{ status: "pending", attempts: 1 }]);
+    // The claim is counted (a claim's number is never reused) but not spent: it goes to the attempt base.
+    expect(await emailEffects()).toEqual([{ status: "pending", attempts: 2 }]);
+    expect((await delivery())[0].delivery).toMatchObject({ attemptBase: 1 });
     vi.stubEnv("PUBLIC_BOOKING_LIVE", "1");
     expect(await drain(CLOCK + 2 * 3_600_000)).toEqual({ delivered: 1, retried: 0, failed: 0 });
-    expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 2 }]);
+    expect(await emailEffects()).toEqual([{ status: "delivered", attempts: 3 }]);
   });
 
   it("stops claiming when the drain's time budget is spent, leaving the rest for the poller", async () => {

@@ -37,30 +37,49 @@ function Hero({ demo, booking, tint }: { demo: string; booking: string; tint: st
   );
 }
 
-const MOMENTS = [
-  { key: "book", Panel: BookingPanel },
-  { key: "today", Panel: TodayPanel },
-  { key: "card", Panel: ClientPanel },
-  { key: "call", Panel: CallPanel },
-] as const;
+type MomentKey = "book" | "today" | "card" | "call";
 
-/** From booking to chair: four moments of the salon day, each beside its screen. */
+/** A moment's heading and line. Each moment places them differently around its screen. */
+function MomentText({ id }: { id: MomentKey }) {
+  const { site } = useSiteCopy();
+  return (
+    <div className={h.momentText}>
+      <h3 id={`moment-${id}`}>{site[`home.${id}.heading`]}</h3>
+      <p>{site[`home.${id}.text`]}</p>
+    </div>
+  );
+}
+
+/**
+ * From booking to chair: four moments of the salon day, each with its own form so they never read as one
+ * card repeated. The booking headline runs across the page over an offset booking page; Today gets the full
+ * width; the client card sits offset with its words under it; the phone call is a short closing band.
+ */
 function Product() {
   const { site } = useSiteCopy();
   return (
     <section className={h.day} id="how" aria-labelledby="product-heading">
       <div className={h.wrap}>
         <h2 id="product-heading" className={h.dayHead}>{site["home.product.heading"]}</h2>
-        {MOMENTS.map(({ key, Panel }, i) => (
-          <article key={key} className={`${h.moment} ${i % 2 ? h.flip : ""}`} aria-labelledby={`moment-${key}`}>
-            <div className={h.momentText}>
-              <h3 id={`moment-${key}`}>{site[`home.${key}.heading`]}</h3>
-              <p>{site[`home.${key}.text`]}</p>
-            </div>
-            <Panel />
-          </article>
-        ))}
+        <article className={`${h.moment} ${h.mBook}`} aria-labelledby="moment-book">
+          <MomentText id="book" />
+          <div className={h.mScreen}><BookingPanel /></div>
+        </article>
+        <article className={`${h.moment} ${h.mToday}`} aria-labelledby="moment-today">
+          <MomentText id="today" />
+          <div className={h.mScreen}><TodayPanel /></div>
+        </article>
+        <article className={`${h.moment} ${h.mCard}`} aria-labelledby="moment-card">
+          <MomentText id="card" />
+          <div className={h.mScreen}><ClientPanel /></div>
+        </article>
       </div>
+      <article className={`${h.moment} ${h.mCall}`} aria-labelledby="moment-call">
+        <div className={`${h.wrap} ${h.mCallIn}`}>
+          <MomentText id="call" />
+          <div className={h.mScreen}><CallPanel /></div>
+        </div>
+      </article>
     </section>
   );
 }

@@ -600,11 +600,33 @@ model OwnerAccount {
   passwordHash      String         @map("password_hash")
   tenantId          String         @unique @map("tenant_id")
   active            Boolean        @default(true)
-  /// Incremented on password reset or disable; older sessions stop working.
+  /// Incremented on password reset, disable and a change to two-step sign-in; older sessions stop working.
   credentialVersion Int            @default(1) @map("credential_version")
   createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// Two-step sign-in: the authenticator secret, AES-256-GCM under OWNER_MFA_KEY (`v1:<iv>:<tag>:<ciphertext>`).
+  totpSecretEnc        String?   @map("totp_secret_enc")
+  /// A secret being set up, encrypted the same way, until the first code confirms it or it expires.
+  totpPendingEnc       String?   @map("totp_pending_enc")
+  totpPendingExpiresAt DateTime? @map("totp_pending_expires_at") @db.Timestamptz(3)
+  totpEnabledAt        DateTime? @map("totp_enabled_at") @db.Timestamptz(3)
+  /// The last 30-second step whose code was used; a code for this step or an earlier one is refused.
+  totpLastStep         BigInt?   @map("totp_last_step")
   sessions          OwnerSession[]
+  recoveryCodes     OwnerRecoveryCode[]
+  mfaChallenges     OwnerMfaChallenge[]
   @@map("owner_account")
+}
+
+/// Single-use recovery codes for two-step sign-in, stored as HMAC-SHA-256 under a key derived from OWNER_MFA_KEY.
+model OwnerRecoveryCode {
+  id        String       @id @default(cuid())
+  accountId String       @map("account_id")
+  account   OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  codeHash  String       @map("code_hash")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  usedAt    DateTime?    @map("used_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@map("owner_recovery_code")
 }
 
 model OwnerSession {
@@ -616,7 +638,22 @@ model OwnerSession {
   createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
   revokedAt         DateTime?    @map("revoked_at") @db.Timestamptz(3)
+  /// Set when the sign-in passed the second step. Required while the account has two-step sign-in on.
+  mfaVerifiedAt     DateTime?    @map("mfa_verified_at") @db.Timestamptz(3)
   @@index([accountId])
   @@index([expiresAt])
   @@map("owner_session")
+}
+
+/// A correct password still waiting for the second step. The id is the SHA-256 of the pending cookie's nonce.
+model OwnerMfaChallenge {
+  id                String       @id
+  accountId         String       @map("account_id")
+  account           OwnerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  credentialVersion Int          @map("credential_version")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt         DateTime     @map("expires_at") @db.Timestamptz(3)
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("owner_mfa_challenge")
 }

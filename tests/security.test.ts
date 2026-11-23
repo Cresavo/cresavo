@@ -113,9 +113,9 @@ describe("Safe error boundaries", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "Something went wrong. Try again." });
     expect(() => pageDataFailure(error)).toThrow("Something went wrong. Try again.");
-    expect(log.mock.calls).toEqual([
-      ["BOOKING_INTERNAL_ERROR"],
-      ["BOOKING_INTERNAL_ERROR"],
+    expect(log.mock.calls.map(([line]) => JSON.parse(line).event)).toEqual([
+      "BOOKING_INTERNAL_ERROR",
+      "BOOKING_INTERNAL_ERROR",
     ]);
   });
   it("preserves safe domain errors and minimizes validation and JSON errors", async () => {
@@ -181,7 +181,7 @@ describe("Lokal admins session", () => {
     );
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await isAdmin()).toBe(false);
-    expect(log.mock.calls).toEqual([["BOOKING_INTERNAL_ERROR"]]);
+    expect(log.mock.calls.map(([line]) => JSON.parse(line).event)).toEqual(["BOOKING_INTERNAL_ERROR"]);
   });
   it("sets secure cookie flags and revokes a copied cookie", async () => {
     vi.stubEnv("SESSION_SECRET", secret);

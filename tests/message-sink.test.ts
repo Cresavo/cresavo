@@ -70,9 +70,16 @@ const database = {
   $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = sql(strings);
     if (text.includes("jsonb_build_object('dispatched'")) {
-      const [provider, account, , , attempt] = values as [string, string | undefined, string | undefined, string, number];
+      const [provider, account, , submittedAt, , attempt] = values as [string, string | undefined, string | undefined, number, string, number];
       if (!open(attempt)) return 0;
-      merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }) });
+      merge({ dispatched: true, provider: stored.provider ?? provider, ...(stored.provider || !account ? {} : { account }), submittedAt: stored.submittedAt ?? submittedAt });
+      return 1;
+    }
+    // Drops this claim's marker when nothing left; guarded by the claim, not by the status.
+    if (text.includes("status IN ('pending', 'failed')")) {
+      const [drop, , attempt] = values as [string[], string, number];
+      if (row.attempts !== attempt || row.erased || stored.sent) return 0;
+      merge(Object.fromEntries(drop.map((key) => [key, null])));
       return 1;
     }
     if (text.includes("status = 'delivered'")) {
@@ -214,6 +221,24 @@ describe("failures", () => {
     expect(await run()).toBe("failed");
     expect(stored.reason).toBe("invalid_input");
     expect(stored.mail).toBeUndefined();
+  });
+
+  it("starts the key window only with a request that may have been carried out", async () => {
+    // Refused outright: no submission is recorded.
+    outcome = fail(connectionError("email", "resend", "rate_limited"));
+    await expect(run()).rejects.toThrow("EMAIL_RETRYABLE");
+    expect(stored).not.toHaveProperty("submittedAt");
+    outcome = fail(connectionError("email", "resend", "invalid_input"));
+    expect(await run()).toBe("failed");
+    expect(stored).not.toHaveProperty("submittedAt");
+  });
+
+  it("keeps the frozen message of a send marked uncertain, so a confirmed non-delivery can be resent as it was", async () => {
+    provider = "postmark";
+    outcome = fail(connectionError("email", "postmark", "timeout"));
+    expect(await run()).toBe("failed");
+    expect(stored).toMatchObject({ reason: "uncertain", dispatched: true, submittedAt: T0, mail: expect.anything(), from: expect.any(String) });
+    expect(stored).not.toHaveProperty("lastError");
   });
 
   it("throws, for a retry, on a rate limit or a bad API key, and has sent nothing", async () => {
@@ -543,6 +568,72 @@ describe("the rollout flags", () => {
     doc = withBooking({ publicRef: undefined, contactEmail: undefined }, profileEmail);
     await run();
     expect(sent).toHaveLength(1);
+  });
+});
+
+describe("a paused e-mail connection (CONCEPT_EMAIL_PAUSED=1)", () => {
+  it("defers a row claimed just before the pause: nothing is sent, frozen or marked", async () => {
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("deferred");
+    expect(sent).toHaveLength(0);
+    expect(stored).toEqual({});
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    expect(await run()).toBeUndefined();
+    expect(sent).toHaveLength(1);
+  });
+
+  it("holds a row with a saved failure reason too: the pause is checked first", async () => {
+    stored = { reason: "invalid_input" };
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("deferred");
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    expect(await run()).toBe("failed");
+  });
+
+  it("checks again right before the provider call, and hands the marker it had just set back to the outbox", async () => {
+    beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    // `held`, at once and with no write of its own: the outbox drops the marker in the write that releases the row.
+    expect(await run()).toBe("held");
+    expect(sent).toHaveLength(0);
+    expect(stored).toMatchObject({ dispatched: true, mail: expect.anything() });
+  });
+
+  it("keeps the earlier marker of a send that may have left, deferring rather than holding", async () => {
+    outcome = fail(connectionError("email", "resend", "timeout"));
+    await expect(run()).rejects.toThrow("EMAIL_UNCERTAIN");
+    expect(stored).toMatchObject({ dispatched: true, submittedAt: T0 });
+    beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("deferred");
+  });
+
+  it("opens the Resend key window at the first request, not at the rendering a pause held back", async () => {
+    beforeDispatch = () => vi.stubEnv("CONCEPT_EMAIL_PAUSED", "1");
+    expect(await run()).toBe("held");
+    // What the outbox's release leaves: the frozen message, no marker.
+    stored = Object.fromEntries(Object.entries(stored).filter(([key]) => !["dispatched", "provider", "account", "submittedAt"].includes(key)));
+    beforeDispatch = undefined;
+    vi.stubEnv("CONCEPT_EMAIL_PAUSED", "");
+    clock = T0 + 30 * HOUR;
+    outcome = fail(connectionError("email", "resend", "timeout"));
+    await expect(run()).rejects.toThrow("EMAIL_UNCERTAIN");
+    expect(stored).toMatchObject({ firstAttemptAt: T0, submittedAt: T0 + 30 * HOUR, dispatched: true });
+    clock = T0 + 31 * HOUR;
+    outcome = ok({ id: "m-2", to: ["lisa@example.test"] }, "sent");
+    expect(await run()).toBeUndefined();
+    expect(sent).toHaveLength(2);
+    expect(sent[1].idempotencyKey).toBe(sent[0].idempotencyKey);
+  });
+});
+
+describe("a snapshot retention has purged", () => {
+  it("fails for a person before anything is marked or sent", async () => {
+    stored = { firstAttemptAt: T0, from: "\"Salon\" <bookings@example.test>", link: { url: "https://example.test/b", exp: 1 } };
+    let dispatched = false;
+    beforeDispatch = () => { dispatched = true; };
+    expect(await run()).toBe("failed");
+    expect(dispatched).toBe(false);
+    expect(sent).toHaveLength(0);
+    expect(stored).toEqual({ firstAttemptAt: T0, reason: "snapshot_purged" });
   });
 });
 

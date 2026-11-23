@@ -1,0 +1,180 @@
+import type { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { db } from "./db";
+import type { OwnerIdentity } from "./owner-accounts";
+import { loginGuard } from "./owner-guard-store";
+import { decryptSecret, hashRecoveryCode, mfaKey, MfaSecretUnreadable, normalizeRecoveryCode, sameHash } from "./owner-mfa-crypto";
+import { MFA_PENDING_MS, parsePending, signPending } from "./owner-mfa-pending";
+import { matchTotp, normalizeTotp } from "./owner-totp";
+import { insertOwnerSession, type OwnerCookie } from "./owner-session";
+import { assertWritable } from "./public-readonly";
+
+// Two-step sign-in for owner accounts: the second step at sign-in, and the checks the setup routes share
+// (owner-mfa-setup.ts). Wrong codes count toward the same per-address lock-out as wrong passwords
+// (owner-guard-store.ts), and only a correct second step clears it. Every code works once: an authenticator
+// code moves `totp_last_step` forward with a conditional update, a recovery code sets `used_at` the same way,
+// so of two simultaneous uses exactly one succeeds. A code is only judged once the stored secret decrypts with
+// the configured key: a key that does not fit answers `not_configured` and never counts as a wrong code.
+
+/** OWNER_MFA_REQUIRED=1: an account without two-step sign-in may only set it up. Off by default. */
+export const mfaRequired = () => process.env.OWNER_MFA_REQUIRED === "1";
+
+/** True for a session that may only reach the enrolment routes. Derived from the account on every request. */
+export const enrolmentOnly = (owner: { mfaEnabled: boolean }) => mfaRequired() && !owner.mfaEnabled;
+
+export const totpFactor = z.object({ code: z.string().max(20) }).strict();
+export const recoveryFactor = z.object({ recoveryCode: z.string().max(40) }).strict();
+const factorSchema = z.union([totpFactor, recoveryFactor]);
+export type SecondFactor = z.infer<typeof factorSchema>;
+
+type Client = Prisma.TransactionClient | typeof db;
+interface SecretRow { id: string; totpSecretEnc: string | null; totpLastStep: bigint | null }
+
+/** Uses an authenticator code once. Throws MfaSecretUnreadable when the stored secret does not decrypt. */
+export async function spendTotp(account: SecretRow, input: string, key: Buffer, now: number, client: Client = db): Promise<boolean> {
+  if (!account.totpSecretEnc) return false;
+  const secret = decryptSecret(account.totpSecretEnc, account.id, key);
+  const code = normalizeTotp(input);
+  const step = code ? matchTotp(secret, code, now, account.totpLastStep === null ? null : Number(account.totpLastStep)) : null;
+  if (step === null) return false;
+  // Conditional on the secret and on no later step having been used since it was read: the first use wins.
+  const { count } = await client.ownerAccount.updateMany({
+    where: { id: account.id, totpSecretEnc: account.totpSecretEnc, OR: [{ totpLastStep: null }, { totpLastStep: { lt: BigInt(step) } }] },
+    data: { totpLastStep: BigInt(step) },
+  });
+  return count === 1;
+}
+
+/**
+ * Uses a recovery code once. The stored secret is decrypted first, so a key that does not fit throws
+ * MfaSecretUnreadable instead of judging the code. The stored hashes are compared in constant time.
+ */
+export async function spendRecoveryCode(account: SecretRow, input: string, key: Buffer, now: number, client: Client = db): Promise<boolean> {
+  if (!account.totpSecretEnc) return false;
+  decryptSecret(account.totpSecretEnc, account.id, key);
+  const code = normalizeRecoveryCode(input);
+  if (!code) return false;
+  const hash = hashRecoveryCode(code, account.id, key);
+  const rows = await client.ownerRecoveryCode.findMany({ where: { accountId: account.id, usedAt: null }, select: { id: true, codeHash: true } });
+  let match: string | null = null;
+  for (const row of rows) if (sameHash(row.codeHash, hash) && match === null) match = row.id;
+  if (!match) return false;
+  const { count } = await client.ownerRecoveryCode.updateMany({ where: { id: match, accountId: account.id, usedAt: null }, data: { usedAt: new Date(now) } });
+  return count === 1;
+}
+
+export const spendFactor = (account: SecretRow, factor: SecondFactor, key: Buffer, now: number, client: Client = db) =>
+  "code" in factor ? spendTotp(account, factor.code, key, now, client) : spendRecoveryCode(account, factor.recoveryCode, key, now, client);
+
+/** Replaces an account's recovery codes with these, inside the caller's transaction. */
+export async function replaceRecoveryCodes(tx: Prisma.TransactionClient, accountId: string, codes: string[], key: Buffer, now: number) {
+  await tx.ownerRecoveryCode.deleteMany({ where: { accountId } });
+  await tx.ownerRecoveryCode.createMany({
+    data: codes.map((code) => ({ accountId, codeHash: hashRecoveryCode(code, accountId, key), createdAt: new Date(now) })),
+  });
+}
+
+/** Runs a check that reads a stored secret; a secret the configured key cannot read answers `not_configured`. */
+export async function readingSecret<T>(work: () => Promise<T>): Promise<T | "not_configured"> {
+  try {
+    return await work();
+  } catch (error) {
+    if (!(error instanceof MfaSecretUnreadable)) throw error;
+    console.warn("[owner-mfa] a stored two-step secret could not be read with OWNER_MFA_KEY");
+    return "not_configured";
+  }
+}
+
+/** Pending sign-ins kept per account; a new one drops the oldest past this. */
+export const MAX_CHALLENGES = 5;
+const PRUNE_BATCH = 100;
+
+/**
+ * Records a correct password that still needs the second step; returns the pending cookie's value. Under the
+ * account's row lock, so the cap holds when sign-ins race; expired challenges of any account go in a bounded batch.
+ */
+export async function startSecondStep(identity: OwnerIdentity, now = Date.now()) {
+  assertWritable();
+  const pending = signPending({ accountId: identity.id, credentialVersion: identity.credentialVersion }, now);
+  await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "owner_account" WHERE "id" = ${identity.id} FOR UPDATE`;
+    const expired = await tx.ownerMfaChallenge.findMany({
+      where: { expiresAt: { lte: new Date(now) } }, select: { id: true }, orderBy: { expiresAt: "asc" }, take: PRUNE_BATCH,
+    });
+    const open = await tx.ownerMfaChallenge.findMany({
+      where: { accountId: identity.id, expiresAt: { gt: new Date(now) } }, select: { id: true }, orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    });
+    const drop = [...expired, ...open.slice(MAX_CHALLENGES - 1)].map((row) => row.id);
+    if (drop.length) await tx.ownerMfaChallenge.deleteMany({ where: { id: { in: drop } } });
+    await tx.ownerMfaChallenge.create({
+      data: {
+        id: pending.challenge, accountId: identity.id, credentialVersion: identity.credentialVersion,
+        createdAt: new Date(now), expiresAt: new Date(now + MFA_PENDING_MS),
+      },
+    });
+  });
+  return pending.value;
+}
+
+export type SecondStepResult =
+  | { ok: true; cookie: OwnerCookie }
+  | { ok: false; reason: "expired" | "invalid_code" | "not_configured" };
+
+type Judged = { ok: true; cookie: OwnerCookie } | { ok: false; reason: "expired" | "invalid_code"; failed?: string };
+
+/** Thrown inside the transaction to undo it: the challenge stays usable and nothing was spent. */
+class Refused extends Error {
+  constructor(readonly judged: Judged) { super("refused"); }
+}
+
+/**
+ * The second step of a sign-in: the pending cookie from a correct password, then a code. One transaction takes
+ * the challenge (matched on the cookie's account and version; deleting it is the lock, since the application
+ * may not update challenges) and locks the account, spends the code and opens the session marked as past the
+ * second step. A refusal rolls it back, so the challenge stays for another try. Simultaneous tries on one
+ * challenge wait for each other: at most one spends a code and opens a session.
+ *
+ * A missing key, or a stored secret the key cannot read, answers `not_configured` and never skips the step or
+ * counts a failure. A pending cookie that is missing, expired, forged, already used or signed out answers
+ * `expired` whatever the account's state, and the owner starts again with the password. With a live challenge,
+ * a deactivated account, a locked address and a wrong or used code all answer `invalid_code`.
+ */
+export async function completeSecondStep(pendingCookie: string | undefined, input: unknown, now = Date.now()): Promise<SecondStepResult> {
+  assertWritable();
+  const pending = parsePending(pendingCookie, now);
+  if (!pending) return { ok: false, reason: "expired" };
+  const key = mfaKey();
+  if (!key) return { ok: false, reason: "not_configured" };
+  const factor = factorSchema.safeParse(input);
+  const guard = loginGuard();
+  const transaction = () => db.$transaction(async (tx): Promise<Judged> => {
+    const taken = await tx.$queryRaw<{ id: string }[]>`
+      DELETE FROM "owner_mfa_challenge"
+      WHERE "id" = ${pending.challenge} AND "account_id" = ${pending.accountId} AND "credential_version" = ${pending.credentialVersion}
+        AND "expires_at" > ${new Date(now)}
+      RETURNING "id"`;
+    if (!taken.length) return { ok: false, reason: "expired" };
+    const refuse = (judged: Judged): never => { throw new Refused(judged); };
+    const [account] = await tx.$queryRaw<{ email: string; active: boolean; credential_version: number; totp_secret_enc: string | null; totp_last_step: bigint | null }[]>`
+      SELECT "email", "active", "credential_version", "totp_secret_enc", "totp_last_step" FROM "owner_account" WHERE "id" = ${pending.accountId} FOR UPDATE`;
+    if (!account?.active) return refuse({ ok: false, reason: "invalid_code" });
+    if (account.credential_version !== pending.credentialVersion || !account.totp_secret_enc) return { ok: false, reason: "expired" };
+    if (await guard.locked(account.email)) return refuse({ ok: false, reason: "invalid_code" });
+    const row = { id: pending.accountId, totpSecretEnc: account.totp_secret_enc, totpLastStep: account.totp_last_step };
+    if (!factor.success || !(await spendFactor(row, factor.data, key, now, tx))) return refuse({ ok: false, reason: "invalid_code", failed: account.email });
+    // Checks the lock and clears the failures in one step, like a correct password without two-step sign-in.
+    if (!(await guard.succeeded(account.email))) return refuse({ ok: false, reason: "invalid_code" });
+    const identity = { id: pending.accountId, credentialVersion: account.credential_version };
+    return { ok: true, cookie: await insertOwnerSession(tx, identity, now, true) };
+  });
+  let judged: Judged | "not_configured";
+  try {
+    judged = await readingSecret(transaction);
+  } catch (error) {
+    if (!(error instanceof Refused)) throw error;
+    judged = error.judged;
+  }
+  if (judged === "not_configured") return { ok: false, reason: "not_configured" };
+  if (!judged.ok && judged.failed) await guard.failed(judged.failed);
+  return judged.ok ? judged : { ok: false, reason: judged.reason };
+}

@@ -1,6 +1,5 @@
-import type { NextRequest } from "next/server";
-import { ownerError, ownerOk, ownerRoute, withRenewedSession } from "@/lib/owner-http";
-import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
+import { NextResponse, type NextRequest } from "next/server";
+import { ownerError, ownerOk, ownerRoute, signedInOwner, withRenewedSession } from "@/lib/owner-http";
 import { ownerStore } from "@/lib/owner-store";
 
 /**
@@ -11,8 +10,8 @@ import { ownerStore } from "@/lib/owner-store";
  */
 export function GET(request: NextRequest) {
   return ownerRoute(request, async () => {
-    const owner = await ownerFromCookie(request.cookies.get(OWNER_COOKIE)?.value);
-    if (!owner) return ownerError("signed_out", 401);
+    const owner = await signedInOwner(request);
+    if (owner instanceof NextResponse) return owner;
     const store = ownerStore();
     const loaded = await store.load(owner.tenantId);
     if (!loaded) return ownerError("not_found", 404);

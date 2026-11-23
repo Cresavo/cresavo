@@ -1,7 +1,6 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { ownerError, ownerOk, ownerRoute, readBoundedJson } from "@/lib/owner-http";
-import { ownerFromCookie, OWNER_COOKIE } from "@/lib/owner-session";
+import { ownerError, ownerOk, ownerRoute, readBoundedJson, signedInOwner } from "@/lib/owner-http";
 import { id } from "@/lib/owner-actions/primitives";
 import { ownerStore } from "@/lib/owner-store";
 import { findErasable } from "@/concept/customers/erase";
@@ -22,8 +21,8 @@ const MAX_BODY_BYTES = 1024;
  */
 export function POST(request: NextRequest) {
   return ownerRoute(request, async () => {
-    const owner = await ownerFromCookie(request.cookies.get(OWNER_COOKIE)?.value);
-    if (!owner) return ownerError("signed_out", 401);
+    const owner = await signedInOwner(request);
+    if (owner instanceof NextResponse) return owner;
     const json = await readBoundedJson(request, MAX_BODY_BYTES);
     if (json === "too_large") return ownerError("too_large", 413);
     const body = bodySchema.safeParse(json);

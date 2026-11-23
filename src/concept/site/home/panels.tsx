@@ -83,7 +83,7 @@ export function TodayPanel() {
   ] as const;
   return (
     <Panel label={site["home.today.label"]} bar={site["home.today.bar"]}>
-      <div className={p.panelBody}>
+      <div className={`${p.panelBody} ${p.today}`}>
         <div className={p.apTop}>
           <div>
             <p className={p.apTitle}>{site["home.today.greeting"]}</p>
@@ -104,7 +104,7 @@ export function TodayPanel() {
             </div>
           </div>
         </div>
-        <div>
+        <div className={p.schedWrap}>
           <ul className={p.sched}>
             {visits.map((v) => (
               <li key={v.t} className={"className" in v ? v.className : undefined}>

@@ -217,3 +217,15 @@
   .cRow { gap: 14px; }
   .bubble { font-size: 15px; }
 }
+
+/* Today given the page's full width: the day's list beside the greeting, next visit and inbox, as the
+   studio lays it out on a wide screen. */
+@media (min-width: 1000px) {
+  .today { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-areas: "top sched" "next sched" "inbox sched"; grid-template-rows: auto auto 1fr; column-gap: clamp(24px, 3vw, 40px); align-items: start; }
+  .today > .apTop { grid-area: top; flex-direction: column; }
+  .today > .nextc { grid-area: next; margin-bottom: 14px; }
+  .today > .schedWrap { grid-area: sched; }
+  .today > .schedWrap .sched { margin-bottom: 0; }
+  .today > .inbox { grid-area: inbox; grid-template-columns: auto minmax(0, 1fr); }
+  .today > .inbox .ub { grid-column: 2; }
+}

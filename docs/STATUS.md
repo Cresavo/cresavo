@@ -78,7 +78,7 @@ Also in place:
 - a [backup and restore drill](operations/BACKUP_RESTORE.md) and an [incident runbook](operations/INCIDENT_RUNBOOK.md).
 
 Still open before real customer data:
-- owner MFA;
+- staff authentication (owners have two-step sign-in; set `OWNER_MFA_REQUIRED=1` for the pilot);
 - database-level tenant enforcement (RLS): policies and scopes are prepared, enforcement is one operator step (`prisma/grants/rls-enable.sql`);
 - encryption and server-side access control for journals;
 - staff roles;
