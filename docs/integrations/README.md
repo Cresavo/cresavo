@@ -248,7 +248,8 @@ goes through the e-mail port above, so it is simulated unless the four live
 conditions hold; SMS and payments are acknowledged without sending.
 
 - **Cron.** Run `npm run effects:drain` every minute (for example a Vercel
-  cron or `* * * * *` on a host) with `DATABASE_URL`, `SESSION_SECRET` and the
+  cron or `* * * * *` on a host) with `DATABASE_URL` (the outbox login of
+  `prisma/grants/roles.sql`, a member of `cresavo_outbox`, not the web login), `SESSION_SECRET` and the
   **same** `PUBLIC_BOOKING_LIVE`, `OWNER_ACCOUNTS_ENABLED`, `CONCEPT_*` and
   provider settings as the web app. It is safe to run several at once and
   prints counts only. An apply delivers its own effects for at most about 5 s

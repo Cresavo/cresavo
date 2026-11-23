@@ -409,48 +409,78 @@ The code already sets the scope. Every statement on a store table runs in a
 transaction that first calls `set_config(…, true)` through
 `src/concept/store/tenant-scope.ts`: transaction-local, so a pooled connection
 never carries a scope into the next request (`tests/integration/store-rls.test.ts`
-checks this). One scope per transaction:
+checks this). Every policy names the group roles it is for, never `PUBLIC`
+(except the owner's, below), so a setting only opens what that role's policy
+allows:
 
-| Setting | Who | What the policies allow |
+| Scope | Role | What the policies allow |
 | --- | --- | --- |
-| `cresavo.tenant_id` | apply, load, history, erasure, sign-up, owner pages, the in-apply drain, the message sink | every operation on that tenant's rows; a new or changed row must belong to it |
-| `cresavo.cross_tenant = 'outbox'` | `drainPendingEffects` (`npm run effects:drain`), members of `cresavo_app` only | read effects and tenant kind and expiry of every tenant; update effects that are not delivered. No insert or delete, nothing of the log or the replay results, no document change |
-| `cresavo.cross_tenant = 'sweep'` | `npm run store:sweep`, members of `cresavo_sweeper` only | read and lock; delete sandbox tenants and their rows, demo and sandbox log rows, `journal/view` rows and expired keys; update log rows only so that their key is empty; update only settled messages. A salon's state, its other history, its live keys and its pending effects stay out of reach |
-| `cresavo.sandbox_key` | `openSandboxTenant` resolving its token | read the one sandbox row with that key (a hash of the token); the transaction then switches to the tenant |
-| `cresavo.salon_slug` | `findSalonTenant`, `loadPublicTenant` | read the one salon row with that booking address (unique by `tenant_state_salon_slug_key`) |
+| `cresavo.tenant_id` | `cresavo_app`, `cresavo_eraser` | every operation on that tenant's rows; a new or changed row must belong to it. Used by apply, load, history, erasure, sign-up, owner pages, `effects:reconcile --tenant` and a web worker's drain after its commit, which delivers only the tenant it wrote |
+| `cresavo.cross_tenant = 'outbox'` | `cresavo_outbox` only (`npm run effects:drain`) | read effects and tenant kind, expiry and document; update effects that are not delivered. In a tenant's scope its message sink reads that salon and share-locks it. Nothing else |
+| `cresavo.cross_tenant = 'sweep'` | `cresavo_sweeper` only (`npm run store:sweep`) | only rows a retention rule has reached: expired keys and sandboxes (with their rows), a demo's log after 7 days, `journal/view` rows after 24 months, redaction after 13 months (and only so that the key is empty), settled messages after 90 days. A live salon's state, its other history, live keys and pending effects stay out of reach, also when it sets a tenant id |
+| `cresavo.sandbox_key` | `cresavo_app` | read the one sandbox row whose key is the full `sbx_` + 32-hex hash of the token; the transaction then switches to the tenant |
+| `cresavo.salon_slug` | `cresavo_app` | read the one salon row with that booking address (unique by `tenant_state_salon_slug_key`) |
+| none | `cresavo_support` | read its diagnostic columns across tenants (the column grants keep documents and payloads out) |
 
-Why the cross-tenant scopes are safe: each is read-only or limited to the
-operations its worker performs, the column grants of `roles.sql` still apply
-on top (the sweeper never reads a document, a replay result or a fingerprint),
-and the outbox and sweep scopes are tied to their group role inside the policy,
-so the application cannot use the sweep scope and the sweeper not the outbox
-scope. A setting is not a boundary against arbitrary SQL from the application
-login itself: it can set any tenant. What RLS adds is that a query which
-forgets its tenant condition, or a scope that is never entered, sees and
-changes nothing. LISTEN/NOTIFY touches no table; the notification is sent from
-the tenant's own transaction.
+Why the cross-tenant scopes are safe:
+
+- **Outbox.** The poller has a login of its own; the web login gets no row in
+  the outbox scope. Column grants (`roles.sql`) let it read what the claim and
+  the message sink read and change only the delivery columns of an effect
+  (payload, status, attempts, next attempt, lease, delivered); it cannot read
+  the log, the replay results or a fingerprint, change an effect's identity,
+  tenant, kind or erasure mark, insert or delete anything, or change a
+  document (its tenant_state lock policy has `WITH CHECK (false)`). Column
+  grants could express all of this, so there are no SECURITY DEFINER claim or
+  acknowledgement functions: the queries stay the same code for the poller and
+  the in-apply drain. The poller does read salon documents, because it renders
+  the e-mails from them.
+- **Sweep.** The policies carry the retention predicates themselves, against
+  the statement's transaction time; the sweepers compute their cutoff from the
+  database clock before the statement, so the policy never refuses a row they
+  select, and `tests/store-rls-files.test.ts` keeps the intervals equal to
+  `src/concept/privacy/retention.ts`. No predicate needed a SECURITY DEFINER
+  function.
+- A setting is not a boundary against arbitrary SQL from a login: within its
+  own role's policies a login can set any tenant. What the roles add is that
+  no login reaches another role's scope, and what RLS adds is that a query
+  which forgets its tenant condition, or a scope that is never entered, sees
+  and changes nothing.
+
+Notifications: the `tenant_changes` channel is readable and writable by every
+login, so a commit sends only an opaque wake-up, an HMAC of the tenant id under
+`STUDIO_STORE_HMAC_SECRET` (`wakeTag` in `postgres-notifications.ts`). A store
+recognises the tags of the tenants it has subscribers for, reads the version in
+that tenant's scope and hands it on only when it is newer. A forged or replayed
+tag causes that read and nothing else; the tag is stable per tenant, so a
+listener can tell that the same tenant changed again, not which one.
 
 Other roles: the table owner keeps every row through the `store_owner` policy
 (FORCE applies the policies to the owner too, so its full access is stated
 rather than implied), so migrations, the admin CLI and operator scripts such as
-`npm run store:loadtest` are unaffected. `cresavo_support` reads its diagnostic
-columns across tenants (`store_support_read`). `erase_subject` runs as
-`cresavo_eraser` inside the caller's transaction, whose tenant scope it shares:
-it erases in that tenant only and refuses another tenant as unknown.
-Superusers and `BYPASSRLS` roles are never subject to RLS.
+`npm run store:loadtest` and `effects:reconcile list` across tenants are
+unaffected. `erase_subject` runs as `cresavo_eraser` inside the caller's
+transaction, whose tenant scope it shares: it erases in that tenant only and
+refuses another tenant as unknown. Superusers and `BYPASSRLS` roles are never
+subject to RLS.
+
+The policies name roles, and a policy cannot name a role that does not exist,
+while `roles.sql` grants on tables and so runs after migrations. The migration
+therefore creates any of the five group roles that is missing, NOLOGIN and
+with every privileged attribute off, as `roles.sql` does; that needs
+CREATEROLE, and without it the deploy stops and names the statements an admin
+runs first. Logins are never created by a migration.
 
 Order, once per environment and after the application code that sets scopes
 is deployed:
 
 1. `npx prisma migrate deploy` (creates the policies; nothing changes yet)
-2. `roles.sql`, `studio-store.sql`, `erase-subject.sql` and the logins, as in the header of `roles.sql`
-3. `psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql` as the table owner (refuses to run without the policies or the roles)
-4. `psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql`: every table enabled, forced and with nothing missing
+2. `roles.sql`, `studio-store.sql`, `erase-subject.sql` and the logins (one per group role, `cresavo_outbox_login` for `effects:drain`), as in the header of `roles.sql`; then `verify-roles.sql` with all four logins
+3. `psql "$ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/grants/rls-enable.sql` as the table owner. It refuses unless the policies on the four tables are exactly the migration's (names, commands, roles and predicates, by digest; PostgreSQL 16's rendering with the default search_path) and the roles exist
+4. `psql "$ADMIN_DATABASE_URL" -f prisma/grants/verify-rls.sql`: every table enabled, forced, nothing missing, unexpected or changed, and no problem rows (no runtime login and not the erase definer can SET ROLE to the table owner, a superuser or a BYPASSRLS role)
 5. Rollback at any time: `prisma/grants/rls-disable.sql`
 
-The application login must not be the table owner or a member of it, or the
-owner policy lets it see every row; `verify-roles.sql` reports that. Every
-store statement becomes a short transaction (`BEGIN`, `set_config`, the
+Every store statement becomes a short transaction (`BEGIN`, `set_config`, the
 statement, `COMMIT`), which costs a few round trips per read.
 
 ### Metrics and benchmark (item 10)
