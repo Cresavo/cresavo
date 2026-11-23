@@ -43,7 +43,7 @@ export function OverviewSection() {
         onChange={setPeriod}
         options={PERIODS.map((p) => ({ value: p, label: t(`finance.period.${p}`) }))}
       />
-      <Card className="space-y-4 p-5">
+      <Card surface="raised" className="space-y-4 p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm text-text-secondary">{t(`finance.span.${period}`)}</p>
