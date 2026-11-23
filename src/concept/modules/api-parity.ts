@@ -15,4 +15,6 @@ export const CORE_API: readonly ApiResource[] = [
   { resource: "hours", read: "planned", write: "planned", mcp: "available", events: "planned" },
   { resource: "booking-page-profile", read: "planned", write: "planned", mcp: "available", events: "planned" },
   { resource: "inbox", read: "available", write: "propose", mcp: "available", events: "planned" },
+  /** Photos and the logo: /api/owner/media for the signed-in owner, and the active logo at its public address. */
+  { resource: "media-library", read: "available", write: "available", mcp: "planned", events: "planned" },
 ];

@@ -37,6 +37,13 @@ it("leaves the OAuth consent page to its own policy", () => {
   expect(cspExempt("/oauth/token")).toBe(false);
 });
 
+it("leaves a library picture to the stricter policy its route sends", () => {
+  expect(cspExempt("/api/owner/media/7c1e4f3a-1b2c-4d5e-8f90-123456789abc")).toBe(true);
+  expect(cspExempt(`/api/public/media/7c1e4f3a-1b2c-4d5e-8f90-123456789abc/${"a".repeat(64)}`)).toBe(true);
+  expect(cspExempt("/api/owner/media")).toBe(false);
+  expect(cspExempt("/studio/more/photos")).toBe(false);
+});
+
 it("sends a fresh nonce on the response and replaces client-supplied CSP request headers", () => {
   vi.stubEnv("PUBLIC_READONLY", undefined);
   const request = () => new NextRequest("http://localhost:3100/studio", {

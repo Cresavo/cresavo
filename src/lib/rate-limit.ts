@@ -22,7 +22,7 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit",
+  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload",
   ip: string,
   consume = true,
   now = Date.now(),
@@ -35,7 +35,7 @@ export function checkRateLimit(
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
   const bucket = buckets.get(key) ?? { count: 0, until: now + (route === "public-tenant" ? 4 * windowMs : windowMs) };
-  const limit = route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "public-tenant" ? 60 : 30;
+  const limit = route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "public-tenant" || route === "media-upload" ? 60 : 30;
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",

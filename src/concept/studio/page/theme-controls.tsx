@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { CheckCircle2, ImagePlus, Trash2 } from "lucide-react";
 import { t } from "../../i18n";
 import { buildTokens, contrastReport, type Palette } from "../../page/colour";
@@ -8,6 +8,8 @@ import { CORNERS, FONT_PAIR_IDS, PALETTES, PALETTE_IDS, PHOTO_IDS, type PageThem
 import { Button } from "../../ui/button";
 import { Chip, Input, Segmented } from "../../ui/controls";
 import { showToast } from "../../ui/toast";
+import { currentSession, uploadable, uploadPicture } from "../../media/library-client";
+import { useActiveWorkspace } from "../../store";
 import { readLogo } from "./read-logo";
 
 const FALLBACK: Palette = { background: "#f7f4ef", text: "#212522", accent: "#2f5d50" };
@@ -52,26 +54,38 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 
 function LogoField({ theme, onChange }: Props) {
   const input = useRef<HTMLInputElement>(null);
+  // A signed-in owner's logo is stored in the photo library and served from there; the demo keeps a small copy in the page.
+  const account = useActiveWorkspace() === "account";
+  const [busy, setBusy] = useState(false);
   const pick = async (file: File | undefined) => {
     if (!file) return;
-    const logo = await readLogo(file);
-    if (logo) onChange(logo);
-    else showToast(t("pageEditor.logo.failed"));
+    const bound = account ? await currentSession() : null;
+    const source = account ? await uploadable(file) : file;
+    if (!(source instanceof Blob)) return showToast(t(source.error));
+    // The small copy also gives the colours offered as accents.
+    const small = await readLogo(source);
+    if (!small) return showToast(t("pageEditor.logo.failed"));
+    if (!account) return onChange(small);
+    setBusy(true);
+    const answer = await uploadPicture(file, "logo", bound);
+    setBusy(false);
+    if (!answer.ok) return showToast(t(answer.error));
+    if (answer.asset.publicUrl) onChange({ logo: answer.asset.publicUrl, logoColors: small.logoColors });
   };
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium">{t("pageEditor.logo")}</p>
       <div className="flex flex-wrap items-center gap-3">
         {theme.logo && (
-          // A small data URL the owner just picked.
+          // The owner's logo: a small data URL in the demo, the app's own address for an account.
           // eslint-disable-next-line @next/next/no-img-element
           <img src={theme.logo} alt={t("pageEditor.logo.alt")} className="h-10 w-auto max-w-40 rounded-sm bg-surface-2 object-contain p-1" />
         )}
-        <Button variant="secondary" icon={<ImagePlus size={18} />} onClick={() => input.current?.click()}>{t(theme.logo ? "pageEditor.logo.change" : "pageEditor.logo.add")}</Button>
+        <Button variant="secondary" icon={<ImagePlus size={18} />} loading={busy} onClick={() => input.current?.click()}>{t(theme.logo ? "pageEditor.logo.change" : "pageEditor.logo.add")}</Button>
         {theme.logo && <Button variant="ghost" icon={<Trash2 size={18} />} onClick={() => onChange({ logo: null, logoColors: [] })}>{t("pageEditor.logo.remove")}</Button>}
-        <Input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
+        <Input ref={input} type="file" accept={account ? "image/*" : "image/png,image/jpeg,image/webp"} hidden onChange={(event) => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
       </div>
-      <p className="text-xs text-text-secondary">{t("pageEditor.logo.hint")}</p>
+      <p className="text-xs text-text-secondary">{t(account ? "pageEditor.logo.hintAccount" : "pageEditor.logo.hint")}</p>
     </div>
   );
 }
