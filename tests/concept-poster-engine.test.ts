@@ -11,7 +11,9 @@ import { hasTransparency } from "@/concept/campaigns/poster-engine/client";
 
 // The server poster engine: input limits, the template slots and a real render. Fictional salon.
 
-const jpeg = `data:image/jpeg;base64,${readFileSync("tests/fixtures/poster-photo.jpg").toString("base64")}`;
+const jpegBytes = readFileSync("tests/fixtures/poster-photo.jpg");
+const jpeg = `data:image/jpeg;base64,${jpegBytes.toString("base64")}`;
+const png = `data:image/png;base64,${readFileSync("tests/fixtures/poster-photo.png").toString("base64")}`;
 const input = {
   headline: "Salongens fotvård", price: "750 kr", detail: "Fotbad, nagelvård och fotmassage.", sticker: ["Ny kund?", "–15%"],
   label: "Friskvård", items: [{ name: "Fotvård", price: "895 kr" }, { name: "Spamassage", price: "790 kr" }], badges: ["Epassi"],
@@ -24,6 +26,19 @@ describe("poster engine input", () => {
   it("accepts a complete poster and fills defaults", () => {
     const data = posterDataSchema.parse(input);
     expect(data).toMatchObject({ focus: "center", textSize: "normal", serifHeadings: false });
+  });
+
+  it("checks the photo's own bytes: a mislabelled, cut-off or unreadable image is refused", () => {
+    expect(posterDataSchema.safeParse({ ...input, photo: png, before: jpeg }).success).toBe(true);
+    for (const [name, photo] of [
+      ["JPEG labelled PNG", jpeg.replace("data:image/jpeg", "data:image/png")],
+      ["PNG labelled JPEG", png.replace("data:image/png", "data:image/jpeg")],
+      ["cut-off JPEG", `data:image/jpeg;base64,${jpegBytes.subarray(0, jpegBytes.length >> 1).toString("base64")}`],
+      ["not an image", `data:image/jpeg;base64,${Buffer.from("<svg onload=alert(1)>").toString("base64")}`],
+    ] as const) {
+      expect(posterDataSchema.safeParse({ ...input, photo }).success, name).toBe(false);
+      expect(posterDataSchema.safeParse({ ...input, before: photo }).success, name).toBe(false);
+    }
   });
 
   it("refuses WebP or remote photos, bad colours, long text and unknown fields", () => {
@@ -95,7 +110,7 @@ describe("poster engine templates", () => {
   });
 
   it("puts the before and after photos with their labels on the before/after poster", () => {
-    const before = jpeg.replace("data:image/jpeg", "data:image/png");
+    const before = png;
     const paired = posterDataSchema.parse({ ...input, before, pair: ["Före", "Efter"], cta: "Boka nu →" });
     for (const format of ["post", "story"] as const) {
       const tree = flat(posterTree("beforeafter", paired, format));
@@ -402,7 +417,6 @@ describe("mirrored arrangement", () => {
       // The head and face (the middle of the person) lie left of where the right-hand text column starts.
       expect(place.left + place.width / 2).toBeLessThan(1080 - 64 - column);
     }
-    const png = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 3, 0x20, 0, 0, 4, 0x2c, 8, 6, 0, 0, 0]).toString("base64")}`;
     const person = posterDataSchema.parse({ ...input, photo: png, cutout: true, arrangement: "mirrored", headline: "friskvårdsbidrag" });
     const style = imageStyle(posterTree("portrait", person, "post"), png);
     expect(Number(style.left) + Number(style.width) / 2).toBeLessThan(1080 - 64 - column);
@@ -436,7 +450,7 @@ describe("mirrored arrangement", () => {
   });
 
   it("puts the after photo first on the before/after poster and keeps each label and the arrow right", async () => {
-    const before = jpeg.replace("data:image/jpeg", "data:image/png");
+    const before = png;
     const paired = posterDataSchema.parse({ ...input, before, pair: ["Före", "Efter"], arrangement: "mirrored" });
     const post = posterTree("beforeafter", paired, "post");
     expect(Number(imageStyle(post, paired.photo!).left)).toBeLessThan(Number(imageStyle(post, before).left));

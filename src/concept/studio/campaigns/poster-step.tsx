@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { reviewSummary } from "../../booking/reviews";
 import { Download, ImagePlus, Share2 } from "lucide-react";
@@ -38,7 +38,8 @@ interface PosterStepProps {
 export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   const [format, setFormat] = useState<PosterFormat>("post");
   const [feed, setFeed] = useState(false);
-  const svg = useRef<SVGSVGElement>(null);
+  // Held as state so Share and Download stay off until the current poster is drawn.
+  const [svg, setSvg] = useState<SVGSVGElement | null>(null);
   const poster = resolvePoster(state, draft);
   const source = { name: draft.name, to: draft.to, link: draftLink(state, draft), poster };
   const edit = (patch: Draft["posterEdits"]) => onChange((current) => ({ posterEdits: { ...current.posterEdits, ...patch } }));
@@ -49,9 +50,9 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
     edit({ badges: badges.includes(badge) ? badges.filter((b) => b !== badge) : WELLNESS_BADGES.filter((b) => b === badge || badges.includes(b)) });
 
   const download = async () => {
-    if (!svg.current) return;
+    if (!svg) return;
     try {
-      downloadBlob(await posterToPng(svg.current, format), `poster-${format}.png`);
+      downloadBlob(await posterToPng(svg, format), `poster-${format}.png`);
       showToast(t("campaigns.poster.saved"));
     } catch {
       showToast(t("campaigns.poster.failed"));
@@ -59,9 +60,9 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
   };
 
   const share = async () => {
-    if (!svg.current) return;
+    if (!svg) return;
     try {
-      const blob = await posterToPng(svg.current, format);
+      const blob = await posterToPng(svg, format);
       if (!(await sharePoster(blob, `poster-${format}.png`, `${poster.headline} ${poster.detail}`))) {
         downloadBlob(blob, `poster-${format}.png`);
         showToast(t("campaigns.poster.saved"));
@@ -81,7 +82,7 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
           options={FORMATS.map((value) => ({ value, label: t(`campaigns.format.${value}`) }))}
         />
         <div className={cx("mx-auto w-full overflow-hidden rounded-lg", format === "post" ? "max-w-sm" : "max-w-64")}>
-          <PosterView ref={svg} source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />
+          <PosterView ref={setSvg}source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format={format} />
         </div>
         <Switch checked={feed} onChange={() => setFeed((on) => !on)} label={t("campaigns.feed.preview")} showLabel />
         {feed && (
@@ -89,8 +90,8 @@ export function PosterStep({ state, draft, onChange }: PosterStepProps) {
             <PosterView source={source} salon={state.salon} theme={state.page.theme} rating={reviewSummary(state.reviews)} language={state.localization.language} format="post" />
           </FeedPreview>
         )}
-        <Button width="responsive" icon={<Share2 size={18} />} onClick={share}>{t("campaigns.poster.share")}</Button>
-        <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download}>
+        <Button width="responsive" icon={<Share2 size={18} />} onClick={share} disabled={!svg}>{t("campaigns.poster.share")}</Button>
+        <Button variant="secondary" width="responsive" icon={<Download size={18} />} onClick={download} disabled={!svg}>
           {t("campaigns.poster.download", { size: `${POSTER_FORMATS[format].width * POSTER_FORMATS[format].exportScale} × ${POSTER_FORMATS[format].height * POSTER_FORMATS[format].exportScale}` })}
         </Button>
       </div>

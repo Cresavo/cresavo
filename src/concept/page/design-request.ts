@@ -1,7 +1,8 @@
 import { jsonEqual } from "../data/json-equal";
 import { normalizePage, type PageConfig } from "./config";
 import { addSection, moveToFirst, removeSection, type SectionKind } from "./sections";
-import { PALETTES, type PageTheme } from "./theme";
+import { translate } from "../i18n";
+import { FONT_PAIR_IDS, PALETTES, type FontPairId, type PageTheme } from "./theme";
 
 // Reads "make it calmer and more luxurious", "put reviews first" or "use the
 // colours from our logo" into a new page config. It only ever returns a
@@ -84,11 +85,23 @@ function swedishDesign(text: string): string {
     : text;
 }
 
+// "Use the Warm font" or "typsnittet Vänligt" names a font choice, so it is read before the
+// moods: several labels (Warm, Soft, Friendly, Elegant) are also mood words.
+const FONT_WORD = "(?:fonts?|typefaces?|typsnitt(?:et)?|teckensnitt(?:et)?)";
+const FONT_NAMES = FONT_PAIR_IDS.flatMap((id) => (["en", "sv"] as const).map((lang) => {
+  const label = translate(lang, `page.fonts.${id}`).toLowerCase();
+  const name = `(?<![\\p{L}])${label}(?![\\p{L}])`;
+  return [id, new RegExp(`${name}\\s+(?:heading\\s+)?${FONT_WORD}|${FONT_WORD}\\s+(?:(?:to|called|named)\\s+)?(?:the\\s+)?${name}`, "u")] as const;
+}));
+const fontIn = (text: string): FontPairId | undefined => FONT_NAMES.find(([, pattern]) => pattern.test(text))?.[0];
+
 export type DesignRequest = { kind: "page"; page: PageConfig } | { kind: "needs-logo" };
 
 /** The new config the text asks for, or null when the text is not about the booking page. */
 export function designRequest(input: string, page: PageConfig): DesignRequest | null {
-  const text = swedishDesign(input.toLowerCase().replace(/’/g, "'").trim());
+  const raw = input.toLowerCase().replace(/’/g, "'").trim();
+  const text = swedishDesign(raw);
+  const font = fontIn(raw);
   let next = page;
   const theme = (patch: Partial<PageTheme>) => (next = { ...next, theme: { ...next.theme, ...patch } });
 
@@ -100,10 +113,11 @@ export function designRequest(input: string, page: PageConfig): DesignRequest | 
   }
 
   const aboutPage = /\b(page|site|website|look|design|feel|style|theme|colou?rs?|fonts?|corners?)\b/.test(text) || /^(?:please |can you |could you )?(?:make|give|turn) it\b/.test(text);
-  const moods = aboutPage && !fromLogo ? MOOD_WORDS.filter(([, word]) => word.test(text)).map(([mood]) => mood) : [];
+  if (font) theme({ fonts: font });
+  const moods = aboutPage && !fromLogo && !font ? MOOD_WORDS.filter(([, word]) => word.test(text)).map(([mood]) => mood) : [];
   if (moods.includes("calm") && moods.includes("luxury")) theme({ colors: PALETTES.sand, fonts: "elegant", corners: "soft" });
   else if (moods.length) theme(MOODS[moods[0]]);
-  else if (aboutPage && /\bdark(er)?\b/.test(text)) theme({ colors: PALETTES.ink });
+  else if (aboutPage && !font && /\bdark(er)?\b/.test(text)) theme({ colors: PALETTES.ink });
   const corners = text.match(/\b(round(?:er)?|sharp(?:er)?|square)\b[^.]*\bcorners?\b|\bcorners?\b[^.]*\b(round(?:er)?|sharp(?:er)?|square)\b/);
   if (corners) theme({ corners: /round/.test(corners[0]) ? "round" : "sharp" });
 

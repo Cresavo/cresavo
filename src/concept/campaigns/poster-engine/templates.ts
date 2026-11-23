@@ -1,5 +1,6 @@
 import { encode } from "uqr";
 import { z } from "zod";
+import { sniffImage } from "@/lib/media/sniff";
 import { contrast, readable } from "../../page/colour";
 import { BACKDROPS, backdropSvg } from "./backdrops";
 import { box, image, svgImage, text, type PosterNode, type Style } from "./element";
@@ -18,8 +19,31 @@ export type EngineFormat = keyof typeof ENGINE_FORMATS;
 const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 /** A line of text with its no-break and narrow spaces made ordinary ones, so the sizing and Satori break lines the same way. */
 const line = (max: number) => z.string().transform(normalSpaces).pipe(z.string().trim().max(max));
+/** A JPEG ends at its end-of-image marker (some cameras pad a few bytes after it), a PNG with its IEND chunk. */
+function complete(bytes: Uint8Array, type: string): boolean {
+  if (type === "image/png") return bytes.length >= 12 && String.fromCharCode(...bytes.subarray(bytes.length - 8, bytes.length - 4)) === "IEND";
+  for (let at = bytes.length - 2; at >= Math.max(0, bytes.length - 64); at--) if (bytes[at] === 0xff && bytes[at + 1] === 0xd9) return true;
+  return false;
+}
+
+/** The data URL's bytes are the image its label names, with a readable size, and not cut off. */
+function realImage(value: string): boolean {
+  // Zod runs this even when the data-URL pattern failed, so anything else is simply not an image.
+  const match = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  if (!match) return false;
+  const [, label, base64] = match;
+  let bytes: Uint8Array;
+  try {
+    bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  } catch {
+    return false;
+  }
+  const sniffed = sniffImage(bytes);
+  return sniffed.ok && sniffed.type === label && complete(bytes, label);
+}
+
 /** Photos arrive as JPEG or PNG data URLs (Satori cannot read WebP); about 2 MB each at most. */
-const photo = z.string().max(2_800_000).regex(/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/);
+const photo = z.string().max(2_800_000).regex(/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/]+={0,2}$/).refine(realImage, "not a readable JPEG or PNG");
 
 const hasHost = (value: string) => {
   try {
