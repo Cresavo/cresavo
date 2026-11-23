@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { version } from "../../../../package.json";
+import { APP_VERSION as version } from "@/lib/app-version";
 
 // Liveness for an uptime monitor. It reveals the release and nothing else, and
 // never touches the database unless HEALTH_CHECK_DB=1.
