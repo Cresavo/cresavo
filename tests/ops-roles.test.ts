@@ -199,7 +199,11 @@ describe("prisma/grants/roles.sql", () => {
     expect(vault.match(/INSERT INTO journal_entry/g)).toHaveLength(2);
     expect(appInsert.split(",").map((c) => c.trim()).sort()).toEqual(inserted);
     const erase = read("prisma/grants/erase-subject.sql");
-    expect(erase).toMatch(/GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions\(text, text, jsonb\) TO :"app_role";/);
+    // Only the eraser runs the replacement (it owns it; no grant at all), and only inside erase_subject.
+    expect(erase).not.toMatch(/GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions/);
+    expect(erase).toMatch(/GRANT EXECUTE ON FUNCTION erase_subject\(text, text, jsonb\) TO :"app_role";/);
+    expect(erase).toMatch(/v_replaced := public\.studio_erase_journal_mentions\(p_tenant, p_customer, p_copies\);/);
+    expect(erase).toContain("IF (p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')) IS NOT TRUE THEN");
     expect(erase).toMatch(/studio_erase_journal_mentions\(p_tenant text, p_customer text, p_copies jsonb\) RETURNS integer\s+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp/);
     // erase_subject deletes the customer's own rows only: no row is deleted on the strength of a `replaces` link.
     expect(erase.match(/DELETE FROM journal_entry[^;]*;/g)?.sort()).toEqual([
@@ -210,7 +214,7 @@ describe("prisma/grants/roles.sql", () => {
 
   it("redacts old journal audit rows only through a fixed function in the tenant's own scope", () => {
     const journals = read("prisma/migrations/20261123090000_server_journals/migration.sql").replace(/--.*$/gm, "");
-    const fn = journals.match(/CREATE FUNCTION store_journal_redact_audit\(p_tenant text, p_ids jsonb\)[\s\S]*?\$fn\$;/)![0];
+    const fn = journals.match(/CREATE FUNCTION store_journal_redact_audit\(p_tenant text\)[\s\S]*?\$fn\$;/)![0];
     expect(fn).toContain("SECURITY DEFINER SET search_path = public, pg_temp");
     expect(fn).toContain("(p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')) IS TRUE");
     expect(fn).toMatch(/store_caller_owns\(\) OR store_caller_in\('cresavo_app'\)/);

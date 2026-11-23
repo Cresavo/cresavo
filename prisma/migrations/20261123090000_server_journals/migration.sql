@@ -53,11 +53,11 @@ CREATE TABLE "journal_key" (
 );
 
 -- The journal text of one tenant's audit rows from before its journals moved to the server: `journal/add` keeps
--- its entry without the text fields (and gains the entry id where the store found it, p_ids: seq -> id), and
+-- its entry without the text fields (an entry id only where the original commit recorded one; none is guessed), and
 -- `journal/edit` keeps only its id and day. Nothing else in the row and no other action type is touched. The
 -- application calls it in its tenant's own scope, under the tenant's row lock, while moving the journals
 -- (studio-store.sql grants EXECUTE to cresavo_app); the table owner may always call it.
-CREATE FUNCTION store_journal_redact_audit(p_tenant text, p_ids jsonb) RETURNS integer
+CREATE FUNCTION store_journal_redact_audit(p_tenant text) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
 DECLARE
   v_text constant text[] := ARRAY['treatment', 'observations', 'advice', 'nextVisit', 'photos', 'versions'];
@@ -67,13 +67,8 @@ BEGIN
       AND (store_caller_owns() OR store_caller_in('cresavo_app'))) THEN
     RAISE EXCEPTION 'store_journal_redact_audit: not allowed' USING ERRCODE = '42501';
   END IF;
-  IF p_ids IS NOT NULL AND jsonb_typeof(p_ids) <> 'object' THEN
-    RAISE EXCEPTION 'store_journal_redact_audit: ids must be an object' USING ERRCODE = '22023';
-  END IF;
   UPDATE tenant_action a SET action = CASE a.action ->> 'type'
-      WHEN 'journal/add' THEN jsonb_build_object('type', 'journal/add', 'entry', ((a.action -> 'entry') - v_text)
-        || CASE WHEN (coalesce(p_ids, '{}'::jsonb) ->> a.seq::text) ~ '^[A-Za-z0-9_.:-]{1,80}$'
-             THEN jsonb_build_object('id', p_ids ->> a.seq::text) ELSE '{}'::jsonb END)
+      WHEN 'journal/add' THEN jsonb_build_object('type', 'journal/add', 'entry', (a.action -> 'entry') - v_text)
       ELSE jsonb_build_object('type', 'journal/edit', 'id', a.action -> 'id', 'on', a.action -> 'on') END
   WHERE a.tenant_id = p_tenant
     AND ((a.action ->> 'type' = 'journal/add' AND jsonb_typeof(a.action -> 'entry') = 'object' AND (a.action -> 'entry') ?| v_text)
@@ -82,4 +77,4 @@ BEGIN
   RETURN v_count;
 END $fn$;
 
-REVOKE ALL ON FUNCTION store_journal_redact_audit(text, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION store_journal_redact_audit(text) FROM PUBLIC;

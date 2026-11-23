@@ -132,7 +132,7 @@ describe.skipIf(!able?.ok)("server-side journals under least privilege and row-l
     await Promise.all(clients.filter((c) => c !== admin).map((c) => c.$disconnect()));
     await runSql(Object.values(LOGINS).map((login) => `DROP ROLE IF EXISTS ${login}`).join(";"));
     if (eraseSubjectInstalled) {
-      await runSql(`DROP FUNCTION IF EXISTS erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay(jsonb, text, text[], text[]),
+      await runSql(`DROP FUNCTION IF EXISTS erase_subject(text, text), erase_subject(text, text, jsonb), studio_erase_journal_mentions(text, text, jsonb), studio_redact_replay(jsonb, text, text[], text[]),
         studio_redact_replay_action(jsonb, text, text[], text[], jsonb), studio_scrub(jsonb, text[]), studio_scrub_text(text, text[]),
         studio_redact_path(jsonb, text[]), studio_phone_digits(text)`);
     }
@@ -161,8 +161,8 @@ describe.skipIf(!able?.ok)("server-side journals under least privilege and row-l
     const read = await store.readJournals(A, customer.id, { actor: "owner" });
     expect(read.ok && read.entries.some((e) => e.observations === SECRET)).toBe(true);
     // B is moved on its first load, under its own scope.
-    expect(await store.sealJournals(B)).toEqual({ ok: true, changed: true });
-    expect(await store.sealJournals(B)).toEqual({ ok: true, changed: false });
+    expect(await store.sealJournals(B)).toEqual({ ok: true, changed: true, sealed: true });
+    expect(await store.sealJournals(B)).toEqual({ ok: true, changed: false, sealed: true });
 
     const inA = await visible(admin, null, `tenant_id = '${A}'`);
     expect(inA).toBeGreaterThan(fixture.journals.length);
@@ -183,9 +183,16 @@ describe.skipIf(!able?.ok)("server-side journals under least privilege and row-l
     // The app may not link a version to one it replaces, nor call the erasure's replacement outside an erasure's checks.
     expect(await attempt(app, { tenant: A }, `INSERT INTO journal_entry (tenant_id, customer_id, id, version, ciphertext, iv, key_version, replaces)
       VALUES ('${A}', 'k-1', 'j-x', 2, '\\x00000000000000000000000000000000', '\\x000000000000000000000000', 1, 1)`)).toBe("denied");
-    await expect(scoped(app, { tenant: A }, (tx) => tx.$queryRawUnsafe(`SELECT studio_erase_journal_mentions('${A}', 'k-unknown', '[]'::jsonb)`)))
+    // Only the eraser runs the replacement, inside erase_subject; even there it holds to the tenant's scope and the customer.
+    await expect(scoped(app, { tenant: A }, (tx) => tx.$queryRawUnsafe(`SELECT studio_erase_journal_mentions('${A}', 'k-1', '[]'::jsonb)`)))
+      .rejects.toThrow(/permission denied/);
+    const copy = `[{"id": "j-x", "replaces": 1, "version": 2, "ciphertext": "AAAAAAAAAAAAAAAAAAAAAA==", "iv": "AAAAAAAAAAAAAAAA", "keyVersion": 1}]`;
+    await expect(scoped(app, { tenant: A }, (tx) => tx.$queryRawUnsafe(`SELECT erase_subject('${A}', 'k-unknown', '${copy}'::jsonb)`)))
       .rejects.toThrow(/unknown customer/);
-    // The audit rows from before the move hold no journal text, and the salon is marked.
+    await expect(scoped(app, { tenant: B }, (tx) => tx.$queryRawUnsafe(`SELECT erase_subject('${A}', 'k-1', '${copy}'::jsonb)`)))
+      .rejects.toThrow(/scope/);
+    // The audit rows from before the move hold no journal text, and the first load marks the salon (batched replays).
+    expect(await store.sealJournals(A)).toEqual({ ok: true, changed: false, sealed: true });
     const [audit] = await admin.$queryRaw<Array<{ text: number; sealed: boolean }>>`
       SELECT (SELECT count(*)::int FROM tenant_action WHERE tenant_id = ${A} AND action::text LIKE ${`%${SECRET}%`}) AS text,
         (SELECT journals_sealed_at IS NOT NULL FROM tenant_state WHERE tenant_id = ${A}) AS sealed`;

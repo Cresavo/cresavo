@@ -315,24 +315,39 @@ BEGIN
 END $fn$;
 
 -- statement
--- Server-side journals, before erase_subject in the same transaction: each version of ANOTHER customer's entry that
--- named the customer being erased is replaced by its scrubbed copy, which the store encrypted for the next version
--- of that entry (p_copies: [{id, replaces, version, ciphertext, iv, keyVersion}], ciphertext and iv in base64). The
--- copy keeps the replaced version's customer, author and trash mark, links to it (`replaces`), and the replaced
--- version is deleted at once: a link is only ever made and used inside this erasure. Refused unless the customer is
--- still in the salon's document (the caller holds its row lock), and for a version of the customer's own entries.
+-- Server-side journals, run only by erase_subject(tenant, customer, copies) below, as the eraser (no other role may
+-- execute it): each version of ANOTHER customer's entry that named the customer being erased is replaced by its
+-- scrubbed copy, which the store encrypted for the next version of that entry (p_copies: [{id, replaces, version,
+-- ciphertext, iv, keyVersion}], ciphertext and iv in base64). The copy keeps the replaced version's customer, author
+-- and trash mark, links to it (`replaces`), and the replaced version is deleted at once: a link is only ever made and
+-- used inside this erasure. Refused outside the tenant's own scope (whether row-level security is on or not),
+-- unless the customer is still in the salon's document (the caller holds its row lock) and has an identifier long
+-- enough to be scrubbed, and for a version of the customer's own entries. The mention itself cannot be proved here:
+-- the replaced version is ciphertext, which only the application can read. That is why this runs only inside the
+-- erasure, which the application can already ask for any customer of its tenant.
 CREATE OR REPLACE FUNCTION studio_erase_journal_mentions(p_tenant text, p_customer text, p_copies jsonb) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
 DECLARE
   v_copy jsonb;
   v_old record;
+  v_customer jsonb;
   v_count integer := 0;
 BEGIN
+  IF (p_tenant = nullif(current_setting('cresavo.tenant_id', true), '')) IS NOT TRUE THEN
+    RAISE EXCEPTION 'studio_erase_journal_mentions: not in the tenant''s scope' USING ERRCODE = '42501';
+  END IF;
   IF jsonb_typeof(coalesce(p_copies, '[]'::jsonb)) <> 'array' THEN RAISE EXCEPTION 'studio_erase_journal_mentions: copies must be an array'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM tenant_state s WHERE s.tenant_id = p_tenant AND (
-      EXISTS (SELECT 1 FROM jsonb_array_elements(s.doc -> 'customers') c WHERE c ->> 'id' = p_customer)
-      OR EXISTS (SELECT 1 FROM jsonb_array_elements(s.doc -> 'trash') t WHERE t ->> 'kind' = 'customer' AND t -> 'customer' ->> 'id' = p_customer))) THEN
-    RAISE EXCEPTION 'studio_erase_journal_mentions: unknown customer';
+  IF jsonb_array_length(coalesce(p_copies, '[]'::jsonb)) = 0 THEN RETURN 0; END IF;
+  SELECT coalesce(
+      (SELECT c FROM jsonb_array_elements(s.doc -> 'customers') c WHERE c ->> 'id' = p_customer LIMIT 1),
+      (SELECT t -> 'customer' FROM jsonb_array_elements(s.doc -> 'trash') t WHERE t ->> 'kind' = 'customer' AND t -> 'customer' ->> 'id' = p_customer LIMIT 1))
+    INTO v_customer FROM tenant_state s WHERE s.tenant_id = p_tenant;
+  IF v_customer IS NULL THEN RAISE EXCEPTION 'studio_erase_journal_mentions: unknown customer'; END IF;
+  -- The store scrubs identifiers of five characters or more (customerIdentifiers): without one there is nothing to replace.
+  IF greatest(length(btrim(coalesce(v_customer ->> 'firstName', '') || ' ' || coalesce(v_customer ->> 'lastName', ''))),
+              length(btrim(coalesce(v_customer ->> 'phone', ''))), length(btrim(coalesce(v_customer ->> 'email', '')))) < 5
+     AND jsonb_array_length(coalesce(v_customer -> 'earlier', '[]'::jsonb)) = 0 THEN
+    RAISE EXCEPTION 'studio_erase_journal_mentions: nothing to scrub';
   END IF;
   FOR v_copy IN SELECT jsonb_array_elements(coalesce(p_copies, '[]'::jsonb)) LOOP
     SELECT j.customer_id, j.id, j.version, j.author, j.deleted_at INTO v_old FROM journal_entry j
@@ -353,8 +368,20 @@ BEGIN
 END $fn$;
 
 -- statement
+-- The erasure with server-side journals: first the scrubbed copies (studio_erase_journal_mentions, as the eraser),
+-- then erase_subject as above, in the caller's transaction.
+CREATE OR REPLACE FUNCTION erase_subject(p_tenant text, p_customer text, p_copies jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $fn$
+DECLARE
+  v_replaced integer;
+BEGIN
+  v_replaced := public.studio_erase_journal_mentions(p_tenant, p_customer, p_copies);
+  RETURN public.erase_subject(p_tenant, p_customer) || jsonb_build_object('journalMentions', v_replaced);
+END $fn$;
+
+-- statement
 REVOKE ALL ON FUNCTION studio_phone_digits(text), studio_redact_path(jsonb, text[]), studio_scrub_text(text, text[]),
-  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb) FROM PUBLIC;
+  studio_scrub(jsonb, text[]), studio_redact_replay(jsonb, text, text[], text[]), studio_redact_replay_action(jsonb, text, text[], text[], jsonb), erase_subject(text, text), studio_erase_journal_mentions(text, text, jsonb), erase_subject(text, text, jsonb) FROM PUBLIC;
 -- statement
 ALTER FUNCTION studio_phone_digits(text) OWNER TO :"eraser_role";
 -- statement
@@ -372,9 +399,11 @@ ALTER FUNCTION erase_subject(text, text) OWNER TO :"eraser_role";
 -- statement
 ALTER FUNCTION studio_erase_journal_mentions(text, text, jsonb) OWNER TO :"eraser_role";
 -- statement
+ALTER FUNCTION erase_subject(text, text, jsonb) OWNER TO :"eraser_role";
+-- statement
 GRANT EXECUTE ON FUNCTION erase_subject(text, text) TO :"app_role";
 -- statement
-GRANT EXECUTE ON FUNCTION studio_erase_journal_mentions(text, text, jsonb) TO :"app_role";
+GRANT EXECUTE ON FUNCTION erase_subject(text, text, jsonb) TO :"app_role";
 
 -- statement
 COMMIT;

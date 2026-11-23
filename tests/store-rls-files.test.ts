@@ -103,7 +103,7 @@ describe("store row-level security files", () => {
     const revokes = (sql: string) => sql.match(/REVOKE ALL ON FUNCTION store_[^;]+;/g);
     expect(revokes(rawMigration)).toHaveLength(3);
     const journals = read("prisma/migrations/20261123090000_server_journals/migration.sql");
-    expect(revokes(journals)).toEqual(["REVOKE ALL ON FUNCTION store_journal_redact_audit(text, jsonb) FROM PUBLIC;"]);
+    expect(revokes(journals)).toEqual(["REVOKE ALL ON FUNCTION store_journal_redact_audit(text) FROM PUBLIC;"]);
     expect(revokes(read("prisma/grants/studio-store.sql"))).toEqual([...revokes(rawMigration)!, ...revokes(journals)!]);
   });
 

@@ -227,7 +227,6 @@ allowed_functions(kind, fn) AS (VALUES
   ('app', 'store_outbox_dispatch'),
   ('app', 'store_outbox_message_view'),
   ('app', 'erase_subject'),
-  ('app', 'studio_erase_journal_mentions'),
   ('app', 'store_journal_redact_audit'),
   ('app', 'store_salon_by_slug'),
   ('outbox', 'store_outbox_cancel_erased'),

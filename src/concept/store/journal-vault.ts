@@ -120,17 +120,15 @@ export function replayHoldsText(result: StoredReplay | null | undefined): boolea
 }
 
 export class JournalVault {
-  private verified = false;
-
   constructor(private readonly key: JournalKey) {}
 
   /**
    * True when the configured key is the key its version was first used with: it decrypts the verifier stored for
    * that version in `journal_key`, which the first use stores. A wrong key of the same version is refused before it
-   * reads or writes anything. Remembered once true.
+   * reads or writes anything. Checked in every transaction that uses the key, never remembered across them: a
+   * verifier stored by a transaction that then rolled back is no proof.
    */
   async verify(tx: Tx): Promise<boolean> {
-    if (this.verified) return true;
     const read = () => tx.$queryRaw<Array<{ verifier: Uint8Array; iv: Uint8Array }>>`
       SELECT verifier, iv FROM journal_key WHERE key_version = ${this.key.version}`;
     let [stored] = await read();
@@ -140,8 +138,7 @@ export class JournalVault {
         INSERT INTO journal_key (key_version, verifier, iv) VALUES (${this.key.version}, ${fresh.verifier}, ${fresh.iv}) ON CONFLICT (key_version) DO NOTHING`;
       [stored] = await read();
     }
-    this.verified = !!stored && verifiesKey({ verifier: Buffer.from(stored.verifier), iv: Buffer.from(stored.iv) }, this.key);
-    return this.verified;
+    return !!stored && verifiesKey({ verifier: Buffer.from(stored.verifier), iv: Buffer.from(stored.iv) }, this.key);
   }
 
   /** Work on one tenant's rows inside a store transaction. `clock` stamps new and trashed rows. */
