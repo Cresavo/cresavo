@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { defaultPrefill, draftLink, latestPoster, latestSignOff, newDraft, posterToSave, selectedCopy, type Draft } from "../../campaigns/draft";
+import { defaultPrefill, draftLink, latestPoster, latestSignOff, newDraft, posterToSave, selectedCopy, withLibraryPhoto, type Draft } from "../../campaigns/draft";
 import { prefillFromQuery } from "../../campaigns/prefill";
 import { addDays } from "../../data/dates";
 import type { DateKey } from "../../data/types";
@@ -29,7 +29,8 @@ export function CampaignStudio() {
   const { state, today } = useStudio();
   const router = useRouter();
   const query = useSearchParams();
-  const [draft, setDraft] = useState<Draft>(() => newDraft((query && prefillFromQuery(query, state, today)) ?? defaultPrefill(state, today), latestPoster(state), latestSignOff(state)));
+  const [draft, setDraft] = useState<Draft>(() => withLibraryPhoto(
+    newDraft((query && prefillFromQuery(query, state, today)) ?? defaultPrefill(state, today), latestPoster(state), latestSignOff(state)), query?.get("photo")));
   const [step, setStep] = useState<Step>("offer");
   const index = STEPS.indexOf(step);
   // A patch can depend on the latest draft, so changes that finish late (a photo still decoding) never undo newer ones.

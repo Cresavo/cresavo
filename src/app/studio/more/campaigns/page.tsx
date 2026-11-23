@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarHeart, Check, Megaphone, Plus } from "lucide-react";
+import { CalendarHeart, Check, Images, Megaphone, Plus } from "lucide-react";
 import { prefillForHoliday, studioHref } from "@/concept/campaigns/prefill";
 import { diffDays } from "@/concept/data/dates";
 import { t, tc } from "@/concept/i18n";
 import { formatDate } from "@/concept/i18n/format";
 import { MorePage } from "@/concept/studio/more/more-page";
+import { PHOTOS_PAGE } from "@/concept/studio/photos/photo-library";
 import { CampaignCard } from "@/concept/studio/campaigns/campaign-card";
 import { ContentCalendar } from "@/concept/studio/campaigns/content-calendar";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -32,7 +33,10 @@ export default function CampaignsPage() {
       title={t("nav.campaigns")}
       subtitle={t("campaigns.subtitle")}
       module="campaigns"
-      actions={<ButtonLink href="/studio/more/campaigns/new" icon={<Plus size={18} />}>{t("campaigns.new")}</ButtonLink>}
+      actions={<>
+        <ButtonLink href={PHOTOS_PAGE} variant="secondary" icon={<Images size={18} />}>{t("photos.title")}</ButtonLink>
+        <ButtonLink href="/studio/more/campaigns/new" icon={<Plus size={18} />}>{t("campaigns.new")}</ButtonLink>
+      </>}
     >
       <div className="space-y-8">
         <Section title={t("campaigns.yours")}>
