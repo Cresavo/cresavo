@@ -43,3 +43,15 @@ The saved desktop views show a clear schedule in both themes. They also show the
 | 28 | **Gift card sale.** The custom amount field steps in increments of 50, while the sale accepts any whole amount within its range. Presets already cover the common amounts. | S | `src/concept/studio/giftcards/sell-sheet.tsx:56` | Use a one-unit step for custom amounts and keep the preset chips for quick sales. |
 | 29 | **Treatments & prices.** The reason a category cannot be removed is in the disabled trash button's accessible label. A sighted phone user sees an inactive icon with no explanation. | S | `src/concept/studio/services/categories-sheet.tsx:70` | Use the count line to explain that the treatments must be moved before the category can be removed. |
 | 30 | **Desktop navigation.** Both saved themes truncate the line identifying the fictional salon. A longer business name gets still more of the available space. | S | `src/concept/studio/shell.tsx:170` | Give the salon name and demo notice separate lines. Let the name wrap and keep the full notice legible in the existing secondary text colour. |
+
+## Visual polish pass (November 2026)
+
+A look-and-feel pass over Today, Calendar, Customers, Inbox, More and the new-booking sheet, built by Claude and critiqued from screenshots by an independent model over three rounds. The last round reported no High or Medium findings. The component rules it introduced are in [DESIGN_SYSTEM](DESIGN_SYSTEM.md).
+
+Left open, all Low:
+
+- **New booking, desktop.** The footer clips the first row of date buttons under Time, and the longest treatment name wraps to three lines. Widen the desktop sheet.
+- **Calendar week.** When only one person works a day, the Lunch label is centred on the day, not on the hatched column.
+- **Today, next customer.** A routine customer note uses the warning triangle. Decide whether notes should use neutral styling.
+- **Today, first visit.** The tour still sits above the next-customer card. It takes keyboard focus, so moving it needs a behaviour decision.
+

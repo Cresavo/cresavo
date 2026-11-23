@@ -105,6 +105,11 @@ body:has(.studio-root) .demo-banner {
   outline-offset: 2px;
 }
 
+/* Rows that share one surface are separated by a straight line; only the surface is rounded. */
+.studio-root .divide-y > * { border-radius: 0; }
+/* The button reset above clears a row's border; a button row keeps its divider. */
+.studio-root .divide-hairline > * ~ button { border-top: 1px solid var(--ui-hairline); }
+
 .studio-content {
   padding-bottom: calc(var(--studio-bottom-nav) + var(--space-8) + env(safe-area-inset-bottom));
 }
@@ -118,6 +123,14 @@ body:has(.studio-root) .demo-banner {
 }
 
 .studio-calendar-day { --calendar-column-width: calc(3 * var(--space-8) + var(--space-4)); }
+
+/* Lunch reads the same in the day and week grids: a faint tint with sparse lines,
+   so it is clearly not free time and never louder than a booking. */
+.studio-calendar-lunch {
+  background:
+    repeating-linear-gradient(135deg, transparent 0 9px, var(--ui-hairline) 9px 10px),
+    color-mix(in srgb, var(--ui-surface-2) 70%, transparent);
+}
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 

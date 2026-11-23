@@ -30,11 +30,11 @@ function useThemePreference(): ThemePreference {
 
 const ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
 
-/** Light, dark or system. `compact` shows icons only (with names for screen readers), for the shell. */
+/** Light, dark or system. `compact` shows bare icons (with names for screen readers) and a short line under the chosen one. */
 export function ThemeControl({ compact = false, className }: { compact?: boolean; className?: string }) {
   const theme = useThemePreference();
   return (
-    <Segmented label={t("theme.label")} value={theme} onChange={setTheme} className={className}
+    <Segmented label={t("theme.label")} value={theme} onChange={setTheme} className={className} quiet={compact}
       options={THEMES.map(value => {
         const Icon = ICONS[value];
         return { value, label: t(`theme.${value}`), icon: compact ? <Icon size={18} aria-hidden /> : undefined };
