@@ -417,7 +417,9 @@ describe("as the least-privilege logins of prisma/grants/roles.sql", () => {
   const appLogin = `media_app_${run}`;
   const sweepLogin = `media_sweep_${run}`;
   const supportLogin = `media_support_${run}`;
-  const url = (user: string) => { const next = new URL(process.env.TEST_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL!); next.username = user; next.password = ""; return next.href; };
+  // A throwaway password made at run time: CI's Postgres requires password authentication, a local trust setup ignores it.
+  const loginSecret = randomBytes(18).toString("hex");
+  const url = (user: string) => { const next = new URL(process.env.TEST_ADMIN_DATABASE_URL ?? process.env.DATABASE_URL!); next.username = user; next.password = loginSecret; return next.href; };
 
   it("uploads, reads, describes, deletes, restores and publishes as the app, and purges as the sweeper, and nothing more", async (context) => {
     if (!(await superuser())) return context.skip();
@@ -426,7 +428,7 @@ describe("as the least-privilege logins of prisma/grants/roles.sql", () => {
     const logins: PrismaClient[] = [];
     try {
       await pgAdmin.query(readFileSync(new URL("../../prisma/grants/roles.sql", import.meta.url), "utf8"));
-      await pgAdmin.query(`CREATE ROLE ${appLogin} LOGIN IN ROLE cresavo_app; CREATE ROLE ${sweepLogin} LOGIN IN ROLE cresavo_sweeper; CREATE ROLE ${supportLogin} LOGIN IN ROLE cresavo_support`);
+      await pgAdmin.query(`CREATE ROLE ${appLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_app; CREATE ROLE ${sweepLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_sweeper; CREATE ROLE ${supportLogin} LOGIN PASSWORD '${loginSecret}' IN ROLE cresavo_support`);
       const app = createDatabaseClient(url(appLogin), 2) as PrismaClient;
       const sweeper = createDatabaseClient(url(sweepLogin), 2) as PrismaClient;
       logins.push(app, sweeper);
