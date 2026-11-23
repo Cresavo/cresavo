@@ -101,8 +101,10 @@ Security
       scope, and `tests/integration/store-rls.test.ts` runs the store under
       RLS as real application, poller (`cresavo_outbox`), sweeper and support
       logins, including booking e-mail of two salons through the real message
-      sink. Each policy names its roles; the sweep policies carry the
-      retention periods. Enforcement is one SQL step
+      sink, and a dump and restore drill under RLS. Each policy names its
+      roles; the poller and the sweeper have no table privileges and work
+      through fixed functions (claimed effects only; retention cutoffs
+      inside). Enforcement is one SQL step
       away (`prisma/grants/rls-enable.sql`, rollback `rls-disable.sql`, state
       `verify-rls.sql`; order in docs/design/STUDIO_STORE.md, "Row-level
       security"). Still open: running that step in production. Until then

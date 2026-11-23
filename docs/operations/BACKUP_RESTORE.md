@@ -57,6 +57,25 @@ are placeholders, and the drill measures what is achievable.
    leaves the machine, store it in a different account or region than the
    database, and delete it after the retention period. The dump login needs
    `SELECT` on everything, so it is its own role, not one of the application's.
+
+   **With row-level security enforced** (`prisma/grants/rls-enable.sql`) the
+   dump identity must read every row, or `pg_dump` stops with "query would be
+   affected by row-level security policy" (it turns row security off and
+   refuses to dump a filtered table). Use either:
+
+   - a **dedicated backup login** with `BYPASSRLS`, created by an admin
+     (`CREATE ROLE cresavo_backup_login LOGIN BYPASSRLS`, `\password`, then
+     `GRANT USAGE ON SCHEMA public` and `GRANT SELECT ON ALL TABLES IN SCHEMA
+     public` and `ON ALL SEQUENCES`). It is a member of no runtime group role,
+     writes nothing, and is used for dumps only. Keep it out of every
+     `DATABASE_URL`; or
+   - the **table owner**, with `pg_dump --enable-row-security`: FORCE applies
+     the policies to the owner, and its `store_owner` policy returns every row.
+     Without the flag the owner's dump fails the same way.
+
+   A runtime login (app, sweeper, support, outbox) cannot take a full dump and
+   must not be given the rights to. Check a new backup identity once: the row
+   counts of the four store tables in a restore of its dump equal the source's.
 3. **Alerting** when a backup is missing or older than the RPO. A backup nobody
    notices failing is not a backup.
 
@@ -79,9 +98,21 @@ then decide whether to cut over.
    The name must not be one the application is configured for. The test suites
    refuse databases not ending in `_test` or `_demo`; do not weaken that guard
    to run them here.
-3. **Keep the target closed until step 5 is done.** A restore without
-   privileges recreates the `SECURITY DEFINER` function `erase_subject` owned by
-   the restoring login and executable by `PUBLIC`, until the grants files run.
+3. **Create the group roles first** on a fresh cluster (roles belong to the
+   cluster, not to the dump): the restored policies and grants name them, and
+   `pg_restore --exit-on-error` stops at the first policy otherwise.
+
+   ```bash
+   psql --host <scratch-host> --username <admin_login> --dbname cresavo_restore_drill \
+     -v ON_ERROR_STOP=1 -f prisma/grants/bootstrap-roles.sql
+   ```
+
+   **Keep the target closed until step 6 is done.** A restore without
+   privileges recreates the `SECURITY DEFINER` functions (`erase_subject` and
+   the store's `store_outbox_*` and `store_sweep_*`) owned by the restoring
+   login and executable by `PUBLIC`, until the grants files run (studio-store.sql
+   puts the store functions' privileges back). Restore as the schema owner, not
+   a superuser, so the tables and the functions are owned by it.
    Until then only the admin login may connect: no application, sweeper or
    support login exists on the target, and the network rule admits the operator
    only.
@@ -96,11 +127,11 @@ then decide whether to cut over.
    owns the objects and no grants came along. That is intended: the roles are
    created fresh in the next step, and a dump that named roles missing on the
    target would fail.
-5. **Recreate the roles, grants and logins**, in the order in the header of
+5. **Recreate the grants and logins**, in the order in the header of
    [`prisma/grants/roles.sql`](../../prisma/grants/roles.sql): `roles.sql`,
    `studio-store.sql`, `erase-subject.sql` (with the ownership-transfer
    steps the header gives when the admin login is not a superuser), then the
-   three logins with `\password`. A provider restore may keep ACLs, but run the
+   four logins with `\password`. A provider restore may keep ACLs, but run the
    files anyway: they are idempotent, and they replace the `PUBLIC` function
    privilege with the intended one. Only then let the application connect.
 6. **Verify** (next section), then open the target.
@@ -119,7 +150,17 @@ All of these must pass; any failure fails the drill.
      -v app_role=<app login> -f prisma/grants/verify-studio-store.sql
    psql --host <scratch-host> --username <admin_login> --dbname cresavo_restore_drill \
      -v app_login=<app login> -v sweeper_login=<sweeper login> -v support_login=<support login> \
-     -f prisma/grants/verify-roles.sql
+     -v outbox_login=<outbox login> -f prisma/grants/verify-roles.sql
+   ```
+
+   With row-level security in production, also check that the restore kept
+   it enforced (the dump carries `ENABLE` and `FORCE`) and that no runtime login
+   can bypass it. Every table must say enabled and forced with nothing missing,
+   unexpected or changed, and the second result must be empty:
+
+   ```bash
+   psql --host <scratch-host> --username <admin_login> --dbname cresavo_restore_drill \
+     -f prisma/grants/verify-rls.sql
    ```
 
    They follow membership and `PUBLIC`, so they also catch the restored
