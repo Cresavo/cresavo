@@ -3,7 +3,7 @@
 // the first section (or on top when there is none) and cannot be changed.
 
 export const SECTION_KINDS = {
-  hero: ["photo", "plain"],
+  hero: ["photo", "plain", "cover", "split"],
   treatments: ["list", "compact"],
   staff: ["cards", "names"],
   about: ["plain", "card"],

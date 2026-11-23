@@ -34,7 +34,7 @@ export function StaffSection({ state, variant }: { state: DemoState; variant: st
                 <StaffAvatar person={person} size="lg" />
                 <div className="min-w-0">
                   <p className="font-semibold">{person.firstName} {person.lastName}</p>
-                  <p className="text-meta text-text-secondary">{person.title}</p>
+                  <p className="text-meta font-medium">{person.title}</p>
                   <p className="mt-1 text-meta">{person.bio}</p>
                 </div>
               </Card>
@@ -64,13 +64,16 @@ export function AboutSection({ about, name, variant }: { about: PageAbout; name:
 
 const GALLERY: PhotoId[] = ["salon", "massage", "hair"];
 
-export function GallerySection({ variant }: { variant: string }) {
+/** `shown` is the photo already at the top of the page; the gallery leaves it out. */
+export function GallerySection({ variant, shown }: { variant: string; shown?: PhotoId }) {
   const strip = variant === "strip";
+  const photos = GALLERY.filter((photo) => photo !== shown);
+  const wideFirst = !strip && photos.length % 2 === 1;
   return (
     <Section title={t("booking.gallery")}>
-      <ul className={cx("grid gap-2", strip ? "grid-cols-3" : "grid-cols-2")}>
-        {GALLERY.map((photo, index) => (
-          <li key={photo} className={cx("relative overflow-hidden rounded-lg bg-surface-2", strip ? "aspect-[3/4]" : index === 0 ? "col-span-2 aspect-[2/1]" : "aspect-square")}>
+      <ul className={cx("grid gap-2", strip && photos.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
+        {photos.map((photo, index) => (
+          <li key={photo} className={cx("relative overflow-hidden rounded-lg bg-surface-2", strip ? "aspect-[3/4]" : wideFirst && index === 0 ? "col-span-2 aspect-[2/1]" : "aspect-square")}>
             <Image src={PHOTOS[photo]} alt={t(`page.photo.${photo}`)} fill sizes="(min-width: 1024px) 480px, 50vw" className="object-cover" />
           </li>
         ))}

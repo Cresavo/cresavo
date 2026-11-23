@@ -168,12 +168,18 @@ body:has(.studio-root) .demo-banner {
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 
+/* A design's name in its own heading font (the swatch wears the design's theme). */
+.studio-template-name { font-family: var(--page-font-heading, inherit); }
+
 .studio-preview-frame { height: 34rem; }
 .studio-preview-phone { width: 390px; }
 
 .studio-page-editor {
   --action-layout-height: max(16rem, calc(100dvh - var(--studio-bottom-nav) - var(--space-12) - env(safe-area-inset-bottom)));
 }
+
+/* The save row under the phone preview rests just above the bottom navigation. */
+.studio-page-preview-actions { position: sticky; bottom: calc(var(--studio-bottom-nav) + var(--space-2) + env(safe-area-inset-bottom)); }
 
 @media (min-width: 1024px) {
   .studio-content { padding-bottom: var(--space-12); }

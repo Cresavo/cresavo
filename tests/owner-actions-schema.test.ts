@@ -99,7 +99,7 @@ const EXAMPLES: { [K in OwnerActionType]: Member<K> } = {
     type: "page/set",
     page: {
       ...DEFAULT_PAGE, instagram: "@salong.eko", css: ".booking-theme h1 { letter-spacing: 1px; }",
-      theme: { logo: null, logoColors: ["#2f5d50"], colors: { background: "#f7f4ef", text: "#212522", accent: "#2f5d50" }, fonts: "classic", corners: "round", heroPhoto: "massage" },
+      theme: { logo: null, logoColors: ["#2f5d50"], colors: { background: "#f7f4ef", text: "#212522", accent: "#2f5d50" }, fonts: "classic", corners: "round", style: "lined", heroPhoto: "massage" },
     },
   },
   "product/sell": { type: "product/sell", customerId: "k-7", stockId: "st-2", quantity: 2, date: "2026-11-22" },

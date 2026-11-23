@@ -156,7 +156,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
   );
 
   const body: Record<Step, ReactNode> = {
-    ask: <AskStep onAsk={ask} onChoose={listOnPage ? undefined : () => go("service")} />,
+    ask: <AskStep onAsk={ask} example={state.services[0]?.name ?? ""} onChoose={listOnPage ? undefined : () => go("service")} />,
     service: (
       <div className="space-y-5">
         <h2 className="text-h2 font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>

@@ -49,8 +49,52 @@
   color-scheme: dark;
 }
 
-.booking-theme :is(h1, h2, h3) {
+.booking-theme :is(h1, h2, h3, .booking-display) {
   font-family: var(--page-font-heading, inherit);
+}
+
+/* The large name of the "cover" and "split" tops. */
+.booking-hero-title {
+  font-size: clamp(2.25rem, 1.5rem + 3.4vw, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* "cover": the name sits on the photo. The shade and its ink are fixed, never
+   the palette's, so the name reads on any photo and in any theme. */
+.booking-hero-cover {
+  min-height: 18rem;
+}
+
+@media (min-width: 640px) {
+  .booking-hero-cover { min-height: min(26rem, 70dvh); }
+}
+
+.booking-theme .booking-hero-shade {
+  color: #ffffff;
+  padding-top: var(--space-12);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.82), rgb(0 0 0 / 0.55) 55%, rgb(0 0 0 / 0));
+}
+
+/* On a light theme the button on the photo is white, since the accent would sink into the shade.
+   A dark theme's accent is bright enough to be the same button as everywhere else. */
+.booking-theme:not([data-scheme="dark"]) .booking-hero-cta {
+  background: #ffffff;
+  color: #17181a;
+}
+
+.booking-theme:not([data-scheme="dark"]) .booking-hero-cta:hover {
+  background: #ececec;
+}
+
+/* On a phone the cover runs edge to edge, right under the header. */
+@media (max-width: 639px) {
+  .booking-theme .booking-hero-cover {
+    margin: calc(-1 * var(--space-5)) calc(-1 * max(var(--booking-gutter), env(safe-area-inset-left))) 0;
+    margin-right: calc(-1 * max(var(--booking-gutter), env(safe-area-inset-right)));
+    border-radius: 0;
+  }
 }
 
 .booking-gutters {
@@ -100,6 +144,79 @@
 
 .booking-theme[data-corners="round"] .rounded-lg {
   border-radius: 1.75rem;
+}
+
+/* Section styles (theme.style). "boxed" is the cards as they are. The booking
+   flow keeps its own cards and headings in every style: only the sections
+   around it change. */
+
+/* "lined": flat sections under a rule, small capital labels, the display font
+   saved for the name, the category names and the quote. */
+.booking-theme[data-style="lined"] .ui-card:not([data-booking-flow] .ui-card) {
+  padding-left: 0;
+  padding-right: 0;
+  text-align: left;
+  background: transparent;
+  border-top: 1px solid var(--ui-text);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.booking-theme[data-style="lined"] .ui-card:not([data-booking-flow] .ui-card) :is(.px-4, .pr-4) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.booking-theme[data-style="lined"] h2:not([data-booking-flow] h2) {
+  font-family: var(--page-font-body, var(--font-ui));
+  font-size: var(--type-meta);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.booking-theme[data-style="lined"] h3:not([data-booking-flow] h3) {
+  font-size: var(--type-h2);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* "soft": borderless cards in a tint of the accent, with larger headings. The
+   practical facts (hours, address) are flat lists, so not every block has the
+   same silhouette. */
+/* Half the accent tint: secondary text keeps 4.5:1 on it (tests/concept-page-design.test.ts). */
+.booking-theme[data-style="soft"] .ui-card:not([data-booking-flow] .ui-card) {
+  background: color-mix(in srgb, var(--ui-action-bg) 50%, var(--ui-surface));
+  box-shadow: none;
+}
+
+.booking-theme[data-style="soft"] [data-section="map"] .ui-card:not([data-booking-flow] .ui-card) {
+  padding-left: 0;
+  padding-right: 0;
+  background: transparent;
+  border-top: 1px solid var(--ui-border);
+  border-radius: 0;
+}
+
+.booking-theme[data-style="soft"] h2:not([data-booking-flow] h2) {
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* Team profiles stand on the page in every style: the portraits hold them together. */
+.booking-theme[data-style] [data-section="staff"] .ui-card:not([data-booking-flow] .ui-card) {
+  padding: 0;
+  background: transparent;
+  border-top: 0;
+  box-shadow: none;
+}
+
+/* The condensed "statement" font is set in capitals, like a shop sign. */
+.booking-theme[data-fonts="statement"] :is(h1, h3):not([data-booking-flow] *) {
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 /* Whatever the owner's own CSS says, the booking flow stays on the page. */

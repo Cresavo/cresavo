@@ -5,14 +5,15 @@ import { fixtureAbout } from "../i18n/salon-eko-copy";
 import type { PageAbout } from "./about";
 import { normalizePage, type PageConfig } from "./config";
 import { advanceStatus, checkDomain, type DomainStatus } from "./domain";
+import type { PageStyle, PageTheme } from "./theme";
 
 // Store actions for the booking page's address and design. The reducer
 // re-checks everything, so a proposal from the assistant or a hand-edited
 // state can never put an unchecked value on the page.
 
 export type PageAction =
-  /** `about` may be missing from an editor opened before the About text existed: the stored text is then kept. */
-  | { type: "page/set"; page: Omit<PageConfig, "about"> & { about?: PageAbout } }
+  /** `about` and the theme's `style` may be missing from an editor opened before they existed: the stored ones are then kept. */
+  | { type: "page/set"; page: Omit<PageConfig, "about" | "theme"> & { theme: Omit<PageTheme, "style"> & { style?: PageStyle }; about?: PageAbout } }
   | { type: "salon/slug"; slug: string }
   | { type: "domain/connect"; host: string; status?: DomainStatus }
   /** One more check of the DNS record. The live module passes the status it found; the demo moves one step on. */
@@ -22,7 +23,8 @@ export type PageAction =
 export function applyPageAction(state: DemoState, action: PageAction): DemoState {
   switch (action.type) {
     case "page/set": {
-      const page = normalizePage({ ...action.page, about: action.page.about ? fixtureAbout(state, action.page.about) : state.page.about });
+      // An editor opened before the section style existed sends none: the stored style is then kept.
+      const page = normalizePage({ ...action.page, theme: { ...action.page.theme, style: action.page.theme.style ?? state.page.theme.style }, about: action.page.about ? fixtureAbout(state, action.page.about) : state.page.about });
       return jsonEqual(page, state.page) ? state : { ...state, page };
     }
     case "salon/slug": {

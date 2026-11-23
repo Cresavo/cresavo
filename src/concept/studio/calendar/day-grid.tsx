@@ -3,13 +3,13 @@
 import { formatTime } from "../../i18n/format";
 import type { DragEvent, MouseEvent } from "react";
 import { lunchFor, openingFor, workWindow } from "../../data/slots";
-import type { DateKey, Staff } from "../../data/types";
+import type { DateKey, Interval, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { accountRecordSettled } from "../../store";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
 import { Badge } from "../../ui/badge";
-import { showActionFailure } from "../../ui/toast";
+import { showActionFailure, showToast } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { commitWithUndoToast } from "../log/commit-toast";
 import { StaffDot } from "../staff-dot";
@@ -53,9 +53,17 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   const minuteAt = (event: { clientY: number; currentTarget: Element }) =>
     snapMinutes(from + (event.clientY - event.currentTarget.getBoundingClientRect().top) / scale);
 
-  const onColumnClick = (person: Staff) => (event: MouseEvent<HTMLDivElement>) => {
+  // The shaded hours and lunch cannot be booked, so a tap there says why instead of opening a form that cannot be confirmed.
+  const onColumnClick = (person: Staff, shift: Interval) => (event: MouseEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
-    onOpen({ kind: "new", preset: { staffId: person.id, date, start: minuteAt(event) } });
+    const start = minuteAt(event);
+    if (start < shift.start || start >= shift.end) {
+      showToast(t("calendar.outsideShift", { name: person.firstName, from: formatTime(shift.start), to: formatTime(shift.end) }));
+    } else if (lunch && start >= lunch.start && start < lunch.end) {
+      showToast(t("calendar.lunchClosed", { from: formatTime(lunch.start), to: formatTime(lunch.end) }));
+    } else {
+      onOpen({ kind: "new", preset: { staffId: person.id, date, start } });
+    }
   };
 
   const onDrop = (person: Staff) => (event: DragEvent<HTMLDivElement>) => {
@@ -96,7 +104,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
             return (
               <div
                 key={person.id}
-                onClick={works ? onColumnClick(person) : undefined}
+                onClick={shift ? onColumnClick(person, shift) : undefined}
                 onDragOver={(event) => works && event.preventDefault()}
                 onDrop={works ? onDrop(person) : undefined}
                 className={cx("relative min-w-0 flex-1 border-l border-hairline", works ? "cursor-copy" : "bg-surface-2/70")}

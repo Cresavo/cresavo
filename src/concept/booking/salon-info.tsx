@@ -116,13 +116,15 @@ export function Reviews({ state, variant = "cards" }: { state: DemoState; varian
 function QuoteReview({ state, review }: { state: DemoState; review: Review }) {
   const { average, count } = reviewSummary(state.reviews);
   const customer = state.customers.find((c) => c.id === review.customerId);
+  const author = review.author ?? (customer ? publicName(customer.firstName, customer.lastName) : "");
   return (
     <Section title={t("booking.reviews")}>
       <Card id="reviews" className="scroll-mt-4 space-y-3 p-6 text-center">
-        <p className="text-h2 font-medium leading-snug sm:text-h1">“{review.text}”</p>
-        <p className="text-meta text-text-secondary">
-          {review.author ?? (customer ? publicName(customer.firstName, customer.lastName) : "")} · {t("booking.reviewsAverage", { average: average.toFixed(1), count })}
-        </p>
+        <p className="booking-display text-h2 font-medium leading-snug sm:text-h1">“{review.text}”</p>
+        <div className="text-meta">
+          {author && <p className="font-medium">{author}</p>}
+          <p className="text-text-secondary">{t("booking.reviewsAverage", { average: average.toFixed(1), count })}</p>
+        </div>
       </Card>
     </Section>
   );

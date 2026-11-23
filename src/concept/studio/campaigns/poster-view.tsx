@@ -1,6 +1,6 @@
 import type { Ref } from "react";
 import type { Campaign, PosterFormat, Salon } from "../../data/types";
-import { FONT_PAIRS, type PageTheme } from "../../page/theme";
+import { FONT_PAIRS, standaloneFont, type PageTheme } from "../../page/theme";
 import type { Locale } from "@/lib/locale";
 import { t } from "../../i18n";
 import { formatDate } from "../../i18n/format";
@@ -40,7 +40,7 @@ export function PosterView({ source, salon, format, theme, rating, language, ref
       until={t("campaigns.posterUntil", { date: formatDate(source.to) })}
       footer={[`${salon.name} · ${salon.address}`, t("campaigns.posterBook", { link: source.link ?? "" })]}
       label={`${source.name}: ${source.poster.headline} ${source.poster.detail}`}
-      brand={theme && { colors: theme.colors, heading: FONT_PAIRS[theme.fonts].heading }}
+      brand={theme && { colors: theme.colors, heading: standaloneFont(FONT_PAIRS[theme.fonts].heading) }}
     />
   );
 }

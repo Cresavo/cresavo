@@ -6,7 +6,8 @@ import { defaultBusinessLocalization, type BusinessLocalization } from "../i18n/
 import { FIRST_NAMES_F, FIRST_NAMES_M, LAST_NAMES } from "./catalog";
 import { addDays, diffDays, formatTime, weekday } from "./dates";
 import { makeMonthHistory } from "../finance/history";
-import { DEFAULT_PAGE } from "../page/config";
+import { DEFAULT_PAGE, type PageConfig } from "../page/config";
+import { applyTemplate } from "../page/templates";
 import { addSectionAfter } from "../page/sections";
 import { PALETTES } from "../page/theme";
 import { DEFAULT_PACK, getPack } from "../packs";
@@ -34,7 +35,7 @@ import type {
   StaffId,
 } from "./types";
 
-export const DEMO_VERSION = 24;
+export const DEMO_VERSION = 25;
 const SEED = 20261116;
 const HISTORY_DAYS = 182;
 const FUTURE_DAYS = 35;
@@ -450,6 +451,14 @@ export function openOnDemoDay(pack: Pack, today: DateKey): Pack {
   }
 }
 
+/** The demo business's booking page: its ready-made design or own colours, and its About text after the team. */
+function demoPage(pack: Pack): PageConfig {
+  const page = pack.template
+    ? applyTemplate(DEFAULT_PAGE, pack.template)
+    : { ...DEFAULT_PAGE, theme: pack.palette ? { ...DEFAULT_PAGE.theme, colors: PALETTES[pack.palette] } : DEFAULT_PAGE.theme };
+  return pack.about ? { ...page, sections: addSectionAfter(page.sections, "about", "staff"), about: { heading: "", text: pack.about } } : page;
+}
+
 export function createDemoState(today: DateKey, setup: BusinessSetup = {}): DemoState {
   const pack = openOnDemoDay(getPack(setup.pack ?? DEFAULT_PACK), today);
   const build = buildFor(pack, setup.solo ?? false);
@@ -698,11 +707,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     tickets: [],
     memory: [],
     routines: [],
-    page: {
-      ...DEFAULT_PAGE,
-      theme: pack.palette ? { ...DEFAULT_PAGE.theme, colors: PALETTES[pack.palette] } : DEFAULT_PAGE.theme,
-      ...(pack.about ? { sections: addSectionAfter(DEFAULT_PAGE.sections, "about", "staff"), about: { heading: "", text: pack.about } } : {}),
-    },
+    page: demoPage(pack),
     domain: null,
   };
 }

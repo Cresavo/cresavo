@@ -14,6 +14,7 @@ import { LinkTokenScrub } from "@/concept/booking/link-token";
 import { BookShell } from "@/concept/booking/shell";
 import { ServerSalonProvider } from "@/concept/server-salon";
 import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
+import { PAGE_FONTS } from "../../page-fonts";
 import "../../studio/studio.css";
 
 export const metadata: Metadata = {
@@ -39,7 +40,7 @@ export default async function BookingLayout({ children, params }: { children: Re
   const shell = <BookShell visitorLanguage={visitorLanguage}>{children}</BookShell>;
   // The public route boundary: the page around the business's own theme (error and unknown-address states, the canvas) is the neutral tenant scope.
   // It always scrubs a link token from the address, live or demo, whatever the salon turns out to be.
-  const boundary = (content: ReactNode) => <div className="studio-root booking-boundary"><LinkTokenScrub />{content}</div>;
+  const boundary = (content: ReactNode) => <div className={`studio-root booking-boundary ${PAGE_FONTS}`}><LinkTokenScrub />{content}</div>;
   if (!live) return boundary(shell);
   // Live: the server's salons only. A missing salon is a 404 and a store failure is an error page, never the browser's own copy.
   let salon;

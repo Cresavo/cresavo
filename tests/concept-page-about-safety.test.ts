@@ -129,6 +129,17 @@ describe("a page saved by an editor from before the About text", () => {
     expect(next.page.about).toEqual(demo.page.about);
   });
 
+  it("keeps the stored section style when the editor is from before it existed", () => {
+    const lined = reduce(demo, { type: "page/set", page: { ...demo.page, theme: { ...demo.page.theme, style: "lined" } } });
+    const { style: _style, ...theme } = lined.page.theme;
+    void _style;
+    const parsed = pageSet.safeParse({ type: "page/set", page: { ...lined.page, theme, css: ".hero { letter-spacing: 1px }" } });
+    expect(parsed.success).toBe(true);
+    const next = reduce(lined, parsed.data as Parameters<typeof reduce>[1]);
+    expect(next.page.theme.style).toBe("lined");
+    expect(pageSet.safeParse({ type: "page/set", page: { ...lined.page, theme: { ...theme, style: "striped" } } }).success).toBe(false);
+  });
+
   it("still refuses a wrong About object and unknown page fields", () => {
     for (const page of [{ ...older, about: null }, { ...older, about: { heading: "" } }, { ...older, about: "text" }, { ...older, extra: true }]) {
       expect(pageSet.safeParse({ type: "page/set", page }).success, JSON.stringify(page).slice(-40)).toBe(false);

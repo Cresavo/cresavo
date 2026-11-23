@@ -3,7 +3,7 @@ import { MAX_ABOUT_HEADING, MAX_ABOUT_TEXT } from "@/concept/page/about";
 import { MAX_CSS_LENGTH } from "@/concept/page/css";
 import { isHex } from "@/concept/page/colour";
 import { SECTION_KINDS, variantsOf } from "@/concept/page/sections";
-import { CORNERS, FONT_PAIR_IDS, MAX_LOGO_LENGTH, normalizeTheme, PHOTO_IDS, type FontPairId, type PhotoId } from "@/concept/page/theme";
+import { CORNERS, FONT_PAIR_IDS, STYLES, MAX_LOGO_LENGTH, normalizeTheme, PHOTO_IDS, type FontPairId, type PhotoId } from "@/concept/page/theme";
 import { SLUG_MAX, SLUG_MIN } from "@/concept/page/slug";
 import { list, text } from "./primitives";
 
@@ -18,6 +18,8 @@ const theme = z.strictObject({
   colors: z.strictObject({ background: hex, text: hex, accent: hex }).nullable(),
   fonts: z.enum(FONT_PAIR_IDS as [FontPairId, ...FontPairId[]]),
   corners: z.enum(CORNERS),
+  // An editor opened before the section style existed sends none; the reducer then keeps the stored one.
+  style: z.enum(STYLES).optional(),
   heroPhoto: z.enum(PHOTO_IDS as [PhotoId, ...PhotoId[]]),
 });
 

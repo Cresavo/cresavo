@@ -9,7 +9,7 @@ import { ServerSalonProvider } from "@/concept/server-salon";
 // A live salon is stored and looked up in lower case; a page opened with capitals still gets its own frame.
 
 const nav = vi.hoisted(() => ({ path: "/boka/Salong-Fiktiv" }));
-vi.mock("next/navigation", () => ({ useParams: () => ({ slug: "Salong-Fiktiv" }), usePathname: () => nav.path, useRouter: () => ({ push: () => undefined }) }));
+vi.mock("next/navigation", () => ({ useParams: () => ({ slug: "Salong-Fiktiv" }), usePathname: () => nav.path, useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: () => undefined }) }));
 // The language boundary waits for the browser; here the frame itself is under test.
 vi.mock("@/concept/i18n/boundary", () => ({ ConceptLanguage: ({ children }: { children: ReactNode }) => createElement(Fragment, null, children) }));
 

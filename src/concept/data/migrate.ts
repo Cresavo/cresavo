@@ -5,7 +5,9 @@ import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { EMPTY_ABOUT, normalizeAbout, type PageAbout } from "../page/about";
 import { DEFAULT_PAGE, type PageConfig } from "../page/config";
-import { DEFAULT_SECTIONS, type PageSection } from "../page/sections";
+import { addSectionAfter, DEFAULT_SECTIONS, type PageSection } from "../page/sections";
+import { applyTemplate } from "../page/templates";
+import { PALETTES } from "../page/theme";
 import { getPack } from "../packs";
 import { startCategories } from "../services/categories";
 import { DEMO_VERSION } from "./generate";
@@ -47,6 +49,45 @@ function logWithAbout(log: unknown, about: PageAbout): unknown {
     if (!page) return entry;
     return { ...entry, patch: { ...entry.patch, values: { ...entry.patch!.values, page: { before: withAbout(page.before, about), after: withAbout(page.after, about) } } } };
   });
+}
+
+/** The About text a page starts with: the demo business's own words, nothing for an own salon. */
+const packAbout = (saved: Saved): PageAbout => ({ ...EMPTY_ABOUT, text: saved.industry ? "" : getPack(saved.pack as PackId).about ?? "" });
+
+/** v24's change: the About text on the page and on the page snapshots in the activity log. A page that has one keeps it. */
+function backfillAbout(saved: Saved): Saved {
+  const about = packAbout(saved);
+  return { ...saved, page: withAbout(saved.page as PageConfig, about), log: logWithAbout(saved.log, about) };
+}
+
+/** A page or page snapshot from before v25 with the section style it was drawn in. */
+const withStyle = <T extends PageSnapshot>(page: T): T =>
+  (page?.theme && !page.theme.style ? { ...page, theme: { ...page.theme, style: DEFAULT_PAGE.theme.style } } : page);
+
+/** The page snapshots that earlier page edits keep in the activity log, given the same style, so their Undo still compares equal. */
+function logWithStyle(log: unknown): unknown {
+  if (!Array.isArray(log)) return log;
+  return (log as SavedEntry[]).map((entry) => {
+    const page = entry?.patch?.values?.page;
+    if (!page) return entry;
+    return { ...entry, patch: { ...entry.patch, values: { ...entry.patch!.values, page: { before: withStyle(page.before), after: withStyle(page.after) } } } };
+  });
+}
+
+/**
+ * True for the demo salon's page exactly as v24 generated or migrated it: the default look in forest
+ * colours and the pack's own About text, with or without the About section, and no page edit in the
+ * activity log. An edit makes the page the owner's, and repainting it would also break that edit's Undo.
+ */
+function isUntouchedEkoPage(saved: Saved, page: PageConfig, log: unknown): boolean {
+  if (saved.industry) return false;
+  const sections = [DEFAULT_SECTIONS, addSectionAfter(DEFAULT_SECTIONS, "about", "staff")];
+  const edited = Array.isArray(log) && (log as SavedEntry[]).some((entry) => entry?.patch?.values?.page);
+  return !edited
+    && jsonEqual(page.theme, { ...DEFAULT_PAGE.theme, colors: PALETTES.forest })
+    && sections.some((generated) => jsonEqual(page.sections, generated))
+    && page.instagram === DEFAULT_PAGE.instagram && page.css === DEFAULT_PAGE.css
+    && jsonEqual(page.about, packAbout(saved));
 }
 
 const STEPS: Record<number, (saved: Saved) => Saved> = {
@@ -97,10 +138,16 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
   22: (saved) => ({ ...saved, reminderSettings: saved.reminderSettings ?? { ...DEFAULT_REMINDER_SETTINGS }, version: 23 }),
   // v24 added the booking page's About text. The section stays off on every saved page; the demo
   // business gets its text ready for when the section is added, an own salon starts empty.
-  23: (saved) => {
-    const page = saved.page as PageConfig;
-    const about = { ...EMPTY_ABOUT, text: saved.industry ? "" : getPack(saved.pack as PackId).about ?? "" };
-    return { ...saved, page: withAbout(page, about), log: logWithAbout(saved.log, about), version: 24 };
+  23: (saved) => ({ ...backfillAbout(saved), version: 24 }),
+  // v25 added the section style and the ready-made designs. Every page and every page snapshot in the
+  // activity log gets the style it was drawn in. The demo salon gets the Eko design while its page
+  // still wears the look it was generated with; a page the owner has changed is theirs and stays.
+  // A v24 save written by the designs' own preview builds has the style but no About text, so that is filled in first.
+  24: (saved) => {
+    const filled = backfillAbout(saved);
+    const page = withStyle(filled.page as PageConfig);
+    const log = logWithStyle(filled.log);
+    return { ...filled, page: isUntouchedEkoPage(filled, page, log) ? applyTemplate(page, "eko") : page, log, version: 25 };
   },
 };
 

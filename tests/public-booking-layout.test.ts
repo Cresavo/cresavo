@@ -19,6 +19,8 @@ vi.mock("@/lib/public-booking", async (importOriginal) => ({
 }));
 vi.mock("@/concept/booking/shell", () => ({ BookShell: () => null }));
 vi.mock("../src/app/studio/studio.css", () => ({}));
+// next/font only exists inside a Next.js build.
+vi.mock("../src/app/page-fonts", () => ({ PAGE_FONTS: "" }));
 
 const salon = createDemoState("2026-11-16");
 

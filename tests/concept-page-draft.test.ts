@@ -20,10 +20,12 @@ vi.mock("react", async (importOriginal) => {
       return [ctx.slots[slot] as S, (next: S) => { ctx.slots[slot] = next; }];
     },
     useEffect: (run: () => void) => { run(); },
+    useMemo: <T,>(make: () => T) => make(),
   };
 });
 const base = createDemoState("2026-11-16");
 vi.mock("@/concept/store", () => ({ usePublicDemo: () => base }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/concept/server-salon", () => ({ useServerSalon: () => ctx.server ? base : null }));
 
 const parent = {};

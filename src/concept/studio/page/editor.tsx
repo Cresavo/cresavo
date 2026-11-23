@@ -3,8 +3,10 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Save, Undo2 } from "lucide-react";
+import { jsonEqual } from "../../data/json-equal";
 import { t } from "../../i18n";
 import { normalizePage, type PageConfig } from "../../page/config";
+import { applyTemplate } from "../../page/templates";
 import type { PageSection } from "../../page/sections";
 import type { PageTheme } from "../../page/theme";
 import { dispatchWithLog } from "../../store";
@@ -16,6 +18,7 @@ import { ADVANCED_PAGE } from "../nav";
 import { useStudio } from "../use-studio";
 import { Preview } from "./preview";
 import { SectionControls } from "./section-controls";
+import { TemplatePicker } from "./template-picker";
 import { ThemeControls } from "./theme-controls";
 import { showUndoToast } from "../log/undo-toast";
 
@@ -25,7 +28,8 @@ export function PageEditor() {
   const [draft, setDraft] = useState<PageConfig>(state.page);
   const [view, setView] = useState<"edit" | "preview">("edit");
   const saved = JSON.stringify(state.page);
-  const dirty = JSON.stringify(normalizePage(draft)) !== saved;
+  // Compared by value: a migrated page can hold the same theme with its keys in another order.
+  const dirty = !jsonEqual(normalizePage(draft), state.page);
   const change = (patch: Partial<PageConfig>) => setDraft((current) => ({ ...current, ...patch }));
   const theme = (patch: Partial<PageTheme>) => setDraft((current) => ({ ...current, theme: { ...current.theme, ...patch } }));
   const hiddenReview = state.modules.reviews ? -1 : draft.sections.findIndex((section) => section.kind === "reviews");
@@ -48,6 +52,11 @@ export function PageEditor() {
     showUndoToast(t("pageEditor.saved"), logId, () => setDraft(JSON.parse(saved) as PageConfig));
   };
 
+  const buttons = (width?: "responsive") => <>
+    <Button variant="ghost" width={width} icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
+    <Button width={width} icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
+  </>;
+
   return (
     <div className="space-y-4">
       <Segmented
@@ -64,10 +73,10 @@ export function PageEditor() {
         <div className={view === "edit" ? "studio-page-editor min-w-0 md:max-w-form" : "studio-page-editor hidden min-w-0 md:max-w-form lg:block"}>
           <StickyActionBar label={t("pageEditor.view.edit")} actions={<>
             <p className="min-w-0 basis-full text-meta text-text-secondary sm:flex-1 sm:basis-auto">{dirty ? t("pageEditor.unsaved") : t("pageEditor.upToDate")}</p>
-            <Button variant="ghost" width="responsive" icon={<Undo2 size={18} />} disabled={!dirty} onClick={() => setDraft(state.page)}>{t("pageEditor.discard")}</Button>
-            <Button width="responsive" icon={<Save size={18} />} disabled={!dirty} onClick={save}>{t("pageEditor.save")}</Button>
+            {buttons("responsive")}
           </>}>
             <div className="space-y-6">
+              <Block title={t("pageEditor.templates.title")}><TemplatePicker page={draft} onPick={(id) => setDraft((current) => applyTemplate(current, id))} /></Block>
               <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
               <Block title={t("pageEditor.sections.title")}>
                 <SectionControls sections={visibleSections} reviewsEnabled={state.modules.reviews} instagram={draft.instagram} about={draft.about} name={state.salon.name}
@@ -81,6 +90,8 @@ export function PageEditor() {
         </div>
         <div className={view === "preview" ? "lg:sticky lg:top-4" : "hidden lg:sticky lg:top-4 lg:block"}>
           <Preview page={draft} slug={state.salon.slug} />
+          {/* A phone shows one panel at a time: saving must not need a trip back to the controls. */}
+          {dirty && <div className="studio-page-preview-actions z-sticky mt-3 flex justify-end gap-2 rounded-lg bg-surface p-2 ring-1 ring-hairline lg:hidden">{buttons()}</div>}
         </div>
       </div>
     </div>

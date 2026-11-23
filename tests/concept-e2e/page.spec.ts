@@ -165,6 +165,52 @@ test("the default booking page has no accessibility violations", async ({ page }
   expect(await violations(page)).toEqual([]);
 });
 
+test("each ready-made design restyles the page's sections and passes the accessibility check", async ({ page }) => {
+  const card = (section: string) => page.locator(`[data-section="${section}"] .ui-card`).first();
+  const ground = (section: string) => card(section).evaluate((element) => getComputedStyle(element).backgroundColor);
+  const clear = "rgba(0, 0, 0, 0)";
+
+  await page.goto("/boka/salong-eko");
+  await expect(page.locator(".booking-theme")).toHaveAttribute("data-style", "boxed");
+  const boxed = await ground("treatments");
+  expect(boxed).not.toBe(clear);
+  expect(await violations(page)).toEqual([]);
+
+  // Lined: the price list stands flat on the page under a rule.
+  await page.goto("/boka/salong-eko?design=noir");
+  await expect(page.locator(".booking-theme")).toHaveAttribute("data-style", "lined");
+  expect(await ground("treatments")).toBe(clear);
+  expect(await card("treatments").evaluate((element) => getComputedStyle(element).borderTopWidth)).toBe("1px");
+  expect(await violations(page)).toEqual([]);
+
+  // Soft: the price list is tinted in the design's own colour.
+  await page.goto("/boka/salong-eko?design=studio");
+  await expect(page.locator(".booking-theme")).toHaveAttribute("data-style", "soft");
+  const soft = await ground("treatments");
+  expect(soft).not.toBe(clear);
+  expect(soft).not.toBe(boxed);
+  expect(await violations(page)).toEqual([]);
+
+  await page.goto("/boka/salong-eko?design=atelier");
+  await expect(page.locator(".booking-theme")).toHaveAttribute("data-style", "lined");
+  expect(await violations(page)).toEqual([]);
+});
+
+test("picking a design in the editor leaves the studio in the owner's own light or dark setting", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/studio/more/booking-page");
+  await expect(page.getByRole("button", { name: /Noir/ })).toBeVisible();
+  // The dark Noir swatch is on the page, and the studio around it stays light.
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).not.toBe("dark");
+  await page.getByRole("button", { name: /Noir/ }).click();
+  await expect(page.getByRole("button", { name: /Noir/ })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Save changes" }).first().click();
+  await expect.poll(async () => (await state(page)).page.theme.style).toBe("lined");
+  // The About section the demo page shows is still there after the design is applied.
+  expect((await state(page)).page.sections.some((section) => section.kind === "about")).toBe(true);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).not.toBe("dark");
+});
+
 test("dragging a section keeps the booking flow fixed and follows the editor's save and undo", async ({ page }) => {
   await page.goto("/studio/more/booking-page");
   const before = (await state(page)).page.sections;
