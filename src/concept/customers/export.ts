@@ -121,7 +121,6 @@ export function customerExport(state: DemoState, id: string, exportedAt: string)
   const profile = findErasable(state, id);
   if (!profile) return null;
   const identifiers = customerIdentifiers(profile);
-  const digits = phoneDigits(profile.phone);
   const ownAddresses = new Set([profile.email, ...(profile.earlier ?? [])].map((a) => a.trim().toLowerCase()).filter(Boolean));
   const lists = listsOf(state, id);
   const trashed = state.trash.flatMap((entry) => (entry.kind === "customer" ? [entry.customer] : []));

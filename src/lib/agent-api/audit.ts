@@ -8,7 +8,7 @@ const context = new AsyncLocalStorage<string>();
 const id = z.string().regex(/^[A-Za-z0-9_:-]{1,160}$/);
 const schema = z.object({
   businessId: z.enum(["demo", "lab-partner"]).default("demo"),
-  event: z.enum(["oauth.client_registered", "oauth.register_denied", "oauth.authorize_granted", "oauth.authorize_denied", "oauth.token_issued", "oauth.token_denied", "agent.request", "sms_otp.sent", "sms_otp.resent", "sms_otp.verified", "sms_otp.denied", "proposal.created", "proposal.viewed", "proposal.expired", "consent.approved", "consent.declined", "mandate.created", "mandate.consumed", "mandate.expired", "booking.created", "booking.cancelled"]),
+  event: z.enum(["oauth.client_registered", "oauth.register_denied", "oauth.authorize_granted", "oauth.authorize_denied", "oauth.token_issued", "oauth.token_denied", "agent.request", "sms_otp.sent", "sms_otp.resent", "sms_otp.verified", "sms_otp.denied", "email_code.sent", "email_code.verified", "email_code.denied", "proposal.created", "proposal.viewed", "proposal.expired", "consent.approved", "consent.declined", "mandate.created", "mandate.consumed", "mandate.expired", "booking.created", "booking.cancelled"]),
   outcome: z.string().regex(/^[a-z0-9_:-]{1,64}$/),
   clientId: id.optional(), keyId: id.optional(),
   scopes: z.array(z.enum(["services:read", "availability:read", "bookings:read", "bookings:write"])).default([]),

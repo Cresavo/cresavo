@@ -5,8 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { runtimePolicy } from "../scripts/client-address.mjs";
 import { pairingDatabaseUrl } from "../scripts/pairing-config.mjs";
 import { GET as sweep } from "../src/app/api/pairing/sweep/route";
-import { GET as engineResource } from "../src/app/.well-known/oauth-protected-resource/route";
-import { GET as engineIssuer } from "../src/app/.well-known/oauth-authorization-server/route";
+import { GET as salonResource } from "../src/app/.well-known/oauth-protected-resource/api/v1/salons/[business]/mcp/route";
+import { GET as salonIssuer } from "../src/app/.well-known/oauth-authorization-server/agent-oauth/route";
 import { GET as pairResource } from "../src/app/.well-known/oauth-protected-resource/mcp/owner/route";
 import { GET as pairIssuer } from "../src/app/.well-known/oauth-authorization-server/oauth/route";
 import { POST as register } from "../src/app/oauth/register/route";
@@ -101,8 +101,10 @@ it("uses the unpooled pairing URL only in the guarded Vercel migration step", as
 it("serves independent resource and issuer documents for the two MCP endpoints", async () => {
   enable();
   mockTransaction({ $queryRaw: async () => [{ count: 1 }] });
-  expect(await engineResource().json()).toMatchObject({ resource: base + "/api/v1/mcp", authorization_servers: [base] });
-  expect(await engineIssuer().json()).toMatchObject({ issuer: base, authorization_endpoint: base + "/authorize" });
+  vi.stubEnv("AGENT_OAUTH", "1");
+  expect(await (await salonResource(req("/"), { params: Promise.resolve({ business: "demo" }) })).json())
+    .toMatchObject({ resource: base + "/api/v1/salons/demo/mcp", authorization_servers: [base + "/agent-oauth"] });
+  expect(await (await salonIssuer(req("/"))).json()).toMatchObject({ issuer: base + "/agent-oauth", authorization_endpoint: base + "/agent-oauth/authorize" });
   expect(await (await pairResource(req("/"))).json()).toMatchObject({ resource: base + "/mcp/owner", authorization_servers: [base + "/oauth"] });
   expect(await (await pairIssuer(req("/"))).json()).toMatchObject({ issuer: base + "/oauth", authorization_response_iss_parameter_supported: true });
   expect((await pairIssuer(req("/", { host: "other.test" }))).status).toBe(404);

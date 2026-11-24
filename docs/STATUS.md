@@ -29,8 +29,10 @@ Start with the [demo and product tour](../README.md) or see the
   provider API and local owner MCP share its booking rules, including
   idempotency and protection against double-booking. It is being replaced by
   the studio's rules behind `StudioStore` and gets no new booking rules
-  ([ADR 1](design/ARCHITECTURE_DECISIONS.md)). The public agent gateway lives
-  in the separate [`Cresavo/gateway`](https://github.com/Cresavo/gateway) repository.
+  ([ADR 1](design/ARCHITECTURE_DECISIONS.md)). Customers' agents will reach
+  Cresavo salons through the app's own MCP; the separate
+  [`Cresavo/gateway`](https://github.com/Cresavo/gateway) stays an optional
+  entry for other booking systems ([ADR 7](design/ARCHITECTURE_DECISIONS.md)).
 - The concept demo includes the November QA fixes for booking and caller
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon

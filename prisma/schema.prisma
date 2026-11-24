@@ -240,7 +240,63 @@ model AgentClient {
   mandates AgentMandate[]
   proposals AgentProposal[]
   sandboxSession SandboxSession?
+  grants AgentGrant[]
   @@unique([businessId, id])
+}
+
+// Customer agent OAuth (ADR 7). Dynamically registered public clients; a Client ID Metadata
+// Document client is fetched per authorization and never stored.
+model AgentOAuthClient {
+  id String @id
+  name String
+  redirects String[]
+  expiresAt DateTime @db.Timestamptz(3)
+  @@index([expiresAt])
+}
+
+// A pending consent (consent=true) or an issued authorization code. Only digests are stored.
+model AgentOAuthCode {
+  hash String @id
+  consent Boolean
+  businessId String
+  clientId String
+  clientName String
+  redirectUri String
+  challenge String
+  scopes String
+  state String
+  expiresAt DateTime @db.Timestamptz(3)
+  @@index([expiresAt])
+}
+
+// One agent client at one salon. Its credential row in AgentApiKey carries revocation and the
+// scope ceiling, so every existing check (mandates, write lock, audit) applies unchanged.
+model AgentGrant {
+  id String @id
+  businessId String
+  clientId String
+  client AgentClient @relation(fields: [businessId, clientId], references: [businessId, id], onDelete: Restrict)
+  keyId String @unique
+  oauthClientId String
+  clientName String
+  scopes String
+  codeHash String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  lastUsedAt DateTime @default(now()) @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  tokens AgentGrantToken[]
+  @@index([businessId, revokedAt])
+}
+
+model AgentGrantToken {
+  accessHash String @id
+  refreshHash String @unique
+  grantId String
+  grant AgentGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  rotated Boolean @default(false)
+  expiresAt DateTime @db.Timestamptz(3)
+  refreshExpiresAt DateTime @db.Timestamptz(3)
+  @@index([grantId])
 }
 
 model SandboxSession {
@@ -355,6 +411,10 @@ model AgentProposal {
   otpAttempts Int @default(0)
   otpLastSentAt DateTime? @db.Timestamptz(3)
   otpVerifiedAt DateTime? @db.Timestamptz(3)
+  // Email-code consent: digest and mask of the address the customer typed, never the address.
+  contactEmailHash String?
+  contactEmailMask String?
+  otpSends Int @default(0)
   status String @default("pending")
   expiresAt DateTime @db.Timestamptz(3)
   mandateId String? @unique

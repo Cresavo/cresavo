@@ -145,14 +145,12 @@ const ISO_CURRENCY = /^[A-Z]{3}$/;
 const ISO_COUNTRY = /^[A-Z]{2}$/;
 const EMAIL = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]+$/;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?Z$/;
-const BCP47 = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/;
 
 export const isE164 = (value: string): boolean => E164.test(value);
 export const isEmail = (value: string): boolean => value.length <= 254 && EMAIL.test(value);
 export const isCurrency = (value: string): boolean => ISO_CURRENCY.test(value);
 export const isCountry = (value: string): boolean => ISO_COUNTRY.test(value);
 export const isUtc = (value: string): boolean => UTC.test(value) && !Number.isNaN(Date.parse(value));
-export const isLanguageTag = (value: string): boolean => BCP47.test(value);
 /** True when UTC timestamp `a` is strictly before `b`, compared as instants (precision may differ). */
 export const isBefore = (a: string, b: string): boolean => Date.parse(a) < Date.parse(b);
 export const isMoney = (value: Money): boolean => Number.isSafeInteger(value.amountMinor) && value.amountMinor >= 0 && isCurrency(value.currency);

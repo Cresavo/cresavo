@@ -19,9 +19,9 @@ dependencies, and no code is imported between the checkouts.
 
 | Entry point | Where | Who uses it | Status |
 | --- | --- | --- | --- |
-| Gateway REST v1 and MCP (`/api/v1/*`, `/api/v1/mcp`) | `Cresavo/gateway` | Customers' agents | The intended public entry. Not hosted yet |
-| Provider API `/api/v1` | This repository, `src/app/api/v1` | The gateway in split mode; direct clients in standalone mode | Local and sandbox |
-| Embedded HTTP MCP `/api/v1/mcp` | This repository | Direct agents in standalone mode | Returns 404 in split mode. Build new customer tools in the gateway |
+| Embedded HTTP MCP `/api/v1/mcp` | This repository | Customers' agents booking at Cresavo salons | The intended public entry ([ADR 7](design/ARCHITECTURE_DECISIONS.md)). Needs the gateway's transport controls and OAuth before public use. Returns 404 in split mode |
+| Provider API `/api/v1` | This repository, `src/app/api/v1` | Direct clients; the gateway in split mode | Local and sandbox |
+| Gateway REST v1 and MCP (`/api/v1/*`, `/api/v1/mcp`) | `Cresavo/gateway` | Other booking systems that implement the provider contract | Optional and not hosted for Cresavo |
 | Owner MCP `/mcp/owner` | This repository, OAuth pairing | The owner's own assistant | Flag-controlled pairing preview, see [CONNECT_AI_ASSISTANT](CONNECT_AI_ASSISTANT.md) |
 | Concept demo MCP `/api/concept/mcp` | This repository, shared demo bearer token | An assistant trying the in-memory Salong Eko copy on a local concept server | Local only; returns 403 on the public read-only demo |
 | Local MCP server (stdio) | This repository, `npm run mcp` | A local assistant on the owner's machine | Local, against a disposable database |
@@ -291,6 +291,22 @@ customer route, or that an approve MCP tool is missing, therefore does not
 guarantee separate customer approval. The OTP lab requires a code, but simulated
 delivery and a client-chosen phone number prove no intended customer. See the
 current identity assessment in [PRIVACY_SECURITY](PRIVACY_SECURITY.md).
+
+Email code profile (ADR 7): `BOOKING_CONSENT_DELIVERY=email-code` gives the
+agent a `consentUrl` without any secret in it, so the link is safe to show to the
+person, also through an assistant. On that page the customer types their own
+address, receives a six-digit code there and approves or declines with it. The
+link alone decides nothing. Codes follow the SMS lab's timings (600 seconds, five
+wrong tries, one minute between sends) and at most five sends per proposal. Only
+the address's digest and a mask are stored. At booking, the customer's address
+must be the one that returned the code, or the result is `mandate_denied`. The
+lab accepts only `@example.test` addresses, delivers to a process-local inbox and
+refuses cloud markers and the SMS lab. Real delivery through the e-mail outbox is
+a later step. `get_proposal` repeats `consentUrl` while the proposal is pending,
+and asks an MCP client on the 2026-07-28 protocol that declares URL elicitation
+on the request to open the page for the person, then answers with the outcome.
+Clients on the 2025 protocol always get the ordinary answer: a stateless server
+cannot see what they declared at `initialize`.
 
 Compatibility: without `BOOKING_CONSENT_DELIVERY`, the older local lab contract,
 also called `legacy-agent-link`, still applies. It must not be described as

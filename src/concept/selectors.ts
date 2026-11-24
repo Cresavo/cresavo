@@ -33,10 +33,6 @@ export function categoryInText(state: Pick<DemoState, "categories">, text: strin
   return state.categories.find((c) => text.includes(c.name.toLocaleLowerCase()) || text.includes(c.id))?.id;
 }
 
-export function categoryName(state: Pick<DemoState, "categories">, id: string): string {
-  return state.categories.find((c) => c.id === id)?.name ?? "";
-}
-
 export function fullName(c: Pick<Customer, "firstName" | "lastName">) {
   return `${c.firstName} ${c.lastName}`;
 }

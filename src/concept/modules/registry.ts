@@ -118,12 +118,6 @@ export function presetModules(preset: PresetId): Switches {
   return Object.fromEntries(MODULES.flatMap(moduleKeys).map((key) => [key, preset === "everything"])) as Switches;
 }
 
-/** The preset the switches match right now, or null when the owner has mixed their own. */
-export function presetOf(modules: Switches): PresetId | null {
-  const on = enabledModules(modules).length;
-  return on === 0 ? "essentials" : on === MODULES.length ? "everything" : null;
-}
-
 /** What switching this add-on on asks the owner to agree to, if anything. */
 export const moduleConsent = (id: ModuleKey) => moduleById(id).consent;
 

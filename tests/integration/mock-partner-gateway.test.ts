@@ -6,8 +6,6 @@ import { nativeBookingProvider } from "../../src/lib/agent-api/provider/native";
 import { createMockPartnerProvider } from "../../src/lib/agent-api/provider/mock-partner";
 import { startMockPartnerServer } from "../../src/lib/agent-api/provider/mock-partner-server";
 import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../../src/lib/agent-api/keys";
-import { clearLabOAuthBusinesses, registerLabOAuthBusiness } from "../../src/lib/agent-api/oauth/lab-business";
-import { verifyLabAccessToken } from "../../src/lib/agent-api/oauth/server";
 import { customerDecision, createProposal, getProposal } from "../../src/lib/agent-api/proposals";
 import { cancelBookingV1, createAgentBooking, getBookingV1, scopedIdempotencyKey } from "../../src/lib/agent-api/bookings";
 import { servicesV1, availabilityV1, agentRoute, Created } from "../../src/lib/agent-api/v1";
@@ -15,29 +13,31 @@ import { issueSyntheticMandate } from "../../src/lib/agent-api/mandates";
 import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { AGENT_API_CHANNEL } from "../../src/lib/domain";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
-import { accessToken, labRequest, origin } from "../helpers/oauth";
+import { labRequest, origin } from "../helpers/lab-request";
+import { deleteGrants, grantToken } from "../helpers/agent-grant";
 import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { CHANNEL_CUSTOMER } from "../../src/lib/agent-api/customer-channel-lab";
 
 const clients: string[] = [];
-const oauthAuditClients: string[] = [];
+const oauthClients: string[] = [];
 let server: Awaited<ReturnType<typeof startMockPartnerServer>> | undefined;
 let provider: ReturnType<typeof createMockPartnerProvider>;
 beforeEach(async () => {
-  vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_OAUTH_LAB", "1");
+  vi.stubEnv("BOOKING_CONSENT_LAB", "1");
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_RUNTIME", "local");
-  vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof");
+  vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof"); vi.stubEnv("AGENT_OAUTH", "1");
   server = await startMockPartnerServer({ port: 0 });
   provider = createMockPartnerProvider({ baseUrl: server.baseUrl });
   registerLabBookingProvider("lab-partner", provider);
 });
 afterEach(async () => {
-  vi.restoreAllMocks(); clearLabBookingProviders(); clearLabOAuthBusinesses();
+  vi.restoreAllMocks(); clearLabBookingProviders();
   await server?.close(); server = undefined; vi.unstubAllEnvs();
 });
 afterAll(async () => {
+  await deleteGrants(oauthClients);
   const keys = await db.agentApiKey.findMany({ where: { clientId: { in: clients } } });
   await db.agentApiEvent.deleteMany({ where: { keyId: { in: keys.map(k => k.id) } } });
   // AgentAuditEvent is append-only (AGENT_AUDIT_APPEND_ONLY); do not delete it.
@@ -52,10 +52,9 @@ afterAll(async () => {
 async function actor(oauth = false, scopes = ["services:read", "availability:read", "bookings:read", "bookings:write"]) {
   let key: string;
   if (oauth) {
-    key = await accessToken(scopes.join(" "));
-    const token = verifyLabAccessToken(key, new Date())!;
-    registerLabOAuthBusiness(token.clientId, "lab-partner");
-    oauthAuditClients.push(token.clientId);
+    const grant = await grantToken("lab-partner", scopes);
+    key = grant.accessToken;
+    oauthClients.push(grant.oauthClientId);
   } else key = (await createAgentApiKey({ businessId: "lab-partner", agentName: "Synthetic partner client",
     ownerName: "Synthetic operator", ownerContact: "partner@example.test", scopes }, db)).key;
   const principal = await authenticateAgent(new Headers({ authorization: `Bearer ${key}` }), db, scopes[0] as "services:read");

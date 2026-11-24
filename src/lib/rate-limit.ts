@@ -2,11 +2,10 @@ import { isPublicReadonly } from "./public-readonly";
 import { setTimeout as delay } from "node:timers/promises";
 import { verifiedClientAddress } from "../../scripts/client-address.mjs";
 import { DomainError, PasswordCapacityError } from "./errors";
+import { RATE_LIMITS, type RateLimitRoute } from "./rate-limit-policy";
 
 // One bounded map per process. No persistence or cross-worker guarantee.
 const buckets = new Map<string, { count: number; until: number }>();
-const windowMs = 15 * 60_000;
-// "public-tenant" is the writes one salon takes from the public, whoever sends them: 60 per hour, not per 15 minutes.
 
 export function postgresStore() {
   if (isPublicReadonly()) return false;
@@ -22,7 +21,7 @@ export function clientIp(headers: Headers) {
 }
 
 export function checkRateLimit(
-  route: "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload" | "journal-read" | "journal-write",
+  route: RateLimitRoute,
   ip: string,
   consume = true,
   now = Date.now(),
@@ -34,8 +33,8 @@ export function checkRateLimit(
   for (const [key, bucket] of buckets)
     if (bucket.until <= now) buckets.delete(key);
   const key = `${route}:${ip}`;
-  const bucket = buckets.get(key) ?? { count: 0, until: now + (route === "public-tenant" ? 4 * windowMs : windowMs) };
-  const limit = route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "admin-bookings" ? 60 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "public-tenant" || route === "media-upload" ? 60 : route === "journal-read" ? 300 : route === "journal-write" ? 120 : 30;
+  const { limit, minutes } = RATE_LIMITS[route];
+  const bucket = buckets.get(key) ?? { count: 0, until: now + minutes * 60_000 };
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",

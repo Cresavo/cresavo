@@ -130,7 +130,8 @@ REVOKE ALL ON
   "CardBookingAttempt", "Campaign", "CapacityDecision", "AdminSession", "AdminUser", "RateLimitBucket",
   "AgentApiKey", "AgentBooking", "AgentClient", "AgentMandate", "AgentApiEvent", "AgentProposal",
   "AgentAuditEvent", "PartnerBookingAttempt", "PairWorkspace", "PairClient", "PairCode", "PairToken",
-  "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "owner_account", "owner_session", "owner_recovery_code",
+  "PairProposal", "PairBudget", "PairGrant", "PairGrantToken", "AgentOAuthClient", "AgentOAuthCode", "AgentGrant",
+  "AgentGrantToken", "owner_account", "owner_session", "owner_recovery_code",
   "owner_mfa_challenge", "media_asset", "journal_entry", "journal_key"
   FROM cresavo_app;
 REVOKE ALL ON "_prisma_migrations" FROM cresavo_app;
@@ -192,6 +193,12 @@ GRANT SELECT, INSERT, UPDATE ("active") ON "AgentClient" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE ("revokedAt") ON "AgentMandate" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE ON "AgentProposal" TO cresavo_app;
 GRANT SELECT, INSERT, DELETE ON "PartnerBookingAttempt" TO cresavo_app;
+-- Customer agent OAuth (src/lib/agent-api/grants): registered clients, consent handles and codes,
+-- grants (revoked, last used) and their rotating token pairs.
+GRANT SELECT, INSERT ON "AgentOAuthClient" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "AgentOAuthCode" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ("revokedAt", "lastUsedAt") ON "AgentGrant" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "AgentGrantToken" TO cresavo_app;
 
 -- Pairing (src/concept/pairing).
 GRANT SELECT, INSERT, UPDATE, DELETE ON "PairWorkspace" TO cresavo_app;
