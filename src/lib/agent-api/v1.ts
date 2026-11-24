@@ -1,7 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { auditContext, recordAudit } from "./audit";
 import { isPublicReadonly, readonlyForbidden } from "../public-readonly";
-import { fixtureStaff } from "../public-fixtures";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { z, ZodError } from "zod";
@@ -181,16 +180,6 @@ export function business(principal: AgentPrincipal, value: unknown) {
   const found = BUSINESSES[requested.data];
   if (!found) throw new AgentApiError("business_not_found");
   return found;
-}
-
-export async function activeStaff() {
-  if (isPublicReadonly()) return fixtureStaff();
-  return db.staff.findMany({
-    where: { businessId: DEMO_BUSINESS_ID, active: true },
-    select: { id: true, name: true, serviceIds: true },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    take: 100,
-  });
 }
 
 export function serviceView(
