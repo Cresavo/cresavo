@@ -212,11 +212,14 @@ your browser. See [the route](../src/app/api/concept/mcp/route.ts),
 ### Agent API v1
 
 The booking engine's sandbox REST API lists services and availability and
-supports creating, checking and cancelling bookings. A scoped agent credential
+supports creating and checking bookings. A scoped agent credential
 ties calls to a business and a stable agent client. Creating a booking requires
 a stored test mandate (a grant for the specific booking), an `Idempotency-Key`
-for safe retries and fictional contact details. Cancellation uses the agent's
-write scope and booking ownership. The optional local proposal lab uses
+for safe retries and fictional contact details. Direct cancellation is refused
+with `mandate_denied` until a cancellation can carry the customer's approval
+(ADR 7). Each client address gets 60 requests a minute and 5 proposal and 5
+booking creates an hour, and the MCP route refuses a browser `Origin` other
+than the public origin. The optional local proposal lab uses
 synthetic customer approval. Rescheduling is outside v1.
 
 Read the [OpenAPI contract](agent-api-v1.openapi.yaml) or get it from

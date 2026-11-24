@@ -8,6 +8,7 @@ import { z, ZodError } from "zod";
 import { db } from "../db";
 import { DEMO_BUSINESS_ID } from "../config";
 import { DomainError } from "../errors";
+import { checkAgentAddress } from "./address-limits";
 import { checkRateLimit } from "../rate-limit";
 import { getBookingProvider, type BookingProvider } from "./provider";
 import { sandboxRequested } from "./sandbox/config";
@@ -155,6 +156,7 @@ async function agentRouteInternal(
   }
   let principal: AgentPrincipal | null = null;
   try {
+    await checkAgentAddress(request.headers, route === "POST /api/v1/proposals" ? "proposal" : route === "POST /api/v1/bookings" ? "booking" : undefined);
     principal = await authenticateAgent(request.headers, db, scope);
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);

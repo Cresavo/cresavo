@@ -159,7 +159,7 @@ new tools for now. Cresavo never stores another booking system's keys.
 1. Before public traffic, the app's MCP matches the gateway's transport
    controls: per-IP limits (60 requests/minute, 5 proposals and 5 bookings per
    hour) on the Postgres store, a Host and Origin check, one JSON-RPC message
-   per request parsed once, a static 503 for every 5xx and no direct
+   per request parsed once, a static error for every 5xx and no direct
    cancellation without an approved cancellation proposal.
 2. A test proves that an agent credential for one salon cannot read or book at
    another, through every tool.

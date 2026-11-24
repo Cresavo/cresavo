@@ -3,21 +3,18 @@ import type { Prisma } from "@prisma/client";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 import { DomainError } from "./errors";
 import { GUARD_PREFIXES } from "./owner-guard-keys";
+import { RATE_LIMITS, type RateLimitRoute as Route } from "./rate-limit-policy";
 
 // Separate, one-connection pool: booking transactions may already own every
 // connection in the domain pool. A rejected booking must still consume a try.
 export const rateLimitDatabase = createDatabaseClient(undefined, 1);
-type Route = "login" | "signup" | "bookings" | "admin-bookings" | "agent-api" | "public-read" | "public-booking" | "public-tenant" | "password-reset" | "password-reset-submit" | "media-upload" | "journal-read" | "journal-write";
 export type Reservation = { key: string; generation: string; count: number };
-
-const limitOf = (route: Route) =>
-  route === "login" || route === "signup" || route === "password-reset" ? 5 : route === "password-reset-submit" ? 10 : route === "bookings" ? 30 : route === "agent-api" ? 300 : route === "public-read" ? 120 : route === "public-booking" ? 10 : route === "journal-read" ? 300 : route === "journal-write" ? 120 : 60;
 
 type Tx = Prisma.TransactionClient;
 
 /** One reservation inside a transaction: the bounded store's single implementation, under its one lock. */
 async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): Promise<Reservation> {
-  const limit = limitOf(route);
+  const { limit, minutes } = RATE_LIMITS[route];
   // Small bounded preview store. This lock has no domain/session dependencies;
   // it is released before credential verification or booking processing.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('booking-lab:rate-store:v1'))`;
@@ -49,7 +46,7 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): P
   }
   const value = {
     generation: active?.generation ?? randomUUID(),
-    expiresAt: active?.expiresAt ?? new Date(now.getTime() + (route === "public-tenant" ? 60 : 15) * 60_000),
+    expiresAt: active?.expiresAt ?? new Date(now.getTime() + minutes * 60_000),
     count: (active?.count ?? 0) + 1,
   };
   await tx.rateLimitBucket.upsert({

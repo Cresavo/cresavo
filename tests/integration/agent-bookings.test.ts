@@ -39,7 +39,7 @@ const body = (over: Record<string, unknown> = {}) =>
   });
 
 describe("Agent API v1 bokningar mot PostgreSQL", () => {
-  it("books, retries safely, handles conflicts, protects other customers' bookings, and cancels", async () => {
+  it("books, retries safely, handles conflicts, protects other customers' bookings, and refuses direct cancellation", async () => {
     const a = await createAgentApiKey({ businessId: "demo", agentName: `${tag}-a`, ownerName: "Ägare A", ownerContact: "a@example.test", kind: "demo-script" }, db);
     const b = await createAgentApiKey({ businessId: "demo", agentName: `${tag}-b`, ownerName: "Ägare B", ownerContact: "b@example.test" }, db);
     const readOnly = await createAgentApiKey({ businessId: "demo", agentName: `${tag}-ro`, ownerName: "Ägare C", ownerContact: "c@example.test", scopes: ["services:read"] }, db);
@@ -91,15 +91,15 @@ describe("Agent API v1 bokningar mot PostgreSQL", () => {
     expect(rotationReplay.status).toBe(200);
     expect((await rotationReplay.json()).booking.id).toBe(id);
 
-    const c1 = await (await cancel(req(`/api/v1/bookings/${id}/cancel`, rotated.key, { method: "POST" }), ctx(id))).json();
-    expect(c1).toMatchObject({ alreadyCancelled: false, booking: { status: "cancelled" } });
-    const c2 = await (await cancel(req(`/api/v1/bookings/${id}/cancel`, rotated.key, { method: "POST" }), ctx(id))).json();
-    expect(c2.alreadyCancelled).toBe(true);
+    // Direct cancellation has no customer approval (ADR 7): the owner is refused and nothing changes.
+    const refused = await cancel(req(`/api/v1/bookings/${id}/cancel`, rotated.key, { method: "POST" }), ctx(id));
+    expect(refused.status).toBe(403);
+    expect((await refused.json()).error.code).toBe("mandate_denied");
+    expect((await (await status(req(`/api/v1/bookings/${id}`, rotated.key), ctx(id))).json()).booking.status).toBe("confirmed");
 
     const events = await db.bookingEvent.findMany({ where: { bookingId: id }, orderBy: { createdAt: "asc" } });
     expect(events.map((e) => [e.action, e.actorKind, e.actorId])).toEqual([
       ["create", "agent-api", a.record.clientId],
-      ["cancel", "agent-api", a.record.clientId],
     ]);
   });
 });

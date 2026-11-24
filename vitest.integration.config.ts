@@ -4,5 +4,5 @@ import { assertTestDatabase } from "./scripts/test-db-guard.mjs";
 assertTestDatabase();
 export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-  test: { include: ["tests/integration/*.test.ts"], fileParallelism: false },
+  test: { include: ["tests/integration/*.test.ts"], setupFiles: ["tests/integration/setup-address-limits.ts"], fileParallelism: false },
 });

@@ -29,6 +29,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **The agent API carries the gateway's transport controls itself (ADR 7).** Customers' agents will reach Cresavo salons through the app's own MCP at `/api/v1/mcp`, so it now limits each client address to 60 requests a minute and 5 proposal and 5 booking creates an hour (REST and MCP together, counted before authentication; split mode leaves this to the gateway), refuses a browser `Origin` other than the public origin with `403 forbidden_origin`, accepts exactly one JSON-RPC message per request (batches, invalid JSON and bodies over 64 KiB get `400 invalid_request`) and forwards the message it parsed, and answers a transport failure with the static `internal_error`. Direct cancellation through `cancel_booking` or `POST /api/v1/bookings/{id}/cancel` is refused with `403 mandate_denied` until a cancellation can carry the customer's approval; another client's booking still answers `404`. The rate-limit stores share one table of budgets. No migration.
+
 - The booking page editor keeps Save and Discard in reach while previewing on a phone.
 - Tapping lunch or hours outside a person's shift in the day calendar explains why instead of opening a booking that cannot be confirmed.
 - The booking page's price list has shortcuts to each category, and the free-text field shows an example built from the salon's own treatment.
