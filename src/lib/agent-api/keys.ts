@@ -106,6 +106,8 @@ export type AgentPrincipal = {
   ownerName: string;
   kind: string;
   scopes: string[];
+  /** Set for a customer agent's OAuth grant: its token is valid only at that salon's MCP resource. */
+  grantId?: string;
 };
 
 export function presentedKey(headers: Headers) {
@@ -131,6 +133,12 @@ export async function authenticateAgent(
   if (!match) {
     // OAuth is accepted only in Authorization, never as an X-API-Key.
     if (!headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)) throw new AgentApiError("unauthorized");
+    const { grantPrincipal } = await import("./grants/server");
+    const grant = await grantPrincipal(key, now);
+    if (grant) {
+      if (!(Array.isArray(scope) ? scope : [scope]).some(s => grant.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
+      return grant;
+    }
     const { verifyLabAccessToken } = await import("./oauth/server");
     const token = verifyLabAccessToken(key, now);
     if (!token) throw new AgentApiError("unauthorized");

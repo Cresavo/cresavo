@@ -1,0 +1,191 @@
+import { createHash, randomUUID } from "node:crypto";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { db } from "../../src/lib/db";
+import { createAgentApiKey } from "../../src/lib/agent-api/keys";
+import { addressProof } from "../../scripts/client-address.mjs";
+import { POST as register } from "../../src/app/agent-oauth/register/route";
+import { GET as authorizePage, POST as consentPost } from "../../src/app/agent-oauth/authorize/route";
+import { POST as tokenPost } from "../../src/app/agent-oauth/token/route";
+import { POST as revokePost } from "../../src/app/agent-oauth/revoke/route";
+import { GET as serverMetadata } from "../../src/app/.well-known/oauth-authorization-server/agent-oauth/route";
+import { GET as resourceMetadata } from "../../src/app/.well-known/oauth-protected-resource/api/v1/salons/[business]/mcp/route";
+import { POST as salonMcp } from "../../src/app/api/v1/salons/[business]/mcp/route";
+import { POST as sharedMcp } from "../../src/app/api/v1/mcp/route";
+import { GET as services } from "../../src/app/api/v1/services/route";
+import { cleanupRun } from "../../scripts/agentprov/fixtures.mjs";
+
+// ADR 7 / #183: OAuth 2.1 for customers' agents, one grant per agent client per salon.
+const origin = "http://127.0.0.1:3251";
+const secret = "synthetic-agent-oauth-address";
+const redirectUri = "http://127.0.0.1:4555/callback";
+const resource = (business = "demo") => `${origin}/api/v1/salons/${business}/mcp`;
+const run = `agentprov-${randomUUID()}`;
+const oauthClients: string[] = [];
+const mcpClients: Client[] = [];
+let address = 10;
+
+beforeEach(() => {
+  vi.stubEnv("AGENT_OAUTH", "1"); vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin);
+  vi.stubEnv("BOOKING_RUNTIME", "local"); vi.stubEnv("BOOKING_ADDRESS_SECRET", secret);
+});
+afterEach(() => { vi.unstubAllEnvs(); });
+afterAll(async () => {
+  for (const client of mcpClients) await client.close();
+  const grants = await db.agentGrant.findMany({ where: { oauthClientId: { in: oauthClients } } });
+  await db.agentGrantToken.deleteMany({ where: { grantId: { in: grants.map(g => g.id) } } });
+  await db.agentApiEvent.deleteMany({ where: { keyId: { in: grants.map(g => g.keyId) } } });
+  await db.agentProposal.deleteMany({ where: { clientId: { in: grants.map(g => g.clientId) } } });
+  await db.agentGrant.deleteMany({ where: { id: { in: grants.map(g => g.id) } } });
+  await db.agentApiKey.deleteMany({ where: { id: { in: grants.map(g => g.keyId) } } });
+  await db.agentClient.deleteMany({ where: { id: { in: grants.map(g => g.clientId) } } });
+  await db.agentOAuthCode.deleteMany({ where: { clientId: { in: oauthClients } } });
+  await db.agentOAuthClient.deleteMany({ where: { id: { in: oauthClients } } });
+  await cleanupRun(run);
+  await db.$disconnect();
+});
+
+// A fresh signed client address per request, as the supported server wrapper sends it.
+function request(url: string, init: RequestInit = {}) {
+  const ip = `198.51.100.${(address++ % 200) + 10}`;
+  const headers = new Headers(init.headers);
+  headers.set("x-booking-client-ip", ip); headers.set("x-booking-client-proof", addressProof(ip, secret));
+  return new Request(url, { ...init, headers });
+}
+const form = (values: Record<string, string>) => ({ method: "POST", body: new URLSearchParams(values).toString(),
+  headers: { "content-type": "application/x-www-form-urlencoded" } });
+const verifier = "v".repeat(43), challenge = createHash("sha256").update(verifier).digest("base64url");
+const salon = (business: string) => ({ params: Promise.resolve({ business }) });
+
+async function registerClient() {
+  const response = await register(request(`${origin}/agent-oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Synthetic booking agent", redirect_uris: [redirectUri] }) }));
+  expect(response.status).toBe(201);
+  const { client_id } = await response.json();
+  oauthClients.push(client_id);
+  return client_id as string;
+}
+async function consentHandle(clientId: string, extra: Record<string, string> = {}) {
+  const query = new URLSearchParams({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, code_challenge: challenge,
+    code_challenge_method: "S256", state: "synthetic-state", resource: resource(), ...extra });
+  const page = await authorizePage(request(`${origin}/agent-oauth/authorize?${query}`));
+  return { page, handle: /name="consent" value="([\w-]{43})"/.exec(await page.clone().text())?.[1] };
+}
+async function decide(handle: string, decision: "allow" | "decline", from = origin) {
+  const response = await consentPost(request(`${origin}/agent-oauth/authorize`, { ...form({ consent: handle, decision }),
+    headers: { "content-type": "application/x-www-form-urlencoded", origin: from } }));
+  return response;
+}
+const exchange = (values: Record<string, string>) => tokenPost(request(`${origin}/agent-oauth/token`, form(values)));
+async function connected() {
+  const clientId = await registerClient();
+  const { handle } = await consentHandle(clientId);
+  const callback = new URL((await decide(handle!, "allow")).headers.get("location")!);
+  const code = callback.searchParams.get("code")!;
+  const response = await exchange({ grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri, resource: resource() });
+  expect(response.status).toBe(200);
+  return { clientId, code, tokens: await response.json() as { access_token: string; refresh_token: string; scope: string; expires_in: number } };
+}
+async function mcp(token: string, business = "demo") {
+  const client = new Client({ name: "synthetic-oauth-agent", version: "1" });
+  mcpClients.push(client);
+  await client.connect(new StreamableHTTPClientTransport(new URL(resource(business)), {
+    requestInit: { headers: { authorization: `Bearer ${token}` } },
+    fetch: async (input, init) => salonMcp(request(String(input), init), salon(business)),
+  }));
+  return client;
+}
+const text = (result: unknown) => JSON.parse((result as { content: { text: string }[] }).content[0].text);
+const rpc = (token: string, business?: string) => {
+  const req = request(business ? resource(business) : `${origin}/api/v1/mcp`, { method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_services", arguments: { business: "demo" } } }) });
+  return business ? salonMcp(req, salon(business)) : sharedMcp(req);
+};
+
+describe("customer agent OAuth", () => {
+  it("publishes metadata for the authorization server and each salon's resource", async () => {
+    const server = await (await serverMetadata(request(`${origin}/.well-known/oauth-authorization-server/agent-oauth`))).json();
+    expect(server).toMatchObject({ issuer: `${origin}/agent-oauth`, code_challenge_methods_supported: ["S256"],
+      token_endpoint_auth_methods_supported: ["none"], client_id_metadata_document_supported: true });
+    const prm = await (await resourceMetadata(request(`${origin}/.well-known/oauth-protected-resource/api/v1/salons/demo/mcp`), salon("demo"))).json();
+    expect(prm).toEqual({ resource: resource(), authorization_servers: [`${origin}/agent-oauth`],
+      scopes_supported: ["services:read", "availability:read", "bookings:read", "bookings:write"], bearer_methods_supported: ["header"] });
+  });
+
+  it("connects through consent, PKCE and a salon-bound token, and still needs a mandate to book", async () => {
+    const { tokens } = await connected();
+    expect(tokens).toMatchObject({ expires_in: 900, scope: "services:read availability:read bookings:read bookings:write" });
+    const client = await mcp(tokens.access_token);
+    expect(text(await client.callTool({ name: "list_services", arguments: { business: "demo" } })).services.length).toBeGreaterThan(0);
+    expect(text(await client.callTool({ name: "list_services", arguments: { business: "lab-partner" } })).error.code).toBe("forbidden_business");
+    expect(text(await client.callTool({ name: "create_booking", arguments: { business: "demo", serviceId: "massage", serviceVersion: 1,
+      staffId: "staff-demo", start: new Date(Date.now() + 5 * 86400000).toISOString(), confirmed: true, idempotencyKey: randomUUID(),
+      customer: { name: "Synthetic OAuth customer", email: "oauth-customer@example.test" } } })).error.code).toBe("mandate_required");
+  });
+
+  it("accepts the token only at its own salon's MCP resource", async () => {
+    const { tokens } = await connected();
+    expect((await rpc(tokens.access_token)).status).toBe(401);
+    expect((await services(request(`${origin}/api/v1/services?business=demo`, { headers: { authorization: `Bearer ${tokens.access_token}` } }))).status).toBe(401);
+    const other = await rpc(tokens.access_token, "lab-partner");
+    expect(other.status).toBe(401);
+    expect(other.headers.get("www-authenticate")).toBe(`Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/api/v1/salons/lab-partner/mcp"`);
+    const key = await createAgentApiKey({ businessId: "demo", agentName: `${run}-key`, ownerName: "Synthetic operator", ownerContact: "operator@example.test" }, db);
+    expect((await rpc(key.key, "demo")).status).toBe(401);
+  });
+
+  it("refuses a consent from another origin, a wrong verifier, redirect or resource, and an unknown salon", async () => {
+    const clientId = await registerClient();
+    const { handle } = await consentHandle(clientId);
+    expect((await decide(handle!, "allow", "https://attacker.example")).status).toBe(403);
+    const code = new URL((await decide(handle!, "allow")).headers.get("location")!).searchParams.get("code")!;
+    const base = { grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri };
+    const wrongs: Record<string, string>[] = [{ code_verifier: "w".repeat(43) }, { redirect_uri: "http://127.0.0.1:4555/other" }, { resource: resource("lab-partner") }, { client_id: randomUUID() }];
+    for (const wrong of wrongs)
+      expect(await (await exchange({ ...base, ...wrong })).json()).toEqual({ error: "invalid_grant" });
+    expect((await consentHandle(clientId, { resource: resource("nowhere") })).page.status).toBe(400);
+    expect((await consentHandle(clientId, { redirect_uri: "https://attacker.example/callback" })).page.status).toBe(400);
+  });
+
+  it("returns access_denied on decline and issues nothing", async () => {
+    const clientId = await registerClient();
+    const { handle } = await consentHandle(clientId);
+    const callback = new URL((await decide(handle!, "decline")).headers.get("location")!);
+    expect(Object.fromEntries(callback.searchParams)).toEqual({ state: "synthetic-state", error: "access_denied", iss: `${origin}/agent-oauth` });
+    expect(await db.agentGrant.count({ where: { oauthClientId: clientId } })).toBe(0);
+  });
+
+  it("revokes the grant when an authorization code is used twice", async () => {
+    const { clientId, code, tokens } = await connected();
+    const replay = await exchange({ grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri });
+    expect(await replay.json()).toEqual({ error: "invalid_grant" });
+    expect((await rpc(tokens.access_token, "demo")).status).toBe(401);
+  });
+
+  it("rotates refresh tokens and ends the grant when an old one comes back", async () => {
+    const { clientId, tokens } = await connected();
+    const next = await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: tokens.refresh_token })).json();
+    expect(next.access_token).toBeTruthy();
+    expect((await rpc(tokens.access_token, "demo")).status).toBe(401);
+    expect((await rpc(next.access_token, "demo")).status).toBe(200);
+    expect(await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: tokens.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+    expect((await rpc(next.access_token, "demo")).status).toBe(401);
+    expect(await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: next.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+  });
+
+  it("revokes on request", async () => {
+    const { clientId, tokens } = await connected();
+    expect((await revokePost(request(`${origin}/agent-oauth/revoke`, form({ token: tokens.refresh_token, client_id: clientId })))).status).toBe(200);
+    expect((await rpc(tokens.access_token, "demo")).status).toBe(401);
+    const grant = await db.agentGrant.findFirstOrThrow({ where: { oauthClientId: clientId } });
+    expect((await db.agentApiKey.findUniqueOrThrow({ where: { id: grant.keyId } })).revokedAt).not.toBeNull();
+  });
+
+  it("is off unless AGENT_OAUTH=1", async () => {
+    const { tokens } = await connected();
+    vi.stubEnv("AGENT_OAUTH", "");
+    expect((await register(request(`${origin}/agent-oauth/register`, { method: "POST" }))).status).toBe(404);
+    expect((await rpc(tokens.access_token, "demo")).status).toBe(404);
+  });
+});

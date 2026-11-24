@@ -222,6 +222,14 @@ booking creates an hour, and the MCP route refuses a browser `Origin` other
 than the public origin. The optional local proposal lab uses
 synthetic customer approval. Rescheduling is outside v1.
 
+Customers' agents can sign in with OAuth instead of a key when the operator
+sets `AGENT_OAUTH=1` (off by default until the pilot gate, ADR 7). Add the
+salon's own MCP address, `https://<host>/api/v1/salons/<salon>/mcp`, as a
+connector. The client finds the authorization server through the protected-resource
+metadata, registers itself and opens a consent screen. The token works only
+at that salon's MCP address, lives 15 minutes and is refreshed with a rotating
+refresh token. Every booking still needs the customer's own approval.
+
 Read the [OpenAPI contract](agent-api-v1.openapi.yaml) or get it from
 `/api/v1/openapi` on the booking engine. Standalone engine installs also expose
 the agent tools at `/api/v1/mcp`. In split mode that MCP route is disabled and

@@ -136,7 +136,7 @@ async function readMessage(request: Request) {
   return rpc as { method?: unknown; params?: { name?: unknown } };
 }
 
-async function handleMcpInternal(request: Request) {
+async function handleMcpInternal(request: Request, salon?: string) {
   let principal: AgentPrincipal | undefined;
   let requestedTool: string | undefined;
   let forward = request;
@@ -152,6 +152,8 @@ async function handleMcpInternal(request: Request) {
     }
     await checkAgentAddress(request.headers, name ? toolCreates[name] : undefined);
     principal = await authenticateAgent(request.headers, db, ["services:read", "availability:read", "bookings:read", "bookings:write"]);
+    // RFC 8707 audience: a salon's MCP resource takes only that salon's OAuth grants, the shared one none.
+    if ((principal.grantId ? principal.businessId : undefined) !== salon) throw new AgentApiError("unauthorized");
     const required = name ? toolScopes[name] : undefined;
     if (required) requestedTool = name;
     if (required && !(Array.isArray(required) ? required : [required]).some(s => principal!.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
@@ -174,7 +176,7 @@ async function handleMcpInternal(request: Request) {
   }
 }
 
-export async function handleMcp(request: Request) {
+export async function handleMcp(request: Request, salon?: string) {
   if (isPublicReadonly()) return readonlyForbidden();
-  return auditContext(() => handleMcpInternal(request));
+  return auditContext(() => handleMcpInternal(request, salon));
 }

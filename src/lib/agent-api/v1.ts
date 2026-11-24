@@ -29,7 +29,7 @@ export const MAX_RANGE_DAYS = 14;
 
 // Closed synthetic business allowlist; provider registration cannot widen it.
 // Every request is checked against the credential business (OWASP API1 / BOLA).
-const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
+export const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
   "lab-partner": { id: "lab-partner", name: "Synthetic partner lab", timeZone: ZONE, locationId: DEMO_LOCATION_ID },
   [DEMO_BUSINESS_ID]: {
     id: DEMO_BUSINESS_ID,
@@ -158,6 +158,8 @@ async function agentRouteInternal(
   try {
     await checkAgentAddress(request.headers, route === "POST /api/v1/proposals" ? "proposal" : route === "POST /api/v1/bookings" ? "booking" : undefined);
     principal = await authenticateAgent(request.headers, db, scope);
+    // A customer agent's OAuth token is bound to its salon's MCP resource, not to REST.
+    if (principal.grantId) throw new AgentApiError("unauthorized");
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);
     const status = result instanceof Created ? 201 : 200;
