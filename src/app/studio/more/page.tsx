@@ -7,7 +7,6 @@ import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card, Section } from "@/concept/ui/card";
 import { ListRow } from "@/concept/ui/list-row";
-import { ThemeControl } from "@/concept/ui/theme-control";
 
 function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
   return (
@@ -49,13 +48,6 @@ export default function MorePage() {
           />
         </li>
       </ul>
-      {/* On phones the theme control lives in More. On desktop it lives in the sidebar. */}
-      <Card className="mt-6 lg:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">{t("theme.label")}</span>
-          <ThemeControl compact />
-        </div>
-      </Card>
     </>
   );
 }

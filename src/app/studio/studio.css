@@ -186,3 +186,25 @@ body:has(.studio-root) .demo-banner {
   .studio-preview-frame { height: max(34rem, calc(100dvh - 14rem)); }
   .studio-page-editor { --action-layout-height: max(20rem, calc(100dvh - 2 * var(--space-12))); }
 }
+
+/* The theme wave (src/concept/ui/theme-wave.ts): during a theme switch the old page stays still underneath and the
+   new one is revealed through a sliding SVG mask. Nothing in the layout moves; only the colours change. */
+:root[data-theme-transition]::view-transition-old(root),
+:root[data-theme-transition]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+:root[data-theme-transition="wave"]::view-transition-new(root) {
+  -webkit-mask: var(--theme-wave) no-repeat;
+  mask: var(--theme-wave) no-repeat;
+  /* A softer ease-out than --ease-out: quick off the toggle, then settling over the far side for the full second. */
+  animation: studio-theme-wave 1s cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes studio-theme-wave {
+  from { -webkit-mask-position: var(--theme-wave-from); mask-position: var(--theme-wave-from); }
+  to { -webkit-mask-position: var(--theme-wave-to); mask-position: var(--theme-wave-to); }
+}
+/* Reduced motion: a short plain crossfade instead. */
+:root[data-theme-transition="fade"]::view-transition-new(root) {
+  animation: ui-fade 200ms linear both;
+}
