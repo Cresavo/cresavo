@@ -11,6 +11,7 @@ import { cleanClientName, exactRedirect, fetchDocument, secureUrl } from "../../
 import { PairError, requirePair } from "../../../concept/pairing/http";
 import { ACCESS_SECONDS, agentOAuthEnabled, CODE_MINUTES, GRANT_SCOPES, issuer, REFRESH_DAYS, resourceBusiness, salonName, salonResource } from "./policy";
 import { discoveryOrigin } from "../discovery";
+import { isPublicReadonly, readonlyForbidden } from "../../public-readonly";
 
 type Tx = Prisma.TransactionClient;
 const minute = 60_000, day = 24 * 60 * minute;
@@ -20,6 +21,7 @@ export const tokenDigest = (value: string) => createHash("sha256").update(`agent
 /** Wraps an OAuth route: off unless enabled, one address budget, static errors, never cached. */
 export function oauthEndpoint(handle: (request: Request, origin: string) => Promise<Response> | Response) {
   return async (request: Request) => {
+    if (isPublicReadonly()) return readonlyForbidden();
     if (!agentOAuthEnabled()) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
     let response: Response;
     try {
