@@ -32,9 +32,11 @@ Conversation with Niclas may be Swedish.
   legacy engine: keep it working and secure until the ADR 1 migration gate is
   passed, but add no new booking rules there. Do not touch `/admin`, `/api/v1`,
   MCP, the Prisma schema or migrations without an explicit assignment.
-- The gateway repository, [`Cresavo/gateway`](https://github.com/Cresavo/gateway), owns the
-  public REST/MCP entry for external agents.
-  Build new gateway tools there, not here. Contract: `docs/GATEWAY_SPLIT.md`.
+- Customers' agents reach Cresavo salons through this repo's MCP at
+  `/api/v1/mcp` (ADR 7). The gateway repository,
+  [`Cresavo/gateway`](https://github.com/Cresavo/gateway), is an optional entry
+  for other booking systems; keep its provider contract working.
+  Contract: `docs/GATEWAY_SPLIT.md`.
 - Demo data may stay Swedish-flavoured.
 
 ## Languages

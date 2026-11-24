@@ -137,3 +137,38 @@ then implement the public API, sandbox and consent records.
 decision 1. Assign auth, tenancy, concurrency, rate limits, consent and the
 store contract to a stronger model with second-model review. Use a lighter
 model for mechanical work.
+
+## 7. Serve Cresavo salons through the app's own MCP
+
+Date **2026-11-24** · Status **Accepted**
+
+**Context.** The app already has an agent MCP at `/api/v1/mcp`
+(`src/lib/agent-api/mcp.ts`) with the same tools, scopes, mandates and
+idempotency as REST v1. The gateway (`Cresavo/gateway`) repeats those tools as
+a stateless proxy that decides nothing about bookings. Neither is hosted.
+MCP Elicitation and Tasks need the server to pause a call and ask the client,
+which a forwarding proxy would have to implement a second time.
+
+**Decision.** Customers' agents reach Cresavo salons through the app's own MCP
+and REST v1. The gateway stays a thin, optional entry for other booking systems
+that implement its provider contract. It is not hosted for Cresavo and gets no
+new tools for now. Cresavo never stores another booking system's keys.
+
+**Consequences.**
+
+1. Before public traffic, the app's MCP matches the gateway's transport
+   controls: per-IP limits (60 requests/minute, 5 proposals and 5 bookings per
+   hour) on the Postgres store, a Host and Origin check, one JSON-RPC message
+   per request parsed once, a static 503 for every 5xx and no direct
+   cancellation without an approved cancellation proposal.
+2. A test proves that an agent credential for one salon cannot read or book at
+   another, through every tool.
+3. Customers' agents get OAuth 2.1 with PKCE before any public pilot. Provider
+   demo keys stay for local and sandbox use.
+4. Elicitation, Tasks and a booking skill are additions on top of the
+   propose-and-approve flow. Approval always happens on the salon's consent
+   page and only a server mandate authorises a booking. Clients without these
+   features keep the current flow.
+5. Split mode (`BOOKING_SERVICE_ROLE=salon`) and the gateway's provider
+   conformance check keep working, so the provider contract in
+   `docs/GATEWAY_SPLIT.md` holds.

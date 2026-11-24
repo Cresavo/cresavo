@@ -19,9 +19,9 @@ dependencies, and no code is imported between the checkouts.
 
 | Entry point | Where | Who uses it | Status |
 | --- | --- | --- | --- |
-| Gateway REST v1 and MCP (`/api/v1/*`, `/api/v1/mcp`) | `Cresavo/gateway` | Customers' agents | The intended public entry. Not hosted yet |
-| Provider API `/api/v1` | This repository, `src/app/api/v1` | The gateway in split mode; direct clients in standalone mode | Local and sandbox |
-| Embedded HTTP MCP `/api/v1/mcp` | This repository | Direct agents in standalone mode | Returns 404 in split mode. Build new customer tools in the gateway |
+| Embedded HTTP MCP `/api/v1/mcp` | This repository | Customers' agents booking at Cresavo salons | The intended public entry ([ADR 7](design/ARCHITECTURE_DECISIONS.md)). Needs the gateway's transport controls and OAuth before public use. Returns 404 in split mode |
+| Provider API `/api/v1` | This repository, `src/app/api/v1` | Direct clients; the gateway in split mode | Local and sandbox |
+| Gateway REST v1 and MCP (`/api/v1/*`, `/api/v1/mcp`) | `Cresavo/gateway` | Other booking systems that implement the provider contract | Optional and not hosted for Cresavo |
 | Owner MCP `/mcp/owner` | This repository, OAuth pairing | The owner's own assistant | Flag-controlled pairing preview, see [CONNECT_AI_ASSISTANT](CONNECT_AI_ASSISTANT.md) |
 | Concept demo MCP `/api/concept/mcp` | This repository, shared demo bearer token | An assistant trying the in-memory Salong Eko copy on a local concept server | Local only; returns 403 on the public read-only demo |
 | Local MCP server (stdio) | This repository, `npm run mcp` | A local assistant on the owner's machine | Local, against a disposable database |
