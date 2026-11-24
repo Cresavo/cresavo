@@ -41,6 +41,10 @@ All notable changes to this project are documented here. Format follows
 
 - **Server log lines are structured JSON.** `src/lib/log.ts` writes one line per event with level, event code, time and an allowlist of non-personal fields; the existing codes (for example `BOOKING_INTERNAL_ERROR`) are kept. The two free-text warnings about e-mail that was not sent are now the codes `OWNER_RESET_EMAIL_NOT_SENT` and `BOOKING_EMAIL_WAITING` with a reason field.
 
+### Removed
+
+- **The loopback OAuth lab for the shared agent API.** `BOOKING_OAUTH_LAB`, its `/authorize`, `/register` and `/token` routes, the root protected-resource and authorization-server metadata and its fallback to the `demo` business are gone: customer agent OAuth (`AGENT_OAUTH`, below) replaces it. The shared `/api/v1/mcp` and REST v1 take agent keys only, and their 401 challenge no longer points at the removed metadata. The sandbox now refuses to start with `AGENT_OAUTH=1` in place of the lab flag. The lab's tests moved to the grant flow, and the grant endpoints now write the same `oauth.*` audit events the lab wrote.
+
 ### Fixed
 
 - **The assistant fits the phone screen.** On iPhones the message box zoomed the page in when tapped, which pushed the panel, the close button and the send button past the right edge; fields with small text now use 16 px on touch screens. The panel now fills only the area above the on-screen keyboard, so its header stays in view and the page behind no longer shows or scrolls. The arrow in the round send button is full size again.

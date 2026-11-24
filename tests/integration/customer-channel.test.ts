@@ -13,7 +13,7 @@ import { cleanupRun } from "../../scripts/agentprov/fixtures.mjs";
 import { POST as rest } from "../../src/app/api/v1/proposals/route";
 import { POST as mcp } from "../../src/app/api/v1/mcp/route";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
-import { labRequest, origin, rpcBody } from "../helpers/oauth";
+import { labRequest, origin, rpcBody } from "../helpers/lab-request";
 
 const serviceId = "channel-" + randomUUID(), staffId = "channel-" + randomUUID();
 const root = realpathSync(tmpdir());

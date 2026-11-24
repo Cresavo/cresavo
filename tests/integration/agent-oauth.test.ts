@@ -77,9 +77,9 @@ async function decide(handle: string, decision: "allow" | "decline", from = orig
   return response;
 }
 const exchange = (values: Record<string, string>) => tokenPost(request(`${origin}/agent-oauth/token`, form(values)));
-async function connected() {
+async function connected(scope?: string) {
   const clientId = await registerClient();
-  const { handle } = await consentHandle(clientId);
+  const { handle } = await consentHandle(clientId, scope ? { scope } : {});
   const callback = new URL((await decide(handle!, "allow")).headers.get("location")!);
   const code = callback.searchParams.get("code")!;
   const response = await exchange({ grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri, resource: resource() });
@@ -180,6 +180,50 @@ describe("customer agent OAuth", () => {
     expect((await rpc(tokens.access_token, "demo")).status).toBe(401);
     const grant = await db.agentGrant.findFirstOrThrow({ where: { oauthClientId: clientId } });
     expect((await db.agentApiKey.findUniqueOrThrow({ where: { id: grant.keyId } })).revokedAt).not.toBeNull();
+  });
+
+  it("answers a call outside the granted scopes with forbidden_scope before the tool runs", async () => {
+    const { tokens } = await connected("services:read availability:read");
+    const client = await mcp(tokens.access_token);
+    await expect(client.callTool({ name: "create_proposal", arguments: { business: "demo", serviceId: "massage", serviceVersion: 1,
+      staffId: "staff-demo", start: new Date(Date.now() + 5 * 86400000).toISOString() } })).rejects.toThrow();
+    expect(await db.agentProposal.count({ where: { client: { grants: { some: { oauthClientId: oauthClients.at(-1) } } } } })).toBe(0);
+  });
+
+  it("refuses an expired authorization code", async () => {
+    const clientId = await registerClient();
+    const { handle } = await consentHandle(clientId);
+    const code = new URL((await decide(handle!, "allow")).headers.get("location")!).searchParams.get("code")!;
+    await db.agentOAuthCode.updateMany({ where: { clientId, consent: false }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    expect(await (await exchange({ grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri })).json())
+      .toEqual({ error: "invalid_grant" });
+  });
+
+  it("keeps two grants at the same salon apart", async () => {
+    vi.stubEnv("BOOKING_CONSENT_LAB", "1");
+    const a = await mcp((await connected()).tokens.access_token), b = await mcp((await connected()).tokens.access_token);
+    const created = text(await a.callTool({ name: "create_proposal", arguments: { business: "demo", serviceId: "massage", serviceVersion: 1,
+      staffId: "staff-demo", start: new Date(Date.now() + 9 * 86400000).toISOString() } }));
+    expect(created.proposal.id).toBeTruthy();
+    expect(text(await b.callTool({ name: "get_proposal", arguments: { proposalId: created.proposal.id } })).error.code).toBe("booking_not_found");
+    expect(text(await a.callTool({ name: "get_proposal", arguments: { proposalId: created.proposal.id } })).proposal.id).toBe(created.proposal.id);
+  });
+
+  it("audits grants and refusals and logs no credentials", async () => {
+    const logged: string[] = [];
+    const capture = (...args: unknown[]) => { logged.push(args.map(String).join(" ")); };
+    const spies = [vi.spyOn(console, "info").mockImplementation(capture), vi.spyOn(console, "error").mockImplementation(capture), vi.spyOn(console, "log").mockImplementation(capture)];
+    try {
+      const { clientId, code, tokens } = await connected();
+      await exchange({ grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri });
+      await rpc(tokens.access_token, "demo");
+      const grant = await db.agentGrant.findFirstOrThrow({ where: { oauthClientId: clientId } });
+      const rows = await db.agentAuditEvent.findMany({ where: { OR: [{ clientId }, { clientId: grant.clientId }] }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+      expect(rows.map(r => r.event).filter(e => e.startsWith("oauth."))).toEqual(["oauth.client_registered", "oauth.authorize_granted", "oauth.token_issued"]);
+      expect(await db.agentAuditEvent.count({ where: { event: "oauth.token_denied", outcome: "invalid_grant", createdAt: { gte: rows[0].createdAt } } })).toBeGreaterThan(0);
+      for (const secret of [tokens.access_token, tokens.refresh_token, code, verifier])
+        for (const text of [JSON.stringify(rows), ...logged]) expect(text).not.toContain(secret);
+    } finally { spies.forEach(spy => spy.mockRestore()); }
   });
 
   it("is off unless AGENT_OAUTH=1", async () => {

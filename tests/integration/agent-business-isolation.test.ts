@@ -6,8 +6,6 @@ import { db } from "../../src/lib/db";
 import { authenticateAgent, createAgentApiKey } from "../../src/lib/agent-api/keys";
 import { handleMcp } from "../../src/lib/agent-api/mcp";
 import { createProposal } from "../../src/lib/agent-api/proposals";
-import { clearLabOAuthBusinesses, registerLabOAuthBusiness } from "../../src/lib/agent-api/oauth/lab-business";
-import { verifyLabAccessToken } from "../../src/lib/agent-api/oauth/server";
 import { GET as services } from "../../src/app/api/v1/services/route";
 import { GET as availability } from "../../src/app/api/v1/availability/route";
 import { POST as proposals } from "../../src/app/api/v1/proposals/route";
@@ -16,7 +14,9 @@ import { POST as bookings } from "../../src/app/api/v1/bookings/route";
 import { GET as booking } from "../../src/app/api/v1/bookings/[id]/route";
 import { POST as cancel } from "../../src/app/api/v1/bookings/[id]/cancel/route";
 import { cleanupRun, grant } from "../../scripts/agentprov/fixtures.mjs";
-import { accessToken, origin } from "../helpers/oauth";
+import { origin } from "../helpers/lab-request";
+import { deleteGrants, grantToken } from "../helpers/agent-grant";
+import { POST as salonMcp } from "../../src/app/api/v1/salons/[business]/mcp/route";
 
 // ADR 7 / issue #182: an agent credential for one salon never reads or books at another.
 const run = `agentprov-${randomUUID()}`;
@@ -28,15 +28,17 @@ let demoBookingId: string, demoProposalId: string, slot: Slot;
 const clients: Client[] = [];
 const oauthClients: string[] = [];
 
-async function connect(key: string) {
+// An API key uses the shared MCP route; a customer agent's OAuth grant uses its salon's own route.
+async function connect(key: string, salon?: string) {
   const client = new Client({ name: "synthetic-isolation-test", version: "1" });
   clients.push(client);
-  await client.connect(new StreamableHTTPClientTransport(new URL("http://localhost/api/v1/mcp"), {
+  const path = salon ? `/api/v1/salons/${salon}/mcp` : "/api/v1/mcp";
+  await client.connect(new StreamableHTTPClientTransport(new URL(`http://localhost${path}`), {
     requestInit: { headers: { authorization: `Bearer ${key}` } },
     fetch: async (input, init) => {
       const request = new Request(input, init);
-      if (new URL(request.url).pathname !== "/api/v1/mcp") throw new Error("TEST_TARGET_REFUSED");
-      return handleMcp(request);
+      if (new URL(request.url).pathname !== path) throw new Error("TEST_TARGET_REFUSED");
+      return salon ? salonMcp(request, { params: Promise.resolve({ business: salon }) }) : handleMcp(request);
     },
   }));
   return client;
@@ -84,7 +86,7 @@ const objectTools: Record<string, () => Record<string, unknown>> = {
 
 beforeAll(async () => {
   vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_RUNTIME", "local");
-  vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_OAUTH_LAB", "1");
+  vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("AGENT_OAUTH", "1");
   vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof");
   const make = (businessId: string, suffix: string) => createAgentApiKey({ businessId, agentName: `${run}-${suffix}`,
     ownerName: "Synthetic operator", ownerContact: "operator@example.test", kind: "demo-script" }, db);
@@ -107,12 +109,7 @@ afterAll(async () => {
   for (const client of clients) await client.close();
   await db.agentProposal.deleteMany({ where: { clientId: { in: [demo.record.clientId, partner.record.clientId] } } });
   await cleanupRun(run);
-  // OAuth lab principals are stored per client id. AgentAuditEvent is append-only and stays.
-  const oauthKeys = await db.agentApiKey.findMany({ where: { clientId: { in: oauthClients } } });
-  await db.agentApiEvent.deleteMany({ where: { keyId: { in: oauthKeys.map(k => k.id) } } });
-  await db.agentApiKey.deleteMany({ where: { clientId: { in: oauthClients } } });
-  await db.agentClient.deleteMany({ where: { id: { in: oauthClients } } });
-  clearLabOAuthBusinesses();
+  await db.agentClient.deleteMany({ where: { id: { in: await deleteGrants(oauthClients) } } });
   vi.unstubAllEnvs();
   await db.$disconnect();
 });
@@ -152,18 +149,14 @@ describe("agent credentials stay inside their own salon", () => {
       .toEqual(notFound);
   }, 30000);
 
-  it("holds for OAuth access tokens bound to another salon", async () => {
-    const token = await accessToken("services:read availability:read bookings:read bookings:write");
-    registerLabOAuthBusiness(verifyLabAccessToken(token, new Date())!.clientId, "lab-partner");
-    const principal = await authenticateAgent(new Headers({ authorization: `Bearer ${token}` }), db, "services:read");
-    oauthClients.push(principal.clientId);
-    expect(principal.businessId).toBe("lab-partner");
-    const client = await connect(token);
+  it("holds for a customer agent's OAuth grant for another salon", async () => {
+    const grant = await grantToken("lab-partner", ["services:read", "availability:read", "bookings:read", "bookings:write"]);
+    oauthClients.push(grant.oauthClientId);
+    const client = await connect(grant.accessToken, "lab-partner");
     for (const [name, args] of Object.entries(businessTools))
       expect((await tool(client, name, args("demo"))).error?.code, `OAuth lab-partner → demo via ${name}`).toBe("forbidden_business");
     for (const [name, args] of Object.entries(objectTools))
       expect((await tool(client, name, args())).error?.code, `OAuth lab-partner reads demo via ${name}`).toBe("booking_not_found");
-    expect(await code(await services(rest(token, "/api/v1/services?business=demo")))).toEqual({ status: 403, code: "forbidden_business" });
   }, 30000);
 
   it("leaves the demo booking untouched and gives the other salon nothing", async () => {

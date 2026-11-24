@@ -10,7 +10,7 @@ import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
 import { POST as propose } from "../../src/app/api/v1/proposals/route";
 import { POST as mcp } from "../../src/app/api/v1/mcp/route";
-import { labRequest, origin, rpcBody } from "../helpers/oauth";
+import { labRequest, origin, rpcBody } from "../helpers/lab-request";
 
 const clients: string[] = [];
 const staffId = `sms-staff-${randomUUID()}`, serviceId = `sms-service-${randomUUID()}`;

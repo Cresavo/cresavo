@@ -14,7 +14,7 @@ import { discoveryOrigin } from "./discovery";
 import { consentElicitation } from "./consent-elicitation";
 
 // Same business rules and key checks as the REST API. Authentication is the
-// sandbox API key or process-local lab OAuth access token.
+// agent API key, or a customer agent's OAuth grant on its salon's MCP resource.
 async function tool(principal: AgentPrincipal, scope: AgentScope | readonly AgentScope[], run: () => Promise<unknown>, name: string) {
   try {
     const required = Array.isArray(scope) ? scope : [scope];

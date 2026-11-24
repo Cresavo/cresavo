@@ -7,7 +7,7 @@ import { createProposal, customerDecision, getProposal } from "../../src/lib/age
 import { createAgentBooking } from "../../src/lib/agent-api/bookings";
 import { contactEmailHash, simulatedEmailCodeSender } from "../../src/lib/agent-api/email-code-consent";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
-import { labRequest, origin } from "../helpers/oauth";
+import { labRequest, origin } from "../helpers/lab-request";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { handleMcp } from "../../src/lib/agent-api/mcp";
 

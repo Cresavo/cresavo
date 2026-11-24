@@ -2,7 +2,6 @@ import { assertWritable } from "../public-readonly";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { labOAuthBusiness } from "./oauth/lab-business";
 import { AgentApiError } from "./errors";
 
 // Key format: blk_<prefix>_<secret>. The prefix (12 hex) is a public lookup id
@@ -131,7 +130,7 @@ export async function authenticateAgent(
   const match = key ? KEY_PATTERN.exec(key) : null;
   if (!key) throw new AgentApiError("unauthorized");
   if (!match) {
-    // OAuth is accepted only in Authorization, never as an X-API-Key.
+    // A customer agent's OAuth token is accepted only in Authorization, never as an X-API-Key.
     if (!headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)) throw new AgentApiError("unauthorized");
     const { grantPrincipal } = await import("./grants/server");
     const grant = await grantPrincipal(key, now);
@@ -139,30 +138,7 @@ export async function authenticateAgent(
       if (!(Array.isArray(scope) ? scope : [scope]).some(s => grant.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
       return grant;
     }
-    const { verifyLabAccessToken } = await import("./oauth/server");
-    const token = verifyLabAccessToken(key, now);
-    if (!token) throw new AgentApiError("unauthorized");
-    if (!(Array.isArray(scope) ? scope : [scope]).some(s => token.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
-    const businessId = labOAuthBusiness(token.clientId);
-    const identity = createHash("sha256").update(`booking-lab:oauth-client:v1:${token.clientId}`).digest("hex");
-    const clientId = `oauth_${identity}`;
-    // Native write-lock checks need a credential row. Its ceiling is the
-    // registered grant; the principal and transport always use token scopes.
-    const row = await client.agentApiKey.upsert({
-      where: { keyPrefix: clientId }, update: {},
-      create: {
-        keyPrefix: clientId, keyHash: createHash("sha256").update(randomBytes(32)).digest("hex"), scopes: token.registeredScopes,
-        agentName: "Synthetic OAuth lab", ownerName: "Synthetic operator", ownerContact: "oauth@example.test",
-        kind: "registered-client",
-        client: { connectOrCreate: { where: { businessId_id: { businessId, id: clientId } },
-          create: { id: clientId, businessId } } },
-      }, include: { client: true },
-    });
-    if (row.revokedAt || !row.client.active || row.clientId !== clientId || row.businessId !== businessId)
-      throw new AgentApiError("unauthorized");
-    console.info(JSON.stringify({ event: "oauth_lab_auth", status: 200 }));
-    return { keyId: row.id, clientId, keyPrefix: row.keyPrefix, businessId: row.businessId,
-      agentName: row.agentName, ownerName: row.ownerName, kind: row.kind, scopes: token.scopes };
+    throw new AgentApiError("unauthorized");
   }
   const row = await client.agentApiKey.findUnique({ where: { keyPrefix: match[1] }, include: { client: true } });
   const expected = Buffer.from(row?.keyHash ?? "0".repeat(64), "hex");

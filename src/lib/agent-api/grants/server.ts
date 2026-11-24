@@ -12,15 +12,22 @@ import { PairError, requirePair } from "../../../concept/pairing/http";
 import { ACCESS_SECONDS, agentOAuthEnabled, CODE_MINUTES, GRANT_SCOPES, issuer, REFRESH_DAYS, resourceBusiness, salonName, salonResource } from "./policy";
 import { discoveryOrigin } from "../discovery";
 import { isPublicReadonly, readonlyForbidden } from "../../public-readonly";
+import { auditContext, recordAudit } from "../audit";
 
 type Tx = Prisma.TransactionClient;
 const minute = 60_000, day = 24 * 60 * minute;
 const secret = () => randomBytes(32).toString("base64url");
 export const tokenDigest = (value: string) => createHash("sha256").update(`agent-oauth-v1:${value}`).digest("hex");
 
-/** Wraps an OAuth route: off unless enabled, one address budget, static errors, never cached. */
-export function oauthEndpoint(handle: (request: Request, origin: string) => Promise<Response> | Response) {
-  return async (request: Request) => {
+type AuditedStep = "register" | "authorize" | "token";
+const denied = { register: "oauth.register_denied", authorize: "oauth.authorize_denied", token: "oauth.token_denied" } as const;
+// Audit ids must match the audit schema; a Client ID Metadata Document URL does not and is left out.
+const auditId = (value: string) => /^[A-Za-z0-9_:-]{1,160}$/.test(value) ? value : undefined;
+const auditBusiness = (business: string) => business as "demo" | "lab-partner";
+
+/** Wraps an OAuth route: off unless enabled, one address budget, static errors, never cached, refusals audited. */
+export function oauthEndpoint(handle: (request: Request, origin: string) => Promise<Response> | Response, step?: AuditedStep) {
+  return (request: Request) => auditContext(async () => {
     if (isPublicReadonly()) return readonlyForbidden();
     if (!agentOAuthEnabled()) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
     let response: Response;
@@ -33,12 +40,14 @@ export function oauthEndpoint(handle: (request: Request, origin: string) => Prom
         : error instanceof z.ZodError || error instanceof SyntaxError ? [400, "invalid_request"]
         : [500, "server_error"];
       if (status === 500) console.error("AGENT_OAUTH_INTERNAL_ERROR");
+      // Only the fixed error code is recorded: never a token, code, verifier or client document.
+      if (step) await recordAudit({ event: denied[step], outcome: code, route: `agent-oauth ${step}` });
       response = Response.json({ error: code }, { status });
     }
     response.headers.set("Cache-Control", "no-store");
     response.headers.set("Referrer-Policy", "no-referrer");
     return response;
-  };
+  });
 }
 
 async function body(request: Request, mime: string) {
@@ -79,6 +88,7 @@ export async function register(request: Request) {
   const redirects = [...new Set(document.redirect_uris)].sort();
   const id = randomUUID();
   await db.agentOAuthClient.create({ data: { id, name: document.client_name, redirects, expiresAt: new Date(Date.now() + REFRESH_DAYS * day) } });
+  await recordAudit({ event: "oauth.client_registered", outcome: "201", route: "agent-oauth register", clientId: id });
   return Response.json({ client_id: id, client_name: document.client_name, redirect_uris: document.redirect_uris,
     token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }, { status: 201 });
 }
@@ -124,9 +134,11 @@ export async function consent(request: Request, origin: string) {
   requirePair(request.headers.get("origin") === origin, "invalid_origin", 403);
   const q = fields(await body(request, "application/x-www-form-urlencoded"));
   requirePair(q.consent && ["allow", "decline"].includes(q.decision));
+  let decided: { clientId: string; businessId: string; scopes: string } | undefined;
   const location = await db.$transaction(async tx => {
     const pending = await tx.agentOAuthCode.findUnique({ where: { hash: tokenDigest(q.consent) } });
     requirePair(pending?.consent && pending.expiresAt > new Date(), "invalid_consent");
+    decided = pending;
     await tx.agentOAuthCode.delete({ where: { hash: pending.hash } });
     const url = new URL(pending.redirectUri);
     if (pending.state) url.searchParams.set("state", pending.state);
@@ -138,6 +150,9 @@ export async function consent(request: Request, origin: string) {
     url.searchParams.set("iss", issuer(origin));
     return url.href;
   });
+  if (decided) await recordAudit({ event: q.decision === "allow" ? "oauth.authorize_granted" : "oauth.authorize_denied",
+    outcome: q.decision === "allow" ? "granted" : "access_denied", route: "agent-oauth authorize",
+    clientId: auditId(decided.clientId), businessId: auditBusiness(decided.businessId), scopes: decided.scopes.split(" ") });
   return new Response(null, { status: 303, headers: { Location: location } });
 }
 
@@ -149,11 +164,11 @@ export async function revokeGrant(tx: Tx, grantId: string, now = new Date()) {
   await tx.agentGrantToken.deleteMany({ where: { grantId } });
 }
 
-async function issue(tx: Tx, grant: { id: string; scopes: string }, now: Date) {
+async function issue(tx: Tx, grant: { id: string; scopes: string; clientId: string; businessId: string }, now: Date) {
   const access = secret(), refresh = secret();
   await tx.agentGrantToken.create({ data: { grantId: grant.id, accessHash: tokenDigest(access), refreshHash: tokenDigest(refresh),
     expiresAt: new Date(+now + ACCESS_SECONDS * 1000), refreshExpiresAt: new Date(+now + REFRESH_DAYS * day) } });
-  return { access_token: access, refresh_token: refresh, token_type: "Bearer", expires_in: ACCESS_SECONDS, scope: grant.scopes };
+  return { access_token: access, refresh_token: refresh, token_type: "Bearer", expires_in: ACCESS_SECONDS, scope: grant.scopes, grant };
 }
 
 export async function token(request: Request, origin: string) {
@@ -197,7 +212,10 @@ export async function token(request: Request, origin: string) {
     return issue(tx, prior.grant, now);
   });
   requirePair(result, "invalid_grant");
-  return Response.json(result);
+  const { grant, ...tokens } = result;
+  await recordAudit({ event: "oauth.token_issued", outcome: q.grant_type, route: "agent-oauth token",
+    clientId: grant.clientId, businessId: auditBusiness(grant.businessId), scopes: grant.scopes.split(" ") });
+  return Response.json(tokens);
 }
 
 /** RFC 7009: always 200, also for an unknown token. */

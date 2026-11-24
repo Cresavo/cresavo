@@ -13,7 +13,7 @@ export const DAY_MS = 24 * HOUR_MS;
 const REVISION = 1;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const incompatibleFlags = [
-  "BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "BOOKING_OAUTH_LAB", "PUBLIC_READONLY",
+  "BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "AGENT_OAUTH", "PUBLIC_READONLY",
   "ASSISTANT_PAIRING", "BOOKING_PUBLIC_DEMO", "NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO",
 ] as const;
 const incompatibleSettings = [

@@ -10,8 +10,11 @@ import { POST as propose } from "../../src/app/api/v1/proposals/route";
 import { GET as getStatus } from "../../src/app/api/v1/proposals/[id]/route";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
 import { POST as mcp } from "../../src/app/api/v1/mcp/route";
-import { accessToken, labRequest, origin, rpcBody } from "../helpers/oauth";
+import { labRequest, origin, rpcBody } from "../helpers/lab-request";
+import { deleteGrants, grantToken } from "../helpers/agent-grant";
+import { POST as salonMcp } from "../../src/app/api/v1/salons/[business]/mcp/route";
 const clients: string[] = [];
+const oauthClients: string[] = [];
 let slot = 0;
 const serviceId = `consent-service-${randomUUID()}`;
 const staffId = `consent-staff-${randomUUID()}`;
@@ -22,12 +25,13 @@ beforeAll(async () => {
   for (const id of [staffId, otherStaffId]) await db.staff.create({ data: { id, businessId: "demo", name: "Syntetisk Samtyckespersonal", serviceIds: [serviceId, "massage"], weekly: template.weekly!, exceptions: [] } });
 });
 beforeEach(() => {
-  vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_OAUTH_LAB", "1");
+  vi.stubEnv("BOOKING_CONSENT_LAB", "1");
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_RUNTIME", "local");
-  vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof");
+  vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof"); vi.stubEnv("AGENT_OAUTH", "1");
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 afterAll(async () => {
+  await deleteGrants(oauthClients);
   const keys = await db.agentApiKey.findMany({ where: { clientId: { in: clients } } });
   const links = await db.agentBooking.findMany({ where: { clientId: { in: clients } } });
   await db.agentApiEvent.deleteMany({ where: { keyId: { in: keys.map(k => k.id) } } });
@@ -42,7 +46,9 @@ afterAll(async () => {
   await db.$disconnect();
 });
 async function actor(oauth = false, scopes = ["services:read", "bookings:read", "bookings:write"]) {
-  const key = oauth ? await accessToken(scopes.join(" ")) : (await createAgentApiKey({ businessId: "demo", agentName: "Consent synthetic test", ownerName: "Synthetic Operator", ownerContact: "consent@example.test", scopes }, db)).key;
+  const grant = oauth ? await grantToken("demo", scopes) : null;
+  if (grant) oauthClients.push(grant.oauthClientId);
+  const key = grant ? grant.accessToken : (await createAgentApiKey({ businessId: "demo", agentName: "Consent synthetic test", ownerName: "Synthetic Operator", ownerContact: "consent@example.test", scopes }, db)).key;
   const principal = await authenticateAgent(new Headers({ authorization: `Bearer ${key}` }), db, scopes[0] as "bookings:write");
   clients.push(principal.clientId); return { key, principal };
 }
@@ -176,7 +182,11 @@ it.each(["service", "staff"])("different %s cannot use an approved mandate", asy
 });
 it.each([false, true])("MCP creation and write-only status share the REST flow (%s)", async oauth => {
   const { key, principal } = await actor(oauth, ["bookings:write"]);
-  const call = (name: string, args: unknown) => mcp(new Request(`${origin}/api/v1/mcp`, { method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) }));
+  // A customer agent's OAuth token is valid only at its salon's MCP resource.
+  const call = (name: string, args: unknown) => {
+    const request = new Request(`${origin}/api/v1/${oauth ? "salons/demo/" : ""}mcp`, { method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }) });
+    return oauth ? salonMcp(request, { params: Promise.resolve({ business: "demo" }) }) : mcp(request);
+  };
   const response = await call("create_proposal", await input()); expect(response.status).toBe(200);
   const r = (await rpcBody(response)).result.structuredContent;
   const token = new URL(r.approvalUrl).hash.slice(1);

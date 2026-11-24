@@ -9,7 +9,7 @@ import { GET as booking } from "../../src/app/api/v1/bookings/[id]/route";
 import { POST as cancel } from "../../src/app/api/v1/bookings/[id]/cancel/route";
 import { addressProof } from "../../scripts/client-address.mjs";
 import { cleanupRun, grant } from "../../scripts/agentprov/fixtures.mjs";
-import { rpcBody } from "../helpers/oauth";
+import { rpcBody } from "../helpers/lab-request";
 
 // ADR 7 / issue #181: the app's MCP carries the gateway's transport controls itself.
 vi.unmock("../../src/lib/agent-api/address-limits");
