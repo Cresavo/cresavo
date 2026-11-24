@@ -183,7 +183,8 @@ components:
       properties:
         approvalUrl: { type: string, description: Legacy local bearer-link lab only. Absent in separate-lab. }
         approvalRequired: { type: boolean, const: true }
-        approvalDelivery: { type: string, const: separate-synthetic-customer }
+        approvalDelivery: { type: string, enum: [separate-synthetic-customer, customer-email-code] }
+        consentUrl: { type: string, description: "Email-code lab only. The salon's consent page for this proposal. It carries no secret: the customer approves with a one-time code sent to their own address, and the booking must use that address. Safe to show to the person." }
         proposal:
           type: object
           additionalProperties: false

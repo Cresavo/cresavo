@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { AgentApiError } from "./errors";
 import { requireConsentLab } from "./customer-identity";
+import { assertEmailCodeBinding, EMAIL_CODE_CHANNEL } from "./email-code-consent";
 
 export const CUSTOMER_CHANNEL = "separate-lab-v1";
 // Immutable v1 fixture: never replace this with client-supplied contact data.
@@ -13,7 +14,7 @@ export const CHANNEL_CUSTOMER = Object.freeze({
 
 export function separateCustomerChannel() {
   const mode = process.env.BOOKING_CONSENT_DELIVERY;
-  if (mode === undefined || mode === "legacy-agent-link") return false;
+  if (mode === undefined || mode === "legacy-agent-link" || mode === "email-code") return false;
   if (mode !== "separate-lab") throw new AgentApiError("invalid_request");
   requireConsentLab();
   if (process.env.BOOKING_RUNTIME !== "local" || process.env.VERCEL || process.env.VERCEL_ENV ||
@@ -52,10 +53,12 @@ export function prepareCustomerDelivery() {
 }
 
 export function assertCustomerChannelBinding(
-  proposal: { consentDelivery: string | null },
+  proposal: { consentDelivery: string | null; contactEmailHash?: string | null; otpVerifiedAt?: Date | null },
   mandate: { verifiedVia: string | null },
   customer: { name: string; email: string },
 ) {
+  if (proposal.consentDelivery === EMAIL_CODE_CHANNEL || mandate.verifiedVia === EMAIL_CODE_CHANNEL)
+    return assertEmailCodeBinding(proposal, mandate, customer);
   if (proposal.consentDelivery === null && mandate.verifiedVia !== CUSTOMER_CHANNEL) return;
   if (proposal.consentDelivery !== CUSTOMER_CHANNEL || mandate.verifiedVia !== CUSTOMER_CHANNEL ||
       customer.name !== CHANNEL_CUSTOMER.name || customer.email !== CHANNEL_CUSTOMER.email)

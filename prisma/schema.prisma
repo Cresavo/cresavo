@@ -355,6 +355,10 @@ model AgentProposal {
   otpAttempts Int @default(0)
   otpLastSentAt DateTime? @db.Timestamptz(3)
   otpVerifiedAt DateTime? @db.Timestamptz(3)
+  // Email-code consent: digest and mask of the address the customer typed, never the address.
+  contactEmailHash String?
+  contactEmailMask String?
+  otpSends Int @default(0)
   status String @default("pending")
   expiresAt DateTime @db.Timestamptz(3)
   mandateId String? @unique

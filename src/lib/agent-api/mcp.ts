@@ -11,6 +11,7 @@ import { createProposal, getProposal } from "./proposals";
 import { mcpInputs } from "./mcp-inputs";
 import { checkAgentAddress, type AgentCreate } from "./address-limits";
 import { discoveryOrigin } from "./discovery";
+import { consentElicitation } from "./consent-elicitation";
 
 // Same business rules and key checks as the REST API. Authentication is the
 // sandbox API key or process-local lab OAuth access token.
@@ -41,8 +42,11 @@ export function agentMcpServer(principal: AgentPrincipal) {
   const server = new McpServer({ name: "booking-lab-agent-api", version: "1.0.0" });
   server.registerTool("create_proposal", { description: "Propose an exact synthetic booking for customer consent. Does not grant authority.", inputSchema: mcpInputs.create_proposal },
     async a => tool(principal, "bookings:write", () => createProposal(principal, a), "create_proposal"));
-  server.registerTool("get_proposal", { description: "Read this client's proposal status and approved mandateId.", inputSchema: mcpInputs.get_proposal },
-    async a => tool(principal, ["bookings:read", "bookings:write"], () => getProposal(principal, a.proposalId), "get_proposal"));
+  server.registerTool("get_proposal", { description: "Read this client's proposal status and approved mandateId. A client with URL elicitation is asked to open the consent page for a pending proposal.", inputSchema: mcpInputs.get_proposal },
+    async (a, ctx) => {
+      const reply = await tool(principal, ["bookings:read", "bookings:write"], () => getProposal(principal, a.proposalId), "get_proposal");
+      return ("structuredContent" in reply ? consentElicitation(ctx, reply.structuredContent) : null) ?? reply;
+    });
   for (const name of ["list_services", "usp_services_list"])
   server.registerTool(
     name,
