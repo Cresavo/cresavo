@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../../src/lib/agent-api/keys";
 import { customerDecision, createProposal, getProposal, proposalHash } from "../../src/lib/agent-api/proposals";
+import { simulatedEmailCodeSender } from "../../src/lib/agent-api/email-code-consent";
 import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { cancelBookingV1, createAgentBooking } from "../../src/lib/agent-api/bookings";
 import { POST as propose } from "../../src/app/api/v1/proposals/route";
@@ -58,20 +59,27 @@ async function input() {
   const service = await db.service.findUniqueOrThrow({ where: { id: serviceId } });
   return { business: "demo", serviceId: service.id, serviceVersion: service.version, staffId, start: day.set({ hour: 11 }).toISO()! };
 }
+const customerEmail = "consent-test@example.test";
+// The customer types their own address on the consent page and reads the code from their inbox.
+async function codeFor(id: string) {
+  await customerDecision(id, { decision: "send-code", email: customerEmail });
+  return simulatedEmailCodeSender.read().at(-1)!.code;
+}
 async function pending(p: AgentPrincipal) {
   const payload = await input();
   const result = await createProposal(p, payload);
-  return { ...result, payload, token: new URL(result.approvalUrl!).hash.slice(1) };
+  return { ...result, payload, code: await codeFor(result.proposal.id) };
 }
-async function decision(id: string, token: string, value: "yes" | "no") {
-  const seen = await customerDecision(id, { token, decision: "view" });
-  return customerDecision(id, { token, decision: value, proposalHash: seen.proposalHash });
+async function decision(id: string, code: string, value: "yes" | "no") {
+  const seen = await customerDecision(id, { decision: "view" }) as { proposalHash: string };
+  return customerDecision(id, { decision: value, proposalHash: seen.proposalHash, code });
 }
-const booking = (payload: Awaited<ReturnType<typeof input>>, mandateId?: string) => ({ ...payload, confirmed: true, customer: { name: "Syntetisk Testkund", email: "consent-test@example.test" }, ...(mandateId ? { mandateId } : {}) });
+const wrong = (code: string) => code === "000000" ? "000001" : "000000";
+const booking = (payload: Awaited<ReturnType<typeof input>>, mandateId?: string) => ({ ...payload, confirmed: true, customer: { name: "Syntetisk Testkund", email: customerEmail }, ...(mandateId ? { mandateId } : {}) });
 it.each([false, true])("customer yes creates exact authority, usable by key/OAuth (%s)", async oauth => {
   const { principal } = await actor(oauth);
   const r = await pending(principal);
-  await decision(r.proposal.id, r.token, "yes");
+  await decision(r.proposal.id, r.code, "yes");
   const approved = await getProposal(principal, r.proposal.id);
   const mandate = await db.agentMandate.findUniqueOrThrow({ where: { id: approved.proposal.mandateId! } });
   const proposal = await db.agentProposal.findUniqueOrThrow({ where: { id: r.proposal.id } });
@@ -84,8 +92,8 @@ it.each([false, true])("customer yes creates exact authority, usable by key/OAut
   const bookingId = (created as { body: { booking: { id: string } } }).body.booking.id;
   for (const query of [{ bookingId }, { mandateId: mandate.id }, { proposalId: r.proposal.id }]) {
     const chain = await readAudit({ ...query, chain: "true" });
-    expect(chain.events.map(e => e.event)).toEqual(["proposal.created", "proposal.viewed", "consent.approved", "mandate.created", "mandate.consumed", "booking.created"]);
-    for (const secret of [r.token, "Syntetisk Testkund", "consent-test@example.test"]) expect(JSON.stringify(chain)).not.toContain(secret);
+    expect(chain.events.map(e => e.event)).toEqual(["proposal.created", "email_code.sent", "proposal.viewed", "email_code.verified", "consent.approved", "mandate.created", "mandate.consumed", "booking.created"]);
+    for (const secret of [r.code, "Syntetisk Testkund", "consent-test@example.test"]) expect(JSON.stringify(chain)).not.toContain(secret);
   }
   await cancelBookingV1(principal, bookingId);
   expect((await readAudit({ bookingId, chain: "true" })).events.at(-1)?.event).toBe("booking.cancelled");
@@ -93,19 +101,19 @@ it.each([false, true])("customer yes creates exact authority, usable by key/OAut
 });
 it.each(["yes", "no"] as const)("consumes link once after %s, including concurrent replay", async value => {
   const { principal } = await actor(); const r = await pending(principal);
-  const seen = await customerDecision(r.proposal.id, { token: r.token, decision: "view" });
-  const results = await Promise.allSettled([1, 2].map(() => customerDecision(r.proposal.id, { token: r.token, decision: value, proposalHash: seen.proposalHash })));
+  const seen = await customerDecision(r.proposal.id, { decision: "view" }) as { proposalHash: string };
+  const results = await Promise.allSettled([1, 2].map(() => customerDecision(r.proposal.id, { decision: value, proposalHash: seen.proposalHash, code: r.code })));
   expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
   expect(await db.agentMandate.count({ where: { originReference: r.proposal.id } })).toBe(value === "yes" ? 1 : 0);
-  await expect(decision(r.proposal.id, r.token, "yes")).rejects.toMatchObject({ code: "mandate_denied" });
+  await expect(decision(r.proposal.id, r.code, "yes")).rejects.toMatchObject({ code: "mandate_denied" });
   if (value === "no") await expect(createAgentBooking(principal, "declined", booking(r.payload))).rejects.toMatchObject({ code: "mandate_required" });
 });
-it("expired and wrong tokens create no mandate", async () => {
+it("expired and wrong codes create no mandate", async () => {
   const { principal } = await actor(); const r = await pending(principal);
-  await expect(customerDecision(r.proposal.id, { token: "x".repeat(43), decision: "yes" })).rejects.toMatchObject({ code: "mandate_denied" });
+  await expect(decision(r.proposal.id, wrong(r.code), "yes")).rejects.toMatchObject({ code: "mandate_denied" });
   await db.agentProposal.update({ where: { id: r.proposal.id }, data: { expiresAt: new Date(Date.now() - 1) } });
   expect((await getProposal(principal, r.proposal.id)).proposal.status).toBe("expired");
-  await expect(decision(r.proposal.id, r.token, "yes")).rejects.toMatchObject({ code: "mandate_denied" });
+  await expect(decision(r.proposal.id, r.code, "yes")).rejects.toMatchObject({ code: "mandate_denied" });
   expect(await db.agentMandate.count({ where: { originReference: r.proposal.id } })).toBe(0);
   await expect(createAgentBooking(principal, "expired", booking(r.payload))).rejects.toMatchObject({ code: "mandate_required" });
 });
@@ -113,27 +121,27 @@ it("other clients cannot read proposals or use customer mandates", async () => {
   const a = await actor(), b = await actor(); const r = await pending(a.principal);
   const response = await getStatus(new Request(`${origin}/api/v1/proposals/${r.proposal.id}`, { headers: { authorization: `Bearer ${b.key}` } }), { params: Promise.resolve({ id: r.proposal.id }) });
   expect(response.status).toBe(404);
-  await decision(r.proposal.id, r.token, "yes");
+  await decision(r.proposal.id, r.code, "yes");
   const mandateId = (await getProposal(a.principal, r.proposal.id)).proposal.mandateId!;
   await expect(createAgentBooking(b.principal, "foreign", booking(r.payload, mandateId))).rejects.toMatchObject({ code: "mandate_denied" });
 });
 it("changing a stored proposal after yes invalidates its mandate", async () => {
   const { principal } = await actor(); const r = await pending(principal);
-  await decision(r.proposal.id, r.token, "yes");
+  await decision(r.proposal.id, r.code, "yes");
   const mandateId = (await getProposal(principal, r.proposal.id)).proposal.mandateId!;
   await db.agentProposal.update({ where: { id: r.proposal.id }, data: { duration: { increment: 1 } } });
   await expect(createAgentBooking(principal, "tampered", booking(r.payload, mandateId))).rejects.toMatchObject({ code: "mandate_denied" });
 });
 it("booking at a different available time is denied", async () => {
   const { principal } = await actor(); const r = await pending(principal);
-  await decision(r.proposal.id, r.token, "yes");
+  await decision(r.proposal.id, r.code, "yes");
   const mandateId = (await getProposal(principal, r.proposal.id)).proposal.mandateId!;
   await expect(createAgentBooking(principal, "different-time", booking({ ...r.payload, start: DateTime.fromISO(r.payload.start).plus({ hours: 1 }).toISO()! }, mandateId))).rejects.toMatchObject({ code: "mandate_denied" });
 });
 it("agent cannot approve via MCP or customer POST, nor issue authority via confirmed", async () => {
   const { key, principal } = await actor(); const r = await pending(principal);
-  for (const token of [undefined, "x".repeat(43), r.token]) {
-    const response = await consent(labRequest(`${origin}/consent/${r.proposal.id}/decision`, { method: "POST", headers: { origin, authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ token, decision: "yes" }) }), { params: Promise.resolve({ id: r.proposal.id }) });
+  for (const code of [undefined, wrong(r.code), r.code]) {
+    const response = await consent(labRequest(`${origin}/consent/${r.proposal.id}/decision`, { method: "POST", headers: { origin, authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ code, decision: "yes" }) }), { params: Promise.resolve({ id: r.proposal.id }) });
     expect(response.status).toBe(403);
   }
   const response = await mcp(new Request(`${origin}/api/v1/mcp`, { method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json", accept: "application/json, text/event-stream" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "approve_proposal", arguments: { proposalId: r.proposal.id } } }) }));
@@ -150,19 +158,19 @@ it("REST proposal scopes allow write-only status but no read-only creation", asy
   const r = await response.json();
   expect((await getStatus(new Request(`${origin}/api/v1/proposals/${r.proposal.id}`, { headers: { authorization: `Bearer ${a.key}` } }), { params: Promise.resolve({ id: r.proposal.id }) })).status).toBe(200);
 });
-it("customer HTTP yes and logs/live do not expose the consent token", async () => {
+it("customer HTTP yes and logs/live do not expose the consent code", async () => {
   const logs = vi.spyOn(console, "info").mockImplementation(() => {});
   const { principal, key } = await actor(); const r = await pending(principal);
-  const seen = await customerDecision(r.proposal.id, { token: r.token, decision: "view" });
-  const response = await consent(labRequest(`${origin}/consent/${r.proposal.id}/decision`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ token: r.token, decision: "yes", proposalHash: seen.proposalHash }) }), { params: Promise.resolve({ id: r.proposal.id }) });
+  const seen = await customerDecision(r.proposal.id, { decision: "view" }) as { proposalHash: string };
+  const response = await consent(labRequest(`${origin}/consent/${r.proposal.id}/decision`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ code: r.code, decision: "yes", proposalHash: seen.proposalHash }) }), { params: Promise.resolve({ id: r.proposal.id }) });
   expect(response.status).toBe(200);
   const output = JSON.stringify({ logs: logs.mock.calls, status: await getProposal(principal, r.proposal.id) });
-  for (const secret of [r.token, key, "PRIVATE KEY", "consent@example.test"]) expect(output).not.toContain(secret);
+  for (const secret of [r.code, key, "PRIVATE KEY", "consent@example.test"]) expect(output).not.toContain(secret);
 });
 
 it.each(["priceOre", "duration"] as const)("current catalog %s changes cannot widen consent", async field => {
   const { principal } = await actor(); const r = await pending(principal);
-  await decision(r.proposal.id, r.token, "yes");
+  await decision(r.proposal.id, r.code, "yes");
   const mandateId = (await getProposal(principal, r.proposal.id)).proposal.mandateId!;
   const original = await db.service.findUniqueOrThrow({ where: { id: serviceId } });
   try {
@@ -174,7 +182,7 @@ it.each(["priceOre", "duration"] as const)("current catalog %s changes cannot wi
 });
 it.each(["service", "staff"])("different %s cannot use an approved mandate", async field => {
   const { principal } = await actor(); const r = await pending(principal);
-  await decision(r.proposal.id, r.token, "yes");
+  await decision(r.proposal.id, r.code, "yes");
   const mandateId = (await getProposal(principal, r.proposal.id)).proposal.mandateId!;
   const service = await db.service.findUniqueOrThrow({ where: { id: "massage" } });
   const changed = field === "staff" ? { ...r.payload, staffId: otherStaffId } : { ...r.payload, serviceId: service.id, serviceVersion: service.version };
@@ -189,8 +197,8 @@ it.each([false, true])("MCP creation and write-only status share the REST flow (
   };
   const response = await call("create_proposal", await input()); expect(response.status).toBe(200);
   const r = (await rpcBody(response)).result.structuredContent;
-  const token = new URL(r.approvalUrl).hash.slice(1);
-  await decision(r.proposal.id, token, "yes");
+  expect(r.consentUrl).toBe(`${origin}/consent/${r.proposal.id}`);
+  await decision(r.proposal.id, await codeFor(r.proposal.id), "yes");
   const status = (await rpcBody(await call("get_proposal", { proposalId: r.proposal.id }))).result.structuredContent;
   expect(status.proposal.mandateId).toBe((await getProposal(principal, r.proposal.id)).proposal.mandateId);
 });

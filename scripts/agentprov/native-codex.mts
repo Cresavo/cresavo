@@ -13,7 +13,10 @@ import { assertTestDatabase } from "../test-db-guard.mjs";
 import { cleanupRun } from "./fixtures.mjs";
 import { checkSalonCalendar } from "./salon-calendar.mjs";
 import { mcpCall, safeCall, safeNote } from "./codex-events.mjs";
-import { CHANNEL_CUSTOMER, CUSTOMER_CHANNEL } from "../../src/lib/agent-api/customer-channel-lab";
+import { EMAIL_CODE_CHANNEL } from "../../src/lib/agent-api/email-code-consent";
+
+// The synthetic customer who proves their address with the e-mail code on the consent page.
+const CUSTOMER = Object.freeze({ name: "Syntetisk Kodkund", email: "codex-customer@example.test" });
 
 type Call = NonNullable<ReturnType<typeof mcpCall>>;
 const tools = ["list_services", "get_availability", "create_proposal", "get_proposal", "create_booking", "get_booking"];
@@ -126,17 +129,20 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     assert.equal(proposals.length, 1);
     const proposed = proposals[0].result;
     assert.equal(proposed.approvalRequired, true);
-    assert.equal(proposed.approvalDelivery, "separate-synthetic-customer");
+    assert.equal(proposed.approvalDelivery, "customer-email-code");
     assert(!("approvalUrl" in proposed));
+    // The consent link may reach the agent: it carries no secret.
+    const consentUrl = new URL(proposed.consentUrl);
+    assert.equal(consentUrl.hash, ""); assert.equal(consentUrl.search, "");
     const row = await db.agentProposal.findUniqueOrThrow({ where: { id: proposed.proposal.id } });
     assert.equal(row.clientId, key.record.clientId); assert.equal(row.status, "pending");
     assert.equal(row.serviceId, "massage"); assert.equal(row.staffId, "staff-demo");
     assert.equal(row.duration, 30); assert(row.priceOre <= 45000);
-    assert.equal(row.consentDelivery, CUSTOMER_CHANNEL);
+    assert.equal(row.consentDelivery, EMAIL_CODE_CHANNEL);
     assert.equal(DateTime.fromJSDate(row.startsAt).setZone("Europe/Stockholm").toISODate(), day.toISODate());
     const payload = { business: "demo", serviceId: row.serviceId, serviceVersion: row.serviceVersion,
       staffId: row.staffId, start: row.startsAt.toISOString(), confirmed: true,
-      customer: { name: CHANNEL_CUSTOMER.name, email: CHANNEL_CUSTOMER.email } };
+      customer: { name: CUSTOMER.name, email: CUSTOMER.email } };
     step = "NATIVE_UNAPPROVED_BOOKING_DENIED";
     const denied = await call("POST", "/api/v1/bookings", payload);
     assert.equal(denied.status, 400);
@@ -144,39 +150,38 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     assert.equal(await db.agentBooking.count({ where: { clientId: row.clientId } }), 0);
     pass("NATIVE_PROPOSAL_WITHOUT_BOOKING");
     step = "SYNTHETIC_CUSTOMER_APPROVAL";
-    // Operator reads a separate local customer delivery. The CLI never receives
-    // the directory, receipt or bearer link, and cannot retrieve it via MCP/REST.
+    // The customer opens the consent link, types their own address and reads the code from their
+    // inbox: the operator's private directory. The CLI never receives the directory or the code.
+    assert.equal(consentUrl.origin, salon); assert.equal(consentUrl.pathname, "/consent/" + row.id);
     const receiptPath = join(customerInbox, row.id + ".json");
-    const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
-    assert.equal(receipt.proposalId, row.id);
-    assert.equal(receipt.customerSubject, CHANNEL_CUSTOMER.id);
-    const approval = new URL(receipt.approvalUrl);
-    const secret = approval.hash.slice(1);
-    assert(!JSON.stringify(prepare).includes(secret));
-    unlinkSync(receiptPath);
-    assert.equal(approval.origin, salon); assert.equal(approval.pathname, "/consent/" + row.id);
+    let customerCode = "";
     const { chromium } = await import("@playwright/test");
     const browser = await chromium.launch();
     try {
-      const unapproved = await browser.newPage({ viewport: { width: 390, height: 844 } });
-      await unapproved.goto(salon + "/consent/" + row.id);
-      await unapproved.getByText("Länken är ogiltig, använd eller utgången.", { exact: true }).waitFor();
-      assert.equal(await unapproved.getByRole("button", { name: "Ja, godkänn denna bokning", exact: true }).count(), 0);
-      await unapproved.screenshot({ path: join(output, "agent-without-customer-credential.png") });
-      await unapproved.close();
-      pass("AGENT_WITHOUT_CUSTOMER_CREDENTIAL_DENIED");
       const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-      await page.goto(approval.href);
-      await page.getByRole("button", { name: "Ja, godkänn denna bokning", exact: true }).waitFor();
-      assert.equal(new URL(page.url()).hash, "");
+      await page.goto(consentUrl.href);
+      await page.getByLabel("Din e-postadress").fill(CUSTOMER.email);
       await page.screenshot({ path: join(output, "consent-before.png") });
+      // Without the code the link decides nothing.
+      const withoutCode = await page.request.post(salon + "/consent/" + row.id + "/decision", {
+        headers: { origin: salon }, data: { decision: "yes", proposalHash: row.proposalHash }, maxRedirects: 0 });
+      assert.equal(withoutCode.status(), 403);
+      pass("AGENT_WITHOUT_CUSTOMER_CODE_DENIED");
+      await page.getByRole("button", { name: "Skicka kod", exact: true }).click();
+      await page.getByLabel("Sexsiffrig engångskod").waitFor();
+      const receipt = JSON.parse(readFileSync(receiptPath, "utf8"));
+      assert.equal(receipt.proposalId, row.id);
+      customerCode = receipt.code;
+      assert(!JSON.stringify(prepare).includes(customerCode));
+      unlinkSync(receiptPath);
+      await page.getByLabel("Sexsiffrig engångskod").fill(customerCode);
       await page.getByRole("button", { name: "Ja, godkänn denna bokning", exact: true }).click();
       await page.getByText("Godkänt. Agenten kan nu slutföra exakt denna bokning.", { exact: false }).waitFor();
       await page.screenshot({ path: join(output, "consent-after.png") });
     } finally { await browser.close(); }
     const approved = await db.agentProposal.findUniqueOrThrow({ where: { id: row.id }, include: { mandate: true } });
     assert.equal(approved.status, "approved"); assert.equal(approved.mandate?.origin, "customer-consent");
-    assert.equal(approved.mandate?.verifiedVia, CUSTOMER_CHANNEL);
+    assert.equal(approved.mandate?.verifiedVia, EMAIL_CODE_CHANNEL);
     assert.equal(approved.mandate?.originReference, row.id);
     assert.equal(approved.mandate?.maxPriceOre, row.priceOre);
     assert.equal(+approved.mandate!.validFrom, +row.startsAt);
@@ -194,13 +199,13 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     step = "NATIVE_AGENT_BOOKS_RETRIES_READS_STATUS";
     const retryKey = randomUUID();
     const finished = await client(gateway, key.key, cwd,
-      `Continue the booking for authorized business demo. The separate synthetic customer has approved proposal ${row.id} in the salon consent UI. ` +
+      `Continue the booking for authorized business demo. The synthetic customer has approved proposal ${row.id} in the salon consent UI. ` +
       `Read it with get_proposal. Book exactly its approved scope using its server-issued mandateId and idempotencyKey ${retryKey}. ` +
       `Use synthetic customer name ${payload.customer.name} and email ${payload.customer.email}. ` +
       "Then repeat create_booking with exactly the same payload and idempotencyKey, and read get_booking for the returned id. " +
       "Do not create a new proposal, do not select another time, and do not invent or widen authority. Report id and status.");
     const finish = finished.calls;
-    assert(!JSON.stringify(finish).includes(secret));
+    assert(!JSON.stringify(finish).includes(customerCode));
     notes.push(...finished.notes); trace.push(...finish.map(safeCall));
     const creates = finish.filter(c => c.tool === "create_booking");
     assert.equal(creates.length, 2); assert(creates.every(c => !c.failed));
@@ -229,7 +234,7 @@ export async function runNativeCodexProof(gateway: string, salon: string, pair: 
     } finally {
       writeFileSync(join(output, "evidence.json"), JSON.stringify({ actor: "Codex CLI, existing ChatGPT login",
         cliVersion, node: process.version, observedAt: new Date().toISOString(), pair,
-        consentActor: "automated synthetic customer through separate private local inbox; no real identity verification", checks, trace, notes,
+        consentActor: "automated synthetic customer with a one-time code from a private local inbox; no real identity verification", checks, trace, notes,
         bookingId, cleaned, complete: cleaned && checks.includes("NATIVE_BOOKING_SAME_ID_IN_CALENDAR"),
         failedStep: !cleaned ? "OWN_FIXTURES_CLEANUP" : checks.includes("NATIVE_BOOKING_SAME_ID_IN_CALENDAR") ? null : step }, null, 2) + "\n");
     }
