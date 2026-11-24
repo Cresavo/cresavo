@@ -2821,6 +2821,7 @@ const messages = {
   "theme.light": "Light",
   "theme.dark": "Dark",
   "theme.system": "System",
+  "theme.darkSwitch": "Dark theme",
   "theme.description": "How the studio looks on this device. System follows your phone or computer. Your booking page keeps its own colours.",
   "assistant.title": ASSISTANT.name,
   "assistant.open": ASSISTANT.name,

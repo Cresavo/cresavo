@@ -21,7 +21,7 @@ import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
-import { ThemeControl } from "../ui/theme-control";
+import { ThemeToggle } from "../ui/theme-toggle";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
 import { QuickActions } from "./quick-actions";
@@ -95,6 +95,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
           <QuickActions role={role} assistant={state.modules.assistant} page={`/boka/${state.salon.slug}`} />
           {state.modules.assistant && <AssistantHeaderButton />}
           <HelpButton compact />
+          <ThemeToggle />
         </div>
       </header>
       {/* Keep the last item clear of the tab bar. */}
@@ -222,15 +223,12 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           );
         })}
       </nav>
-      <div className="mt-4 space-y-2">
-        <div className="flex items-center gap-3 px-1">
-          <StaffAvatar person={person} size="md" />
-          <span className="min-w-0 flex-1 text-sm leading-tight">
-            <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
-            <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
-          </span>
-        </div>
-        <ThemeControl compact />
+      <div className="mt-4 flex items-center gap-3 px-1">
+        <StaffAvatar person={person} size="md" />
+        <span className="min-w-0 flex-1 text-sm leading-tight">
+          <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
+          <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
+        </span>
       </div>
     </aside>
   );

@@ -2744,6 +2744,7 @@ const messages = {
   "theme.light": "Ljust",
   "theme.dark": "Mörkt",
   "theme.system": "System",
+  "theme.darkSwitch": "Mörkt tema",
   "theme.description": "Så ser studion ut på den här enheten. System följer din mobil eller dator. Bokningssidan behåller sina egna färger.",
   "assistant.title": "Assistent",
   "assistant.open": "Assistent",
