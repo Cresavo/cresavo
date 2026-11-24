@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+
+// Every test resets modules and imports the whole studio store graph cold (dictionaries included);
+// the slowest takes about 1.6 s locally and over 5 s on a busy CI runner. Work, not a hang.
+vi.setConfig({ testTimeout: 15_000 });
 import { addDays, toKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { createSalon, salonDraft } from "@/concept/onboarding/salon";
