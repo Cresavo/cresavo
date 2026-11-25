@@ -49,6 +49,7 @@ describe("pay request token", () => {
   });
 
   it("refuses a changed or foreign token", () => {
+    vi.stubEnv("SESSION_SECRET", "");
     const issued = issuePayRequest(input, now);
     if (!issued.ok) throw new Error("refused");
     expect(readPayRequest(issued.token.replace(".79500.", ".100."))).toBeNull();
