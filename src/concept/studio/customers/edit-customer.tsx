@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil } from "lucide-react";
 import { correctedCustomer, MAX_TAG_LENGTH, MAX_TAGS, type CustomerPatch, type PatchProblem } from "../../customers/rights";
 import type { Customer } from "../../data/types";
 import { t } from "../../i18n";
@@ -25,21 +24,23 @@ const PROBLEM_KEYS: Partial<Record<PatchProblem, MessageKey>> = {
 const splitTags = (text: string) => text.split(",").map((tag) => tag.trim()).filter(Boolean);
 
 /** Correction of a customer's card (GDPR art. 16): every personal field, including the waiting-list consent. */
-export function EditCustomer({ customer }: { customer: Customer }) {
-  const [open, setOpen] = useState(false);
+export function EditCustomerSheet({ customer, open, onClose }: { customer: Customer; open: boolean; onClose: () => void }) {
   const [form, setForm] = useState(() => formOf(customer));
   const [problem, setProblem] = useState<PatchProblem | null>(null);
-
-  const start = () => {
-    setForm(formOf(customer));
-    setProblem(null);
-    setOpen(true);
-  };
+  const [shown, setShown] = useState(open);
+  // Each opening starts from the card as it is now.
+  if (open !== shown) {
+    setShown(open);
+    if (open) {
+      setForm(formOf(customer));
+      setProblem(null);
+    }
+  }
 
   const save = () => {
     const patch = changes(customer, form);
     if (!Object.keys(patch).length) {
-      setOpen(false);
+      onClose();
       return;
     }
     const state = currentState();
@@ -48,7 +49,7 @@ export function EditCustomer({ customer }: { customer: Customer }) {
       setProblem(checked.problem);
       return;
     }
-    if (dispatchWithUndoToast({ type: "customer/update", id: customer.id, patch }, t("customer.edit.saved"))) setOpen(false);
+    if (dispatchWithUndoToast({ type: "customer/update", id: customer.id, patch }, t("customer.edit.saved"))) onClose();
     else setProblem("unknown");
   };
 
@@ -56,45 +57,42 @@ export function EditCustomer({ customer }: { customer: Customer }) {
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((current) => ({ ...current, [key]: value }));
 
   return (
-    <>
-      <Button variant="secondary" width="responsive" icon={<Pencil size={18} />} onClick={start}>{t("customer.edit")}</Button>
-      <Sheet
-        open={open}
-        onClose={() => setOpen(false)}
-        title={t("customer.edit.title", { name: customer.firstName })}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
-            <Button onClick={save}>{t("common.save")}</Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Field label={t("customer.edit.firstName")} error={message(["firstName"])}>
-            <TextInput value={form.firstName} maxLength={60} autoComplete="off" autoCapitalize="words" onChange={(e) => set("firstName", e.target.value)} />
-          </Field>
-          <Field label={t("customer.edit.lastName")}>
-            <TextInput value={form.lastName} maxLength={60} autoComplete="off" autoCapitalize="words" onChange={(e) => set("lastName", e.target.value)} />
-          </Field>
-          <Field label={t("customer.edit.phone")} error={message(["phone", "phoneTaken"])}>
-            <TextInput type="tel" inputMode="tel" value={form.phone} maxLength={30} autoComplete="off" onChange={(e) => set("phone", e.target.value)} />
-          </Field>
-          <Field label={t("customer.edit.email")} error={message(["email", "emailTaken"])}>
-            <TextInput type="email" inputMode="email" value={form.email} maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={(e) => set("email", e.target.value)} />
-          </Field>
-          <Field label={t("customer.edit.birthday")} error={message(["birthday"])}>
-            <TextInput type="date" value={form.birthday} autoComplete="off" onChange={(e) => set("birthday", e.target.value)} />
-          </Field>
-          <Field label={t("customer.edit.tags")} hint={t("customer.edit.tagsHint")} error={message(["tags"])}>
-            <TextInput value={form.tags} maxLength={MAX_TAGS * (MAX_TAG_LENGTH + 2)} autoComplete="off" onChange={(e) => set("tags", e.target.value)} />
-          </Field>
-          <div className="space-y-1">
-            <Checkbox label={t("customer.edit.waitlist")} checked={form.waitlist} onChange={(e) => set("waitlist", e.target.checked)} />
-            <p className="text-meta text-text-secondary">{t("customer.edit.waitlistHint")}</p>
-          </div>
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={t("customer.edit.title", { name: customer.firstName })}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
+          <Button onClick={save}>{t("common.save")}</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label={t("customer.edit.firstName")} error={message(["firstName"])}>
+          <TextInput value={form.firstName} maxLength={60} autoComplete="off" autoCapitalize="words" onChange={(e) => set("firstName", e.target.value)} />
+        </Field>
+        <Field label={t("customer.edit.lastName")}>
+          <TextInput value={form.lastName} maxLength={60} autoComplete="off" autoCapitalize="words" onChange={(e) => set("lastName", e.target.value)} />
+        </Field>
+        <Field label={t("customer.edit.phone")} error={message(["phone", "phoneTaken"])}>
+          <TextInput type="tel" inputMode="tel" value={form.phone} maxLength={30} autoComplete="off" onChange={(e) => set("phone", e.target.value)} />
+        </Field>
+        <Field label={t("customer.edit.email")} error={message(["email", "emailTaken"])}>
+          <TextInput type="email" inputMode="email" value={form.email} maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={(e) => set("email", e.target.value)} />
+        </Field>
+        <Field label={t("customer.edit.birthday")} error={message(["birthday"])}>
+          <TextInput type="date" value={form.birthday} autoComplete="off" onChange={(e) => set("birthday", e.target.value)} />
+        </Field>
+        <Field label={t("customer.edit.tags")} hint={t("customer.edit.tagsHint")} error={message(["tags"])}>
+          <TextInput value={form.tags} maxLength={MAX_TAGS * (MAX_TAG_LENGTH + 2)} autoComplete="off" onChange={(e) => set("tags", e.target.value)} />
+        </Field>
+        <div className="space-y-1">
+          <Checkbox label={t("customer.edit.waitlist")} checked={form.waitlist} onChange={(e) => set("waitlist", e.target.checked)} />
+          <p className="text-meta text-text-secondary">{t("customer.edit.waitlistHint")}</p>
         </div>
-      </Sheet>
-    </>
+      </div>
+    </Sheet>
   );
 }
 
