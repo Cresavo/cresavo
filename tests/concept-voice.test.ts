@@ -429,6 +429,7 @@ describe("what is read aloud", () => {
     ["a phone number", "Call her on 070-123 45 67."],
     ["a phone number in parentheses", "Call her on (070) 123-45-67."],
     ["a space-separated phone number", "070 123 45 67"],
+    ["a formatted number without a leading zero", "Call her on (212) 555-1234."],
     ["an international phone number", "Ring +46 70 123 45 67."],
     ["an email", "Her email is lena@example.com."],
     ["an English address", "She lives at Storgatan 12."],

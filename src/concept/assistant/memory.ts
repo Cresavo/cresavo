@@ -33,6 +33,8 @@ const HEALTH =
 const SWEDISH_HEALTH = /\b(smart\w*|vark\w*|blod\w*|gravid\w*|svull\w*|svamp\w*|sjuk\w*|skad\w*|hud\w*|eksem\w*|lakemedel\w*|sar\w*|nageltrang\w*|forhardnad\w*|angest\w*)\b/;
 const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PHONE = /(?:\+|\b0)\d[\d\s.()-]{5,}\d\b|\b\d{7,}\b/;
+/** A grouped number such as (212) 555-1234, without a leading 0 or +. ISO dates are left alone. */
+const FORMATTED_PHONE = /(?<!\d)(?:\(\d{2,4}\)|\d{2,4})[\s.-]\d{2,4}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?(?!\d)/;
 const ADDRESS = /\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+/;
 
 /** Why a note must not be stored, or null when it may. Journal text is matched against the business's journal entries. */
@@ -45,7 +47,10 @@ export function memoryRejection(text: string, state?: Pick<DemoState, "journals"
 /** Whether text holds a phone number, e-mail address or postal address. */
 export function contactKind(text: string): "contact" | null {
   const plain = text.trim();
-  return EMAIL.test(plain) || PHONE.test(plain) || ADDRESS.test(plain.toLowerCase()) ? "contact" : null;
+  if (EMAIL.test(plain) || PHONE.test(plain) || ADDRESS.test(plain.toLowerCase())) return "contact";
+  const formatted = plain.match(FORMATTED_PHONE);
+  if (formatted && !/^\d{4}-\d{2}-\d{2}$/.test(formatted[0].trim()) && formatted[0].replace(/\D/g, "").length >= 7) return "contact";
+  return null;
 }
 
 /** Whether text holds health or journal details or contact details, of any length. Speech and the memory both check it. */
