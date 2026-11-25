@@ -216,6 +216,10 @@ body:has(.studio-root) .demo-banner {
 
 /* Lunch reads the same in the day and week grids: a soft wash, clearly not free time and never louder than a booking. */
 .studio-calendar-lunch { background: var(--ui-surface-2); }
+/* The one "Lunch" word spans every working column of the day, so it sits above the washes of the later columns,
+   and bookings sit above it: a booking over lunch is never painted over. The now-line stays under both. */
+.studio-calendar-lunch-label { z-index: 1; }
+.studio-calendar-booking { z-index: 2; }
 
 /* The week's day number. Today is a filled circle in the page's own ink, like a chosen day in the month: neutral, so
    it never reads as the red now-line or as an error. */

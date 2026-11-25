@@ -14,6 +14,7 @@ import { staffFill } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
+import { LunchLabel, LunchWash, lunchSpan } from "./lunch";
 import { snapMinutes } from "./gap";
 import { calendarRange, calendarScale, HourLines, NowLine, TimeAxis, useTextScale } from "./time-axis";
 
@@ -96,6 +97,8 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
           {days.map((d, dayIndex) => {
             const hours = openingFor(state.salon, d);
             const lunch = lunchFor(state.salon, d);
+            const working = staff.map((person) => staffWorks(state, person.id, d));
+            const label = lunch && lunchSpan(working);
             return (
               <div key={d}
                 onDragOver={!hours && d >= today ? onDragOver(`closed:${d}`) : undefined}
@@ -106,7 +109,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                 <HourLines from={from} to={to} pxPerMin={scale} />
                 {hours &&
                   staff.map((person, staffIndex) => {
-                    const works = staffWorks(state, person.id, d);
+                    const works = working[staffIndex];
                     const key = `${d}:${person.id}`;
                     // Past days are not drop targets (the move is also refused in the drop handler). A day off still
                     // accepts the drop so the toast can say the booking stayed.
@@ -117,13 +120,8 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                         onDragLeave={onDragLeave(key)}
                         onDrop={accepts ? onDrop(person.id, d) : undefined}
                         className={cx("relative min-w-0 flex-1", !works && "bg-surface-2/50", over === key && "bg-action-bg/60")}>
-                        {lunch && works && (
-                          <div
-                            aria-hidden
-                            className="studio-calendar-lunch pointer-events-none absolute inset-x-0"
-                            style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
-                          />
-                        )}
+                        {lunch && works && <LunchWash lunch={lunch} from={from} scale={scale} />}
+                        {lunch && label && label.first === staffIndex && <LunchLabel lunch={lunch} from={from} scale={scale} span={label.span} />}
                         {columns[dayIndex][staffIndex].map((b) => (
                           <BookingBlock
                             key={b.id}
@@ -138,11 +136,6 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                       </div>
                     );
                   })}
-                {hours && lunch && staff.some((person) => staffWorks(state, person.id, d)) && (
-                  <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center text-minimum text-text-secondary" style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}>
-                    {t("calendar.lunch")}
-                  </div>
-                )}
               </div>
             );
           })}

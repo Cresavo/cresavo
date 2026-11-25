@@ -52,6 +52,40 @@ it("draws one now-line and one lunch label in the day view, not one per staff co
   expect(count(html, `>${t("calendar.lunch")}<`)).toBe(1);
 });
 
+const day = (date = today) => renderToStaticMarkup(createElement(DayGrid, { date, staff: state.staff, onOpen: vi.fn() }));
+const label = 'class="studio-calendar-lunch-label';
+
+it("draws each day's lunch label behind bookings: right after the wash, before the column's bookings", () => {
+  for (const html of [day(), week()]) {
+    const labels = count(html, label);
+    expect(labels).toBeGreaterThan(0);
+    // Each label comes straight after its column's wash, so every booking of that column follows it in the DOM.
+    expect(html.split(label).slice(0, -1).every((before) => /studio-calendar-lunch pointer-events-none[^>]*><\/div><div $/.test(before))).toBe(true);
+    // Bookings sit on a layer above the label (studio.css), the label above the later columns' washes.
+    expect(count(html, 'class="studio-calendar-booking ')).toBe(count(html, "data-calendar-booking="));
+  }
+  expect(count(day(), `>${t("calendar.lunch")}<`)).toBe(1);
+  // One label per open day with lunch (Monday to Friday in the demo week), not one per staff column.
+  expect(count(week(), `>${t("calendar.lunch")}<`)).toBe(5);
+});
+
+it("puts the lunch label over the working person when the first one is off", () => {
+  const [anna] = state.staff;
+  state.exceptions.push({ id: "test-off", staffId: anna.id, date: today, kind: "off", reason: "vacation" } as (typeof state.exceptions)[number]);
+  try {
+    const html = day();
+    expect(count(html, `>${t("calendar.lunch")}<`)).toBe(1);
+    // The label sits in the second person's column, spanning just that one column.
+    const columns = html.split("cursor-copy");
+    expect(columns).toHaveLength(2);
+    expect(columns[1]).toContain(`${label} pointer-events-none absolute left-0`);
+    expect(columns[1]).toContain("width:100%");
+    expect(columns[0]).not.toContain(label);
+  } finally {
+    state.exceptions.pop();
+  }
+});
+
 it("has no now-line outside the shown hours", () => {
   expect(renderToStaticMarkup(createElement(NowLine, { minutes: 6 * 60, from: 9 * 60, to: 18 * 60, pxPerMin: 1 }))).toBe("");
   expect(renderToStaticMarkup(createElement(NowLine, { minutes: 9 * 60, from: 9 * 60, to: 18 * 60, pxPerMin: 1 }))).toBe("");

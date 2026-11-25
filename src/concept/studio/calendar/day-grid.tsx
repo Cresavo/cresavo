@@ -15,6 +15,7 @@ import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
+import { LunchLabel, LunchWash, lunchSpan } from "./lunch";
 import { snapMinutes } from "./gap";
 import { calendarRange, calendarScale, HourLines, NowLine, TimeAxis, useTextScale } from "./time-axis";
 
@@ -46,6 +47,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     }));
     return { person, shift, entries };
   });
+  const label = lunch && lunchSpan(columns.map(({ shift }) => shift !== null));
   const entries = columns.flatMap(column => column.entries);
   const { from, to } = calendarRange(open, close, entries.map(({ booking }) => booking));
   const scale = calendarScale(
@@ -98,7 +100,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
         <div className="relative flex py-3 pr-1">
           <TimeAxis from={from} to={to} pxPerMin={scale} />
           {date === today && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
-          {columns.map(({ person, shift, entries }) => {
+          {columns.map(({ person, shift, entries }, index) => {
             const works = shift !== null;
             return (
               <div
@@ -112,13 +114,8 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                 <HourLines from={from} to={to} pxPerMin={scale} />
                 {shift && shift.start > from && <div className="pointer-events-none absolute inset-x-0 top-0 bg-surface-2/70" style={{ height: (shift.start - from) * scale }} />}
                 {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-surface-2/70" style={{ height: (to - shift.end) * scale }} />}
-                {lunch && works && (
-                  <div
-                    aria-hidden
-                    className="studio-calendar-lunch pointer-events-none absolute inset-x-0"
-                    style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
-                  />
-                )}
+                {lunch && works && <LunchWash lunch={lunch} from={from} scale={scale} />}
+                {lunch && label && label.first === index && <LunchLabel lunch={lunch} from={from} scale={scale} span={label.span} />}
                 {entries.map(({ booking, misfit }) => (
                   <BookingBlock
                     key={booking.id}
@@ -134,13 +131,6 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
               </div>
             );
           })}
-          {/* One "Lunch" for the day, centred over the columns of the people who work. */}
-          {lunch && columns.some(({ shift }) => shift) && (
-            <div className="pointer-events-none absolute left-11 right-1 flex items-center justify-center text-minimum text-text-secondary"
-              style={{ top: `calc(var(--space-3) + ${(lunch.start - from) * scale}px)`, height: (lunch.end - lunch.start) * scale }}>
-              {t("calendar.lunch")}
-            </div>
-          )}
         </div>
       </div>
     </div>

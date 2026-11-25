@@ -54,7 +54,7 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
     event.dataTransfer.effectAllowed = "move";
   };
   return (
-    <div className="absolute inset-x-1" style={{ top, height }}>
+    <div className="studio-calendar-booking absolute inset-x-1" style={{ top, height }}>
       <Button
         variant="tertiary"
         size="sm"
