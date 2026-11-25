@@ -4,6 +4,7 @@ import { usePairing } from "@/concept/studio/pairing/session";
 import { PairedCalendar } from "@/concept/studio/pairing/calendar";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, startOfWeek } from "@/concept/data/dates";
 import { openingFor } from "@/concept/data/slots";
@@ -51,7 +52,25 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
   // A phone shows one person's day as a single timeline; two columns do not fit a narrow screen.
   const [chosenStaff, setStaffFilter] = useState<StaffId | "all">(() => (state.staff.length > 1 && window.matchMedia("(max-width: 639px)").matches ? state.staff[0].id : "all"));
   const [resourceId, setResourceId] = useState<string | undefined>();
-  const [sheet, setSheet] = useState<OpenSheet>(null);
+  const [sheet, openSheet] = useState<OpenSheet>(null);
+  // `?booking=<id>` (from "New since last time" or its toast) opens that visit on its day, once per link.
+  const focus = useSearchParams()?.get("booking") ?? null;
+  const [focused, setFocused] = useState<string | null>(null);
+  if (focus !== focused) {
+    setFocused(focus);
+    const booking = focus ? state.bookings.find((b) => b.id === focus) : undefined;
+    if (booking) {
+      setDate(booking.date);
+      setView("day");
+      if (chosenStaff !== "all") setStaffFilter(booking.staffId);
+      openSheet({ kind: "booking", id: booking.id });
+    }
+  }
+  const setSheet = (next: OpenSheet) => {
+    // Closing the visit drops the link, so the same notice can open it again.
+    if (!next && focus) window.history.replaceState(window.history.state, "", window.location.pathname);
+    openSheet(next);
+  };
   const staffFilter = viewer?.id ?? chosenStaff;
   const staff = state.staff.filter((s) => staffFilter === "all" || s.id === staffFilter);
   const room = state.resources.some((r) => r.id === resourceId) ? resourceId : undefined;

@@ -82,6 +82,43 @@ test("a customer books online and the booking appears in the studio", async ({ p
   await expect(page.getByText(/Nova Demo/).first()).toBeVisible();
 });
 
+test("a booking paid on the phone page lands in the studio already open in another tab, and New since last time opens it", async ({ context, page }) => {
+  await page.goto("/studio");
+  const bell = page.getByRole("button", { name: /^New since last time/ });
+  await expect(bell).toHaveAccessibleName("New since last time");
+
+  const phone = await context.newPage();
+  await phone.goto("/boka/salong-eko");
+  const ask = phone.getByRole("textbox", { name: /What would you like to book/ });
+  await ask.fill("Foot care day after tomorrow with Anna");
+  await ask.press("Enter");
+  await phone.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+  await phone.getByLabel("Your name", { exact: true }).fill("Nova Demo");
+  await phone.getByLabel("Mobile number").fill("070-000 99 14");
+  await continueAndPay(phone);
+  await expect(phone.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  const booking = (await state(phone)).bookings.at(-1)!;
+  expect(booking.protection?.deposit).toBeTruthy();
+  await phone.close();
+
+  // The studio follows the other tab's save: one calm toast, and the bell says there is something new.
+  const toast = page.getByText(/^New booking: Nova, /);
+  await expect(toast).toHaveCount(1);
+  await expect(bell).toHaveAccessibleName("New since last time: 1 new");
+  await bell.click();
+  const recap = page.getByRole("dialog", { name: "New since last time" });
+  const row = recap.getByRole("button", { name: /Nova booked/ });
+  await expect(row).toContainText(/Paid /);
+  await row.click();
+  await expect(page).toHaveURL(new RegExp(`/studio/calendar\\?booking=${booking.id}$`));
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Nova Demo" })).toBeVisible();
+  await expect(bell).toHaveAccessibleName("New since last time");
+  expect((await state(page)).inbox.find((item) => item.bookingId === booking.id && item.event === "booked")?.read).toBe(true);
+  // Opened once, it does not toast again after a reload.
+  await page.reload();
+  await expect(page.getByText(/^New booking: Nova, /)).toHaveCount(0);
+});
+
 test("a customer books for someone else and the studio shows the guest and the contact", async ({ page }) => {
   await page.goto("/boka/salong-eko");
   const ask = page.getByRole("textbox", { name: /What would you like to book/ });

@@ -315,6 +315,8 @@ export interface SlotSuggestion {
   start: number;
 }
 
+export type InboxEvent = "booked" | "cancelled" | "moved";
+
 export interface InboxItem {
   /** Simulated booking delivery; never an outgoing network request. */
   delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder" | "cancellation" | "moved"; slot: string };
@@ -330,6 +332,8 @@ export interface InboxItem {
   read: boolean;
   handled: boolean;
   bookingId?: string;
+  /** What a customer did to `bookingId` on the booking page: the studio's "New since last time" and its toast list these. */
+  event?: InboxEvent;
   /** Practitioner requested by a customer joining the waiting list. */
   requestedStaffId?: StaffId;
   reviewId?: string;

@@ -353,7 +353,7 @@ function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "onl
   const name = fullName(customer);
   const when = (visit: Pick<Booking, "date" | "start">) => `${formatDayLong(visit.date)} ${formatTime(visit.start)}`;
   const notice = (kind: "cancel" | "reschedule", title: string, body: string) =>
-    ({ kind, customerId: customer.id, bookingId: id, date: at.date, time: at.time, title, body, read: false, handled: kind === "reschedule" });
+    ({ kind, event: kind === "cancel" ? "cancelled" as const : "moved" as const, customerId: customer.id, bookingId: id, date: at.date, time: at.time, title, body, read: false, handled: kind === "reschedule" });
   // Each change is its own message: the counter tells a move back to a time the visit had before from the first one.
   const mail = (next: DemoState, kind: "cancellation" | "moved") => sendBookingMessage(next, { type: "booking-message/send", bookingId: id, kind, channel: "email", at, occasion: next.seq });
   if (action.type === "online/cancel") {
@@ -407,6 +407,7 @@ function confirmOnline(state: DemoState, action: OnlineConfirmation, service: De
       date: action.guest.at.date,
       time: action.guest.at.time,
       ...action.notice,
+      event: "booked",
       read: false,
       handled: true,
     },

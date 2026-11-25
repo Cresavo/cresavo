@@ -25,6 +25,8 @@ import { ThemeToggle } from "../ui/theme-toggle";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
 import { QuickActions } from "./quick-actions";
+import { NoticesButton } from "./notices/notices-button";
+import { NoticeToasts } from "./notices/notice-toasts";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
@@ -94,6 +96,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
           <QuickActions role={role} assistant={state.modules.assistant} page={`/boka/${state.salon.slug}`} />
           {state.modules.assistant && <AssistantHeaderButton />}
+          <NoticesButton />
           <HelpButton compact />
           <ThemeToggle />
         </div>
@@ -110,6 +113,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       </main>
       <BottomTabs state={state} pathname={pathname} role={role} />
       {state.modules.assistant && <AssistantLauncher />}
+      <NoticeToasts />
       <Toaster />
     </>
   );
