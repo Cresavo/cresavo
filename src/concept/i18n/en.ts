@@ -1098,6 +1098,7 @@ const messages = {
   "calendar.sameStaffOnly": "This treatment is done by {name}. Drop it in their column.",
   "calendar.movedToDay": "Moved to {day} at {time}",
   "calendar.dayNotFree": "{day} at {time} is not free. The booking stayed where it was.",
+  "calendar.dayInPast": "That day has already passed. The booking stayed where it was.",
   "calendar.dropOnDay": "Move to {day}",
 
   "customers.title": "Customers",

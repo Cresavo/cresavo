@@ -12,7 +12,7 @@ import { cx } from "../../ui/cx";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
-import { BookingBlock } from "./block";
+import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
 import { snapMinutes } from "./gap";
 import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
@@ -43,6 +43,12 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   const onDrop = (staffId: Staff["id"], date: DateKey) => (event: DragEvent<HTMLDivElement>) => {
     setOver(null);
     drop(event, staffId, date, snapMinutes(from + (event.clientY - event.currentTarget.getBoundingClientRect().top) / scale));
+  };
+  // A closed day has no staff columns; the day itself still takes the drop so the toast can say the booking stayed.
+  const onDropClosed = (date: DateKey) => (event: DragEvent<HTMLDivElement>) => {
+    setOver(null);
+    const booking = state.bookings.find((b) => b.id === event.dataTransfer.getData(DRAG_TYPE));
+    if (booking) drop(event, booking.staffId, date, booking.start);
   };
 
   return (
@@ -82,17 +88,25 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
             const hours = openingFor(state.salon, d);
             const lunch = lunchFor(state.salon, d);
             return (
-              <div key={d} className={cx("relative flex min-w-0 flex-1 border-l border-hairline", !hours && "bg-surface-2/70")} style={{ height: (to - from) * scale }}>
+              <div key={d}
+                onDragOver={!hours && d >= today ? onDragOver(`closed:${d}`) : undefined}
+                onDragLeave={onDragLeave(`closed:${d}`)}
+                onDrop={!hours && d >= today ? onDropClosed(d) : undefined}
+                className={cx("relative flex min-w-0 flex-1 border-l border-hairline", !hours && "bg-surface-2/70", over === `closed:${d}` && "bg-action-bg/60")}
+                style={{ height: (to - from) * scale }}>
                 <HourLines from={from} to={to} pxPerMin={scale} />
                 {hours &&
                   staff.map((person, staffIndex) => {
                     const works = staffWorks(state, person.id, d);
                     const key = `${d}:${person.id}`;
+                    // Past days are not drop targets (the move is also refused in the drop handler). A day off still
+                    // accepts the drop so the toast can say the booking stayed.
+                    const accepts = d >= today;
                     return (
                       <div key={person.id}
-                        onDragOver={works ? onDragOver(key) : undefined}
+                        onDragOver={accepts ? onDragOver(key) : undefined}
                         onDragLeave={onDragLeave(key)}
-                        onDrop={works ? onDrop(person.id, d) : undefined}
+                        onDrop={accepts ? onDrop(person.id, d) : undefined}
                         className={cx("relative min-w-0 flex-1", !works && "bg-surface-2/50", over === key && "bg-action-bg/60")}>
                         {lunch && works && (
                           <div

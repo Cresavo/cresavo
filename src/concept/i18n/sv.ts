@@ -1080,6 +1080,7 @@ const messages = {
   "calendar.sameStaffOnly": "{name} gör den här behandlingen. Släpp bokningen i rätt kolumn.",
   "calendar.movedToDay": "Ombokad till {day} kl. {time}",
   "calendar.dayNotFree": "{day} kl. {time} är inte ledig. Bokningen ligger kvar där den var.",
+  "calendar.dayInPast": "Den dagen har redan passerat. Bokningen ligger kvar där den var.",
   "calendar.dropOnDay": "Flytta till {day}",
   "customers.title": "Kunder",
   "customers.search": "Sök på namn eller telefonnummer",

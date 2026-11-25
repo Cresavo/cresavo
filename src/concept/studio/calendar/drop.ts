@@ -21,13 +21,17 @@ export function carriesBooking(event: DragEvent) {
  * another day says the day too, so the toast explains what changed.
  */
 export function useBookingDrop() {
-  const { state, target } = useStudio();
+  const { state, target, today } = useStudio();
   return (event: DragEvent, staffId: StaffId, date: DateKey, start: number) => {
     event.preventDefault();
     const id = event.dataTransfer.getData(DRAG_TYPE);
     const booking = state.bookings.find((b) => b.id === id);
     // A booking a pending change made has only a provisional id until the server answers.
     if (!booking || !accountRecordSettled("bookings", id)) return;
+    if (date < today) {
+      showActionFailure("calendar.dayInPast", undefined, "studio", t("calendar.dayInPast"));
+      return;
+    }
     if (booking.staffId !== staffId) {
       const name = state.staff.find((s) => s.id === booking.staffId)!.firstName;
       showActionFailure("reference.sameStaffOnly", undefined, "studio", t("calendar.sameStaffOnly", { name }));

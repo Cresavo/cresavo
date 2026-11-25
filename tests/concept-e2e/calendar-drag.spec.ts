@@ -85,3 +85,30 @@ test("in the week view a booking dropped in another day's column moves to that d
     return `${moved?.date} ${moved?.start}`;
   }).toBe("2026-11-19 780");
 });
+
+test("in the week view a booking cannot be dropped on a day that has already passed", async ({ page }) => {
+  await page.goto("/studio/calendar");
+  await page.getByRole("radio", { name: "Week" }).click();
+  const customer = fixture.customers.find(c => c.id === fixture.bookings.find(b => b.id === "b1719")!.customerId)!;
+  const visit = page.getByRole("button", { name: new RegExp(`^${customer.firstName}\\s*11:15`) });
+  const monday = (await page.getByRole("button", { name: /Mon.*16 Nov/ }).boundingBox())!;
+  const from = (await visit.boundingBox())!;
+  await pickUp(page, visit);
+  await dropAt(page, { x: monday.x + monday.width * 0.75, y: from.y + 4 });
+  await expect(page.getByText("Moved to Monday 16 November")).toHaveCount(0);
+  expect((await booking(page, "b1719"))?.date).toBe("2026-11-17");
+});
+
+test("in the week view a drop on a closed day leaves the booking and explains why", async ({ page }) => {
+  await page.goto("/studio/calendar");
+  await page.getByRole("radio", { name: "Week" }).click();
+  const customer = fixture.customers.find(c => c.id === fixture.bookings.find(b => b.id === "b1719")!.customerId)!;
+  const visit = page.getByRole("button", { name: new RegExp(`^${customer.firstName}\\s*11:15`) });
+  const sunday = (await page.getByRole("button", { name: /Sun.*22 Nov/ }).boundingBox())!;
+  const from = (await visit.boundingBox())!;
+  await pickUp(page, visit);
+  await dropAt(page, { x: sunday.x + sunday.width / 2, y: from.y + 4 });
+  await expect(page.getByText("Sunday 22 November at 11:15 is not free. The booking stayed where it was.")).toBeVisible();
+  expect((await booking(page, "b1719"))?.date).toBe("2026-11-17");
+});
+
