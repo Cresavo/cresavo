@@ -136,7 +136,16 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     recorder.current = next;
     setSeconds(0);
     setRecording(true);
-    next.start(1000);
+    try {
+      next.start(1000);
+    } catch {
+      clearTimers();
+      stream.getTracks().forEach((track) => track.stop());
+      recorder.current = null;
+      setRecording(false);
+      showToast(t("journal.audio.recordFailed"));
+      return false;
+    }
     return true;
     } finally {
       starting.current = false;
