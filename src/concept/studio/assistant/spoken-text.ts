@@ -59,16 +59,29 @@ function quotesJournal(text: string, state: SpeechState): boolean {
     .some((sentence) => sentence.length >= MIN_JOURNAL_QUOTE && (spoken.includes(sentence) || (spoken.length >= MIN_JOURNAL_QUOTE && sentence.includes(spoken)) || quotesWords(sentence, spoken)));
 }
 
+
+const WHEN_OR_WHERE = /^(?:on|at|in|for|a|an|the|and|or|of|to|from|with|next|this|last|is|are|due|booked|appointment|booking|today|tomorrow|tonight|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|evening|week|month|year|am|pm|o'?clock|\d{1,4}|\d{1,2}:\d{2})$/;
+
+/** True when, after treatment names are removed, only a day or a time is left. */
+function onlyWhenOrWhere(text: string): boolean {
+  const leftover = normalize(text);
+  if (!leftover) return true;
+  return leftover.split(" ").every((token) => WHEN_OR_WHERE.test(token));
+}
+
 /** The line to read aloud for any text, or null when there is nothing to say. */
 export function safeSpeech(text: string, state: SpeechState): string | null {
   const plain = text.replace(/\s+/g, " ").trim();
   if (!plain) return null;
-  // A treatment's name is the salon's menu, not anyone's health or journal: it is
-  // taken out before those checks so "Medical foot care tomorrow" can be read even
-  // if a journal entry happens to use the same words. Any leftover journal wording
-  // after the menu name is removed still stays off the spoken line.
+  // A treatment's name is the salon's menu. If the rest of the line is only when
+  // or where ( "Medical foot care tomorrow at 10:00" ), it can be read even if
+  // those words also appear in a journal or match a health word. Any other
+  // leftover wording is checked against the original line, so "She has eczema"
+  // is never read just because a treatment is named Eczema.
   const withoutServices = state.services.reduce((out, service) => out.replace(word(service.name), " "), plain);
-  if (sensitiveKind(withoutServices, state) || quotesJournal(withoutServices, state)) return t("assistant.voice.onScreen");
+  if (!onlyWhenOrWhere(withoutServices) && (sensitiveKind(plain, state) || quotesJournal(plain, state) || quotesJournal(withoutServices, state))) {
+    return t("assistant.voice.onScreen");
+  }
   let named = 0;
   let spoken = plain;
   // Longest names first, so "Anna Berg Lind" is not read as "Anna Lind".

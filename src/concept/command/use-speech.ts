@@ -152,27 +152,38 @@ export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietS
   const [interim, setInterim] = useState("");
   const recognition = useRef<Recognition | null>(null);
   const starting = useRef(0);
+  const pendingStart = useRef(false);
   const handlers = useRef({ onText, onEnd, onInterim });
   useEffect(() => {
     handlers.current = { onText, onEnd, onInterim };
   });
-  useEffect(() => () => {
-    starting.current++;
-    recognition.current?.abort();
-  }, []);
-
-  const stop = useCallback(() => recognition.current?.stop(), []);
   const abort = useCallback(() => {
     starting.current++;
-    recognition.current?.abort();
+    const cancelled = pendingStart.current && !recognition.current;
+    pendingStart.current = false;
+    if (recognition.current) recognition.current.abort();
+    else if (cancelled) {
+      // The probe was still running, so no recogniser will emit onend.
+      setListening(false);
+      setInterim("");
+      handlers.current.onEnd?.({ heard: false, error: "aborted" });
+    }
   }, []);
+  useEffect(() => () => abort(), [abort]);
+
+  const stop = useCallback(() => {
+    if (pendingStart.current && !recognition.current) abort();
+    else recognition.current?.stop();
+  }, [abort]);
 
   const start = useCallback(() => {
-    if (recognition.current) return;
+    if (recognition.current || pendingStart.current) return;
     const mine = ++starting.current;
+    pendingStart.current = true;
     void (async () => {
       const created = await prepareRecognition({ lang: locale, continuous });
       if (starting.current !== mine || recognition.current) return;
+      pendingStart.current = false;
       if (!created) return;
       const next = created.recognition;
       let heard = false;
@@ -207,6 +218,7 @@ export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietS
         handlers.current.onEnd?.({ heard, error: failure });
       };
       recognition.current = next;
+      pendingStart.current = false;
       setListening(true);
       try {
         next.start();

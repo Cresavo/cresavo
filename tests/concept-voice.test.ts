@@ -420,6 +420,10 @@ describe("what is read aloud", () => {
     expect(safeSpeech(`${medical.name} tomorrow at 10:00.`, state)).toBe(`${medical.name} tomorrow at 10:00.`);
     const withSameWords = { ...state, journals: [{ ...journal, treatment: medical.name, observations: "", advice: "", nextVisit: "" }] };
     expect(safeSpeech(`${medical.name} tomorrow at 10:00.`, withSameWords)).toBe(`${medical.name} tomorrow at 10:00.`);
+    const eczema = { ...medical, id: "spoken-eczema", name: "Eczema" };
+    const named = { ...state, services: [...state.services, eczema] };
+    expect(safeSpeech("Eczema tomorrow at 10:00.", named)).toBe("Eczema tomorrow at 10:00.");
+    expect(safeSpeech("She has eczema.", named)).toBe("The details are on the screen.");
   });
 
   it("does not read out a list of many customers", () => {
