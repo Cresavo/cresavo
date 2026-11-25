@@ -1,6 +1,6 @@
 import type { Booking, DemoState, InboxEvent, InboxItem } from "../../data/types";
 import { canChangeBooking, canOpen, type Role } from "../../ops/access";
-import { findCustomer, findService, inboxItemVisible } from "../../selectors";
+import { findCustomer, findService, fullName, inboxItemVisible } from "../../selectors";
 
 /** One thing a customer did on the booking page that the studio has not looked at yet. */
 export interface BookingNotice {
@@ -9,6 +9,8 @@ export interface BookingNotice {
   bookingId: string;
   /** The customer's first name, or empty when their card is gone. */
   name: string;
+  /** First and last name for the initials on the notices pill, or empty when the card is gone. */
+  fullName: string;
   service: string;
   /** The visit's day and start as it stands now (after a move, the new time). */
   date: Booking["date"];
@@ -30,9 +32,10 @@ export function bookingNotices(state: DemoState): BookingNotice[] {
     const booking = state.bookings.find((b) => b.id === item.bookingId);
     if (!booking) return [];
     const protection = booking.protection;
+    const customer = findCustomer(state, booking.customerId);
     return [{
       id: item.id, event: item.event, bookingId: booking.id,
-      name: findCustomer(state, booking.customerId)?.firstName ?? "",
+      name: customer?.firstName ?? "", fullName: customer ? fullName(customer) : "",
       service: findService(state, booking.serviceId)?.name ?? "",
       date: item.visitDate ?? booking.date, start: item.visitStart ?? booking.start,
       paidMinor: item.event === "booked" && protection?.deposit ? protection.terms.depositMinor : 0,
