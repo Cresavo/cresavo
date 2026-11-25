@@ -1,4 +1,5 @@
 import type { Booking, DemoState, InboxEvent, InboxItem } from "../../data/types";
+import { canChangeBooking, canOpen, type Role } from "../../ops/access";
 import { findCustomer, findService, inboxItemVisible } from "../../selectors";
 
 /** One thing a customer did on the booking page that the studio has not looked at yet. */
@@ -43,3 +44,14 @@ export function bookingNotices(state: DemoState): BookingNotice[] {
 
 /** Where a notice leads: the visit, open in the calendar on its day. */
 export const noticeHref = (bookingId: string) => `/studio/calendar?booking=${encodeURIComponent(bookingId)}`;
+
+/** The owner’s “New since last time” and its toast; staff do not see the inbox, so they do not see these either. */
+export function canSeeBookingNotices(role: Role): boolean {
+  return canOpen(role, "/studio/inbox") && canOpen(role, "/studio/calendar");
+}
+
+/** Notices this role may recap or toast: none in staff view, and never a visit they cannot open. */
+export function visibleBookingNotices(state: DemoState, role: Role): BookingNotice[] {
+  if (!canSeeBookingNotices(role)) return [];
+  return bookingNotices(state).filter((notice) => canChangeBooking(state, role, notice.bookingId));
+}

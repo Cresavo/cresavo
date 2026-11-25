@@ -31,7 +31,14 @@ type View = "day" | "week";
 
 export default function CalendarPage() {
   const pairing = usePairing();
-  const [local, setLocal] = useState(false);
+  const bookingLink = useSearchParams()?.get("booking");
+  const [local, setLocal] = useState(!!bookingLink);
+  const [openedLink, setOpenedLink] = useState(bookingLink);
+  // A notice must open the local visit even when a paired calendar is the usual view.
+  if (bookingLink && bookingLink !== openedLink) {
+    setOpenedLink(bookingLink);
+    setLocal(true);
+  }
   if (!pairing?.workspace) return <LocalCalendar />;
   const switchCalendar = <Button variant="secondary" onClick={() => setLocal(!local)}>
     {t(local ? "pair.calendar" : "pair.localCalendar")}

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CalendarCheck, CalendarClock, CalendarX, ChevronRight } from "lucide-react";
 import { formatMinor } from "../../booking/policy-summary";
-import { canOpen } from "../../ops/access";
 import { useRole } from "../../ops/role";
 import { t, tc } from "../../i18n";
 import { formatDayShort, formatTime } from "../../i18n/format";
@@ -14,7 +13,7 @@ import { cx } from "../../ui/cx";
 import { ListRow } from "../../ui/list-row";
 import { Sheet } from "../../ui/sheet";
 import { useStudio } from "../use-studio";
-import { bookingNotices, noticeHref, type BookingNotice } from "./booking-notices";
+import { canSeeBookingNotices, noticeHref, visibleBookingNotices, type BookingNotice } from "./booking-notices";
 
 const ICONS = { booked: CalendarCheck, cancelled: CalendarX, moved: CalendarClock } as const;
 
@@ -34,8 +33,8 @@ export function NoticesButton() {
   const role = useRole();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  if (!canOpen(role, "/studio/inbox") || !canOpen(role, "/studio/calendar")) return null;
-  const notices = bookingNotices(state);
+  if (!canSeeBookingNotices(role)) return null;
+  const notices = visibleBookingNotices(state, role);
   const show = (notice: BookingNotice) => {
     dispatch({ type: "inbox/read", id: notice.id });
     setOpen(false);

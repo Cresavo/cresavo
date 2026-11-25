@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { t } from "../../i18n";
 import { dispatch } from "../../store";
 import { showToast } from "../../ui/toast";
+import { useRole } from "../../ops/role";
 import { useStudio } from "../use-studio";
-import { bookingNotices, noticeHref, type BookingNotice } from "./booking-notices";
+import { noticeHref, visibleBookingNotices, type BookingNotice } from "./booking-notices";
 import { noticeWhen } from "./notices-button";
 
 const toastText = (notice: BookingNotice) =>
@@ -19,10 +20,12 @@ const toastText = (notice: BookingNotice) =>
  */
 export function NoticeToasts() {
   const { state } = useStudio();
+  const role = useRole();
   const router = useRouter();
   const seen = useRef<Set<string> | null>(null);
   useEffect(() => {
-    const notices = bookingNotices(state);
+    // Same access as the bell: staff view does not recap or toast other people’s visits.
+    const notices = visibleBookingNotices(state, role);
     if (!seen.current) {
       seen.current = new Set(notices.map((notice) => notice.id));
       return;
@@ -38,6 +41,6 @@ export function NoticeToasts() {
         },
       });
     }
-  }, [state, router]);
+  }, [state, role, router]);
   return null;
 }

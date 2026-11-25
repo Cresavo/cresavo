@@ -5,7 +5,7 @@ import { acceptedTerms } from "@/concept/booking/public-terms";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts } from "@/concept/data/slots";
 import type { DemoState } from "@/concept/data/types";
-import { bookingNotices, noticeHref } from "@/concept/studio/notices/booking-notices";
+import { bookingNotices, noticeHref, visibleBookingNotices } from "@/concept/studio/notices/booking-notices";
 import { payAtSalon } from "./helpers/pay-at-salon";
 
 // "New since last time": the inbox items for what customers did on the booking page, read from the
@@ -34,6 +34,13 @@ describe("booking notices", () => {
     expect(paid.inbox.find((item) => item.id === first.id)).toMatchObject({ kind: "request", event: "booked", read: false });
     expect(bookingNotices(reduce(paid, { type: "inbox/read", id: first.id }))).toEqual([]);
     expect(noticeHref(visit.id)).toBe(`/studio/calendar?booking=${visit.id}`);
+  });
+
+  it("hide those notices in staff view, including a visit on the team member the staff view stands for", () => {
+    const held = reduce(fresh, { type: "online/hold", serviceId: service.id, staffId: "anna", date, start: slot(fresh), guest, notice });
+    const paid = reduce(held, { type: "online/pay", id: held.checkoutHolds[0].id, method: "card" });
+    expect(visibleBookingNotices(paid, "owner")).toHaveLength(1);
+    expect(visibleBookingNotices(paid, "staff")).toEqual([]);
   });
 
   it("list a booking paid at the salon with nothing paid, then its move and its cancellation, newest first", () => {
