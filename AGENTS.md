@@ -59,8 +59,14 @@ of exact hosts that redirect to the Swedish site. It defaults to
   health data.
 - No secrets in Git. Never read or print `.env`, keys or other secrets; keys are
   never logged.
-- No push to `main`, merge, deploy, force-push, new cloud resources, accounts or
-  paid services without Niclas's explicit yes for that step.
+- Claude Code may mark its own pull requests ready and merge them without asking
+  when the work is in a maintainer-approved task, every CI check on the head
+  commit is green, there are no conflicts or unresolved review comments, and
+  the merge names the expected head commit. The demo deploy that a merge to
+  `main` triggers by itself is part of that.
+- Direct push to `main`, force-push, manual deploys or promotions, new cloud
+  resources, accounts or paid services still need Niclas's explicit yes for
+  that step.
 - The booking engine's double-booking protection, idempotency, quotas,
   validation, permission checks and session protection must not be weakened.
 - Never change historical migrations; a new data model needs a new migration.
