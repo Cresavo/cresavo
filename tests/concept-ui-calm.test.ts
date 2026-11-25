@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { SkeletonCard, SkeletonGroup, SkeletonRow, StatusDot } from "@/concept/ui/feedback";
-import { ActionMenu, Popover } from "@/concept/ui/popover";
+import { ActionMenu, Popover, popoverPlacement } from "@/concept/ui/popover";
 
 // Menus that grow from their trigger, the sliding tab mark, shaped skeletons, calm empty states and quiet status dots.
 
@@ -20,7 +20,7 @@ describe("popover and action menu", () => {
     expect(menu).toContain('aria-expanded="false"');
     expect(menu).toContain('aria-label="Quick actions"');
     expect(menu).not.toContain('role="menu"');
-    const panel = html(createElement(Popover, { title: "Calendar options", icon: "…", children: "Rooms" }));
+    const panel = html(createElement(Popover, { title: "Calendar options", icon: "…" }, "Rooms"));
     expect(panel).toContain('aria-haspopup="dialog"');
     expect(panel).not.toContain("Rooms");
   });
@@ -31,7 +31,20 @@ describe("popover and action menu", () => {
     expect(theme).toMatch(/\.ui-pop\[data-closing\] \{ animation: ui-pop-leave var\(--dur-1\) var\(--ease-in\)/);
     expect(reduced).toMatch(/\.ui-pop, \[data-row-motion\] \{ animation-name: ui-fade;/);
   });
+  it("clamps the panel inside the viewport when neither edge has room", () => {
+    const place = popoverPlacement("end", { left: 140, right: 180 }, 224, 320);
+    expect(place.width).toBe(224);
+    expect(place.left).toBe(16);
+    expect(place.left + place.width).toBeLessThanOrEqual(304);
+    const wide = popoverPlacement("start", { left: 8, right: 40 }, 400, 320);
+    expect(wide.left).toBe(16);
+    expect(wide.width).toBe(288);
+    expect(wide.left + wide.width).toBe(304);
+  });
+
 });
+
+
 
 describe("tab bar", () => {
   it("moves one mark with a transform on the motion tokens", () => {

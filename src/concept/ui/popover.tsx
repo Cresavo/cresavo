@@ -24,6 +24,23 @@ const PHONE = "(max-width: 639.98px)";
 const FOCUSABLE = "[role=menuitem], button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
 const EDGE = 16;
 
+/** Place a panel under a trigger, flipping the side when needed and clamping it inside the viewport. */
+export function popoverPlacement(
+  align: "start" | "end",
+  trigger: { left: number; right: number },
+  width: number,
+  viewportWidth: number,
+): { side: "start" | "end"; left: number; width: number } {
+  const room = Math.max(0, viewportWidth - EDGE * 2);
+  const used = Math.min(width, room);
+  const fitsEnd = trigger.right - used >= EDGE;
+  const fitsStart = trigger.left + used <= viewportWidth - EDGE;
+  const side = align === "end" ? (fitsEnd || !fitsStart ? "end" : "start") : (fitsStart || !fitsEnd ? "start" : "end");
+  const desired = side === "end" ? trigger.right - used : trigger.left;
+  const left = Math.min(Math.max(desired, EDGE), EDGE + Math.max(0, room - used));
+  return { side, left, width: used };
+}
+
 function watchPhone(listener: () => void) {
   const query = window.matchMedia(PHONE);
   query.addEventListener("change", listener);
@@ -54,16 +71,18 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
     if (refocus) triggerRef.current?.focus({ preventScroll: true });
   };
 
-  // Line up with the preferred edge, or the other one when the panel would leave the screen.
+  // Line up with the preferred edge, flip when that side has no room, and clamp when neither edge fits.
   useLayoutEffect(() => {
     const panel = panelRef.current;
     const button = triggerRef.current;
-    if (!open || !present || !panel || !button) return;
-    const width = panel.offsetWidth;
-    const box = button.getBoundingClientRect();
-    const fitsEnd = box.right - width >= EDGE;
-    const fitsStart = box.left + width <= window.innerWidth - EDGE;
-    setSide(align === "end" ? (fitsEnd || !fitsStart ? "end" : "start") : (fitsStart || !fitsEnd ? "start" : "end"));
+    const wrap = wrapRef.current;
+    if (!open || !present || !panel || !button || !wrap) return;
+    const place = popoverPlacement(align, button.getBoundingClientRect(), panel.offsetWidth, window.innerWidth);
+    const wrapBox = wrap.getBoundingClientRect();
+    setSide(place.side);
+    panel.style.left = `${place.left - wrapBox.left}px`;
+    panel.style.right = "auto";
+    panel.style.width = `${place.width}px`;
   }, [open, present, align]);
 
   useEffect(() => {
@@ -134,7 +153,7 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
           data-side={side}
           data-closing={!open || undefined}
           inert={!open}
-          className={cx("ui-pop absolute top-full z-popover mt-2 outline-none min-w-56 rounded-lg border border-hairline bg-surface text-text shadow-raised", side === "end" ? "right-0" : "left-0", kind === "menu" ? "py-1" : "p-4")}
+          className={cx("ui-pop absolute top-full left-0 z-popover mt-2 outline-none min-w-56 rounded-lg border border-hairline bg-surface text-text shadow-raised", kind === "menu" ? "py-1" : "p-4")}
           onKeyDown={kind === "menu" ? moveInMenu : undefined}
           onClick={event => chosen(event, close)}
         >
