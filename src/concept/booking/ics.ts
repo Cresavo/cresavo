@@ -11,6 +11,14 @@ export function icsTimestamp(date: Date): string {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+
+/** Hours before the visit while a free-cancellation deadline is still on the public view; otherwise unknown. */
+export function freeHoursFromDeadline(date: string, start: number, freeUntil?: { date: string; time: number }): number | undefined {
+  if (!freeUntil) return undefined;
+  const hours = Math.round(visitTime({ date, start }).diff(visitTime({ date: freeUntil.date, start: freeUntil.time })).as("hours"));
+  return hours > 0 ? hours : undefined;
+}
+
 /** The fields a booking-link page already has: no customer, notes, price or the internal booking id. */
 export interface PublicCalendarVisit {
   id: string;
@@ -49,7 +57,10 @@ export function publicGoogleCalendarLink(visit: PublicCalendarVisit): string {
 /** A one-event calendar file from the public booking-link fields, with a reminder one hour before. */
 export function buildPublicIcs(input: PublicCalendarVisit & { createdAt: string }): string {
   const event = publicEventDetails(input);
-  const { id, salon, staffFirstName, createdAt, language = "en", freeHours = FREE_CHANGE_HOURS } = input;
+  const { id, salon, staffFirstName, createdAt, language = "en", freeHours } = input;
+  const description = freeHours
+    ? translate(language, "booking.ics.description", { staff: staffFirstName, hours: freeHours })
+    : translate(language, "booking.ics.descriptionShort", { staff: staffFirstName });
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -61,7 +72,7 @@ export function buildPublicIcs(input: PublicCalendarVisit & { createdAt: string 
     `DTSTART:${event.start}`,
     `DTEND:${event.end}`,
     `SUMMARY:${escape(event.title)}`,
-    `DESCRIPTION:${escape(translate(language, "booking.ics.description", { staff: staffFirstName, hours: freeHours }))}`,
+    `DESCRIPTION:${escape(description)}`,
     `LOCATION:${escape(event.location)}`,
     "BEGIN:VALARM",
     "TRIGGER:-PT1H",

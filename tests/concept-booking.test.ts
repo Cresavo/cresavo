@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
-import { buildIcs, buildPublicIcs, googleCalendarLink, publicGoogleCalendarLink } from "@/concept/booking/ics";
+import { buildIcs, buildPublicIcs, freeHoursFromDeadline, googleCalendarLink, publicGoogleCalendarLink } from "@/concept/booking/ics";
 import { recallGuest, rememberGuest } from "@/concept/booking/guest";
 import { customerBookings, findCustomerByPhone, isMobilePhone, normalizePhone, phoneMatches } from "@/concept/booking/lookup";
 import { changeRule, freeCancellationDeadline } from "@/concept/booking/policy";
@@ -281,10 +281,23 @@ it("builds a calendar file from the booking-link fields without a customer recor
   expect(ics).toContain("LOCATION:Salong Eko\\, Dalagatan 34\\, Stockholm");
   expect(ics).toContain("UID:ref-fictional@salong-eko.example");
   expect(ics).toContain("TRIGGER:-PT1H");
+  expect(ics).toContain("With Anna.");
+  expect(ics).not.toContain("hours before");
   expect(ics).not.toContain("lisa@");
   expect(ics).not.toContain("Private note");
+  const withWindow = buildPublicIcs({
+    ...visit,
+    freeHours: 48,
+    createdAt: "20261116T080000Z",
+  });
+  expect(withWindow).toContain("until 48 hours before");
   const google = new URL(publicGoogleCalendarLink(visit));
   expect(google.searchParams.get("text")).toBe("Cut and finish at Salong Eko");
   expect(google.searchParams.get("location")).toBe("Salong Eko, Dalagatan 34, Stockholm");
 });
 
+it("reads the cancellation window from the public free-until deadline", () => {
+  expect(freeHoursFromDeadline("2026-11-24", 600, { date: "2026-11-23", time: 600 })).toBe(24);
+  expect(freeHoursFromDeadline("2026-11-24", 600, { date: "2026-11-22", time: 600 })).toBe(48);
+  expect(freeHoursFromDeadline("2026-11-24", 600)).toBeUndefined();
+});

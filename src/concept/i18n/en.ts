@@ -517,6 +517,7 @@ const messages = {
   "summary.tomorrowFirst": "Tomorrow starts with {name}.",
   "summary.tomorrowEmpty": "No bookings tomorrow.",
   "booking.ics.description": "With {staff}. Free to change or cancel until {hours} hours before.",
+  "booking.ics.descriptionShort": "With {staff}.",
   "campaigns.post.social": "Book your time online.",
   "campaigns.post.facebook": "Book online or contact the salon to find a suitable appointment.",
   "campaigns.post.google": "Contact the salon to find a suitable appointment.",

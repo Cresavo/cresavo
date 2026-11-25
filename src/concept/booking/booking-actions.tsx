@@ -20,7 +20,7 @@ import { Sheet } from "../ui/sheet";
 import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { useCommit } from "../ui/use-commit";
-import { buildIcs, buildPublicIcs, googleCalendarLink, icsTimestamp, publicGoogleCalendarLink } from "./ics";
+import { buildIcs, buildPublicIcs, freeHoursFromDeadline, googleCalendarLink, icsTimestamp, publicGoogleCalendarLink } from "./ics";
 import type { PublicBookingView } from "./public-booking-view";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
@@ -105,6 +105,7 @@ export function PublicCalendarActions({ slug, id, view }: { slug: string; id: st
     staffFirstName: view.staffFirstName,
     salon: { name: salon?.name ?? "", slug, address: salon?.address || view.salon.address, area: salon?.area },
     language: getActiveLocale(),
+    freeHours: freeHoursFromDeadline(view.date, view.start, view.freeUntil),
   };
   const download = () => {
     const ics = buildPublicIcs({ ...visit, createdAt: icsTimestamp(new Date()) });

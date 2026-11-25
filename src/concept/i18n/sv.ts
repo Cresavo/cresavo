@@ -517,6 +517,7 @@ const messages = {
   "summary.tomorrowFirst": "Imorgon är {name} först.",
   "summary.tomorrowEmpty": "Inga bokningar i morgon.",
   "booking.ics.description": "Hos {staff}. Du kan omboka eller avboka kostnadsfritt fram till {hours} timmar före besöket.",
+  "booking.ics.descriptionShort": "Hos {staff}.",
   "campaigns.post.social": "Boka din tid på nätet.",
   "campaigns.post.facebook": "Boka på nätet eller hör av dig så hittar vi en tid som passar.",
   "campaigns.post.google": "Hör av dig så hittar vi en tid som passar.",
