@@ -339,6 +339,29 @@ describe("spoken conversation", () => {
     expect(h.conversation.state()).toMatchObject({ phase: "ended", ended: "failed" });
   });
 
+  it("does not start another listen when Stop aborts a pending probe", () => {
+    const log: string[] = [];
+    let conversation: ReturnType<typeof createConversation>;
+    const ports: ConversationPorts = {
+      listen: () => void log.push("listen"),
+      stopListening: () => {
+        log.push("stop-listening");
+        conversation.listenEnded({ heard: false, error: "aborted" });
+      },
+      speak: () => false,
+      stopSpeaking: () => void log.push("stop-speaking"),
+      send: () => {},
+      setTimer: () => 1,
+      clearTimer: () => {},
+      onChange: () => {},
+    };
+    conversation = createConversation(ports);
+    conversation.start();
+    conversation.stop();
+    expect(conversation.state()).toMatchObject({ phase: "ended", ended: "stopped" });
+    expect(log.filter((entry) => entry === "listen")).toEqual(["listen"]);
+  });
+
   it("ends on a network failure instead of starting another listen", () => {
     const h = harness();
     h.conversation.start();

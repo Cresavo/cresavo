@@ -97,9 +97,11 @@ export function createConversation(ports: ConversationPorts): Conversation {
     if (!active()) return;
     turn++;
     clearSilence();
+    // Leave listening before abort(), which can end the recogniser (or a pending
+    // probe) synchronously: listenEnded must not start another listen.
+    set({ phase: "ended", ended: reason });
     ports.stopListening();
     ports.stopSpeaking();
-    set({ phase: "ended", ended: reason });
   };
 
   return {
@@ -124,12 +126,12 @@ export function createConversation(ports: ConversationPorts): Conversation {
       if (current.phase !== "listening" || !text.trim()) return;
       turn++;
       clearSilence();
-      ports.stopListening();
       set({ phase: "thinking" });
+      ports.stopListening();
       ports.send(text.trim());
     },
     listenEnded({ heard, error }) {
-      if (current.phase !== "listening" || heard) return;
+      if (current.phase !== "listening" || heard || error === "aborted") return;
       if (error && BLOCKED.has(error)) stop("failed");
       // The recogniser gives up on silence sooner than the conversation does: listen on until the timeout.
       else if (timer !== null) listen(false);
