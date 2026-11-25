@@ -23,12 +23,10 @@ export function PolicySummary({ terms }: { terms: BookingTerms }) {
     <p>{!terms.depositMinor ? t("protection.noDeposit") : terms.depositMinor >= terms.priceMinor ? t("protection.dueFull", { amount: formatMinor(terms.depositMinor, terms.currency) }) : t("protection.due", {
       deposit: formatMinor(terms.depositMinor, terms.currency), balance: formatMinor(terms.priceMinor - terms.depositMinor, terms.currency),
     })}</p>
-    {terms.depositMinor > 0 && <p className="text-text-secondary">{t("protection.simulated")}</p>}
   </div>;
 }
 
-/** `note`: the owner's own views say the money is simulated; the customer's confirmation does not. */
-export function PaymentSummary({ booking, state, active = booking.status === "booked", note }: { booking: Booking; state: DemoState; active?: boolean; note?: boolean }) {
+export function PaymentSummary({ booking, state, active = booking.status === "booked" }: { booking: Booking; state: DemoState; active?: boolean }) {
   const protection = booking.protection;
   if (!protection) return null;
   const { currency } = protection.terms;
@@ -46,6 +44,5 @@ export function PaymentSummary({ booking, state, active = booking.status === "bo
     {protection.decision && <p>{t("protection.feeTotal", { amount: money(protection.decision.outcome === "charge" ? protection.decision.proposedMinor : 0) })}</p>}
     {protection.decision && <p>{t(protection.decision.outcome === "waive" ? "protection.waived" : "protection.charged")}</p>}
     {balance.refund > 0 && <p>{t("protection.refunded", { amount: money(balance.refund) })}</p>}
-    {note && (protection.deposit || protection.decision) && <p className="text-text-secondary">{t("protection.simulated")}</p>}
   </div>;
 }

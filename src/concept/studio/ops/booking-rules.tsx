@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { majorString, minorDigits } from "../../connections/core";
 import { paysAtSalon, quote, toMinor, type CancellationPolicy } from "../../booking/protection";
+import { targetOf } from "../../store";
 import { PolicySummary } from "../../booking/policy-summary";
 import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
@@ -13,13 +14,13 @@ import { showActionFailure } from "../../ui/toast";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 
 /** A label with a short line under it and a switch at the end of the row. */
-function SwitchRow({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: () => void }) {
+function SwitchRow({ label, hint, checked, disabled, onChange }: { label: string; hint: string; checked: boolean; disabled?: boolean; onChange: () => void }) {
   return <div className="flex items-center justify-between gap-3">
     <span className="min-w-0">
       <span className="block text-sm font-medium">{label}</span>
       <span className="block text-xs text-text-secondary">{hint}</span>
     </span>
-    <Switch checked={checked} onChange={onChange} label={label} />
+    <Switch checked={checked} disabled={disabled} onChange={onChange} label={label} />
   </div>;
 }
 
@@ -35,6 +36,8 @@ export function BookingRules({ state }: { state: DemoState }) {
   const [serviceId, setService] = useState(state.services[0]?.id);
   const service = state.services.find(s => s.id === serviceId);
   const currency = state.localization.currency;
+  // Hosted booking cannot take a payment yet, so the salon cannot opt into prepay here.
+  const hosted = targetOf(state)?.workspace === "account";
   const dirty = JSON.stringify(draft) !== JSON.stringify(state.cancellationPolicy);
   const exempt = draft.exemptServices.includes(serviceId);
   const atSalon = !!service && paysAtSalon(draft, service.id);
@@ -45,11 +48,12 @@ export function BookingRules({ state }: { state: DemoState }) {
   return <Section title={t("protection.rules")}><Card className="p-4">
     <form className="space-y-4" onSubmit={e => {
       e.preventDefault();
-      if (!dispatchWithUndoToast({ type: "salon/policy", policy: draft }, t("protection.saved"))) showActionFailure("protection.changed");
+      const policy = hosted ? { ...draft, payAtSalonDefault: true, payAtSalon: {} } : draft;
+      if (!dispatchWithUndoToast({ type: "salon/policy", policy }, t("protection.saved"))) showActionFailure("protection.changed");
     }}>
       <p className="text-sm text-text-secondary">{t("protection.version", { version: state.cancellationPolicy.version })}</p>
-      <SwitchRow label={t("protection.payAtSalon")} hint={t(draft.payAtSalonDefault ? "protection.payAtSalonOn" : "protection.payAtSalonOff")}
-        checked={draft.payAtSalonDefault} onChange={() => setDraft({ ...draft, payAtSalonDefault: !draft.payAtSalonDefault })} />
+      <SwitchRow label={t("protection.payAtSalon")} hint={t(hosted ? "protection.payAtSalonHosted" : draft.payAtSalonDefault ? "protection.payAtSalonOn" : "protection.payAtSalonOff")}
+        checked={hosted || draft.payAtSalonDefault} disabled={hosted} onChange={() => setDraft({ ...draft, payAtSalonDefault: !draft.payAtSalonDefault })} />
       {(["freeHours", "latePercent", "noShowPercent"] as const).map(key =>
         <Field width="number" key={key} label={t(`protection.${key}`)}><TextInput type="number" required min="0" max={key === "freeHours" ? 8760 : 100}
           value={Number.isFinite(draft[key]) ? draft[key] : ""} onChange={e => setDraft({ ...draft, [key]: e.target.valueAsNumber })} /></Field>)}
@@ -57,9 +61,9 @@ export function BookingRules({ state }: { state: DemoState }) {
         {state.services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
       </Select></Field>}
       {service && <>
-        <SwitchRow label={t("protection.payAtSalonFor", { service: service.name })} hint={t(!Object.hasOwn(draft.payAtSalon, service.id) ? "protection.payAtSalonSame" : atSalon ? "protection.payAtSalonOn" : "protection.payAtSalonOff")}
-          checked={atSalon} onChange={() => setDraft(choosePayAtSalon(draft, service.id, !atSalon))} />
-        {!atSalon && !exempt && <details className="group border-t border-hairline pt-2" open={Object.hasOwn(draft.deposits, serviceId) || undefined}>
+        <SwitchRow label={t("protection.payAtSalonFor", { service: service.name })} hint={t(hosted ? "protection.payAtSalonHosted" : !Object.hasOwn(draft.payAtSalon, service.id) ? "protection.payAtSalonSame" : atSalon ? "protection.payAtSalonOn" : "protection.payAtSalonOff")}
+          checked={hosted || atSalon} disabled={hosted} onChange={() => setDraft(choosePayAtSalon(draft, service.id, !atSalon))} />
+        {!hosted && !atSalon && !exempt && <details className="group border-t border-hairline pt-2" open={Object.hasOwn(draft.deposits, serviceId) || undefined}>
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between text-sm font-medium [&::-webkit-details-marker]:hidden">
             {t("protection.smallerDeposit")}
             <span aria-hidden className="text-text-secondary transition-transform group-open:rotate-90">›</span>
@@ -82,7 +86,7 @@ export function BookingRules({ state }: { state: DemoState }) {
         <PolicySummary terms={quote(draft, service, currency, true)} />
         {draft.newCustomersOnly && !atSalon && !exempt && <p className="text-sm">{t("protection.returning")}</p>}
       </div>}
-      <Button type="submit" width="responsive" disabled={!dirty}>{t("common.save")}</Button>
+      <div className="studio-sticky-save"><Button type="submit" width="responsive" disabled={!dirty}>{t("common.save")}</Button></div>
     </form>
   </Card></Section>;
 }

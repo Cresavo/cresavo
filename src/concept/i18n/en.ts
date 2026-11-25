@@ -71,6 +71,7 @@ const messages = {
   "protection.payAtSalonOn": "Nothing is paid when booking online.",
   "protection.payAtSalonOff": "Customers pay the full price when they book online.",
   "protection.payAtSalonSame": "Same as for the whole salon.",
+  "protection.payAtSalonHosted": "Online payment is not available yet. Customers pay at the salon.",
   "protection.smallerDeposit": "Take a smaller amount when booking",
   "protection.depositHint": "The rest is paid at the salon.",
   "protection.dueFull": "Pay {amount} to confirm. The payment counts towards any fee. We refund any excess, or the full amount if you cancel on time or the salon cancels.",

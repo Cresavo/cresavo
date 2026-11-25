@@ -98,6 +98,11 @@ export function quote(policy: CancellationPolicy, service: Pick<Service, "id" | 
   };
 }
 
+/** True when any of these treatments would take a payment at booking. Hosted booking cannot take that payment yet. */
+export function requiresOnlinePayment(policy: CancellationPolicy, services: Pick<Service, "id" | "price">[], currency: string): boolean {
+  return services.some((service) => quote(policy, service, currency, true).depositMinor > 0);
+}
+
 export function hasSettlement(booking: Booking) {
   return !!(booking.protection?.decision || booking.protection?.refund);
 }

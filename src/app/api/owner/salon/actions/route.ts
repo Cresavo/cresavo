@@ -6,6 +6,7 @@ import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
 import { ownerError, ownerOk, ownerRoute, readBoundedJson, fullOwner, refusedOwner, sessionKey, sessionOwner, withRenewedSession } from "@/lib/owner-http";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
 import { MAX_IMPORT_ACTION_BYTES } from "@/lib/owner-actions/types";
+import { requiresOnlinePayment } from "@/concept/booking/protection";
 import { ownerAction, ownerStore } from "@/lib/owner-store";
 import { JOURNALS_UNAVAILABLE, SLUG_TAKEN } from "@/concept/store/postgres-studio-store";
 import { journalsOnServer, salonForBrowser } from "@/lib/owner-journals";
@@ -33,6 +34,12 @@ export function POST(request: NextRequest) {
     if (body.success && actionTooLarge(body.data.action)) return ownerError("too_large", 413);
     const action = body.success ? ownerAction(body.data.action) : null;
     if (!body.success || !action) return ownerError("invalid", 400);
+    if (action.type === "salon/policy") {
+      const current = await ownerStore().load(owner.tenantId);
+      if (current && requiresOnlinePayment(action.policy, current.state.services, current.state.localization.currency)) {
+        return ownerError("deposit_unsupported", 422);
+      }
+    }
     // With server-side journals, journal text is only accepted by /api/owner/journals (its own limits), and a read is
     // only logged where the server hands the text out: a read the studio reports is refused.
     if (journalsOnServer() && (action.type === "journal/add" || action.type === "journal/edit" || action.type === "journal/view")) return ownerError("journal_route", 400);

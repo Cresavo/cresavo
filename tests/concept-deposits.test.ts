@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reduce, type DemoAction } from "@/concept/actions";
-import { DEFAULT_POLICY, feeMinor, paymentBalance, quote, settleFee } from "@/concept/booking/protection";
+import { DEFAULT_POLICY, feeMinor, paymentBalance, quote, requiresOnlinePayment, settleFee } from "@/concept/booking/protection";
 import { changeRule, deadline, visitTime } from "@/concept/booking/policy";
 import { salonCancellationOnly } from "@/concept/booking/settlement";
 import { checkoutReference, resumeCheckout } from "@/concept/booking/deposit-checkout";
@@ -320,3 +320,13 @@ describe("booking protection actions", () => {
     expect(recallGuest(initial.salon.slug)).toEqual(optedIn ? { name: hold.guest.name, phone: hold.guest.phone, customerId } : undefined);
   });
 });
+
+describe("requiresOnlinePayment", () => {
+  const service = { id: "medical-foot-care", price: 795 };
+  it("is true for the product default, and false when the salon or the treatment is paid at the salon", () => {
+    expect(requiresOnlinePayment(DEFAULT_POLICY, [service], "SEK")).toBe(true);
+    expect(requiresOnlinePayment({ ...DEFAULT_POLICY, payAtSalonDefault: true }, [service], "SEK")).toBe(false);
+    expect(requiresOnlinePayment({ ...DEFAULT_POLICY, payAtSalon: { [service.id]: true } }, [service], "SEK")).toBe(false);
+  });
+});
+

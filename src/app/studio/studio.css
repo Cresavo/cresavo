@@ -181,8 +181,19 @@ body:has(.studio-root) .demo-banner {
 /* The save row under the phone preview rests just above the bottom navigation. */
 .studio-page-preview-actions { position: sticky; bottom: calc(var(--studio-bottom-nav) + var(--space-2) + env(safe-area-inset-bottom)); }
 
+/* Booking rules Save stays just above the tab bar, including the home indicator. */
+.studio-sticky-save {
+  position: sticky;
+  bottom: calc(var(--studio-bottom-nav) + env(safe-area-inset-bottom));
+  z-index: var(--z-sticky);
+  margin-inline: -1rem;
+  padding: var(--space-3) var(--space-4);
+  background: var(--ui-surface);
+}
+
 @media (min-width: 1024px) {
   .studio-content { padding-bottom: var(--space-12); }
+  .studio-sticky-save { bottom: 0; }
   .studio-preview-frame { height: max(34rem, calc(100dvh - 14rem)); }
   .studio-page-editor { --action-layout-height: max(20rem, calc(100dvh - 2 * var(--space-12))); }
 }

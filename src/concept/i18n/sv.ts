@@ -71,6 +71,7 @@ const messages = {
   "protection.payAtSalonOn": "Inget betalas vid bokning på nätet.",
   "protection.payAtSalonOff": "Kunden betalar hela priset när hen bokar på nätet.",
   "protection.payAtSalonSame": "Samma som för hela salongen.",
+  "protection.payAtSalonHosted": "Onlinebetalning finns inte än. Kunden betalar på plats.",
   "protection.smallerDeposit": "Ta ett lägre belopp vid bokning",
   "protection.depositHint": "Resten betalas på salongen.",
   "protection.dueFull": "Betala {amount} för att bekräfta tiden. Betalningen räknas av från en eventuell avgift. Du får tillbaka överskottet, eller hela beloppet om du avbokar i tid eller om salongen avbokar.",
