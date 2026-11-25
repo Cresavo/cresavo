@@ -100,6 +100,20 @@ describe("morning brief", () => {
     expect(ids).not.toContain("notice-fictional-cancel");
     expect(brief.items.find((i) => i.id === `cancel-${cancelled.id}`)?.text).toMatch(/the slot is free/i);
   });
+
+  it("drops a free-slot cancellation from the notice list before capping, so it is not counted twice", () => {
+    const cancelled = base.bookings.find((b) => b.date === today && b.status === "cancelled" && eventReactions(base, clock).some((i) => i.id === `cancel-${b.id}`))!;
+    const { state, visit } = bookedOnline();
+    let many = event(state, "fictional-cancel", cancelled.id, "cancelled");
+    many = ["a", "b", "c"].reduce((s, id) => event(s, `fictional-${id}`, visit.id, "moved"), many);
+    const notices = noticeItems(many, clock, new Set([cancelled.id]));
+    expect(notices.map((n) => n.id)).not.toContain("notice-fictional-cancel");
+    expect(notices.find((n) => n.id === "notice-more")?.text).toBe("2 more changes from the booking page.");
+    expect(noticeItems(many, clock).find((n) => n.id === "notice-more")?.text).toBe("3 more changes from the booking page.");
+    const ids = morningBrief(many, clock).items.map((i) => i.id);
+    expect(ids).toContain(`cancel-${cancelled.id}`);
+    expect(ids).not.toContain("notice-fictional-cancel");
+  });
 });
 
 describe("brief speech", () => {

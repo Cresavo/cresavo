@@ -31,9 +31,10 @@ export interface NoticeItem extends BriefItem {
 }
 
 /** Brief items for unread booking-page events, newest first; past the first two, one line counts the rest. */
-export function noticeItems(state: DemoState, clock: Clock): NoticeItem[] {
+export function noticeItems(state: DemoState, clock: Clock, omitBookingIds?: ReadonlySet<string>): NoticeItem[] {
   const notices = state.inbox.flatMap((item): NoticeItem[] => {
     if (!item.event || item.read || !item.bookingId || !inboxItemVisible(state, item)) return [];
+    if (omitBookingIds?.has(item.bookingId)) return [];
     const booking = state.bookings.find((b) => b.id === item.bookingId);
     if (!booking) return [];
     const text = t(SENTENCE[item.event], {
@@ -44,6 +45,7 @@ export function noticeItems(state: DemoState, clock: Clock): NoticeItem[] {
     });
     return [{ id: `notice-${item.id}`, text, priority: PRIORITY, href: `/studio/calendar?booking=${encodeURIComponent(booking.id)}`, event: item.event, bookingId: booking.id }];
   });
+  // Three items stay three items: collapsing to "1 more" would use the same number of lines.
   if (notices.length <= SHOWN + 1) return notices;
   const rest = notices.length - SHOWN;
   return [...notices.slice(0, SHOWN), { id: "notice-more", text: tc("brief.notice.more", rest), priority: PRIORITY, href: "/studio/inbox" }];

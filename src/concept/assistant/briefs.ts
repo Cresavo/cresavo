@@ -75,9 +75,8 @@ export function morningBrief(state: DemoState, clock: Clock): Brief {
   // keep the reaction that says so and do not also list the booking-page notice for the same visit.
   const reactions = eventReactions(state, clock);
   const freed = new Set(reactions.filter((item) => item.id.startsWith("cancel-")).map((item) => item.id.slice("cancel-".length)));
-  const notices = noticeItems(state, clock)
-    .filter((item) => !(item.event === "cancelled" && item.bookingId && freed.has(item.bookingId)))
-    .map(({ id, text, priority, href }) => ({ id, text, priority, href }));
+  // Omit those cancellations before the notice cap, so the "more" count and the first two lines stay honest.
+  const notices = noticeItems(state, clock, freed).map(({ id, text, priority, href }) => ({ id, text, priority, href }));
   return { kind: "morning", title: t("brief.morning"), items: byPriority([...items, ...notices, ...reactions]) };
 }
 
