@@ -56,7 +56,22 @@ export function useSpeech({ continuous = false, onText }: SpeechOptions) {
   });
   useEffect(() => () => recognition.current?.abort(), []);
 
-  const stop = useCallback(() => recognition.current?.stop(), []);
+  const stopping = useRef<Promise<void> | null>(null);
+  const stop = useCallback(() => {
+    if (stopping.current) return stopping.current;
+    const current = recognition.current;
+    if (!current) return Promise.resolve();
+    stopping.current = new Promise<void>((resolve) => {
+      const previous = current.onend;
+      current.onend = () => {
+        previous?.();
+        stopping.current = null;
+        resolve();
+      };
+      current.stop();
+    });
+    return stopping.current;
+  }, []);
 
   const start = useCallback(() => {
     const Recognizer = recognitionConstructor();
