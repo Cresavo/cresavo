@@ -1,14 +1,11 @@
 "use client";
 
-import { formatTime } from "../../i18n/format";
 import { useState } from "react";
-import { Pencil } from "lucide-react";
 import { WEEK_ORDER } from "../../data/dates";
 import type { Salon } from "../../data/types";
 import { t, words } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Card, Section } from "../../ui/card";
-import { Sheet } from "../../ui/sheet";
 import { useStudio } from "../use-studio";
 import { DayRow, TimeRange } from "./day-row";
 import { dispatchWithUndoToast } from "../log/undo-toast";
@@ -16,79 +13,62 @@ import { dispatchWithUndoToast } from "../log/undo-toast";
 const DEFAULT_OPEN = { open: 9 * 60, close: 17 * 60 };
 const DEFAULT_LUNCH = { start: 12 * 60, end: 13 * 60 };
 
-/** Opening hours per weekday and the lunch break, with an editor. */
+type Draft = Pick<Salon, "hours" | "lunch">;
+
+const same = (draft: Draft, salon: Salon) =>
+  JSON.stringify(draft.hours) === JSON.stringify(salon.hours) && JSON.stringify(draft.lunch) === JSON.stringify(salon.lunch);
+
+/**
+ * Opening hours per weekday and the lunch break, edited where they are listed. Turning a day on opens its times in
+ * the row; Save and Cancel appear once something differs from the saved hours and rest above the phone tab bar.
+ * Until then the list follows the saved hours, also when another tab changes them.
+ */
 export function HoursSection() {
   const { state } = useStudio();
-  const [editing, setEditing] = useState(false);
   const { salon } = state;
-  return (
-    <Section
-      title={t("settings.hours")}
-      action={<Button size="sm" icon={<Pencil size={16} />} onClick={() => setEditing(true)}>{t("common.edit")}</Button>}
-    >
-      <Card className="divide-y divide-hairline">
-        {WEEK_ORDER.map((d) => {
-          const hours = salon.hours[d];
-          return (
-            <div key={d} className="flex justify-between px-4 py-3 text-sm">
-              <span>{words.weekdays[d]}</span>
-              <span className={hours ? "font-medium tabular-nums" : "text-text-secondary"}>
-                {hours ? `${formatTime(hours.open)}–${formatTime(hours.close)}` : t("calendar.closed")}
-              </span>
-            </div>
-          );
-        })}
-        <div className="flex justify-between px-4 py-3 text-sm">
-          <span>{t("hours.lunch")}</span>
-          <span className={salon.lunch ? "font-medium tabular-nums" : "text-text-secondary"}>
-            {salon.lunch ? `${formatTime(salon.lunch.start)}–${formatTime(salon.lunch.end)}` : t("hours.noLunch")}
-          </span>
-        </div>
-      </Card>
-      {editing && <HoursSheet salon={salon} onClose={() => setEditing(false)} />}
-    </Section>
-  );
-}
-
-function HoursSheet({ salon, onClose }: { salon: Salon; onClose: () => void }) {
-  const [hours, setHours] = useState(salon.hours);
-  const [lunch, setLunch] = useState(salon.lunch);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const { hours, lunch } = draft ?? salon;
+  const edit = (next: Partial<Draft>) => setDraft({ hours, lunch, ...next });
+  const dirty = !!draft && !same(draft, salon);
   const valid = Object.values(hours).every((h) => !h || h.open < h.close) && (!lunch || lunch.start < lunch.end);
   const save = () => {
     dispatchWithUndoToast({ type: "salon/hours", hours, lunch }, t("hours.saved"));
-    onClose();
+    setDraft(null);
   };
   return (
-    <Sheet
-      open
-      onClose={onClose}
-      title={t("hours.editTitle")}
-      description={t("hours.editText")}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-          <Button width="responsive" disabled={!valid} onClick={save}>{t("common.save")}</Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        {WEEK_ORDER.map((d) => {
-          const day = hours[d];
-          const name = words.weekdays[d];
-          return (
-            <DayRow key={d} label={name} on={!!day} switchLabel={t("hours.open", { day: name })} off={t("calendar.closed")} onToggle={() => setHours({ ...hours, [d]: day ? null : DEFAULT_OPEN })}>
-              {day && <TimeRange label={name} from={day.open} to={day.close} onChange={(open, close) => setHours({ ...hours, [d]: { open, close } })} />}
+    <Section title={t("settings.hours")}>
+      <Card className="px-4">
+        <div className="divide-y divide-hairline">
+          {WEEK_ORDER.map((d) => {
+            const day = hours[d];
+            const name = words.weekdays[d];
+            const shown = day ?? DEFAULT_OPEN;
+            return (
+              <div key={d} className="py-3">
+                <DayRow label={name} on={!!day} switchLabel={t("hours.open", { day: name })} off={t("calendar.closed")}
+                  onToggle={() => edit({ hours: { ...hours, [d]: day ? null : DEFAULT_OPEN } })}>
+                  <TimeRange label={name} from={shown.open} to={shown.close} onChange={(open, close) => edit({ hours: { ...hours, [d]: { open, close } } })} />
+                </DayRow>
+              </div>
+            );
+          })}
+          <div className="space-y-2 py-3">
+            <DayRow label={t("hours.lunch")} on={!!lunch} switchLabel={t("hours.lunchOn")} off={t("hours.noLunch")} onToggle={() => edit({ lunch: lunch ? null : DEFAULT_LUNCH })}>
+              <TimeRange label={t("hours.lunch")} from={(lunch ?? DEFAULT_LUNCH).start} to={(lunch ?? DEFAULT_LUNCH).end} onChange={(start, end) => edit({ lunch: { start, end } })} />
             </DayRow>
-          );
-        })}
-        <div className="border-t border-hairline pt-4">
-          <DayRow label={t("hours.lunch")} on={!!lunch} switchLabel={t("hours.lunchOn")} off={t("hours.noLunch")} onToggle={() => setLunch(lunch ? null : DEFAULT_LUNCH)}>
-            {lunch && <TimeRange label={t("hours.lunch")} from={lunch.start} to={lunch.end} onChange={(start, end) => setLunch({ start, end })} />}
-          </DayRow>
+            <p className="text-xs text-text-secondary">{t("hours.lunchNote")}</p>
+          </div>
         </div>
-        <p className="text-xs text-text-secondary">{t("hours.lunchNote")}</p>
-        {!valid && <p className="text-sm text-danger">{t("hours.invalid")}</p>}
-      </div>
-    </Sheet>
+        {dirty && (
+          <div className="studio-sticky-save ui-arrive flex flex-wrap items-center justify-end gap-2 border-t border-hairline">
+            <p className={valid ? "mr-auto min-w-0 flex-1 basis-56 text-xs text-text-secondary" : "mr-auto min-w-0 flex-1 basis-56 text-sm text-danger"}>
+              {t(valid ? "hours.editText" : "hours.invalid")}
+            </p>
+            <Button variant="ghost" onClick={() => setDraft(null)}>{t("common.cancel")}</Button>
+            <Button width="responsive" disabled={!valid} onClick={save}>{t("common.save")}</Button>
+          </div>
+        )}
+      </Card>
+    </Section>
   );
 }

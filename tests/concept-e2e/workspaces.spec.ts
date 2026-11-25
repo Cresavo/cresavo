@@ -25,17 +25,19 @@ async function seed(page: Page, people = ["Lo Demo"], currency = "SEK", modules:
 test("a demo booking tab leaves the open salon hours form and its save in the owner tab", async ({ page, context }) => {
   await seed(page);
   await page.goto("/studio/more/settings/hours");
-  await page.locator("#hours").getByRole("button", { name: "Edit" }).click();
-  const dialog = page.getByRole("dialog", { name: "Opening hours" });
-  await dialog.getByLabel("Monday from").selectOption("630");
+  // The hours are edited in the list; Save appears once something differs.
+  const hours = page.locator("#hours");
+  await expect(hours.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await hours.getByLabel("Monday from").selectOption("630");
   const other = await context.newPage();
   await other.goto("/boka/salong-eko");
   await expect(other.getByRole("link", { name: "Salong Eko", exact: true })).toBeVisible();
-  await expect(dialog.getByLabel("Monday from")).toHaveValue("630");
-  await dialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator("#hours")).toContainText("10:30");
+  await expect(hours.getByLabel("Monday from")).toHaveValue("630");
+  await hours.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(hours.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+  await expect(hours.getByLabel("Monday from")).toHaveValue("630");
   await page.reload();
-  await expect(page.locator("#hours")).toContainText("10:30");
+  await expect(hours.getByLabel("Monday from")).toHaveValue("630");
   const opens = await Promise.all((["demo", "own"] as const).map(async (workspace) => (await salonState(page, workspace))!.salon.hours[1]!.open));
   expect(opens[0]).toBe(createDemoState(today).salon.hours[1]!.open);
   expect(opens[1]).toBe(630);

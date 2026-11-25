@@ -2653,7 +2653,6 @@ const messages = {
   "hours.from": "{day} från",
   "hours.to": "{day} till",
   "hours.invalid": "Varje sluttid måste ligga efter starttiden.",
-  "hours.editTitle": "Öppettider",
   "hours.editText": "Lediga tider följer de här öppettiderna. Bokningar som hamnar utanför tiderna visas under Idag.",
   "hours.saved": "Öppettiderna sparades",
   "closed.title": "Stängda dagar",
