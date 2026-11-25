@@ -447,6 +447,8 @@ describe("what is read aloud", () => {
     const short = { ...state, journals: [{ ...journal, treatment: "Visit", observations: "Uses gel", advice: "insulin", nextVisit: "In 8 weeks" }] };
     expect(safeSpeech("Uses gel on the nails.", short)).toBe("The details are on the screen.");
     expect(safeSpeech("She uses insulin.", short)).toBe("The details are on the screen.");
+    const brief = { ...state, journals: [{ ...journal, treatment: "Visit", observations: "HIV", advice: "", nextVisit: "" }] };
+    expect(safeSpeech("She has HIV.", brief)).toBe("The details are on the screen.");
   });
 
   it("reads a treatment's name, which is the salon's menu and not anyone's health", () => {

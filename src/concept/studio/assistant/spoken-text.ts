@@ -18,7 +18,8 @@ const MAX_SPOKEN_CUSTOMERS = 3;
 /** A quoted piece of a longer journal entry at least this long counts as journal text. */
 const MIN_JOURNAL_QUOTE = 12;
 /** A complete short field (treatment, observations, advice) still counts if it has this many letters. */
-const MIN_JOURNAL_FIELD = 6;
+const MIN_JOURNAL_FIELD = 3;
+const SHORT_FIELD_STOP = /^(?:the|a|an|and|or|yes|no|ok|in|on|at|to|for|of|with|from|is|are|was|be|it|she|he|they)$/;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const word = (text: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(text)}(?![\\p{L}\\p{N}])`, "giu");
@@ -43,7 +44,7 @@ const SCHEDULE_FIELD = /^(?:today|tomorrow|tonight|yesterday|monday|tuesday|wedn
 /** A complete short journal field, as whole words, even when it is shorter than MIN_JOURNAL_QUOTE. */
 function quotesShortField(field: string, spoken: string): boolean {
   const value = normalize(field);
-  if (!value || value.length < MIN_JOURNAL_FIELD || SCHEDULE_FIELD.test(value)) return false;
+  if (!value || value.length < MIN_JOURNAL_FIELD || SCHEDULE_FIELD.test(value) || SHORT_FIELD_STOP.test(value)) return false;
   return ` ${spoken} `.includes(` ${value} `);
 }
 
