@@ -244,9 +244,48 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   from { clip-path: inset(0 0 100% 0 round var(--radius-lg)); transform: translateY(calc(-1 * var(--space-2))); }
   to { clip-path: inset(0 round var(--radius-lg)); transform: none; }
 }
-/* A quiet sign of life while a code waits for the customer's phone. */
-.ui-breathe { animation: ui-breathe 2.4s ease-in-out infinite alternate; }
-@keyframes ui-breathe { to { opacity: .7; } }
+/* A short menu or panel grows out of the button that opened it and folds back the same way. */
+.ui-pop {
+  max-width: calc(100vw - 2 * var(--space-4));
+  transform-origin: top right;
+  animation: ui-pop var(--dur-2) var(--ease-out) both;
+}
+.ui-pop[data-side="start"] { transform-origin: top left; }
+.ui-pop[data-closing] { animation: ui-pop-leave var(--dur-1) var(--ease-in) both; }
+@keyframes ui-pop { from { opacity: 0; transform: scale(.95); } }
+@keyframes ui-pop-leave { to { opacity: 0; transform: scale(.95); } }
+/* An empty state's icon settles in once; it never loops. */
+.ui-empty-icon { animation: ui-fade var(--dur-3) var(--ease-out) both; }
+/* Quiet signs of a wait beside the sentence that names it, in the text's own colour. A slow dot while waiting on
+   someone else (the customer's phone, a lookup); a ring that fills while something is being done (a payment, a save). */
+.ui-dot, .ui-fill {
+  display: inline-block;
+  flex-shrink: 0;
+  width: .5em;
+  height: .5em;
+  border-radius: var(--radius-pill);
+}
+.ui-dot { background: currentColor; animation: ui-dot 1.6s ease-in-out infinite alternate; }
+@keyframes ui-dot { from { opacity: .3; } }
+.ui-fill {
+  position: relative;
+  width: .75em;
+  height: .75em;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 40%, transparent);
+}
+.ui-fill::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  background: currentColor;
+  animation: ui-fill 1.4s var(--ease-out) infinite;
+}
+@keyframes ui-fill {
+  from { transform: scale(0); }
+  70% { transform: scale(1); opacity: 1; }
+  to { transform: scale(1); opacity: 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-1: .01ms; --dur-2: .01ms; --dur-3: .01ms; }
@@ -257,7 +296,8 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
     scroll-behavior: auto !important;
   }
   .ui-press:active:not(:disabled) { transform: none; }
-  .ui-skeleton, .ui-breathe { animation: none; }
-  .ui-sheet[open], .ui-sheet[open]::backdrop, .ui-toast, .ui-arrive, .ui-print, [data-row-motion] { animation-name: ui-fade; animation-duration: 80ms !important; }
-  .ui-sheet[open][data-closing], .ui-toast[data-closing], [data-row-motion="exit"] { animation-name: ui-fade-out; }
+  /* Waiting cues hold still: the dot at full strength, the ring filled. */
+  .ui-skeleton, .ui-dot, .ui-fill::after { animation: none; }
+  .ui-sheet[open], .ui-sheet[open]::backdrop, .ui-toast, .ui-arrive, .ui-print, .ui-pop, [data-row-motion] { animation-name: ui-fade; animation-duration: 80ms !important; }
+  .ui-sheet[open][data-closing], .ui-toast[data-closing], .ui-pop[data-closing], [data-row-motion="exit"] { animation-name: ui-fade-out; }
 }

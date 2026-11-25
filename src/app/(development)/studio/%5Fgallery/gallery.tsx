@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type CSSProperties } from "react";
-import { ArrowUp, CalendarDays, ChevronRight, Plus, Search } from "lucide-react";
+import { ArrowUp, CalendarDays, ChevronRight, Ellipsis, Plus, Search, Settings } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { teamWith } from "@/concept/packs/base";
 import { fullName } from "@/concept/selectors";
@@ -14,12 +14,13 @@ import { Checkbox, Chip, Field, Input, SearchInput, SegmentedControl, Select, Sw
 import { ConsentSheet } from "@/concept/ui/consent-sheet";
 import { ConfirmDialog } from "@/concept/ui/confirm-dialog";
 import { EmptyState } from "@/concept/ui/empty-state";
-import { Skeleton, SuccessCheck } from "@/concept/ui/feedback";
+import { Skeleton, SkeletonCard, SkeletonGroup, SkeletonRow, StatusDot, SuccessCheck } from "@/concept/ui/feedback";
 import { ListRow } from "@/concept/ui/list-row";
 import { MediaDialog } from "@/concept/ui/media-dialog";
 import { Menu, Tabs } from "@/concept/ui/navigation";
 import { Notice } from "@/concept/ui/notice";
 import { PageHeader } from "@/concept/ui/page-header";
+import { ActionMenu } from "@/concept/ui/popover";
 import { Sheet } from "@/concept/ui/sheet";
 import { StickyActionBar } from "@/concept/ui/sticky-action-bar";
 import { ThemeControl } from "@/concept/ui/theme-control";
@@ -158,6 +159,9 @@ export function Gallery() {
         {t(({ danger: "gallery.failed", warning: "gallery.warn", success: "gallery.saved", info: "gallery.neutral" } as const)[tone])}
       </Notice>)}
       <Skeleton /><SuccessCheck key={success} />
+      <SkeletonGroup className="space-y-3"><SkeletonRow /><SkeletonCard /></SkeletonGroup>
+      <p className="flex items-center gap-2 text-meta text-text-secondary"><StatusDot />{t("ui.loading")}</p>
+      <p className="flex items-center gap-2 text-meta text-text-secondary"><StatusDot kind="progress" />{t("pay.confirming")}</p>
       <Toast message={t("gallery.saved")} /><Toast message={t("gallery.saved")} action={undo} />
       <div className={wrap}>
         <Button variant="secondary" onClick={save}>{t("gallery.notifications")}</Button>
@@ -195,6 +199,10 @@ export function Gallery() {
     <Section title={t("gallery.navigation")}>
       <Tabs value={view} onChange={setView} label={t("gallery.select")} tabs={options.map(o => ({ id: o.value, label: o.label, panel: o.label }))} />
       <Menu label={t("gallery.navigation")} links={[{ href: "/studio/calendar", label: t("nav.calendar") }]} />
+      <ActionMenu title={t("gallery.navigation")} icon={<Ellipsis size={20} aria-hidden />} align="start" items={[
+        { label: t("nav.calendar"), icon: <CalendarDays size={20} aria-hidden />, run: () => setDialog("sheet") },
+        { label: t("nav.settings"), icon: <Settings size={20} aria-hidden />, run: save },
+      ]} />
       <div className={wrap}>{(["xs", "sm", "md", "lg", "xl"] as const).map(size => <Avatar key={size} size={size} name={fullName(sampleStaff)} />)}
         <StaffAvatar person={sampleStaff} size="md" /><StaffAvatar person={{ ...sampleStaff, photo: undefined }} size="md" /></div>
       <ThemeControl compact />
