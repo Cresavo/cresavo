@@ -70,6 +70,17 @@ export function localSpeechStatus(lang: string): LocalSpeechAvailability | null 
 }
 
 /**
+ * Whether it is safe to call `available()`. Playwright's Chromium exposes a
+ * native `available()` that crashes the tab ("Target crashed") when asked.
+ * A function the page installs itself, and Chrome outside webdriver, are safe.
+ */
+function canAskAvailability(available: (options: { langs: string[]; processLocally?: boolean }) => Promise<string>): boolean {
+  const source = Function.prototype.toString.call(available);
+  if (source.includes("[native code]") && typeof navigator !== "undefined" && navigator.webdriver) return false;
+  return true;
+}
+
+/**
  * Asks whether this language can already be recognised on the device. Does not
  * download a language pack. Used so `processLocally` is only set when it will work.
  */
@@ -79,12 +90,13 @@ export async function probeLocalSpeech(lang: string): Promise<LocalSpeechAvailab
     localProbe = { lang, status: "unknown" };
     return "unknown";
   }
-  if (typeof Recognizer.available !== "function") {
+  const available = Recognizer.available;
+  if (typeof available !== "function" || !canAskAvailability(available)) {
     localProbe = { lang, status: "unknown" };
     return "unknown";
   }
   try {
-    const raw = await Recognizer.available({ langs: [lang], processLocally: true });
+    const raw = await available({ langs: [lang], processLocally: true });
     const status = LOCAL_STATUS.has(raw as LocalSpeechAvailability) ? (raw as LocalSpeechAvailability) : "unknown";
     localProbe = { lang, status };
     return status;

@@ -125,4 +125,4 @@ export function useConversation(send: Send, assistantOn: boolean) {
   };
 }
 
-export type ConversationControls = ReturnType<typeof useConversation>;
+export type { TalkControls as ConversationControls } from "./talk-controls";

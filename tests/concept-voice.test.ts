@@ -126,6 +126,42 @@ describe("recognition on the device", () => {
     expect(created.recognition.processLocally).toBe(false);
   });
 
+  it("does not call a webdriver's native available(), which crashes Playwright's Chromium", async () => {
+    const available = vi.fn(() => Promise.resolve("available"));
+    class Local extends Recognizer {
+      processLocally = false;
+      static available = available;
+    }
+    const original = Function.prototype.toString;
+    Function.prototype.toString = function () {
+      if (this === available) return "function available() { [native code] }";
+      return original.call(this);
+    };
+    try {
+      stubWindow({ SpeechRecognition: Local });
+      vi.stubGlobal("navigator", { webdriver: true });
+      const speech = await import("@/concept/command/use-speech");
+      await expect(speech.probeLocalSpeech("en-GB")).resolves.toBe("unknown");
+      expect(available).not.toHaveBeenCalled();
+    } finally {
+      Function.prototype.toString = original;
+    }
+  });
+
+  it("still asks a page-installed available() in a webdriver", async () => {
+    class Local extends Recognizer {
+      processLocally = false;
+      static available() {
+        return Promise.resolve("available");
+      }
+    }
+    stubWindow({ SpeechRecognition: Local });
+    vi.stubGlobal("navigator", { webdriver: true });
+    const speech = await import("@/concept/command/use-speech");
+    await expect(speech.probeLocalSpeech("sv")).resolves.toBe("available");
+    expect(speech.usesLocalSpeech("sv")).toBe(true);
+  });
+
   it("still listens where the browser has no such choice, and says nothing about the device", async () => {
     stubWindow({ webkitSpeechRecognition: Recognizer });
     const speech = await import("@/concept/command/use-speech");

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ArrowUp, Mic, SquarePen, Volume2, VolumeX } from "lucide-react";
 import type { Message } from "../../assistant/thread";
 import { useSpeech } from "../../command/use-speech";
 import { t } from "../../i18n";
+import { useLabFlag } from "../../labs/flags";
 import { isBookingOrPaymentAction } from "../../support/action-reference";
 import { ActionFailure } from "../../ui/action-failure";
 import { Button, IconButton } from "../../ui/button";
@@ -19,20 +20,29 @@ import { useAssistant } from "./use-assistant";
 import { undoBlockMessageKey } from "../log/undo-toast";
 import { useStudio } from "../use-studio";
 import { ConversationBar } from "./conversation-bar";
-import { useConversation, type ConversationControls } from "./use-conversation";
+import { INACTIVE_TALK, type TalkControls } from "./talk-controls";
+
+const VoiceSession = lazy(() => import("./voice-session"));
 
 /** The conversation with the assistant: full screen on phones, a side panel on larger screens. */
 export function AssistantPanel() {
   const { state } = useStudio();
   const assistant = useAssistant();
-  const { thread, role } = assistant;
-  const talk = useConversation(assistant.send, state.modules.assistant);
-  const { close: endTalk } = talk;
-  // Closing the panel or switching role ends a spoken conversation.
-  useEffect(() => {
-    if (!thread.open) endTalk();
-  }, [thread.open, endTalk]);
-  useEffect(() => endTalk, [role, endTalk]);
+  const labOn = useLabFlag("voiceAssistant");
+  const view = (talk: TalkControls) => <AssistantPanelView assistant={assistant} talk={talk} />;
+  // The spoken-conversation hook and recogniser stay out of the studio bundle until the Labs switch is on.
+  if (!labOn) return view(INACTIVE_TALK);
+  return (
+    <Suspense fallback={view(INACTIVE_TALK)}>
+      <VoiceSession send={assistant.send} assistantOn={state.modules.assistant} open={assistant.thread.open} role={assistant.role}>
+        {view}
+      </VoiceSession>
+    </Suspense>
+  );
+}
+
+function AssistantPanelView({ assistant, talk }: { assistant: ReturnType<typeof useAssistant>; talk: TalkControls }) {
+  const { thread } = assistant;
   // In a spoken conversation the speaker button mutes that conversation; the saved choice is for typed replies.
   const speaking = talk.active ? !talk.muted : thread.speak;
   return (
@@ -67,7 +77,7 @@ export function AssistantPanel() {
   );
 }
 
-function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof useAssistant>; talk: ConversationControls }) {
+function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof useAssistant>; talk: TalkControls }) {
   // A tap on a card while a reply is read aloud cuts the reading short: what is said never stands for the tap.
   const assistant = talk.active ? withQuiet(plain, talk.interrupt) : plain;
   const { thread, send } = assistant;
@@ -183,7 +193,7 @@ function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof us
 const MIC_LABEL = { off: "assistant.voice.start", ended: "assistant.voice.start", listening: "assistant.voice.stopLabel", thinking: "assistant.voice.stopLabel", speaking: "assistant.voice.interrupt" } as const;
 
 /** The microphone of a spoken conversation: starts it, interrupts a reply being read, or stops it. */
-function ConversationMic({ talk }: { talk: ConversationControls }) {
+function ConversationMic({ talk }: { talk: TalkControls }) {
   return (
     <IconButton label={t(MIC_LABEL[talk.phase])} aria-pressed={talk.active} onClick={talk.press} className={cx(talk.phase === "listening" && "bg-action-bg")}>
       <Mic size={18} aria-hidden />

@@ -3,7 +3,7 @@
 import { t, type MessageKey } from "../../i18n";
 import { Button } from "../../ui/button";
 import { StatusDot } from "../../ui/feedback";
-import type { ConversationControls } from "./use-conversation";
+import type { TalkControls } from "./talk-controls";
 
 const PHASE: Record<"listening" | "thinking" | "speaking", MessageKey> = {
   listening: "assistant.voice.listening",
@@ -11,7 +11,7 @@ const PHASE: Record<"listening" | "thinking" | "speaking", MessageKey> = {
   speaking: "assistant.voice.speaking",
 };
 
-const ENDED: Record<NonNullable<ConversationControls["ended"]>, MessageKey> = {
+const ENDED: Record<NonNullable<TalkControls["ended"]>, MessageKey> = {
   stopped: "assistant.voice.ended.stopped",
   silence: "assistant.voice.ended.silence",
   hidden: "assistant.voice.ended.hidden",
@@ -19,7 +19,7 @@ const ENDED: Record<NonNullable<ConversationControls["ended"]>, MessageKey> = {
 };
 
 /** What the spoken conversation is doing, said in words above the message box, with Stop while it runs. */
-export function ConversationBar({ talk }: { talk: ConversationControls }) {
+export function ConversationBar({ talk }: { talk: TalkControls }) {
   if (talk.phase === "off") return null;
   const status = talk.phase === "ended" ? t(ENDED[talk.ended ?? "stopped"]) : t(PHASE[talk.phase]);
   return (

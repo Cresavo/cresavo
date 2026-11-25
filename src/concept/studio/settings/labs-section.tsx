@@ -16,7 +16,11 @@ export function LabsSection() {
   const voice = useLabFlag("voiceAssistant");
   const canListen = useSpeechSupported();
   const [local, setLocal] = useState<LocalSpeechAvailability | null>(() => localSpeechStatus(getActiveLocale()));
+  // The hint is only shown once the switch is on, so the probe waits until then.
+  // Asking too early is wasted, and Playwright's Chromium crashes if its native
+  // available() is called (the probe itself also guards that case).
   useEffect(() => {
+    if (!voice || !canListen) return;
     let alive = true;
     void probeLocalSpeech(getActiveLocale()).then((status) => {
       if (alive) setLocal(status);
@@ -24,7 +28,7 @@ export function LabsSection() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [voice, canListen]);
   if (role !== "owner") return null;
   // Only promise on-device recognition when the language pack is already there.
   const hint = !canListen ? t("labs.voice.unsupported") : !state.modules.assistant ? t("labs.voice.needsAssistant") : local === "available" ? t("labs.voice.onDevice") : t("labs.voice.online");
