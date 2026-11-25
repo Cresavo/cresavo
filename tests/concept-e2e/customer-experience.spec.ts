@@ -6,9 +6,11 @@ import { bookingMessage } from "../../src/concept/booking/messages";
 import { openSlots } from "../../src/concept/booking/suggest";
 import { BRAND } from "../../src/concept/brand";
 import type { DemoState } from "../../src/concept/data/types";
-import { englishDemoState, fixtureText, salonState } from "./fixtures";
+import { englishDemoState, fixtureText, payingAtSalon, salonState } from "./fixtures";
 
-const fixture = englishDemoState("2026-11-17");
+// These journeys confirm without paying and then change the visit online, so the salon lets customers
+// pay at the salon. Paying when booking (the default) is covered in journeys, quick-wins and no-show-deposits.
+const fixture = payingAtSalon(englishDemoState("2026-11-17"));
 const copy = fixtureText(fixture);
 
 const errors = new WeakMap<Page, string[]>();

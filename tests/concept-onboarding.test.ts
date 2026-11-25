@@ -151,8 +151,11 @@ describe("getting started", () => {
     expect(checklistProgress(state)).toEqual({ addServices: false, bookingPage: false, share: false, testBooking: false });
     state = createSalon(monday, { ...draft, treatments: [{ name: "Trim", duration: 20, price: 250 }] }, { examplesAfter: 0 });
     expect(checklistProgress(state)).toEqual({ addServices: true, bookingPage: false, share: false, testBooking: false });
-    state = reduce(state, { type: "online/book", serviceId: state.services[0].id, staffId: state.staff[0].id,
+    // A new salon takes the full price when booking, so the test booking is held and paid.
+    state = reduce(state, { type: "online/hold", serviceId: state.services[0].id, staffId: state.staff[0].id,
       date: addDays(monday, 2), start: 540, guest: { name: "Guest Demo", phone: "0700000011", at: { date: monday, time: 420 } }, notice: { title: "Booking", body: "Test" } });
+    state = reduce(state, { type: "online/pay", id: state.checkoutHolds[0].id, method: "card" });
+    expect(state.bookings.at(-1)?.protection?.deposit).toBeTruthy();
     state = reduce(state, { type: "card/dismiss", id: `shared:${state.salon.slug}` });
     state = reduce(state, { type: "card/dismiss", id: pageSeenCard(state.salon.slug) });
     expect(Object.values(checklistProgress(state))).toEqual([true, true, true, true]);

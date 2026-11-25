@@ -4,6 +4,7 @@ import { findCustomerByPhone, isMobilePhone, normalizePhone } from "@/concept/bo
 import { acceptedTerms } from "@/concept/booking/public-terms";
 import { eraseCustomer } from "@/concept/customers/erase";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts } from "@/concept/data/slots";
 import { withTenantPresentation } from "@/concept/i18n/presentation";
 import { actionFingerprint } from "@/concept/store/studio-store";
@@ -14,7 +15,7 @@ import { actionFingerprint } from "@/concept/store/studio-store";
 // 2026-11-16 is a Monday. Fictional data only.
 
 const today = "2026-11-16";
-const state = createDemoState(today);
+const state = payAtSalon(createDemoState(today));
 const service = state.services.find((s) => s.id === "medical-foot-care")!;
 const guest = { name: "Lisa Berg", phone: "073-555 01 02", email: "lisa.berg@example.test", at: { date: today, time: 600 } };
 const startOn = (date: string) => freeStarts(state, "anna", date, { serviceId: service.id, duration: service.duration }, { step: 30 })[0];
@@ -52,7 +53,7 @@ describe("online/book from a salon's public page", () => {
   });
 
   it("treats every guest as new for a deposit, so a known phone number is neither exempt nor told apart", () => {
-    const withDeposit = { ...state, cancellationPolicy: { ...state.cancellationPolicy, deposits: { [service.id]: 20000 }, newCustomersOnly: true } };
+    const withDeposit = { ...state, cancellationPolicy: { ...state.cancellationPolicy, payAtSalonDefault: false, deposits: { [service.id]: 20000 }, newCustomersOnly: true } };
     const terms = acceptedTerms(withDeposit, service);
     expect(terms.depositMinor).toBeGreaterThan(0);
     for (const phone of [state.customers[0].phone, "073-412 34 56"]) expect(reduce(withDeposit, publicBook({ phone }, { terms }))).toBe(withDeposit);

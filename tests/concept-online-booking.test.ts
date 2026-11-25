@@ -7,6 +7,7 @@ import { PUBLIC_WINDOW_DAYS } from "@/concept/booking/public-projection";
 import { eraseCustomer } from "@/concept/customers/erase";
 import { addDays } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts } from "@/concept/data/slots";
 
 // The rules the public booking page relies on, in the reducer: the contact
@@ -14,7 +15,7 @@ import { freeStarts } from "@/concept/data/slots";
 // 2026-11-16 is a Monday. Fictional data only.
 
 const today = "2026-11-16";
-const state = createDemoState(today);
+const state = payAtSalon(createDemoState(today));
 const guest = { name: "Lisa Berg", phone: "073-555 01 02", email: "lisa.berg@example.test", at: { date: today, time: 600 } };
 const notice = { title: "New online booking", body: "Fictional" };
 const need = { serviceId: "medical-foot-care", duration: 60 };

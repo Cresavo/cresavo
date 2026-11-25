@@ -7,14 +7,20 @@ export interface CancellationPolicy {
   freeHours: number;
   latePercent: number;
   noShowPercent: number;
+  /** Whether a treatment without its own choice is paid at the salon instead of in full when booked online. */
+  payAtSalonDefault: boolean;
+  /** A treatment's own choice; a missing entry follows `payAtSalonDefault`. */
+  payAtSalon: Record<string, boolean>;
+  /** A smaller amount to pay when booking than the full price; a missing entry means the full price. */
   deposits: Record<string, number>;
   newCustomersOnly: boolean;
   exemptServices: string[];
 }
 
+/** A new salon takes the full price when a treatment is booked online, unless the owner lets customers pay at the salon. */
 export const DEFAULT_POLICY: CancellationPolicy = {
   version: 1, freeHours: 24, latePercent: 0, noShowPercent: 0,
-  deposits: {}, newCustomersOnly: false, exemptServices: [],
+  payAtSalonDefault: false, payAtSalon: {}, deposits: {}, newCustomersOnly: false, exemptServices: [],
 };
 
 export type Incident = "noshow" | "late";
@@ -54,9 +60,12 @@ export interface CheckoutHold extends Pick<Booking, "serviceId" | "staffId" | "d
   notice: OnlineNotice;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => value != null && typeof value === "object" && !Array.isArray(value);
+
 export function validPolicy(policy: CancellationPolicy) {
   const within = (n: number, max: number) => Number.isSafeInteger(n) && n >= 0 && n <= max;
-  return typeof policy.newCustomersOnly === "boolean" && Array.isArray(policy.exemptServices) &&
+  return typeof policy.payAtSalonDefault === "boolean" && isRecord(policy.payAtSalon) &&
+    Object.values(policy.payAtSalon).every(value => typeof value === "boolean") && typeof policy.newCustomersOnly === "boolean" && Array.isArray(policy.exemptServices) &&
     policy.exemptServices.every(id => typeof id === "string") && policy.deposits != null && typeof policy.deposits === "object" &&
     !Array.isArray(policy.deposits) && within(policy.freeHours, 8760) && within(policy.latePercent, 100) && within(policy.noShowPercent, 100) &&
     Object.values(policy.deposits).every(n => within(n, Number.MAX_SAFE_INTEGER));
@@ -65,8 +74,8 @@ export function validPolicy(policy: CancellationPolicy) {
 /** Service ids a policy change adds or gives a new amount that the price list does not have. Old entries may stay as they are or be removed. */
 export function unknownPolicyServices(current: CancellationPolicy, next: CancellationPolicy, services: readonly Pick<Service, "id">[]): string[] {
   const known = new Set(services.map(service => service.id));
-  const changedDeposits = Object.keys(next.deposits).filter(id => !Object.hasOwn(current.deposits, id) || current.deposits[id] !== next.deposits[id]);
-  const added = [...changedDeposits, ...next.exemptServices.filter(id => !current.exemptServices.includes(id))];
+  const changed = <T>(before: Record<string, T>, after: Record<string, T>) => Object.keys(after).filter(id => !Object.hasOwn(before, id) || before[id] !== after[id]);
+  const added = [...changed(current.deposits, next.deposits), ...changed(current.payAtSalon, next.payAtSalon), ...next.exemptServices.filter(id => !current.exemptServices.includes(id))];
   return added.filter(id => !known.has(id));
 }
 
@@ -74,15 +83,29 @@ export function toMinor(amount: number, currency: string) {
   return Math.round(amount * 10 ** minorDigits(currency));
 }
 
+/** Whether customers pay for this treatment at the salon rather than when they book. */
+export const paysAtSalon = (policy: Pick<CancellationPolicy, "payAtSalon" | "payAtSalonDefault">, serviceId: string) =>
+  policy.payAtSalon[serviceId] ?? policy.payAtSalonDefault;
+
 export function quote(policy: CancellationPolicy, service: Pick<Service, "id" | "price">, currency: string, newCustomer: boolean): BookingTerms {
   const exempt = policy.exemptServices.includes(service.id);
   const priceMinor = toMinor(service.price, currency);
-  const deposit = policy.deposits[service.id] ?? 0;
+  const free = exempt || (policy.newCustomersOnly && !newCustomer) || paysAtSalon(policy, service.id);
   return {
     version: policy.version, freeHours: policy.freeHours, currency, priceMinor,
     latePercent: exempt ? 0 : policy.latePercent, noShowPercent: exempt ? 0 : policy.noShowPercent,
-    depositMinor: exempt || (policy.newCustomersOnly && !newCustomer) ? 0 : Math.min(priceMinor, deposit),
+    depositMinor: free ? 0 : Math.min(priceMinor, policy.deposits[service.id] ?? priceMinor),
   };
+}
+
+/** True when this policy would take a payment at booking, including for a treatment added later. */
+export function policyRequiresOnlinePayment(policy: Pick<CancellationPolicy, "payAtSalonDefault" | "payAtSalon">): boolean {
+  return !policy.payAtSalonDefault || Object.values(policy.payAtSalon).some((atSalon) => atSalon === false);
+}
+
+/** True when any of these treatments would take a payment at booking under this policy. */
+export function requiresOnlinePayment(policy: CancellationPolicy, services: Pick<Service, "id" | "price">[], currency: string): boolean {
+  return services.some((service) => quote(policy, service, currency, true).depositMinor > 0);
 }
 
 export function hasSettlement(booking: Booking) {
@@ -91,7 +114,7 @@ export function hasSettlement(booking: Booking) {
 
 /** Older visits retain the fee-free terms under which they were booked. */
 export function termsOf(booking: Booking, state: Pick<DemoState, "localization">) {
-  return booking.protection?.terms ?? quote(DEFAULT_POLICY, { id: booking.serviceId, price: booking.price }, state.localization.currency, false);
+  return booking.protection?.terms ?? quote({ ...DEFAULT_POLICY, payAtSalonDefault: true }, { id: booking.serviceId, price: booking.price }, state.localization.currency, false);
 }
 
 export function feeMinor(terms: BookingTerms, incident: Incident) {

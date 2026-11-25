@@ -10,6 +10,7 @@ import { DEFAULT_PAGE } from "@/concept/page/config";
 import { addSectionAfter, DEFAULT_SECTIONS } from "@/concept/page/sections";
 import { applyTemplate } from "@/concept/page/templates";
 import { PALETTES } from "@/concept/page/theme";
+import { DEFAULT_POLICY, quote, toMinor } from "@/concept/booking/protection";
 
 const today = "2026-11-17";
 
@@ -105,7 +106,7 @@ describe("migrateState", () => {
   it("preserves an owner's salon and localization when migrating from v19", () => {
     const own = createSalon(today, { ...salonDraft("sv"), industry: "foot", currency: "EUR" });
     const saved = { ...own, version: 19 };
-    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION, cancellationPolicy: { ...own.cancellationPolicy, payAtSalonDefault: true } });
   });
 
   it.each([20, 21])("migrates a v%i salon to fee-free terms and preserves reminder preferences", version => {
@@ -117,7 +118,8 @@ describe("migrateState", () => {
     const migrated = migrateState(saved)!;
     expect(migrated).toEqual({
       ...saved, version: DEMO_VERSION, checkoutHolds: [],
-      cancellationPolicy: { version: 1, freeHours: 24, noShowPercent: 0, latePercent: 0, deposits: {}, newCustomersOnly: false, exemptServices: [] },
+      // The demo salon on its generated rules takes the full price when booking (v26).
+      cancellationPolicy: { version: 1, freeHours: 24, noShowPercent: 0, latePercent: 0, payAtSalonDefault: false, payAtSalon: {}, deposits: {}, newCustomersOnly: false, exemptServices: [] },
       reminderSettings: saved.reminderSettings ?? { channel: "sms", smsPriceOre: 45 },
     });
   });
@@ -128,15 +130,17 @@ describe("migrateState", () => {
       ...fresh.cancellationPolicy, version: 3, freeHours: 48, deposits: { [fresh.services[0].id]: 12550 },
     } };
     delete saved.reminderSettings;
+    // Rules the owner set keep their meaning: the treatment with a deposit takes it, the rest are paid at the salon.
     expect(migrateState(saved)).toEqual({
       ...saved, version: DEMO_VERSION, reminderSettings: { channel: "sms", smsPriceOre: 45 },
+      cancellationPolicy: { ...saved.cancellationPolicy, payAtSalonDefault: true, payAtSalon: { [fresh.services[0].id]: false } },
     });
   });
 
   it("lifts a v22 salon to the current version and keeps its modules, bookings, page and reminder preferences", () => {
     const own = createSalon(today, { ...salonDraft("en"), name: "Studio Vide" }, { examplesAfter: 0 });
     const saved = { ...own, version: 22, modules: { ...own.modules, finance: true, campaigns: true } };
-    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION });
+    expect(migrateState(saved)).toEqual({ ...saved, version: DEMO_VERSION, cancellationPolicy: { ...own.cancellationPolicy, payAtSalonDefault: true } });
     expect(migrateState(saved)!.bookings.every((booking) => booking.example)).toBe(true);
   });
 
@@ -203,6 +207,55 @@ describe("migrateState", () => {
       expect(log[0].patch.values.page.before.theme).toMatchObject({ style: "boxed" });
       expect(log[0].patch.values.page.after.theme).toMatchObject({ style: "boxed" });
       expect(log[0].patch.values.page.after.css).toBe("h1 { margin: 0 }");
+    });
+  });
+
+  describe("v26: paying when booking is the default", () => {
+    const fresh = createDemoState(today);
+    const { payAtSalonDefault: _default, payAtSalon: _choices, ...v25Policy } = fresh.cancellationPolicy;
+    void _default; void _choices;
+    const lift = (extra: object = {}) => migrateState({ ...fresh, version: 25, cancellationPolicy: v25Policy, ...extra })!;
+    const service = fresh.services[0];
+
+    it("gives the demo salon on its generated rules the new default, so its booking page asks for the full price", () => {
+      const state = lift();
+      expect(state.cancellationPolicy).toEqual(DEFAULT_POLICY);
+      expect(quote(state.cancellationPolicy, service, "SEK", true).depositMinor).toBe(toMinor(service.price, "SEK"));
+    });
+
+    it("keeps an own salon paying at the salon, even on rules that look generated", () => {
+      const state = lift({ industry: "other" });
+      expect(state.cancellationPolicy).toEqual({ ...DEFAULT_POLICY, payAtSalonDefault: true });
+      expect(quote(state.cancellationPolicy, service, "SEK", true).depositMinor).toBe(0);
+    });
+
+    it("keeps customised demo rules as they meant: the treatment with a deposit takes it, the others are paid at the salon", () => {
+      const state = lift({ cancellationPolicy: { ...v25Policy, deposits: { [service.id]: 15000 } } });
+      expect(state.cancellationPolicy).toMatchObject({ payAtSalonDefault: true, payAtSalon: { [service.id]: false } });
+      expect(quote(state.cancellationPolicy, service, "SEK", true).depositMinor).toBe(Math.min(15000, toMinor(service.price, "SEK")));
+      expect(quote(state.cancellationPolicy, fresh.services[1], "SEK", true).depositMinor).toBe(0);
+      expect(lift({ cancellationPolicy: { ...v25Policy, freeHours: 48 } }).cancellationPolicy.payAtSalonDefault).toBe(true);
+    });
+
+    it("keeps rules the owner saved, even back to the generated ones, with their Undo comparing equal", () => {
+      const edit = { id: "log-1", patch: { values: { cancellationPolicy: { before: { ...v25Policy, freeHours: 48 }, after: v25Policy } } } };
+      const state = lift({ log: [edit] });
+      expect(state.cancellationPolicy.payAtSalonDefault).toBe(true);
+      const log = state.log as unknown as (typeof edit)[];
+      expect(jsonEqual(log[0].patch.values.cancellationPolicy.after, state.cancellationPolicy)).toBe(true);
+      expect(log[0].patch.values.cancellationPolicy.before).toMatchObject({ freeHours: 48, payAtSalonDefault: true, payAtSalon: {} });
+    });
+
+    it("keeps an explicit zero deposit as pay at the salon, even if the salon later takes payment online", () => {
+      const state = lift({ cancellationPolicy: { ...v25Policy, deposits: { [service.id]: 0 } } });
+      expect(state.cancellationPolicy).toMatchObject({ payAtSalonDefault: true, payAtSalon: { [service.id]: true }, deposits: {} });
+      expect(quote(state.cancellationPolicy, service, "SEK", true).depositMinor).toBe(0);
+      const flipped = { ...state.cancellationPolicy, payAtSalonDefault: false };
+      expect(quote(flipped, service, "SEK", true).depositMinor).toBe(0);
+    });
+
+    it("leaves booked visits on the terms they were booked under", () => {
+      expect(lift().bookings).toEqual(fresh.bookings);
     });
   });
 

@@ -134,6 +134,8 @@ export function publicSalonView(state: DemoState, now: Date): DemoState {
     cancellationPolicy: {
       version: num(policy.version), freeHours: num(policy.freeHours), latePercent: num(policy.latePercent), noShowPercent: num(policy.noShowPercent),
       deposits: Object.fromEntries(Object.entries(policy.deposits ?? {}).filter(([id, amount]) => serviceIds.has(id) && typeof amount === "number").map(([id, amount]) => [id, num(amount)])),
+      payAtSalonDefault: policy.payAtSalonDefault === true,
+      payAtSalon: Object.fromEntries(Object.entries(policy.payAtSalon ?? {}).filter(([id, choice]) => serviceIds.has(id) && typeof choice === "boolean")),
       newCustomersOnly: policy.newCustomersOnly === true, exemptServices: list(policy.exemptServices).filter((id) => serviceIds.has(id)),
     },
     // Only the reviews switch is the customer's to see; the rest of the studio's modules stay off here.

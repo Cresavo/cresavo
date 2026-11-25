@@ -1,6 +1,6 @@
 import { jsonEqual } from "./json-equal";
 import { returnRedemptions } from "../giftcards/cards";
-import { DEFAULT_POLICY, hasSettlement } from "../booking/protection";
+import { DEFAULT_POLICY, hasSettlement, type CancellationPolicy } from "../booking/protection";
 import { defaultBusinessLocalization } from "../i18n/business";
 import { DEFAULT_REMINDER_SETTINGS } from "../booking/reminders";
 import { EMPTY_ABOUT, normalizeAbout, type PageAbout } from "../page/about";
@@ -90,6 +90,47 @@ function isUntouchedEkoPage(saved: Saved, page: PageConfig, log: unknown): boole
     && jsonEqual(page.about, packAbout(saved));
 }
 
+type PolicySnapshot = Partial<CancellationPolicy> | undefined;
+type PolicyEntry = { patch?: { values?: { cancellationPolicy?: { before: PolicySnapshot; after: PolicySnapshot } } } };
+
+/**
+ * A policy from before v26 with the payment choice it stood for. Under the old rules a treatment with a
+ * deposit took that deposit when booked and every other treatment was paid at the salon.
+ */
+function withPayment<T extends PolicySnapshot>(policy: T, payAtSalonDefault: boolean): T {
+  if (!policy) return policy;
+  const entries = Object.entries(policy.deposits ?? {});
+  // A deposit of zero was an explicit "pay at the salon" choice and must survive a later default change.
+  const deposits = Object.fromEntries(entries.filter(([, amount]) => amount > 0));
+  const payAtSalon = Object.fromEntries(entries.map(([id, amount]) => [id, amount <= 0]));
+  return { ...policy, payAtSalonDefault, payAtSalon, deposits };
+}
+
+/**
+ * True for the demo salon's booking rules exactly as they were generated: no deposit, the default
+ * hours and fees, and no rules edit in the activity log. Before v26 that meant paying at the salon;
+ * such a demo takes the new default of paying when booking. Rules the owner set stay as they meant.
+ */
+function isUntouchedEkoPolicy(saved: Saved): boolean {
+  if (saved.industry) return false;
+  const policy = saved.cancellationPolicy as CancellationPolicy | undefined;
+  const edited = Array.isArray(saved.log) && (saved.log as PolicyEntry[]).some((entry) => entry?.patch?.values?.cancellationPolicy);
+  const rules = (p: Partial<CancellationPolicy>) => ({ freeHours: p.freeHours, latePercent: p.latePercent, noShowPercent: p.noShowPercent, deposits: p.deposits, newCustomersOnly: p.newCustomersOnly, exemptServices: p.exemptServices });
+  return !edited && !!policy && jsonEqual(rules(policy), rules(DEFAULT_POLICY));
+}
+
+/** v26's change: whether treatments are paid when booked or at the salon, on the rules and on the rules snapshots undo keeps, so their Undo still compares equal. */
+function backfillPayment(saved: Saved): Saved {
+  const payAtSalonDefault = !isUntouchedEkoPolicy(saved);
+  const log = Array.isArray(saved.log) ? (saved.log as PolicyEntry[]).map((entry) => {
+    const policy = entry?.patch?.values?.cancellationPolicy;
+    if (!policy) return entry;
+    const values = { ...entry.patch!.values, cancellationPolicy: { before: withPayment(policy.before, payAtSalonDefault), after: withPayment(policy.after, payAtSalonDefault) } };
+    return { ...entry, patch: { ...entry.patch, values } };
+  }) : saved.log;
+  return { ...saved, cancellationPolicy: withPayment((saved.cancellationPolicy ?? DEFAULT_POLICY) as CancellationPolicy, payAtSalonDefault), log };
+}
+
 const STEPS: Record<number, (saved: Saved) => Saved> = {
   // v13 added the assistant's memory and routines.
   12: (saved) => ({ ...saved, memory: [], routines: [], version: 13 }),
@@ -149,6 +190,11 @@ const STEPS: Record<number, (saved: Saved) => Saved> = {
     const log = logWithStyle(filled.log);
     return { ...filled, page: isUntouchedEkoPage(filled, page, log) ? applyTemplate(page, "eko") : page, log, version: 25 };
   },
+  // v26 made paying the full price when booking online the default, with "pay at the salon" as the
+  // owner's choice. Before, no deposit meant paying at the salon, and every saved own salon and every
+  // rules edit keeps that meaning (treatments with a deposit keep it). Only the demo salon still on its
+  // generated rules takes the new default.
+  25: (saved) => ({ ...backfillPayment(saved), version: 26 }),
 };
 
 /** The oldest saved version that can still be migrated. */

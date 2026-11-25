@@ -7,6 +7,7 @@ import { issuedAtToken, issuedAtValid, MAX_FORM_MS, MIN_FORM_MS } from "@/lib/pu
 import type { DemoAction } from "@/concept/actions";
 import { acceptedTerms } from "@/concept/booking/public-terms";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts } from "@/concept/data/slots";
 import { addressProof } from "../scripts/client-address.mjs";
 
@@ -24,7 +25,7 @@ const apply = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db", async () => ({ db: (await import("./helpers/scoped-db")).withStoreScopes({ $queryRaw: query }) }));
 vi.mock("@/lib/owner-store", () => ({ ownerStore: () => ({ apply }) }));
 
-const base = createDemoState("2026-11-16");
+const base = payAtSalon(createDemoState("2026-11-16"));
 const doc = (over: Record<string, unknown> = {}) => ({ ...base, salon: { ...base.salon, slug: SLUG }, ...over });
 const service = base.services.find((s) => s.id === "medical-foot-care")!;
 const terms = acceptedTerms(base, service);
@@ -241,7 +242,7 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
 
     it("says deposit_unsupported for a deposit, the same for every guest whether or not the phone is a known customer", async () => {
       refused();
-      const withDeposit = doc({ cancellationPolicy: { ...base.cancellationPolicy, deposits: { [service.id]: 20000 }, newCustomersOnly: true } });
+      const withDeposit = doc({ cancellationPolicy: { ...base.cancellationPolicy, payAtSalonDefault: false, deposits: { [service.id]: 20000 }, newCustomersOnly: true } });
       query.mockImplementation(async () => [{ tenant_id: TENANT, doc: withDeposit }]);
       const deposit = acceptedTerms(withDeposit as never, service);
       const answers = await Promise.all([base.customers[0].phone, "073-412 34 56"].map(async (phone) => {

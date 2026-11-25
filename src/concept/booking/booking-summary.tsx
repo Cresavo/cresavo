@@ -18,9 +18,10 @@ export function BookingSummary({ slot, terms, now, phone, packagesEnabled }: {
       <dl className="space-y-1">
         <div className="flex flex-wrap justify-between gap-x-3 font-semibold"><dt>{t("booking.summary.total")}</dt><dd>{money(priceMinor)}</dd></div>
         <div className="flex flex-wrap justify-between gap-x-3"><dt>{t("booking.summary.dueNow")}</dt><dd>{money(depositMinor)}</dd></div>
-        <div className="flex flex-wrap justify-between gap-x-3">
+        {/* Paid in full when booking: nothing is left for the salon, so there is no row for it. */}
+        {(!depositMinor || depositMinor < priceMinor) && <div className="flex flex-wrap justify-between gap-x-3">
           <dt>{t(packagesEnabled && !depositMinor ? "booking.summary.atSalonWithPackages" : "booking.summary.atSalon")}</dt><dd>{money(priceMinor - depositMinor)}</dd>
-        </div>
+        </div>}
       </dl>
       {depositMinor > 0 && <p>{t("booking.summary.depositRefund")}</p>}
       <div className="space-y-1 border-t border-hairline pt-2">

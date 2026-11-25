@@ -68,7 +68,9 @@ export async function createOwnerAccount(input: unknown, now = new Date()): Prom
   for (let attempt = 1; attempt <= SIGNUP_ATTEMPTS; attempt++) {
     const base = suggestedSlug(draft);
     const slug = (attempt < SIGNUP_ATTEMPTS && await availableSlug(base)) || randomSlug(base);
-    const salon = createSalon(salonClock(now).today, { ...draft, slug });
+    const created = createSalon(salonClock(now).today, { ...draft, slug });
+    // The hosted booking page cannot take payments yet (it answers deposit_unsupported), so a hosted salon starts with paying at the salon.
+    const salon = { ...created, cancellationPolicy: { ...created.cancellationPolicy, payAtSalonDefault: true } };
     try {
       const account = await db.$transaction(async (tx) => {
         await enterScope(tx, { tenant: tenantId });

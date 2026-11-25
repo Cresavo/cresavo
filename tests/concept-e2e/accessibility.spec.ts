@@ -70,7 +70,11 @@ for (const theme of themes) {
 
       await page.getByLabel("Your name", { exact: true }).fill("Access Demo");
       await page.getByLabel("Mobile number").fill("070-000 99 33");
-      await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+      // The demo takes the full price when booking: the payment step is part of the journey.
+      await page.getByRole("button", { name: "Continue to deposit", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Pay your deposit" })).toBeVisible();
+      await audit(page, "booking: payment");
+      await page.getByRole("button", { name: /^Pay / }).click();
       await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
       await audit(page, "booking: confirmation");
 

@@ -3,6 +3,7 @@ import { reduce, type DemoAction } from "@/concept/actions";
 import { visitTime } from "@/concept/booking/policy";
 import { acceptedTerms } from "@/concept/booking/public-terms";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts, isFree } from "@/concept/data/slots";
 import { balanceOf } from "@/concept/giftcards/cards";
 import type { DemoState, StaffId } from "@/concept/data/types";
@@ -14,7 +15,7 @@ import { withTenantPresentation } from "@/concept/i18n/presentation";
 // time, so the 24 h deadline is 2026-11-23 at that time. Fictional data only.
 
 const today = "2026-11-16";
-const base = createDemoState(today);
+const base = payAtSalon(createDemoState(today));
 const service = base.services.find((s) => s.id === "medical-foot-care")!;
 const first = (state: DemoState, date: string, staffId: StaffId = "anna") => freeStarts(state, staffId, date, { serviceId: service.id, duration: service.duration }, { step: 30 });
 const date = "2026-11-24";

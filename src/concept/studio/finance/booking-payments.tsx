@@ -11,7 +11,7 @@ export function BookingPayments({ state }: { state: DemoState }) {
   return <Section title={t("protection.finance")}><Card><ul className="divide-y divide-hairline">
     {bookings.map(b => <li key={b.id} className="space-y-2 p-4">
       <h3 className="font-semibold">{findService(state, b.serviceId)?.name} · {formatDate(b.date)} · {formatTime(b.start)}</h3>
-      <PaymentSummary booking={b} state={state} note />
+      <PaymentSummary booking={b} state={state} />
     </li>)}
   </ul></Card></Section>;
 }
