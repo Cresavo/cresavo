@@ -2700,6 +2700,8 @@ const messages = {
   "holiday.newYearsEve": "New Year's Eve",
 
   "common.edit": "Edit",
+
+  "common.add": "Add",
   "common.remove": "Remove",
   "shell.staffRole": "Staff view",
 

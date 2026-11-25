@@ -2636,6 +2636,7 @@ const messages = {
   "holiday.boxingDay": "Annandag jul",
   "holiday.newYearsEve": "Nyårsafton",
   "common.edit": "Redigera",
+  "common.add": "Lägg till",
   "common.remove": "Ta bort",
   "shell.staffRole": "Personalvy",
   "role.preview": "Prova personalvyn",
