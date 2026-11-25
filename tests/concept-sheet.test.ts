@@ -100,7 +100,7 @@ it.each([[true, "show"], [false, "showModal"]] as const)("a docked sheet opens b
       defaultView: { matchMedia: (query: string) => ({ matches: wide && query === "(min-width: 1280px)" }) },
       addEventListener: (type: string, listener: EventListener) => { if (type === "keydown") keydown.push(listener); },
       removeEventListener: (type: string, listener: EventListener) => { if (type === "keydown") keydown.splice(keydown.indexOf(listener), 1); },
-      querySelectorAll: (selector: string) => selector === "dialog[open]" ? [] : [],
+      querySelectorAll: (selector: string): object[] => selector === "dialog[open]" ? [] : [],
     },
     open: false,
     show: vi.fn(() => { dialog.open = true; }),
@@ -117,9 +117,20 @@ it.each([[true, "show"], [false, "showModal"]] as const)("a docked sheet opens b
 
   // Escape: the browser gives a docked panel none, so the sheet listens on the dialog and on the document.
   const preventDefault = vi.fn();
-  const currentTarget = { hasAttribute: (name: string) => attributes.has(name) };
-  sheet.props.onKeyDown!({ key: "Escape", preventDefault, currentTarget } as unknown as Parameters<NonNullable<typeof sheet.props.onKeyDown>>[0]);
+  const currentTarget = { hasAttribute: (name: string) => attributes.has(name), ownerDocument: dialog.ownerDocument };
+  sheet.props.onKeyDown!({ key: "Escape", defaultPrevented: false, preventDefault, currentTarget } as unknown as Parameters<NonNullable<typeof sheet.props.onKeyDown>>[0]);
   expect(preventDefault).toHaveBeenCalledTimes(wide ? 1 : 0);
+
+  if (wide) {
+    // A nested open dialog (Edit contact, Move) takes Escape; the panel stays.
+    const nestedPrevent = vi.fn();
+    dialog.ownerDocument.querySelectorAll = (selector: string) => selector === "dialog[open]" ? [{}, dialog] : [];
+    requestDismissal.mockClear();
+    sheet.props.onKeyDown!({ key: "Escape", defaultPrevented: false, preventDefault: nestedPrevent, currentTarget } as unknown as Parameters<NonNullable<typeof sheet.props.onKeyDown>>[0]);
+    expect(nestedPrevent).not.toHaveBeenCalled();
+    expect(requestDismissal).not.toHaveBeenCalled();
+    dialog.ownerDocument.querySelectorAll = (selector: string) => selector === "dialog[open]" ? [] : [];
+  }
 
   if (wide) {
     const fromPage = vi.fn();

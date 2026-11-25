@@ -89,7 +89,16 @@ export function Sheet({ open, onClose, title, description, children, footer, var
       data-closing={closing || undefined}
       onCancel={event => { event.preventDefault(); dismiss(); }}
       // A docked panel is not modal, so the browser gives it no Escape of its own.
-      onKeyDown={event => { if (event.key === "Escape" && event.currentTarget.hasAttribute("data-docked")) { event.preventDefault(); dismiss(); } }}
+      onKeyDown={event => {
+        if (event.key !== "Escape" || event.defaultPrevented) return;
+        const root = event.currentTarget;
+        if (!root.hasAttribute("data-docked")) return;
+        // A nested open dialog (Edit contact, Move) takes Escape first; do not close the panel under it.
+        const others = [...root.ownerDocument.querySelectorAll("dialog[open]")].filter((node) => node !== root);
+        if (others.length) return;
+        event.preventDefault();
+        dismiss();
+      }}
       onClose={event => {
         if (event.currentTarget.open) return;
         setPresent(false);
