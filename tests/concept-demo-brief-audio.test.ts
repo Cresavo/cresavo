@@ -186,4 +186,18 @@ describe("speech with a pre-rendered clip", () => {
     expect(audio.pause).toHaveBeenCalled();
     expect(audio.removeAttribute).toHaveBeenCalledWith("src");
   });
+
+  it("tells the brief it has ended when later speech cuts the clip off", () => {
+    const { spoken } = mockWorld();
+    const onEnd = vi.fn();
+    expect(speak("Morgonöversikt.", onEnd, MORNING_BRIEF_CLIP)).toBe(true);
+    const audio = FakeAudio.instances[0];
+    expect(speak("Första kunden är Marie.")).toBe(true);
+    expect(audio.pause).toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(spoken).toHaveLength(1);
+    expect(spoken[0].text).toBe("Första kunden är Marie.");
+    spoken[0].onend?.();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
 });

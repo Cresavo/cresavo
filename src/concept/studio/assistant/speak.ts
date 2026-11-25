@@ -7,11 +7,15 @@ import { locale } from "../../i18n";
 // Nothing is recorded.
 
 let clip: HTMLAudioElement | null = null;
+/** Called when a clip is cut off, so the brief can leave the "Stop reading" state. */
+let clipEnd: (() => void) | null = null;
 
 function releaseClip() {
   if (!clip) return;
   const audio = clip;
+  const ended = clipEnd;
   clip = null;
+  clipEnd = null;
   audio.onended = null;
   audio.onerror = null;
   audio.pause();
@@ -21,6 +25,7 @@ function releaseClip() {
   } catch {
     // Clearing the source can throw in some test environments; the element is already released.
   }
+  ended?.();
 }
 
 export function canSpeak(): boolean {
@@ -79,11 +84,19 @@ export function speak(text: string, onEnd?: () => void, clipUrl?: string | null)
     const finish = () => {
       if (done) return;
       done = true;
-      if (clip === audio) clip = null;
+      if (clip === audio) {
+        clip = null;
+        clipEnd = null;
+      }
       onEnd?.();
     };
+    clipEnd = finish;
     const fallback = () => {
-      if (clip === audio) releaseClip();
+      if (clip === audio) {
+        // Speech continues via synthesis, so the brief must not be told it has ended yet.
+        clipEnd = null;
+        releaseClip();
+      }
       if (!speakSynthesis(text, onEnd)) finish();
     };
     audio.onended = finish;
