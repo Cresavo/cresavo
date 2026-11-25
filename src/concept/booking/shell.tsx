@@ -16,6 +16,8 @@ import { ButtonLink } from "../ui/button";
 import { Select } from "../ui/controls";
 import { Bone, SkeletonGroup, SkeletonText } from "../ui/feedback";
 import { pinThemeColor } from "../ui/theme";
+import { OfflineBanner } from "../ui/offline-banner";
+import { CONTENT_ID, SkipLink } from "../ui/skip-link";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
 import { PageProvider, usePage } from "./page-context";
@@ -60,7 +62,7 @@ export function BookShell({ children, visitorLanguage }: { children: ReactNode; 
 }
 
 /** While the salon loads: its name, a sentence and the treatment rows with their Book buttons, as quiet blocks. */
-function PageSkeleton() {
+export function PageSkeleton() {
   return (
     <SkeletonGroup className="max-w-3xl space-y-6 py-4">
       <div aria-hidden="true" className="space-y-3">
@@ -101,6 +103,7 @@ function Frame({ children, slug, widget, switchLanguage }: {
   const logo = page.theme.logo && page.theme.logo !== brokenLogo ? page.theme.logo : null;
   return (
     <PageRoot page={page} className="flex min-h-dvh flex-col">
+      <SkipLink />
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
       <header className="booking-safe-top border-b border-hairline bg-surface print:hidden">
         <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-x-3">
@@ -140,7 +143,8 @@ function Frame({ children, slug, widget, switchLanguage }: {
           </div>
         </div>
       </header>
-      <main className="booking-gutters mx-auto w-full max-w-5xl flex-1 pb-8 pt-5 lg:pt-8">
+      <OfflineBanner area="booking" className="booking-gutters" />
+      <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target booking-gutters mx-auto w-full max-w-5xl flex-1 pb-8 pt-5 lg:pt-8">
         {state ? children : <PageSkeleton />}
       </main>
       <footer className="booking-gutters booking-safe-bottom border-t border-hairline py-4 text-center text-meta text-text-secondary print:hidden">

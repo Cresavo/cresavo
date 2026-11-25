@@ -14,6 +14,9 @@ import { StatusDot, SuccessCheck } from "../ui/feedback";
 import { ChoiceCards } from "../ui/controls";
 import { cx } from "../ui/cx";
 import { Notice } from "../ui/notice";
+import { noteNetworkFailure } from "../ui/connection";
+import { OfflineBanner } from "../ui/offline-banner";
+import { CONTENT_ID, SkipLink } from "../ui/skip-link";
 
 type Method = "card" | "swish";
 type Step = "pending" | "paid" | "used" | "expired" | "invalid";
@@ -38,6 +41,7 @@ export function PayPage({ token, language, initial, request }: { token: string; 
   return (
     <ConceptLanguage language={language} currency={request?.currency ?? DEFAULT_CURRENCY}>
       <div className="flex min-h-dvh flex-col">
+        <SkipLink />
         {request && (
           <header className="booking-safe-top border-b border-hairline bg-surface">
             <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-md items-center gap-3 font-semibold leading-tight tracking-tight">
@@ -46,7 +50,8 @@ export function PayPage({ token, language, initial, request }: { token: string; 
             </div>
           </header>
         )}
-        <main className="booking-gutters mx-auto w-full max-w-md flex-1 pb-8 pt-5">
+        <OfflineBanner area="booking" className="booking-gutters" />
+        <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target booking-gutters mx-auto w-full max-w-md flex-1 pb-8 pt-5">
           <Payment token={token} initial={initial} request={request} />
         </main>
       </div>
@@ -87,6 +92,7 @@ function Payment({ token, initial, request }: { token: string; initial: Step; re
       else if (response.status === 410) setStep("expired");
       else setFailed(true);
     } catch {
+      noteNetworkFailure();
       setFailed(true);
     } finally {
       setBusy(false);

@@ -16,6 +16,8 @@ import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-
 import { CalendarOverflow } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { MonthReveal } from "@/concept/studio/calendar/month-reveal";
+import { CalendarPreview } from "@/concept/studio/calendar/preview";
+import { CalendarShortcuts } from "@/concept/studio/calendar/shortcuts";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
 import { canChangeBooking, staffViewer } from "@/concept/ops/access";
@@ -198,6 +200,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
               {staffControl}
             </div>}
           </CalendarOverflow>
+          <CalendarShortcuts label={label} onPrevious={() => setDate(addDays(date, -step))} onNext={() => setDate(addDays(date, step))} onToday={() => setDate(today)} />
         </div>} />
 
       {view === "day" ? (
@@ -217,6 +220,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
         </>
       )}
       {(view === "week" || openingFor(state.salon, date)) && <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>}
+      <CalendarPreview />
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { formatTime } from "../../i18n/format";
-import type { DragEvent } from "react";
+import { useEffect, type DragEvent } from "react";
 import { processingGap } from "../../data/slots";
 import type { Booking } from "../../data/types";
 import { findCustomer, findService, visitorName } from "../../selectors";
@@ -12,6 +12,7 @@ import { cx } from "../../ui/cx";
 import { minuteInGap } from "./gap";
 import { accountRecordSettled } from "../../store";
 import { useStudio } from "../use-studio";
+import { hidePreview, PREVIEW_ID, previewBooking, usePreviewedId } from "./preview";
 
 export const DRAG_TYPE = "application/x-eko-booking";
 
@@ -42,7 +43,11 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
   // Until the server answers, a booking a pending change made has only a provisional id: it cannot be opened or moved yet.
   const settled = accountRecordSettled("bookings", booking.id);
   const anna = booking.staffId === "anna";
+  const previewed = usePreviewedId() === booking.id;
+  // A block that leaves the screen (another day, a closed sheet) takes its preview with it.
+  useEffect(() => () => hidePreview(booking.id), [booking.id]);
   const onDragStart = (event: DragEvent) => {
+    hidePreview();
     event.dataTransfer.setData(DRAG_TYPE, booking.id);
     event.dataTransfer.effectAllowed = "move";
   };
@@ -54,7 +59,15 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         align="start"
         draggable={settled}
         onDragStart={onDragStart}
-        onClick={settled ? onOpen : undefined}
+        onClick={settled ? () => { hidePreview(); onOpen(); } : undefined}
+        data-calendar-booking={booking.id}
+        data-date={booking.date}
+        data-start={booking.start}
+        aria-describedby={previewed ? PREVIEW_ID : undefined}
+        onPointerEnter={(event) => { if (event.pointerType === "mouse") previewBooking(booking.id, event.currentTarget, "pointer"); }}
+        onPointerLeave={() => hidePreview(booking.id)}
+        onFocus={(event) => { if (event.currentTarget.matches(":focus-visible")) previewBooking(booking.id, event.currentTarget, "focus"); }}
+        onBlur={() => hidePreview(booking.id)}
         aria-disabled={!settled || undefined}
         className={cx(
           "h-full w-full !items-start overflow-hidden border-l-2 !text-minimum",

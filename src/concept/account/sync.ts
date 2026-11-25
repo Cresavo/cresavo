@@ -5,6 +5,7 @@ import type { DemoState, JournalEntry } from "../data/types";
 import { t, type MessageKey } from "../i18n";
 import { closeAccountSalon, currentTarget, onAccountChange, openAccountSalon, replaceAccountSalon, restoreAccountBase, restoreAccountSalon, type AccountChange } from "../store";
 import type { CommitFailure } from "../store/browser-studio-store";
+import { noteNetworkFailure } from "../ui/connection";
 import { showToast } from "../ui/toast";
 import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
 import { ownerHintPresent } from "./hint";
@@ -253,6 +254,8 @@ function send(action: DemoAction, change: AccountChange) {
     } catch {
       await reload(change);
       showToast(t("account.sync.offline"));
+      // The toast goes; the band stays until the server answers again.
+      noteNetworkFailure();
     } finally {
       pending--;
       logSettlers.get(idempotencyKey)?.(null);
