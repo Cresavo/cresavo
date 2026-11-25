@@ -35,6 +35,7 @@ Utkastets utgångspunkt, i linje med compliance-underlaget:
 | Nästa besök | Fritext | Ibland |
 | Före- och efterbilder | Bildfiler eller referenser | Ja |
 | Tidigare versioner | Varje ändring sparar föregående innehåll | Ja |
+| Inspelningar (bara demon) | Ljud från behandlingen, inspelat eller uppladdat, och dess text | Ja |
 | Koppling | Kund, personal, datum, ev. bokning | Ja i kombination |
 
 ### 2.2 Registrerade
@@ -53,6 +54,9 @@ personuppgifter, patienter): [Fyll i. Utkastet rekommenderar att inte föra jour
 3. Hela dokumentet, journaler inkluderade, skickas till ägarens webbläsare när salongen öppnas.
 4. Journaltexten ingår inte i meddelanden till kunden eller i bokningssidan för kunder.
 5. Export av en kunds uppgifter innehåller kundens journal med versioner.
+6. Journal med ljud finns bara i konceptdemon: inspelningar och uppladdade ljudfiler sparas i
+   webbläsarens egen databas, högst fem per kund, och skickas aldrig till servern eller till en
+   modell. Bara texten struktureras. Uppladdade filer skrivs inte ut till text i demon.
 
 ### 2.4 Mottagare och underbiträden
 
@@ -131,6 +135,11 @@ Sannolikhet och allvar: [Fylls i av salongen. Skala: låg, medel, hög.]
 - [ ] Bedömning av AI-leverantörer eller beslut att journaltext aldrig skickas.
 - [ ] Salongens integritetsinformation och rutin för begäran från registrerade.
 - [ ] Rättslig grund och undantag enligt artikel 9 är beslutade och dokumenterade.
+- [ ] Journal med ljud (finns bara i demon): beslut om lagring i samma privata, krypterade
+  EU-lagring som foton, metadata (GPS, enhet) borttagen före lagring, uppspelning bara för den
+  som får öppna kundens journal, rullande radering av allt utom de fem senaste per kund, och
+  hur uppladdade filer skrivs ut till text. Juristgranskning av artikel 9, information till
+  kunden och denna DPIA innan riktiga kunder spelas in.
 
 ## 6. Kvarstående risk och samråd (Residual risk and consultation)
 
