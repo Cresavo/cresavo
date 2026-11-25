@@ -8,6 +8,7 @@ import { addDays } from "../../data/dates";
 import { probeDuration } from "../../journals/audio-duration";
 import { AUDIO_ACCEPT, checkAudioFile } from "../../journals/audio-file";
 import { audioScope, type JournalRecording } from "../../journals/audio-store";
+import { clipTranscript } from "../../journals/clip-transcript";
 import { currentTarget } from "../../store";
 import { openingFor } from "../../data/slots";
 import type { Customer, DateKey, Salon } from "../../data/types";
@@ -60,6 +61,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   const [booking, setBooking] = useState<NewBookingPreset | null>(null);
   const [current, setCurrent] = useState<Pick<JournalRecording, "id" | "source">>();
   const text = useRef(transcript);
+  const clipStart = useRef("");
   useEffect(() => {
     text.current = transcript;
   });
@@ -77,7 +79,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   const keep = async (audio: Blob, source: JournalRecording["source"], mime: string, seconds: number) => {
     const id = crypto.randomUUID();
     try {
-      const dropped = await add({ id, customerId: customer.id, scope, createdAt: Date.now(), source, mime, seconds, transcript: source === "recorded" ? text.current.trim() || undefined : undefined, bytes: await audio.arrayBuffer() });
+      const dropped = await add({ id, customerId: customer.id, scope, createdAt: Date.now(), source, mime, seconds, transcript: source === "recorded" ? clipTranscript(text.current, clipStart.current) : undefined, bytes: await audio.arrayBuffer() });
       setCurrent({ id, source });
       if (dropped.length) showToast(t("journal.audio.oldestDropped"));
       return id;
@@ -95,7 +97,9 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   const record = async () => {
     if (recorder.recording) return recorder.stop();
     if (!recorder.supported) return speech.toggle();
+    clipStart.current = text.current.trim();
     if (await recorder.start()) speech.start();
+    else clipStart.current = "";
   };
 
   const upload = async (file: File | undefined) => {

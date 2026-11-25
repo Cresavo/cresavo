@@ -1,6 +1,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runTask } from "@/concept/ai/run-task";
+import { clipTranscript } from "@/concept/journals/clip-transcript";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
 import { audioScope, beyondLimit, clearForgottenAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
@@ -269,5 +270,15 @@ describe("journal audio cleanup retries", () => {
     expect(await inner.list("k001", "demo:old")).toEqual([]);
     expect((await inner.list("k001", "demo:new")).map((row) => row.id)).toEqual(["a2"]);
     expect(forgottenAudioJobs()).toEqual([]);
+  });
+});
+
+describe("clipTranscript", () => {
+  it("keeps only the words spoken after recording started", () => {
+    expect(clipTranscript("Did the usual foot care. Noticed dry skin.", "Did the usual foot care.")).toBe("Noticed dry skin.");
+    expect(clipTranscript("Did the usual foot care.", "Did the usual foot care.")).toBeUndefined();
+    expect(clipTranscript("  Noticed dry skin.  ", "")).toBe("Noticed dry skin.");
+    expect(clipTranscript("Rewrote the note.", "Did the usual foot care.")).toBe("Rewrote the note.");
+    expect(clipTranscript("   ", "Earlier text.")).toBeUndefined();
   });
 });
