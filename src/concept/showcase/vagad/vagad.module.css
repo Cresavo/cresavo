@@ -6,8 +6,8 @@
   --paper: light-dark(#efe9dd, #1a1c15);
   --band: light-dark(#e4ddcd, #22251c);
   --ink: light-dark(#1f2219, #f1e9dc);
-  --muted: light-dark(#55584a, #b8b09f);
-  --line: light-dark(#c9c0ad, #3a3d31);
+  --muted: light-dark(#55584a, #cdc6b5);
+  --line: light-dark(#c9c0ad, #4a4e3f);
   --accent: light-dark(#9c4426, #e38a5d);
   --accent-hover: light-dark(#843820, #eda27c);
   --on-accent: light-dark(#ffffff, #1a1c15);
@@ -86,29 +86,33 @@
 .groupName { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 24px; padding-bottom: 16px; border-bottom: 2px solid var(--ink); font: 700 28px/1.1 var(--display); letter-spacing: -.02em; }
 .groupName span { font: 400 15px/1.4 var(--body); letter-spacing: 0; color: var(--muted); }
 .item {
-  display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-items: start; gap: 6px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; justify-content: stretch; align-items: start; gap: 6px 16px;
   width: 100%; min-height: 44px; padding: 20px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
   background: transparent; color: var(--ink); text-align: left; font: inherit; font-weight: 400; cursor: pointer;
   transition: background-color .2s, padding .2s;
 }
 .item:hover { background: var(--band); }
 .itemName { font: 700 26px/1.1 var(--display); letter-spacing: -.02em; }
-.itemDesc { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 32em; }
-.itemFacts { display: flex; gap: 16px; font-variant-numeric: tabular-nums; font-size: 16px; }
+.itemDesc { grid-column: 1 / -1; color: var(--muted); font-size: 16px; line-height: 1.5; max-width: 32em; }
+.itemFacts { grid-column: 1 / -1; display: flex; gap: 16px; font-variant-numeric: tabular-nums; font-size: 17px; }
 .itemFacts span:last-child { font-weight: 600; }
+.bookCue { grid-column: 2; grid-row: 1; align-self: center; font: 600 15px/1 var(--body); letter-spacing: 0; color: var(--muted); }
+.item:hover .bookCue, .item:focus-visible .bookCue { color: var(--accent); }
 @media (min-width: 760px) {
   .menuHead { grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 48px; margin-bottom: 64px; }
   .menuHead p { justify-self: end; text-align: left; }
   .groupName { font-size: 36px; }
-  .item { grid-template-columns: minmax(0, 6fr) minmax(0, 4fr) auto; gap: 32px; align-items: baseline; padding: 24px 0; }
+  .item { grid-template-columns: minmax(0, 6fr) minmax(0, 4fr) auto auto; gap: 24px 32px; align-items: baseline; padding: 24px 0; }
   .item:hover { padding-left: 16px; padding-right: 16px; }
   .itemName { font-size: clamp(30px, 3.2vw, 44px); }
-  .itemFacts { justify-content: end; min-width: 168px; }
+  .itemDesc { grid-column: 2; }
+  .itemFacts { grid-column: 3; justify-content: end; min-width: 168px; }
+  .bookCue { grid-column: 4; grid-row: auto; }
 }
 
 /* ---------- about: one sentence set large, the photos as a collage, then the plain words ---------- */
 .about { padding: 0 0 var(--sec); }
-.statement { font: 700 34px/1.08 var(--display); letter-spacing: -.025em; max-width: 18em; text-wrap: balance; margin-bottom: 48px; }
+.statement { font: 700 28px/1.16 var(--display); letter-spacing: -.025em; max-width: 22em; text-wrap: balance; margin-bottom: 40px; }
 .collage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .collage img { width: 100%; height: 100%; object-fit: cover; }
 .hands { grid-column: 1 / -1; aspect-ratio: 4 / 3; }
@@ -120,7 +124,7 @@
 .people h3 { font: 700 28px/1.1 var(--display); letter-spacing: -.02em; }
 .role { margin: 4px 0 8px; color: var(--accent); font-weight: 600; font-size: 15px; }
 @media (min-width: 900px) {
-  .statement { font-size: clamp(48px, 4.6vw, 68px); margin-bottom: 64px; }
+  .statement { font-size: clamp(36px, 3.2vw, 48px); margin-bottom: 56px; }
   .collage { grid-template-columns: 7fr 3fr 3fr; grid-template-rows: auto auto; gap: 12px; }
   .hands { grid-column: 1; grid-row: 1 / span 2; aspect-ratio: auto; min-height: 560px; }
   .products { grid-column: 2 / span 2; grid-row: 1; aspect-ratio: 16 / 10; }
@@ -138,7 +142,9 @@
 .flow { min-height: 0; min-width: 0; background: transparent; }
 /* Schibsted's tabular colon sits wide ("13 : 30"); its own figures read better in times and prices. */
 .root .flow { font-variant-numeric: normal; }
+.booking[data-empty] { padding-block: 56px; }
 @media (min-width: 960px) {
+  .booking[data-empty] { padding-block: 72px; }
   .bookingGrid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; }
 }
 

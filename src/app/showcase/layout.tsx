@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
+import { SwedishDocument } from "@/concept/showcase/document-lang";
 import "../studio/studio.css";
 
 // Two website designs for the demo salon, at /showcase/<design>. They are the salon's own
@@ -14,5 +15,5 @@ export const metadata: Metadata = {
 };
 
 export default function ShowcaseLayout({ children }: { children: ReactNode }) {
-  return children;
+  return <><SwedishDocument />{children}</>;
 }

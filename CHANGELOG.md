@@ -81,6 +81,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Showcase booking starts from the price list.** On the two salon sites, “Boka tid” without a chosen treatment now takes the visitor to the menu instead of an empty search. The standalone booking page lists the treatments. The classic site’s sticky header no longer covers the booking heading, and each treatment row has a visible “Boka” cue.
+
 - **The Studio no longer fills in the owner's own details for a customer.** When a booking is made from the Studio, the customer's name, phone and e-mail fields no longer offer the browser's saved details, which are the owner's, not the customer's.
 - **One icon on "too late to change online".** The notice under a booking that can no longer be changed online showed a phone icon beside the warning icon; it now has just the warning.
 

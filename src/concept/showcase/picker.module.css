@@ -1,0 +1,20 @@
+/* A typographic treatment list for the standalone booking page, and the short
+   homepage prompt before a treatment is chosen. Inherits the site's type. */
+.lead { margin: 0; max-width: 30em; color: var(--text-secondary, inherit); }
+.link { color: inherit; font-weight: 500; text-underline-offset: 4px; }
+.root { display: grid; gap: 8px; }
+.list { margin: 0; padding: 0; list-style: none; }
+.item {
+  display: grid; justify-items: stretch; gap: 2px; width: 100%; min-height: 44px;
+  padding: 14px 0; border: 0; border-bottom: 1px solid var(--border, color-mix(in srgb, currentColor 18%, transparent));
+  border-radius: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit;
+}
+.item:hover { background: transparent; color: inherit; }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.name { font-weight: 500; }
+.cue { flex: none; font-weight: 600; font-size: 0.92em; color: var(--text-secondary, inherit); }
+.item:hover .cue, .item:focus-visible .cue { color: inherit; }
+.meta { color: var(--text-secondary, inherit); font-size: 0.95em; }
+@media (prefers-reduced-motion: reduce) {
+  .item { transition: none; }
+}

@@ -6,8 +6,8 @@
   --paper: light-dark(#f8f7f4, #141715);
   --band: light-dark(#efede8, #1c201d);
   --ink: light-dark(#1f2421, #ebe8e1);
-  --muted: light-dark(#575c58, #a9aea9);
-  --line: light-dark(#dcd9d2, #313632);
+  --muted: light-dark(#575c58, #c5c9c4);
+  --line: light-dark(#dcd9d2, #3d4440);
   --accent: light-dark(#2f4a3f, #a8c4b4);
   --accent-hover: light-dark(#243a31, #bfd5c7);
   --on-accent: light-dark(#ffffff, #141715);
@@ -56,7 +56,7 @@
 .plain { min-height: 0; padding: 4px 0; font-weight: 400; }
 
 /* ---------- header ---------- */
-.header { position: sticky; top: 0; z-index: 40; background: color-mix(in srgb, var(--paper) 94%, transparent); border-bottom: 1px solid var(--line); }
+.header { position: sticky; top: 0; z-index: 40; background: var(--paper); border-bottom: 1px solid var(--line); }
 .headerIn { display: flex; align-items: center; gap: 8px; height: 64px; }
 .name { margin-right: auto; font: 400 24px/1 var(--display); letter-spacing: -.01em; color: var(--ink); text-decoration: none; white-space: nowrap; }
 .nav { display: none; }
@@ -83,7 +83,7 @@
 /* ---------- hero: words beside the room, the photo full width on a phone ---------- */
 .hero { padding: 0 0 var(--sec); }
 .heroGrid { display: grid; gap: 32px; }
-.heroPhoto { order: -1; width: calc(100% + var(--gut) * 2); max-width: none; margin: 0 calc(var(--gut) * -1); aspect-ratio: 4 / 3; object-fit: cover; }
+.heroPhoto { order: -1; width: calc(100% + var(--gut) * 2); max-width: none; margin: 0 calc(var(--gut) * -1); aspect-ratio: 3 / 2; object-fit: cover; }
 .heroCopy { display: grid; gap: 16px; justify-items: start; }
 .where { font-size: 15px; color: var(--muted); }
 .heroCopy h1 { max-width: 11em; }
@@ -95,7 +95,7 @@
 }
 
 /* ---------- price list: two columns of a printed menu ---------- */
-.menu { padding: var(--sec) 0; border-top: 1px solid var(--line); }
+.menu { padding: var(--sec) 0 calc(var(--sec) * 0.55); border-top: 1px solid var(--line); }
 .sectionHead { display: grid; gap: 12px; margin-bottom: 40px; }
 .sectionHead p { color: var(--muted); max-width: 34em; }
 .menuGrid { display: grid; gap: 48px; }
@@ -112,7 +112,9 @@
 .item:hover .itemName { text-decoration-color: currentColor; }
 .leader { flex: 1; min-width: 16px; border-bottom: 1px dotted color-mix(in srgb, var(--ink) 40%, transparent); transform: translateY(-5px); }
 .price { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.itemMeta { font-size: 15px; line-height: 1.5; color: var(--muted); max-width: 36em; }
+.bookCue { flex: none; font: 600 14px/1.3 var(--body); color: var(--muted); letter-spacing: 0; }
+.item:hover .bookCue, .item:focus-visible .bookCue { color: var(--accent); }
+.itemMeta { font-size: 16px; line-height: 1.5; color: var(--muted); max-width: 36em; }
 @media (min-width: 900px) {
   .sectionHead { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; align-items: end; margin-bottom: 56px; }
   .menuGrid { grid-template-columns: 1fr 1fr; gap: 64px; }
@@ -132,7 +134,7 @@
 .team h3 { font: 400 22px/1.25 var(--display); }
 .role { margin: 2px 0 8px; color: var(--muted); font-size: 15px; }
 @media (min-width: 900px) {
-  .band { aspect-ratio: 21 / 9; }
+  .band { aspect-ratio: 2.5 / 1; }
   .aboutGrid { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 80px; align-items: start; }
   .team { grid-template-columns: 1fr 1fr; gap: 64px; }
   .team li { grid-template-columns: 96px minmax(0, 1fr); gap: 24px; }
@@ -147,7 +149,9 @@
 .bookingSide a { color: var(--ink); text-underline-offset: 4px; white-space: nowrap; }
 .bookingPhoto { display: none; }
 .flow { min-height: 0; min-width: 0; background: transparent; }
+.booking[data-empty] .bookingPhoto { display: none; }
 @media (min-width: 960px) {
+  .booking[data-empty] { padding-block: 64px; }
   .booking { scroll-margin-top: 76px; }
   .bookingGrid { grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 64px; }
   .bookingPhoto { display: block; width: 100%; margin-top: 24px; aspect-ratio: 4 / 5; object-fit: cover; }
@@ -157,7 +161,7 @@
 .visit { padding: var(--sec) 0; }
 .visit h2 { margin-bottom: 40px; }
 .visitGrid { display: grid; gap: 32px; }
-.visitGrid h3 { margin-bottom: 8px; font: 600 15px/1.4 var(--body); color: var(--muted); }
+.visitGrid h3 { margin-bottom: 8px; font: 600 16px/1.4 var(--body); color: var(--muted); }
 .hours { display: grid; max-width: 320px; }
 .hours div { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .hours dd { font-variant-numeric: tabular-nums; }
@@ -171,13 +175,14 @@
 /* ---------- the standalone booking page ---------- */
 .back { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; color: var(--muted); font-size: 15px; text-decoration: none; white-space: nowrap; }
 .back:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
-.standalone { padding: 40px 0 72px; background: var(--band); border-bottom: 1px solid var(--line); }
+.standalone { padding: 40px 0 72px; background: var(--band); border-bottom: 1px solid var(--line); scroll-margin-top: 64px; }
 .standaloneIn { max-width: calc(720px + var(--gut) * 2); min-height: 60dvh; }
 .standaloneHead { display: grid; gap: 8px; margin-bottom: 32px; }
 .standaloneHead p { color: var(--muted); }
 .standaloneHead a { color: var(--ink); text-underline-offset: 4px; }
 .standaloneHead :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (min-width: 600px) { .standalone { padding-top: 64px; } }
+@media (min-width: 860px) { .standalone { scroll-margin-top: 76px; } }
 
 @media (prefers-reduced-motion: reduce) {
   .root *, .root *::before, .root *::after { transition: none !important; scroll-behavior: auto !important; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ShowcaseBooking, ShowcaseBookingProvider, useBook, useShowcaseMenu } from "../booking";
+import { ShowcaseBooking, ShowcaseBookingProvider, useBook, useBookingPreset, useShowcaseMenu } from "../booking";
 import { BookBar, useShowcaseTheme, type ShowcaseTheme } from "../chrome";
 import { ABOUT, ADDRESS, CANCEL_NOTE, MAP_URL, PEOPLE } from "../content";
 import { Photo } from "../photo";
@@ -70,9 +70,10 @@ function Menu() {
               {group.items.map((item) => (
                 <li key={item.id}>
                   <button type="button" className={v.item} onClick={() => book(item.id)}>
-                    <span className={v.itemName}><span className={v.srOnly}>Boka </span>{item.name}</span>
+                    <span className={v.itemName}>{item.name}</span>
                     <span className={v.itemDesc}>{item.description}</span>
                     <span className={v.itemFacts}><span>{minutes(item.duration)}</span><span>{kronor(item.price)}</span></span>
+                    <span className={v.bookCue}>Boka</span>
                   </button>
                 </li>
               ))}
@@ -118,8 +119,9 @@ function About() {
 }
 
 function Booking({ theme }: { theme: ShowcaseTheme }) {
+  const started = Boolean(useBookingPreset().serviceId);
   return (
-    <section className={v.booking} id="boka" aria-labelledby="booking-heading">
+    <section className={v.booking} id="boka" aria-labelledby="booking-heading" data-empty={started ? undefined : ""}>
       <div className={`${v.wrap} ${v.bookingGrid}`}>
         <div className={v.bookingSide}>
           <h2 id="booking-heading" className={v.h2}>Boka en tid</h2>
@@ -172,7 +174,7 @@ function Footer() {
 export function VagadSite() {
   const { theme, toggle } = useShowcaseTheme(BOLD_THEME_KEY, "dark");
   return (
-    <ShowcaseBookingProvider>
+    <ShowcaseBookingProvider menuAnchor="meny">
       <div className={v.root} data-theme={theme}>
         <a className={v.skip} href="#innehall">Hoppa till innehållet</a>
         <Header theme={theme} toggle={toggle} />

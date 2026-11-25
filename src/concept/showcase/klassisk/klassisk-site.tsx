@@ -1,6 +1,6 @@
 "use client";
 
-import { ShowcaseBooking, ShowcaseBookingProvider, useBook, useShowcaseMenu } from "../booking";
+import { ShowcaseBooking, ShowcaseBookingProvider, useBook, useBookingPreset, useShowcaseMenu } from "../booking";
 import { useShowcaseTheme, type ShowcaseTheme } from "../chrome";
 import { ABOUT, ADDRESS, CANCEL_NOTE, CATEGORY_PERSON, MAP_URL, PEOPLE } from "../content";
 import { Photo } from "../photo";
@@ -73,9 +73,10 @@ function Menu() {
                   <li key={item.id}>
                     <button type="button" className={k.item} onClick={() => book(item.id)}>
                       <span className={k.itemTop}>
-                        <span className={k.itemName}><span className={k.srOnly}>Boka </span>{item.name}</span>
+                        <span className={k.itemName}>{item.name}</span>
                         <span className={k.leader} aria-hidden />
                         <span className={k.price}>{kronor(item.price)}</span>
+                        <span className={k.bookCue}>Boka</span>
                       </span>
                       <span className={k.itemMeta}>{minutes(item.duration)} · {item.description}</span>
                     </button>
@@ -124,8 +125,9 @@ function About() {
 }
 
 function Booking({ theme }: { theme: ShowcaseTheme }) {
+  const started = Boolean(useBookingPreset().serviceId);
   return (
-    <section className={k.booking} id="boka" aria-labelledby="booking-heading">
+    <section className={k.booking} id="boka" aria-labelledby="booking-heading" data-empty={started ? undefined : ""}>
       <div className={`${k.wrap} ${k.bookingGrid}`}>
         <div className={k.bookingSide}>
           <h2 id="booking-heading" className={k.h2}>Boka tid</h2>

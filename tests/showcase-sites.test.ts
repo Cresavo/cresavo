@@ -50,6 +50,16 @@ describe("the showcase salon sites", () => {
       expect(html, name).toContain('id="boka"');
       expect(html, name).toContain("Boka tid");
       expect(html, name).not.toMatch(/Get started|Kom igång/);
+      expect(html, name).not.toContain("Berätta vad du vill boka");
+      expect(html, name).toContain("Till behandlingarna");
+    }
+  });
+
+  it("starts the standalone booking page with the treatment list, not an empty search", () => {
+    for (const name of ["klassisk/boka", "vagad/boka"] as const) {
+      const html = pages[name]();
+      expect(html, name).toContain("Medicinsk fotvård");
+      expect(html, name).not.toContain("Berätta vad du vill boka");
     }
   });
 
