@@ -26,6 +26,8 @@ import { ThemeToggle } from "../ui/theme-toggle";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
 import { QuickActions } from "./quick-actions";
+import { SearchButton } from "./search/search-button";
+import { SearchPalette } from "./search/search-palette";
 import { NoticesButton } from "./notices/notices-button";
 import { NoticeToasts } from "./notices/notice-toasts";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
@@ -114,6 +116,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       </main>
       <BottomTabs state={state} pathname={pathname} role={role} />
       {state.modules.assistant && <AssistantLauncher />}
+      <SearchPalette />
       <NoticeToasts />
       <Toaster />
     </>
@@ -239,6 +242,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         {t("quick.viewPage")}
         <ExternalLink size={14} aria-hidden />
       </a>
+      <SearchButton />
       <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <div className="space-y-1">
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (

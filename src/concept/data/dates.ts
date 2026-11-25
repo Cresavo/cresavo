@@ -12,6 +12,11 @@ export function toKey(date: Date): DateKey {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/** A real calendar day written as YYYY-MM-DD. */
+export function isDateKey(value: string): value is DateKey {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && toKey(fromKey(value)) === value;
+}
+
 export function fromKey(key: DateKey): Date {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d, 12);

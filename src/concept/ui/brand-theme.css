@@ -146,6 +146,13 @@
 }
 body:has(.ui-media-dialog[open]) { overflow: hidden; }
 
+/* A month beside the chosen day's times when the container has room for both, the times under it otherwise. */
+.ui-day-time { container-type: inline-size; }
+.ui-day-time-layout { display: grid; gap: var(--space-6); align-items: start; }
+@container (min-width: 36rem) {
+  .ui-day-time-layout { grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); gap: var(--space-8); }
+}
+
 .ui-segments {
   display: grid;
   position: relative;
@@ -229,6 +236,10 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 .ui-sheet[open][data-closing]::backdrop { animation: ui-fade-out var(--dur-1) var(--ease-in) both; }
 @keyframes ui-arrive { from { opacity: 0; transform: translateY(var(--space-4)); } }
 @keyframes ui-leave { to { opacity: 0; transform: translateY(var(--space-2)); } }
+/* A new month slides in from the side it was asked for. */
+.ui-month-next { animation: ui-side-arrive var(--dur-2) var(--ease-out) both; }
+.ui-month-previous { animation: ui-month-back var(--dur-2) var(--ease-out) both; }
+@keyframes ui-month-back { from { opacity: 0; transform: translateX(calc(-1 * var(--space-4))); } }
 .ui-sheet-side[open] { animation-name: ui-side-arrive; }
 .ui-sheet-side[open][data-closing] { animation-name: ui-side-leave; }
 @keyframes ui-side-arrive { from { opacity: 0; transform: translateX(var(--space-4)); } }
@@ -319,4 +330,5 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   .ui-skeleton, .ui-dot, .ui-fill::after { animation: none; }
   .ui-sheet[open], .ui-sheet[open]::backdrop, .ui-toast, .ui-arrive, .ui-print, .ui-pop, [data-row-motion] { animation-name: ui-fade; animation-duration: 80ms !important; }
   .ui-sheet[open][data-closing], .ui-toast[data-closing], .ui-pop[data-closing], [data-row-motion="exit"] { animation-name: ui-fade-out; }
+  .ui-month-next, .ui-month-previous { animation-name: ui-fade; animation-duration: 80ms !important; }
 }

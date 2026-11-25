@@ -44,13 +44,24 @@ test.afterEach(async ({ page }) => {
 
 test("the assistant answers, drafts an offer, remembers a preference and suggests a routine", async ({ page }) => {
   await page.goto("/studio");
-  // No command box on the page: the assistant is one button (and Ctrl/Cmd+K) away.
+  // No command box on the page: the assistant is one button away, and Ctrl/Cmd+K opens Search with it as the first result.
   await expect(page.getByRole("textbox", { name: "Command box" })).toHaveCount(0);
   // The shortcut works once the studio has hydrated.
+  const search = page.getByRole("dialog", { name: "Search" });
   await expect(async () => {
     await page.keyboard.press("Control+K");
-    await expect(panel(page)).toBeVisible({ timeout: 1000 });
+    await expect(search).toBeVisible({ timeout: 1000 });
   }).toPass();
+  await expect(search.getByRole("option").first()).toHaveText("Ask the assistant");
+  await page.keyboard.press("Enter");
+  await expect(panel(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel(page)).toBeHidden();
+  // Pressed twice, the shortcut still goes straight on to the assistant.
+  await page.keyboard.press("Control+K");
+  await expect(search).toBeVisible();
+  await page.keyboard.press("Control+K");
+  await expect(panel(page)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel(page)).toBeHidden();
 
@@ -134,7 +145,9 @@ test("the microphone inside the panel sends what was said", async ({ page }) => 
   await page.goto("/studio");
   // One quiet launcher on phones: the microphone is in the panel, not beside it.
   await expect(page.getByRole("button", { name: "Talk to the assistant" })).toHaveCount(0);
+  // Ctrl+K opens Search; pressed again it goes on to the assistant.
   await expect(async () => {
+    await page.keyboard.press("Control+K");
     await page.keyboard.press("Control+K");
     await expect(panel(page)).toBeVisible({ timeout: 1000 });
   }).toPass();
