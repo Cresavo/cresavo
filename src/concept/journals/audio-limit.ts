@@ -19,3 +19,20 @@ export function liveRecordingDuration(startedAt: number, now = Date.now()): { ok
   if (seconds > MAX_AUDIO_SECONDS + GRACE_SECONDS) return { ok: false };
   return { ok: true, seconds };
 }
+
+/**
+ * A dataavailable event during a live take. Chunks are always kept (including the
+ * flush MediaRecorder sends after stop()). Stop only while still recording and over
+ * the limit; whether the take is stored is decided later from the wall clock.
+ */
+export function liveChunkAction(
+  startedAt: number,
+  recorderState: string,
+  byteLength: number,
+  now = Date.now(),
+): { keep: boolean; stop: boolean } {
+  return {
+    keep: byteLength > 0,
+    stop: recorderState === "recording" && reachedAudioLimit(startedAt, now),
+  };
+}

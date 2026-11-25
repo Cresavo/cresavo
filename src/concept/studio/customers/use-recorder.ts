@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AUDIO_TIMESLICE_MS, elapsedSeconds, liveRecordingDuration, reachedAudioLimit } from "../../journals/audio-limit";
+import { AUDIO_TIMESLICE_MS, elapsedSeconds, liveChunkAction, liveRecordingDuration, reachedAudioLimit } from "../../journals/audio-limit";
 import { MAX_AUDIO_SECONDS, recorderMime } from "../../journals/audio-file";
 import { t } from "../../i18n";
 import { showToast } from "../../ui/toast";
@@ -135,11 +135,9 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     onVisible.current = () => { if (reachedAudioLimit(startedAt)) atLimit(); };
     document.addEventListener("visibilitychange", onVisible.current);
     next.ondataavailable = (event) => {
-      if (reachedAudioLimit(startedAt)) {
-        atLimit();
-        return;
-      }
-      if (event.data.size) chunks.push(event.data);
+      const action = liveChunkAction(startedAt, next.state, event.data.size);
+      if (action.keep) chunks.push(event.data);
+      if (action.stop) atLimit();
     };
     next.onstop = () => {
       clearTimers();

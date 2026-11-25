@@ -5,7 +5,7 @@ import { clipTranscript } from "@/concept/journals/clip-transcript";
 import { claim, waitToStart } from "@/concept/studio/customers/in-flight";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
-import { elapsedSeconds, liveRecordingDuration, reachedAudioLimit } from "@/concept/journals/audio-limit";
+import { elapsedSeconds, liveChunkAction, liveRecordingDuration, reachedAudioLimit } from "@/concept/journals/audio-limit";
 import { audioScope, beyondLimit, clearForgottenAudio, forgetCustomerAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
 
 // Journal audio in the concept demo: what a file is by its bytes, the size and
@@ -354,5 +354,17 @@ describe("live recording time limit", () => {
     expect(liveRecordingDuration(start, start + (MAX_AUDIO_SECONDS + 1) * 1000)).toEqual({ ok: true, seconds: MAX_AUDIO_SECONDS + 1 });
     expect(liveRecordingDuration(start, start + (MAX_AUDIO_SECONDS + 1.1) * 1000)).toEqual({ ok: false });
     expect(liveRecordingDuration(start, start + 15 * 60 * 1000)).toEqual({ ok: false });
+  });
+
+  it("keeps the final MediaRecorder flush after a stop at the limit", () => {
+    const atLimit = start + MAX_AUDIO_SECONDS * 1000;
+    expect(liveChunkAction(start, "recording", 512, start + 90_000)).toEqual({ keep: true, stop: false });
+    expect(liveChunkAction(start, "recording", 1024, atLimit)).toEqual({ keep: true, stop: true });
+    // stop() sets state to inactive, then fires the final dataavailable (and maybe a few leftover slices).
+    expect(liveChunkAction(start, "inactive", 2048, atLimit + 200)).toEqual({ keep: true, stop: false });
+    expect(liveChunkAction(start, "inactive", 0, atLimit)).toEqual({ keep: false, stop: false });
+    const late = start + 15 * 60 * 1000;
+    expect(liveChunkAction(start, "inactive", 4096, late)).toEqual({ keep: true, stop: false });
+    expect(liveRecordingDuration(start, late)).toEqual({ ok: false });
   });
 });
