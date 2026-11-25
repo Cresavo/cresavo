@@ -19,7 +19,7 @@ import { EmptyState } from "../ui/empty-state";
 import { ListRow } from "../ui/list-row";
 import { PageHeader } from "../ui/page-header";
 import { useSalonNow, type Now } from "../use-now";
-import { BookingActions } from "./booking-actions";
+import { BookingActions, CalendarActions } from "./booking-actions";
 import { freeUntilText } from "./deadline-text";
 import { changeRule } from "./policy";
 import { ReviewForm } from "./review-form";
@@ -139,6 +139,7 @@ function UpcomingCard({ state, now, booking }: { state: DemoState; now: Now; boo
         </>}
         trailing={<Badge tone="accent">{relativeDay(booking.date, now.today)}</Badge>} />
       <VisitLinks state={state} booking={booking} active />
+      <CalendarActions state={state} booking={booking} />
       <BookingActions state={state} now={now} booking={booking} />
       {changeRule(booking, now.today, now.minutes, now.instant) === "free" && <p className="text-meta text-text-secondary">{freeUntilText(booking)}</p>}
     </Card>
