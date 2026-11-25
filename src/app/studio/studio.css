@@ -66,9 +66,16 @@
 /* A tab label needs about four times the root text size ("Customers"). With large text the tab is narrower than
    that, so the bar shows icons only and the label stays the link's accessible name, as at 200 % zoom. */
 .studio-tab { container-type: inline-size; }
+/* The bar's height is in pixels like its spacing tokens, so larger text grows the tab only as far as its icon and label
+   need, without an empty band under the icons once the labels are hidden. */
+.studio-tab { min-height: calc(var(--touch-target) + var(--space-5)); }
 @container (max-width: 4rem) {
   .studio-tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+/* With the booking panel docked beside it, the calendar's column is narrower than the window says: the staff
+   filter moves into the options panel again, so Day and Week stay readable on the toolbar row. */
+body:has(.ui-sheet[data-docked][open]) .studio-calendar-staff { display: none; }
+body:has(.ui-sheet[data-docked][open]) .studio-calendar-staff-menu { display: block; }
 /* Calendar: the month drops down from the heading and folds back up into it. A vertical swipe on the heading or
    the month is the gesture, so it does not scroll the page there. */
 .studio-swipe { touch-action: pan-x pinch-zoom; }

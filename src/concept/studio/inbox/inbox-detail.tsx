@@ -87,14 +87,14 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
 
       {savedReply && (
         <div className="ml-8 max-w-reading rounded-lg rounded-tr-sm bg-action-bg px-4 py-3 text-body leading-relaxed">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-action">{t("inbox.yourReply")}</p>
+          <p className="mb-1 text-xs font-semibold text-action">{t("inbox.yourReply")}</p>
           {savedReply}
         </div>
       )}
 
       {canReply && (
         <div className="space-y-3 md:max-w-form">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-action">
+          <p className="flex items-center gap-2 text-xs font-semibold text-action">
             {t("inbox.suggestedReply")}
           </p>
           {slot && staff && (

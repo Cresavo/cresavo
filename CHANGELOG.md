@@ -91,6 +91,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Studio review pass, November 2026.** With a booking docked beside the week on a wide screen, the staff filter moves into the calendar's options so Day and Week stay readable on the toolbar row. With large text the phone tab bar no longer leaves an empty band under its icons, and the sun and moon switch keeps its thumb under the chosen icon. A customer card wraps a long name and "Usually books" instead of cutting them off. Small labels such as "Next visit", "Your reply" and a booking's note are set in sentence case like the rest of the Studio, and so are the category names in the booking flow.
 - **The sandbox deployment unit test no longer depends on a clean operator environment.** It used to fail on a machine that already had an AI key or another setting the hosted sandbox refuses, because the proxy then returned 503 instead of the Swedish sandbox redirect. The test now clears those keys before applying the sealed profile, and still checks that such a leftover key is refused.
 
 - **Escape closes only the top dialog over a docked booking.** On a wide screen, Edit contact or another dialog opened from the side booking panel takes Escape first; the panel stays until that dialog is gone.

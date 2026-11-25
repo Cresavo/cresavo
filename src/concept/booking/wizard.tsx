@@ -163,7 +163,7 @@ export function BookingWizard({ state, now, initialServiceId, initialStaffId, on
         <h2 className="text-h2 font-semibold tracking-tight">{missed ? t("booking.service.missed") : t("booking.service.title")}</h2>
         {state.categories.filter((category) => state.services.some((s) => s.category === category.id)).map((category) => (
           <div key={category.id} className="space-y-2">
-            <p className="text-meta font-semibold uppercase tracking-wider text-text-secondary">{category.name}</p>
+            <p className="text-meta font-semibold text-text-secondary">{category.name}</p>
             {state.services
               .filter((s) => s.category === category.id)
               .map((s) => (
