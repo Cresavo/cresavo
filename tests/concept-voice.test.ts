@@ -433,6 +433,8 @@ describe("what is read aloud", () => {
     ["an international phone number", "Ring +46 70 123 45 67."],
     ["an email", "Her email is lena@example.com."],
     ["an English address", "She lives at Storgatan 12."],
+    ["a numbered English street", "She lives at 12 Main St."],
+    ["an avenue", "The salon is at 12 Main Avenue."],
     ["a Swedish address", "Hon bor på Ringvägen 4."],
   ])("never reads %s", (_, text) => {
     expect(safeSpeech(text, state)).toBe("The details are on the screen.");
