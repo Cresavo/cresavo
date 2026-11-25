@@ -868,6 +868,7 @@ const messages = {
   "command.row.arrives": "Kommer",
   "command.book.title": "Boka {service} för {name}",
   "command.move.title": "Boka om besöket för {name}",
+  "command.move.notOffered": "{name} utför inte {service}, så bokningen kan inte flyttas dit.",
   "command.alreadyThere": "Besöket är redan bokat på den tiden.",
   "command.cancel.title": "Avboka besöket för {name}",
   "command.cancelled": "Avbokad",

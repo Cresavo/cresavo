@@ -80,14 +80,19 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
   const customers = matchNames(customerText, context.customers);
   if (customers.length > 1) return question("command.question.customer");
   if (customers.length === 1) params.customerId = customers[0].id;
-  const staffText = text.match(/\bwith\s+(.+?)(?:\bon\b|\bat\b|\btomorrow\b|\btoday\b|\bnext\b|$)/)?.[1];
-  if (staffText) {
-    const staff = matchNames(staffText, context.staff);
-    if (staff.length !== 1) return question("command.question.staff");
-    params.staffId = staff[0].id;
-  }
   const halves = action === "move" ? text.split(/\bto\b/) : [text];
   const target = halves.length > 1 ? halves.slice(1).join(" to ") : text;
+  // "with Anna" before "to" names who the booking is with; after it, who a move goes to.
+  const named = staffNamed(withText(halves[0]), context);
+  if (named === null) return question("command.question.staff");
+  if (action !== "move") params.staffId = named;
+  else if (halves.length > 1) {
+    // "…to Friday 10 with Erik", or just "…to Erik": the same time with another person.
+    const explicit = withText(target);
+    const destination = staffNamed(explicit ?? (!parseDate(target, context) && !parseTime(target) ? target : undefined), context);
+    if (destination === null && explicit) return question("command.question.staff");
+    if (destination) params.staffId = destination;
+  }
   params.date = parseDate(target, context) ?? (action === "move" ? parseDate(halves[0], context) : undefined);
   params.time = parseTime(target);
   if (/morning/.test(target)) params.period = "morning";
@@ -104,7 +109,7 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
   const sourceTime = parseTime(halves[0]);
   const bookings = context.bookings.filter(booking => {
     const start = DateTime.fromISO(booking.start, { zone: context.timezone ?? "Europe/Stockholm" });
-    return (!params.customerId || booking.customerId === params.customerId) && (!sourceDate || start.toISODate() === sourceDate) && (!sourceTime || start.toFormat("HH:mm") === sourceTime) && (!params.staffId || booking.staffId === params.staffId) && (params.customerId || sourceDate || sourceTime);
+    return (!params.customerId || booking.customerId === params.customerId) && (!sourceDate || start.toISODate() === sourceDate) && (!sourceTime || start.toFormat("HH:mm") === sourceTime) && (!named || booking.staffId === named) && (params.customerId || sourceDate || sourceTime);
   });
   if (bookings.length !== 1) return question(bookings.length ? "command.question.whichBooking" : "command.question.missingBooking");
   params.bookingId = bookings[0].id;
@@ -112,6 +117,24 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
     params.offerWaitingList = /waiting list|waitlist/.test(text);
     return proposal("cancel", `Propose cancelling appointment ${params.bookingId}${params.offerWaitingList ? " and offering the slot to the waiting list" : ""}.`);
   }
+  if (params.staffId && !params.time && !parseDate(target, context)) {
+    // Only the person changes: the day and time stay as booked.
+    const start = DateTime.fromISO(bookings[0].start, { zone: context.timezone ?? "Europe/Stockholm" });
+    params.date = start.toISODate()!;
+    params.time = start.toFormat("HH:mm");
+  }
   if (!params.date || !params.time) return question("command.question.moveTo");
-  return proposal("move", `Propose moving appointment ${params.bookingId} to ${params.date} ${params.time}.`);
+  return proposal("move", `Propose moving appointment ${params.bookingId} to ${params.date} ${params.time}${params.staffId ? ` with ${params.staffId}` : ""}.`);
+}
+
+/** The words after "with" up to the day or time. */
+function withText(text: string): string | undefined {
+  return text.match(/\bwith\s+(.+?)(?:\bon\b|\bat\b|\btomorrow\b|\btoday\b|\bnext\b|$)/)?.[1];
+}
+
+/** The one staff member the words name; null when they name none or several. */
+function staffNamed(text: string | undefined, context: IntentContext): string | null | undefined {
+  if (!text?.trim()) return undefined;
+  const staff = matchNames(text, context.staff);
+  return staff.length === 1 ? staff[0].id : null;
 }

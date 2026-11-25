@@ -872,6 +872,7 @@ const messages = {
   "command.row.arrives": "Arrives",
   "command.book.title": "Book {name} for {service}",
   "command.move.title": "Move {name}'s appointment",
+  "command.move.notOffered": "{name} does not do {service}, so the booking cannot move to them.",
   "command.alreadyThere": "The appointment is already at that time.",
   "command.cancel.title": "Cancel {name}'s appointment",
   "command.cancelled": "Cancelled",

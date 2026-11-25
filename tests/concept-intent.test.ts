@@ -43,6 +43,19 @@ describe("booking proposals", () => {
     ["move Lisa to Friday 10", "2026-11-20", "10:00", "lisa-friday"],
     ["Reschedule Anna on Thursday to tomorrow at 9am", "2026-11-18", "09:00", "thursday"],
   ])("%s", (text, date, time, bookingId) => expect(interpretCommand(text, context)).toMatchObject({ action: "move", params: { date, time, bookingId } }));
+  describe("moving to another person", () => {
+    it.each([
+      ["Move Lisa to Friday 10 with Erik", "2026-11-20", "10:00"],
+      ["Flytta Lisa till fredag 10 hos Erik", "2026-11-20", "10:00"],
+      ["Move Lisa to Erik", "2026-11-20", "09:00"],
+    ])("%s", (text, date, time) => expect(interpretCommand(text, context)).toMatchObject({ action: "move", params: { bookingId: "lisa-friday", staffId: "staff-erik", date, time } }));
+    it("reads a name before 'to' as who the booking is with now", () => {
+      const result = interpretCommand("Move Lisa with Anna to Friday 10", context);
+      expect(result).toMatchObject({ action: "move", params: { bookingId: "lisa-friday", date: "2026-11-20", time: "10:00" } });
+      expect(result.params.staffId).toBeUndefined();
+    });
+    it("asks when the new person is unknown", () => expect(interpretCommand("Move Lisa to Friday 10 with Nobody", context).action).toBe("question"));
+  });
   it("cancels and offers to the waiting list", () => expect(interpretCommand("Cancel 15:00 today and offer the slot to the waiting list", context)).toMatchObject({ action: "cancel", params: { bookingId: "today", offerWaitingList: true } }));
   it("cancels without waiting list", () => expect(interpretCommand("Cancel Erik today", context)).toMatchObject({ action: "cancel", params: { offerWaitingList: false } }));
   it.each(["Book a massage tomorrow morning", "Book Erik tomorrow morning", "Book Erik for massage", "Book Erik for massage tomorrow", "Move Anna to Thursday", "Cancel Anna today", "Move someone to tomorrow at 14:00", "Book Erik for massage with Nobody tomorrow morning", "", "hello"]) ("asks about missing information: %s", text => expect(interpretCommand(text, context).action).toBe("question"));
