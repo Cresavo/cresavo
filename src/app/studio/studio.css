@@ -39,7 +39,7 @@
   --ui-action-hover: #ffc29b;
   --ui-action-text: #211820;
   --ui-action-bg: light-dark(#66445e, #3a2f33);
-  --ui-focus: #f5bd97;
+  --ui-focus: var(--ui-text);
   /* The selected menu row is a faint white wash with white text; hover is the same wash, weaker. No accent colour. */
   --studio-nav-selected: rgb(255 255 255 / 0.07);
   --studio-nav-hover: rgb(255 255 255 / 0.04);
@@ -131,10 +131,21 @@ body:has(.studio-root) .demo-banner {
   margin: 0;
 }
 
+/* Focus is a thin ring in the page's own ink, close around the control and following its corners: high contrast
+   on every ground, never the accent. Surfaces that change the ink (the plum chrome, a tenant page) re-declare it. */
+.studio-root { --ui-focus: var(--ui-text); }
 .studio-root :focus-visible {
   outline: 2px solid var(--ui-focus);
   outline-offset: 2px;
 }
+/* A bare text link has no corners of its own; a rounded class still wins. */
+:where(.studio-root a:focus-visible) { border-radius: var(--radius-xs); }
+/* A full-width row draws its ring just inside its own edge, so it does not run into the rows beside it. */
+.studio-root .ui-row:focus-visible { outline-offset: -2px; }
+
+/* Headings break into even lines; running text avoids a single word on its last line. Utilities still override. */
+:where(.studio-root) :where(h1, h2, h3) { text-wrap: balance; }
+:where(.studio-root) :where(p, li, dd, figcaption) { text-wrap: pretty; }
 
 .studio-root .ui-composer-input:focus-visible { outline: none; }
 

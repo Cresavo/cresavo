@@ -3,7 +3,7 @@
 import { customerText } from "../i18n/customer-text";
 
 import { useState } from "react";
-import { CalendarClock, CalendarPlus, Phone, XCircle } from "lucide-react";
+import { CalendarClock, CalendarPlus, XCircle } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
@@ -142,9 +142,8 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
         )}
       </div>
       {rule === "late" && (
-        <Notice tone="warning" className="flex items-start gap-2">
-          <Phone size={16} className="mt-1 shrink-0" />
-          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}</span>
+        <Notice tone="warning">
+          {t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}
         </Notice>
       )}
       {!moveOpen && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}

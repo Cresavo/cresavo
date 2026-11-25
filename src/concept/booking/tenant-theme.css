@@ -33,7 +33,7 @@
   --ui-action-bg: color-mix(in srgb, var(--ui-action) 10%, var(--ui-surface));
   --ui-action-hover: color-mix(in srgb, var(--ui-action) 85%, light-dark(black, white));
   --ui-input-border: color-mix(in srgb, var(--ui-text) 62%, var(--ui-surface));
-  --ui-focus: var(--ui-action);
+  --ui-focus: var(--ui-text);
   background: var(--ui-bg);
   color: var(--ui-text);
   font-family: var(--page-font-body, var(--font-ui));

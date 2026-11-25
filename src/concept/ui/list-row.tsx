@@ -25,7 +25,7 @@ export function ListRow({ title, meta, leading, trailing, href, onClick, motion,
     onAnimationEnd: (event: AnimationEvent) => {
       if (motion === "exit" && event.target === event.currentTarget) onExited?.();
     },
-    className: cx("flex min-h-14 w-full min-w-0 items-center gap-3 rounded-md px-4 py-2 text-left", (href !== undefined || onClick) && "hover:bg-surface-2", className),
+    className: cx("ui-row flex min-h-14 w-full min-w-0 items-center gap-3 rounded-md px-4 py-2 text-left", (href !== undefined || onClick) && "hover:bg-surface-2", className),
   };
   const content = <>
     {leading}

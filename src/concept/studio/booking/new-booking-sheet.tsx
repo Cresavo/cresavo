@@ -140,7 +140,7 @@ export function NewBookingSheet({ preset, onClose }: { preset: NewBookingPreset;
             <div className="space-y-3">
               <GuestFields staffEntry value={guest} onChange={setGuest} />
               <Field width="short" label={t("newBooking.emailOptional")} hint={emailValid ? undefined : t("newBooking.invalidEmail")}>
-                <TextInput type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <TextInput type="email" inputMode="email" autoComplete="off" autoCapitalize="none" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>
               <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>{t("newBooking.findExisting")}</Button>
             </div>

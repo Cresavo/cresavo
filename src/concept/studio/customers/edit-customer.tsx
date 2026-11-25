@@ -71,16 +71,16 @@ export function EditCustomer({ customer }: { customer: Customer }) {
       >
         <div className="space-y-4">
           <Field label={t("customer.edit.firstName")} error={message(["firstName"])}>
-            <TextInput value={form.firstName} maxLength={60} autoComplete="off" onChange={(e) => set("firstName", e.target.value)} />
+            <TextInput value={form.firstName} maxLength={60} autoComplete="off" autoCapitalize="words" onChange={(e) => set("firstName", e.target.value)} />
           </Field>
           <Field label={t("customer.edit.lastName")}>
-            <TextInput value={form.lastName} maxLength={60} autoComplete="off" onChange={(e) => set("lastName", e.target.value)} />
+            <TextInput value={form.lastName} maxLength={60} autoComplete="off" autoCapitalize="words" onChange={(e) => set("lastName", e.target.value)} />
           </Field>
           <Field label={t("customer.edit.phone")} error={message(["phone", "phoneTaken"])}>
-            <TextInput type="tel" value={form.phone} maxLength={30} autoComplete="off" onChange={(e) => set("phone", e.target.value)} />
+            <TextInput type="tel" inputMode="tel" value={form.phone} maxLength={30} autoComplete="off" onChange={(e) => set("phone", e.target.value)} />
           </Field>
           <Field label={t("customer.edit.email")} error={message(["email", "emailTaken"])}>
-            <TextInput type="email" value={form.email} maxLength={254} autoComplete="off" onChange={(e) => set("email", e.target.value)} />
+            <TextInput type="email" inputMode="email" value={form.email} maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={(e) => set("email", e.target.value)} />
           </Field>
           <Field label={t("customer.edit.birthday")} error={message(["birthday"])}>
             <TextInput type="date" value={form.birthday} autoComplete="off" onChange={(e) => set("birthday", e.target.value)} />
