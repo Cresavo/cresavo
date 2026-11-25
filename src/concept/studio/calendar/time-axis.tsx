@@ -1,5 +1,25 @@
+import { useSyncExternalStore } from "react";
 import { formatTime } from "../../i18n/format";
 import type { Booking } from "../../data/types";
+
+/**
+ * How much larger the reader's text is than the default 16 px (a larger browser or phone text size). The grid's
+ * minutes grow with it, so a booking's name and time get the same room relative to the text instead of being cut.
+ */
+export function textScale(rootFontSize: number): number {
+  return Number.isFinite(rootFontSize) && rootFontSize > 16 ? rootFontSize / 16 : 1;
+}
+
+function readTextScale() {
+  return textScale(parseFloat(getComputedStyle(document.documentElement).fontSize));
+}
+
+export function useTextScale(): number {
+  return useSyncExternalStore((listener) => {
+    window.addEventListener("resize", listener);
+    return () => window.removeEventListener("resize", listener);
+  }, readTextScale, () => 1);
+}
 
 /** Keep the time grid proportional when a short appointment needs more space. */
 export function calendarScale(defaultScale: number, bookings: readonly Booking[], minHeight = 44) {

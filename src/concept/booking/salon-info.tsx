@@ -8,6 +8,7 @@ import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
 import { mapLink } from "./links";
 import { publicName, recentReviews, reviewSummary } from "./reviews";
+import { SalonHomeRow } from "./salon-home";
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -61,6 +62,7 @@ export function FindUs({ state }: { state: DemoState }) {
           <Mail aria-hidden size={16} className="shrink-0 text-text-secondary" />
           <span className={cx(linkClass, "min-w-0 [overflow-wrap:anywhere]")}>{salon.email}</span>
         </a>
+        <SalonHomeRow name={salon.name} />
       </Card>
     </Section>
   );

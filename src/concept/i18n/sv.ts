@@ -3373,6 +3373,12 @@ const messages = {
   "install.title": "Lägg till på hemskärmen",
   "install.text": "Öppna studion som en app, direkt från telefonen eller datorn.",
   "install.ios": "Tryck på Dela i Safari och sedan på Lägg till på hemskärmen.",
+  "calendar.offline.updatedAt": "Uppdaterad kl. {time}. Nya bokningar får vänta tills anslutningen är tillbaka.",
+  "calendar.offline.updatedOn": "Uppdaterad {day} kl. {time}. Nya bokningar får vänta tills anslutningen är tillbaka.",
+  "booking.home.title": "Lägg till på hemskärmen",
+  "booking.home.text": "Öppna {salon} direkt från telefonen nästa gång.",
+  "booking.home.ios": "Tryck på Dela i Safari och sedan på Lägg till på hemskärmen.",
+  "booking.home.other": "Öppna webbläsarens meny och välj Lägg till på startskärmen.",
 } satisfies Record<keyof typeof en.messages, string>;
 
 export const sv = {

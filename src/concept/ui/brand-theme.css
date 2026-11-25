@@ -149,6 +149,9 @@ body:has(.ui-media-dialog[open]) { overflow: hidden; }
 /* A month beside the chosen day's times when the container has room for both, the times under it otherwise. */
 .ui-day-time { container-type: inline-size; }
 .ui-day-time-layout { display: grid; gap: var(--space-6); align-items: start; }
+/* Three times to a row; with large text, two, so a time and its staff name are not cut. */
+.ui-slot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 15rem) { .ui-slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 36rem) {
   .ui-day-time-layout { grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); gap: var(--space-8); }
 }
@@ -243,6 +246,24 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 @keyframes ui-month-back { from { opacity: 0; transform: translateX(calc(-1 * var(--space-4))); } }
 .ui-sheet-side[open] { animation-name: ui-side-arrive; }
 .ui-sheet-side[open][data-closing] { animation-name: ui-side-leave; }
+/* A docked panel (Sheet `dock`, wide screens only): flush with the window's right edge, full height, one hairline
+   between it and the page, no shadow and no backdrop. The page keeps room for it, so nothing sits under the panel. */
+.ui-sheet[data-docked] {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: var(--z-popover);
+  width: min(27.5rem, 100%);
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  border-radius: 0;
+  border-left: 1px solid var(--ui-hairline);
+  box-shadow: none;
+}
+.ui-sheet[data-docked] .ui-sheet-body { height: 100%; max-height: 100dvh; padding-top: env(safe-area-inset-top); }
+.ui-sheet[data-docked][open] { animation-name: ui-side-arrive; }
+.ui-sheet[data-docked][open][data-closing] { animation-name: ui-side-leave; }
+.studio-content:has(.ui-sheet[data-docked][open]) { padding-right: min(27.5rem, 100%); }
 @keyframes ui-side-arrive { from { opacity: 0; transform: translateX(var(--space-4)); } }
 @keyframes ui-side-leave { to { opacity: 0; transform: translateX(var(--space-2)); } }
 @keyframes ui-fade-out { to { opacity: 0; } }
@@ -325,7 +346,9 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 .ui-skip {
   position: absolute;
   left: var(--space-3);
-  top: calc(-1 * var(--space-12));
+  top: 0;
+  /* Its own height and more above the edge, so a link made taller by large text does not peek in. */
+  translate: 0 -200%;
   z-index: var(--z-toast);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
@@ -334,7 +357,7 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   font-weight: 500;
   box-shadow: var(--elevation-raised);
 }
-.ui-skip:focus { top: calc(env(safe-area-inset-top) + var(--space-3)); }
+.ui-skip:focus { top: calc(env(safe-area-inset-top) + var(--space-3)); translate: none; }
 /* The content a skip link lands on: no ring of its own, and kept clear of the top edge and a sticky band. */
 .ui-skip-target { outline: none; scroll-margin-top: var(--space-12); }
 
@@ -352,4 +375,6 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   .ui-sheet[open], .ui-sheet[open]::backdrop, .ui-toast, .ui-arrive, .ui-print, .ui-pop, [data-row-motion] { animation-name: ui-fade; animation-duration: 80ms !important; }
   .ui-sheet[open][data-closing], .ui-toast[data-closing], .ui-pop[data-closing], [data-row-motion="exit"] { animation-name: ui-fade-out; }
   .ui-month-next, .ui-month-previous { animation-name: ui-fade; animation-duration: 80ms !important; }
+  .ui-sheet[data-docked][open] { animation-name: ui-fade; animation-duration: 80ms !important; }
+  .ui-sheet[data-docked][open][data-closing] { animation-name: ui-fade-out; }
 }

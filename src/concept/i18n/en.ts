@@ -3462,6 +3462,12 @@ const messages = {
   "install.title": "Add to Home Screen",
   "install.text": "Open the studio like an app, straight from your phone or computer.",
   "install.ios": "In Safari, tap Share, then Add to Home Screen.",
+  "calendar.offline.updatedAt": "Updated at {time}. New bookings wait until the connection is back.",
+  "calendar.offline.updatedOn": "Updated {day} at {time}. New bookings wait until the connection is back.",
+  "booking.home.title": "Add to your home screen",
+  "booking.home.text": "Open {salon} straight from your phone next time.",
+  "booking.home.ios": "In Safari, tap Share, then Add to Home Screen.",
+  "booking.home.other": "Open your browser's menu, then Add to Home screen.",
 } as const;
 
 export const en = {

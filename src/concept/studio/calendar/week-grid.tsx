@@ -15,19 +15,20 @@ import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
 import { snapMinutes } from "./gap";
-import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, TimeAxis, useTextScale } from "./time-axis";
 
 const PX_PER_MIN = 0.9;
 
 /** Seven days side by side (desktop). Each day is split per selected staff member; drag a booking to another day or time. */
 export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { monday: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void; onPickDay: (date: DateKey) => void }) {
   const { state, today } = useStudio();
+  const text = useTextScale();
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const open = days.map((d) => openingFor(state.salon, d)).filter((h) => h !== null);
   const opening = open.length ? { from: Math.min(...open.map((h) => h.open)), to: Math.max(...open.map((h) => h.close)) } : { from: 0, to: 0 };
   const columns = days.map(day => staff.map(person => dayBookings(state, day, person.id, resourceId)));
   const { from, to } = calendarRange(opening.from, opening.to, columns.flat(2));
-  const scale = calendarScale(PX_PER_MIN, columns.flat(2));
+  const scale = calendarScale(PX_PER_MIN * text, columns.flat(2), 44 * text);
   const drop = useBookingDrop();
   // The column under a dragged booking, tinted so the owner sees which day and person it lands on.
   const [over, setOver] = useState<string | null>(null);
