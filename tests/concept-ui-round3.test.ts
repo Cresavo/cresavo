@@ -4,6 +4,8 @@ import { openStatusText } from "@/concept/booking/hero";
 import { shareVisit, visitShare } from "@/concept/booking/share-visit";
 import type { Salon } from "@/concept/data/types";
 import { setLocale } from "@/concept/i18n";
+import { calendarKey, stepThrough } from "@/concept/studio/calendar/keys";
+import { previewPosition } from "@/concept/studio/calendar/preview";
 
 // A Wednesday with long hours and lunch, and a short Saturday (no lunch: the day is six hours or less).
 const WEDNESDAY = "2026-11-25";
@@ -43,6 +45,59 @@ describe("open status on the booking page", () => {
     setLocale("sv");
     expect(openStatusText({ kind: "closingSoon", until: 1080 })).toBe("Stänger snart, till 18:00");
     expect(openStatusText({ kind: "lunch", until: 780 })).toBe("Lunchstängt till 13:00");
+  });
+});
+
+describe("calendar keys", () => {
+  const press = (key: string, extra: Partial<Parameters<typeof calendarKey>[0]> = {}) =>
+    calendarKey({ key, metaKey: false, ctrlKey: false, altKey: false, defaultPrevented: false, target: null, ...extra });
+
+  it("moves between days with arrows or J and K, T for today and ? for the list", () => {
+    expect(press("ArrowLeft")).toBe("previous");
+    expect(press("k")).toBe("previous");
+    expect(press("ArrowRight")).toBe("next");
+    expect(press("J")).toBe("next");
+    expect(press("t")).toBe("today");
+    expect(press("?")).toBe("help");
+    expect(press("ArrowDown")).toBe("later");
+    expect(press("x")).toBeNull();
+  });
+
+  it("leaves Cmd+K, Ctrl and Alt keys, typing and widgets with their own arrows alone", () => {
+    expect(press("k", { metaKey: true })).toBeNull();
+    expect(press("k", { ctrlKey: true })).toBeNull();
+    expect(press("ArrowLeft", { altKey: true })).toBeNull();
+    expect(press("t", { defaultPrevented: true })).toBeNull();
+    const inside = (selector: string) => ({ closest: (own: string) => (own.split(", ").includes(selector) ? {} : null) });
+    expect(press("t", { target: inside("input") })).toBeNull();
+    expect(press("ArrowRight", { target: inside("[role=radiogroup]") })).toBeNull();
+    expect(press("ArrowRight", { target: inside("dialog") })).toBeNull();
+    expect(press("ArrowRight", { target: { closest: () => null } })).toBe("next");
+  });
+
+  it("steps through the bookings in order and stops at either end", () => {
+    const items = ["a", "b", "c"];
+    expect(stepThrough(items, null, "later")).toBe("a");
+    expect(stepThrough(items, null, "earlier")).toBe("c");
+    expect(stepThrough(items, "a", "later")).toBe("b");
+    expect(stepThrough(items, "c", "later")).toBe("c");
+    expect(stepThrough(items, "a", "earlier")).toBe("a");
+    expect(stepThrough([], null, "later")).toBeNull();
+  });
+});
+
+describe("calendar preview", () => {
+  const viewport = { width: 1280, height: 800 };
+  const size = { width: 288, height: 120 };
+
+  it("sits beside the block where there is room, else on its other side", () => {
+    expect(previewPosition({ left: 300, right: 400, top: 200 }, size, viewport)).toEqual({ left: 408, top: 200 });
+    expect(previewPosition({ left: 1000, right: 1100, top: 200 }, size, viewport)).toEqual({ left: 704, top: 200 });
+  });
+
+  it("stays inside the window at the top and bottom", () => {
+    expect(previewPosition({ left: 300, right: 400, top: -40 }, size, viewport).top).toBe(16);
+    expect(previewPosition({ left: 300, right: 400, top: 760 }, size, viewport).top).toBe(664);
   });
 });
 

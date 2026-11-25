@@ -3350,6 +3350,14 @@ const messages = {
   "booking.share.text": "Min tid hos {salon}: {day} kl. {time}.",
   "booking.share.copied": "Länken är kopierad",
   "booking.share.failed": "Länken kunde inte kopieras.",
+  "calendar.preview.when": "{day}, {from}–{to}",
+  "calendar.keys.title": "Kortkommandon",
+  "calendar.keys.previous": "Föregående dag eller vecka",
+  "calendar.keys.next": "Nästa dag eller vecka",
+  "calendar.keys.today": "Idag",
+  "calendar.keys.step": "Föregående eller nästa bokning",
+  "calendar.keys.open": "Öppna bokningen",
+  "calendar.keys.help": "Visa kortkommandona",
 } satisfies Record<keyof typeof en.messages, string>;
 
 export const sv = {

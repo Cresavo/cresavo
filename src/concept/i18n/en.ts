@@ -3439,6 +3439,14 @@ const messages = {
   "booking.share.text": "My time at {salon}: {day} at {time}.",
   "booking.share.copied": "Link copied",
   "booking.share.failed": "The link could not be copied.",
+  "calendar.preview.when": "{day}, {from}–{to}",
+  "calendar.keys.title": "Keyboard shortcuts",
+  "calendar.keys.previous": "Previous day or week",
+  "calendar.keys.next": "Next day or week",
+  "calendar.keys.today": "Today",
+  "calendar.keys.step": "Previous or next booking",
+  "calendar.keys.open": "Open the booking",
+  "calendar.keys.help": "Show these shortcuts",
 } as const;
 
 export const en = {

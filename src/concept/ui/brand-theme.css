@@ -318,6 +318,9 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   to { transform: scale(1); opacity: 0; }
 }
 
+/* A preview that appears in place fades in; nothing travels, so it reads the same with reduced motion. */
+.studio-peek { animation: ui-fade var(--dur-2) var(--ease-out) both; }
+
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-1: .01ms; --dur-2: .01ms; --dur-3: .01ms; }
   *, *::before, *::after, *::backdrop {
