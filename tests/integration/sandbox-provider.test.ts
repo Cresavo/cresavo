@@ -63,7 +63,7 @@ describe.skipIf(process.env.BOOKING_SANDBOX_TESTS !== "1")("isolated sandbox pro
 
   it("refuses wrong flags, labs, installs, ordinary DB access and the wrong host", async () => {
     expect(() => sandboxConfig({ ...process.env, BOOKING_SANDBOX: "0" })).toThrow();
-    for (const flag of ["BOOKING_CONSENT_LAB", "BOOKING_SMS_OTP_LAB", "AGENT_OAUTH", "ASSISTANT_PAIRING"])
+    for (const flag of ["BOOKING_CONSENT_LAB", "AGENT_OAUTH", "ASSISTANT_PAIRING"])
       expect(() => sandboxConfig({ ...process.env, [flag]: "1" })).toThrow();
     expect(() => sandboxConfig({ ...process.env, BOOKING_CONSENT_DELIVERY: "staging-inbox" })).toThrow();
     expect(() => sandboxConfig({ ...process.env, CONCEPT_AI_BASE_URL: "0" })).toThrow();

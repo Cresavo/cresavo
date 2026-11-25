@@ -109,7 +109,7 @@ async function startSalon(mode: "split" | "standalone") {
     ...salonEnv, PORT: String(salonPort),
     BOOKING_PUBLIC_ORIGIN: nativeCodex ? `http://127.0.0.1:${salonPort}` : gatewayOrigin,
     ...(nativeCodex ? { BOOKING_CONSENT_LAB: "1", BOOKING_RUNTIME: "local",
-      BOOKING_CONSENT_DELIVERY: "separate-lab", BOOKING_CONSENT_INBOX_DIR: customerInbox } : {}),
+      BOOKING_CONSENT_INBOX_DIR: customerInbox } : {}),
     ...(mode === "split" ? { BOOKING_SERVICE_ROLE: "salon", GATEWAY_SERVICE_TOKEN: token } : {}),
   }, "BOOKING_SERVER_READY");
 }

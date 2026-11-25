@@ -1,5 +1,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
+import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
 import { DateTime } from "luxon";
 import { db } from "../../src/lib/db";
 import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../../src/lib/agent-api/keys";
@@ -22,7 +25,7 @@ beforeAll(async () => {
   await db.staff.create({ data: { id: staffId, businessId: "demo", name: "Syntetisk Kodpersonal", serviceIds: [serviceId], weekly: template.weekly!, exceptions: [] } });
 });
 beforeEach(() => {
-  vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_CONSENT_DELIVERY", "email-code");
+  vi.stubEnv("BOOKING_CONSENT_LAB", "1");
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_RUNTIME", "local");
   vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof");
   simulatedEmailCodeSender.clear();
@@ -85,10 +88,11 @@ it("hands the agent a consent link without a secret and no approval", async () =
   expect(created).not.toHaveProperty("approvalUrl");
   expect(created.consentUrl).not.toContain("#");
   expect(await db.agentMandate.count({ where: { originReference: id } })).toBe(0);
-  const view = await decide(id, { decision: "view" }) as { proposal: { emailCodeRequired: boolean }; customer: null };
+  const view = await decide(id, { decision: "view" }) as { proposal: { emailCodeRequired: boolean } };
   expect(view.proposal.emailCodeRequired).toBe(true);
-  expect(view.customer).toBeNull();
-  await expect(decide(id, { decision: "view", token: "a".repeat(43) })).rejects.toMatchObject({ code: "mandate_denied" });
+  expect(view).not.toHaveProperty("customer");
+  // A bearer token is no longer part of the decision at all.
+  await expect(decide(id, { decision: "view", token: "a".repeat(43) })).rejects.toThrow();
 });
 
 it("approves only with the code sent to the address, and books only in that address's name", async () => {
@@ -136,11 +140,23 @@ it("waits a minute between codes, stops after five and locks after five wrong co
   expect(await db.agentMandate.count({ where: { originReference: id } })).toBe(0);
 });
 
-it("is reachable only while the email-code profile is on", async () => {
-  const p = await actor();
-  const { id } = await proposed(p);
-  vi.stubEnv("BOOKING_CONSENT_DELIVERY", "legacy-agent-link");
-  await expect(decide(id, { decision: "view" })).rejects.toMatchObject({ code: "mandate_denied" });
+it("writes the code to the operator's private inbox for a proof that runs the salon in another process", async () => {
+  const root = realpathSync(tmpdir()), inbox = mkdtempSync(join(root, "booking-consent-inbox-"));
+  chmodSync(inbox, 0o700);
+  try {
+    vi.stubEnv("BOOKING_CONSENT_INBOX_DIR", inbox);
+    const { id } = await proposed(await actor());
+    await decide(id, { decision: "send-code", email: customer.email });
+    const receipt = JSON.parse(readFileSync(join(inbox, id + ".json"), "utf8"));
+    expect(receipt).toEqual({ proposalId: id, contactEmailMask: "k***@example.test", code: lastCode().code });
+    expect(statSync(join(inbox, id + ".json")).mode & 0o077).toBe(0);
+    // A directory anyone can read, or one outside the temp folder, is refused.
+    chmodSync(inbox, 0o755);
+    await expect(decide((await proposed(await actor())).id, { decision: "send-code", email: customer.email })).rejects.toBeDefined();
+  } finally {
+    if (!resolve(inbox).startsWith(root + sep + "booking-consent-inbox-")) throw new Error("OWN_INBOX_REQUIRED");
+    rmSync(inbox, { recursive: true });
+  }
 });
 
 it("serves the decision route without a secret in the link", async () => {

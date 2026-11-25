@@ -401,11 +401,7 @@ model AgentProposal {
   duration Int
   priceOre Int
   proposalHash String
-  tokenHash String @unique
   consentDelivery String?
-  smsOtpRequired Boolean @default(false)
-  phoneHash String?
-  phoneMask String?
   otpHash String?
   otpExpiresAt DateTime? @db.Timestamptz(3)
   otpAttempts Int @default(0)

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertMandatedBooking, bookingProposalHash, type MandatedBooking, type StoredMandate } from "../src/lib/agent-api/mandate-policy";
 import { customerDecisionSchema, proposalSchema } from "../src/lib/agent-api/proposals";
-import { customerTokenHash, labCustomerIdentity, requireConsentLab } from "../src/lib/agent-api/customer-identity";
+import { requireConsentLab } from "../src/lib/agent-api/customer-identity";
 import { placeForStaff } from "../src/lib/agent-api/place";
 import { POST } from "../src/app/consent/[id]/decision/route";
 const now = new Date("2026-11-16T08:00:00Z");
@@ -23,17 +23,24 @@ const input = { business: "demo", serviceId: "massage", serviceVersion: 1, staff
 it.each(["confirmed", "origin", "mandateId", "clientId", "priceOre", "duration", "locationId", "paymentToken", "checkout"]) ("rejects client authority/payment field %s", key => {
   expect(proposalSchema.safeParse({ ...input, [key]: "forged" }).success).toBe(false);
 });
-it("strictly validates the independent customer token", () => {
-  expect(customerDecisionSchema.safeParse({ decision: "yes", confirmed: true }).success).toBe(false);
-  expect(customerDecisionSchema.safeParse({ token: "t".repeat(43), decision: "yes", paymentToken: "forged" }).success).toBe(false);
+it("takes only the e-mail code decisions: no bearer token, phone or client authority", () => {
+  expect(customerDecisionSchema.safeParse({ decision: "send-code", email: "kund@example.test" }).success).toBe(true);
+  expect(customerDecisionSchema.safeParse({ decision: "yes", proposalHash: "a".repeat(64), code: "123456" }).success).toBe(true);
+  for (const forged of [{ token: "x".repeat(43) }, { decision: "resend" }, { customerPhone: "+46701740605" }, { mandateId: "m" }])
+    expect(customerDecisionSchema.safeParse({ decision: "yes", ...forged }).success).toBe(false);
+  expect(proposalSchema.safeParse({ ...input, customerPhone: "+46701740605" }).success).toBe(false);
 });
-it("only exposes a fragment link in explicit local lab mode", () => {
-  const token = "t".repeat(43);
-  const url = new URL(labCustomerIdentity.deliver("test-id", token).approvalUrl!);
-  expect(url.search).toBe(""); expect(url.hash).toBe(`#${token}`);
-  expect(customerTokenHash(token)).not.toContain(token);
-  vi.stubEnv("BOOKING_CONSENT_LAB", "0");
-  expect(requireConsentLab).toThrow();
+it("runs consent only as a local lab, never with a cloud marker", () => {
+  vi.stubEnv("BOOKING_PUBLIC_ORIGIN", "http://127.0.0.1:3229"); vi.stubEnv("BOOKING_RUNTIME", "local");
+  vi.stubEnv("DATABASE_URL", "postgresql://synthetic@127.0.0.1:1/consent_test");
+  vi.stubEnv("BOOKING_CONSENT_LAB", "1");
+  expect(requireConsentLab()).toBe("http://127.0.0.1:3229");
+  for (const [name, value] of [["BOOKING_CONSENT_LAB", ""], ["VERCEL", "1"], ["VERCEL_URL", "x.vercel.app"], ["BOOKING_RUNTIME", "vercel"]]) {
+    vi.stubEnv(name, value);
+    expect(() => requireConsentLab()).toThrow();
+    vi.stubEnv(name, name === "BOOKING_CONSENT_LAB" ? "1" : name === "BOOKING_RUNTIME" ? "local" : "");
+  }
+  vi.unstubAllEnvs();
 });
 it("rejects agent Bearer requests at the customer surface before database access", async () => {
   const response = await POST(new Request("http://127.0.0.1:3229/consent/test/decision", { method: "POST", headers: { origin: "http://127.0.0.1:3229", authorization: "Bearer synthetic-agent", "content-type": "application/json" }, body: JSON.stringify({ confirmed: true }) }), { params: Promise.resolve({ id: "test" }) });

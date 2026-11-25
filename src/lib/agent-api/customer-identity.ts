@@ -1,16 +1,14 @@
-import { createHash, randomBytes } from "node:crypto";
 import { assertTestDatabase } from "../../../scripts/test-db-guard.mjs";
 import { discoveryOrigin } from "./discovery";
 import { AgentApiError } from "./errors";
 
-export interface CustomerIdentityProvider {
-  displayName: string;
-  issueCredential(): { token: string; digest: string };
-  credentialDigest(token: string): string;
-  deliver(proposalId: string, token: string): { approvalUrl?: string };
-}
+/**
+ * Customer consent runs only as a local lab: loopback origin, a guarded test database and no
+ * cloud runtime. Replace delivery and customer verification together before any real deployment.
+ */
 export function requireConsentLab() {
-  if (process.env.BOOKING_CONSENT_LAB !== "1" || process.env.BOOKING_RUNTIME === "vercel")
+  if (process.env.BOOKING_CONSENT_LAB !== "1" || process.env.BOOKING_RUNTIME === "vercel" ||
+      process.env.VERCEL || process.env.VERCEL_ENV || process.env.VERCEL_URL)
     throw new AgentApiError("mandate_denied");
   let origin: string;
   try { origin = discoveryOrigin(); }
@@ -20,16 +18,3 @@ export function requireConsentLab() {
   assertTestDatabase();
   return origin;
 }
-// Replace delivery AND customer verification together before any real deployment.
-// The lab intentionally hands the bearer link to the caller; it proves no real identity.
-export const labCustomerIdentity: CustomerIdentityProvider = {
-  displayName: "Syntetisk Testkund",
-  issueCredential() { const token = newCustomerToken(); return { token, digest: customerTokenHash(token) }; },
-  credentialDigest: token => customerTokenHash(token),
-  deliver(id, token) {
-    // Fragment never reaches HTTP access logs or Referrer headers.
-    return { approvalUrl: `${requireConsentLab()}/consent/${id}#${token}` };
-  },
-};
-export const newCustomerToken = () => randomBytes(32).toString("base64url");
-export const customerTokenHash = (token: string) => createHash("sha256").update(`customer-consent-v1:${token}`).digest("hex");

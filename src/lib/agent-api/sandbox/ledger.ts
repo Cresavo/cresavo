@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { AgentMandate, AgentProposal, Prisma, SandboxSession } from "@prisma/client";
 import { z } from "zod";
 import { AGENT_API_CHANNEL, createSandboxBooking } from "../../domain";
@@ -14,7 +14,6 @@ import { sandboxNow, type SandboxAgent } from "./store";
 export const SANDBOX_BUSINESS = "demo";
 const MAX_PROPOSALS = 20;
 const CONSENT_MS = 600_000;
-const scopedProposal = proposalSchema.omit({ customerPhone: true });
 const scopedBooking = agentBookingSchema.extend({ customer: z.unknown().optional() });
 
 export function requireSandboxBusiness(business: unknown) {
@@ -32,7 +31,7 @@ async function currentTerms(tx: Prisma.TransactionClient, session: SandboxSessio
 }
 
 export async function createSandboxProposal(tx: Prisma.TransactionClient, session: SandboxSession, body: unknown) {
-  const input = scopedProposal.parse(body);
+  const input = proposalSchema.parse(body);
   requireSandboxBusiness(input.business);
   if (await tx.agentProposal.count({ where: { businessId: session.businessId, clientId: session.clientId } }) >= MAX_PROPOSALS)
     throw new AgentApiError("rate_limited", 3600);
@@ -46,12 +45,12 @@ export async function createSandboxProposal(tx: Prisma.TransactionClient, sessio
     ...placeForStaff(staff.id), duration: service.duration, priceOre: service.priceOre,
   };
   // The proposal itself is the private inbox item, scoped by its composite client foreign key.
-  // The legacy proof column is reserved with random data. No bearer approval token is issued.
+  // No bearer approval token is issued.
   const row = await tx.agentProposal.create({ data: {
     ...snapshot, id: randomUUID(), serviceVersion: service.version, serviceName: service.name, staffName: staff.name,
     startsAt: start, proposalHash: bookingProposalHash({ ...snapshot, start }),
     expiresAt: new Date(Math.min(+now + CONSENT_MS, +start, +session.expiresAt)),
-    tokenHash: randomBytes(32).toString("hex"), consentDelivery: SANDBOX_CHANNEL,
+    consentDelivery: SANDBOX_CHANNEL,
   } });
   return { proposal: proposalView(row, now), approvalRequired: true };
 }

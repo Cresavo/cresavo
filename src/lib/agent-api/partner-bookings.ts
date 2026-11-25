@@ -11,7 +11,7 @@ import { placeForStaff } from "./place";
 import { proposalHash } from "./proposals";
 import { getBookingProvider } from "./provider";
 import { AGENT_API_CHANNEL } from "../domain";
-import { assertCustomerChannelBinding } from "./customer-channel-lab";
+import { assertEmailCodeBinding } from "./email-code-consent";
 
 /** A durable attempt binds unknown outcomes to one mandate, key and payload.
  * Locks never span a network call. Slot conflicts release the reservation;
@@ -49,7 +49,7 @@ export async function createPartnerAgentBooking(p: AgentPrincipal, input: z.infe
           proposal.status !== "approved" || proposal.mandateId !== mandate!.id ||
           proposal.proposalHash !== mandate!.proposalHash || proposalHash(proposal) !== mandate!.proposalHash)
         throw new AgentApiError("mandate_denied");
-      assertCustomerChannelBinding(proposal, mandate!, input.customer);
+      assertEmailCodeBinding(proposal, mandate!, input.customer);
     }
     if (!attempt) {
       if (await tx.partnerBookingAttempt.findUnique({ where: { mandateId: input.mandateId! } }))
