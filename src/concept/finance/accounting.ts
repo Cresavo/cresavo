@@ -10,7 +10,7 @@ import type { Clock, CostKind } from "./types";
 // costs. Amounts are counted in öre so that every voucher balances exactly.
 
 /** The demo assumes 25% VAT included in every price. */
-const VAT_PERCENT = 25;
+export const VAT_PERCENT = 25;
 export const EXPORT_MONTHS = 3;
 
 const BANK = 1930;
