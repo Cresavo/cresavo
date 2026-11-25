@@ -10,7 +10,7 @@ import { TRASH_DAYS } from "@/concept/trash/trash";
 // it loads the saved salon, and writes that back. Fictional data only.
 
 beforeEach(() => vi.resetModules());
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 const NAME = "Fictional Expired";
 const KEY = "salong-eko-demo";
@@ -57,6 +57,82 @@ it("does not overwrite another tab's newer write with the erasure", async () => 
   const { currentState } = await import("@/concept/store");
   expect(JSON.stringify(currentState())).not.toContain(NAME);
   expect(localStorage.setItem.mock.calls.filter(([key]) => key === KEY)).toEqual([]);
+});
+
+it("removes journal recordings of a customer whose trash period has expired", async () => {
+  const today = toKey(new Date());
+  const scope = `demo:legacy:${today}`;
+  let raw = savedWithExpiredCustomer();
+  const localStorage = {
+    getItem: (key: string) => (key === KEY ? raw : null),
+    setItem: (key: string, value: string) => { if (key === KEY) raw = value; },
+    removeItem: () => {},
+  };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } }));
+  const { journalAudioStore } = await import("@/concept/journals/audio-store");
+  const audio = journalAudioStore();
+  const bytes = new Uint8Array([1]).buffer;
+  await audio.add({ id: "r-expired", customerId: "k-expired", scope, createdAt: 1, source: "recorded", mime: "audio/webm", seconds: 5, bytes });
+  await audio.add({ id: "r-kept", customerId: "other", scope, createdAt: 2, source: "recorded", mime: "audio/webm", seconds: 5, bytes });
+  const { currentState } = await import("@/concept/store");
+  currentState();
+  await vi.waitFor(async () => {
+    expect((await audio.list("k-expired", scope)).map((row) => row.id)).toEqual([]);
+  });
+  expect((await audio.list("other", scope)).map((row) => row.id)).toEqual(["r-kept"]);
+});
+
+
+it("drops yesterday's demo recordings when a fresh tab opens on a new day", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-25T10:00:00+01:00"));
+  const yesterday = "2026-11-24";
+  const lifetime = "life1";
+  const oldScope = `demo:${lifetime}:${yesterday}`;
+  const items = new Map([[KEY, JSON.stringify({ ...createDemoState(yesterday), epoch: lifetime })]]);
+  const localStorage = {
+    getItem: (key: string) => items.get(key) ?? null,
+    setItem: (key: string, value: string) => { items.set(key, value); },
+    removeItem: (key: string) => { items.delete(key); },
+  };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } }));
+  const { journalAudioStore } = await import("@/concept/journals/audio-store");
+  const audio = journalAudioStore();
+  await audio.add({ id: "r-old", customerId: "k001", scope: oldScope, createdAt: 1, source: "recorded", mime: "audio/webm", seconds: 5, bytes: new Uint8Array([1]).buffer });
+  const { currentState } = await import("@/concept/store");
+  currentState();
+  await vi.waitFor(async () => {
+    expect(await audio.list("k001", oldScope)).toEqual([]);
+  });
+});
+
+it("drops yesterday's demo recordings when an unsaved tab rolls into a new day", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-24T10:00:00+01:00"));
+  const items = new Map<string, string>();
+  let failWrites = false;
+  const localStorage = {
+    getItem: (key: string) => items.get(key) ?? null,
+    setItem: (key: string, value: string) => { if (failWrites) throw new Error("quota"); items.set(key, value); },
+    removeItem: (key: string) => { items.delete(key); },
+  };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } }));
+  const { journalAudioStore } = await import("@/concept/journals/audio-store");
+  const { currentState, currentTarget, dispatch, latestState } = await import("@/concept/store");
+  currentState();
+  const target = currentTarget();
+  expect(target?.workspace).toBe("demo");
+  const { audioScope } = await import("@/concept/journals/audio-store");
+  const oldScope = audioScope(target!);
+  const audio = journalAudioStore();
+  await audio.add({ id: "r-old", customerId: "k001", scope: oldScope, createdAt: 1, source: "recorded", mime: "audio/webm", seconds: 5, bytes: new Uint8Array([1]).buffer });
+  failWrites = true;
+  expect(dispatch({ type: "card/dismiss", id: "x" })).toBe(true);
+  vi.setSystemTime(new Date("2026-11-25T10:00:00+01:00"));
+  latestState();
+  await vi.waitFor(async () => {
+    expect(await audio.list("k001", oldScope)).toEqual([]);
+  });
 });
 
 describe("redactReplay", () => {

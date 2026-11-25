@@ -40,6 +40,8 @@ export function contentSecurityPolicy(nonce: string, pathname: string, productio
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${production ? "" : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
+    // Journal recordings in the concept demo play from object URLs made in this tab.
+    "media-src 'self' blob:",
     "font-src 'self'",
     `connect-src 'self'${production ? "" : " ws://localhost:* ws://127.0.0.1:*"}`,
   ].join("; ");

@@ -223,6 +223,36 @@ test("a journal entry typed after a visit is structured and saved", async ({ pag
     .toBe(initial.journals.filter(j => j.customerId === customer.id).length + 1);
 });
 
+/** One second of silent 8 kHz mono WAV: a real, playable, invented recording. */
+function silentWav(): Buffer {
+  const samples = 8000;
+  const wav = Buffer.alloc(44 + samples * 2);
+  wav.write("RIFF", 0); wav.writeUInt32LE(36 + samples * 2, 4); wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24);
+  wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write("data", 36); wav.writeUInt32LE(samples * 2, 40);
+  return wav;
+}
+
+test("an uploaded recording is checked, kept for playback and its typed text structured", async ({ page }) => {
+  const initial = createDemoState(today);
+  const customer = initial.customers.find(c => initial.bookings.some(b => b.customerId === c.id && b.status === "completed"))!;
+  await page.goto(`/studio/customers/${customer.id}`);
+  await page.getByRole("radio", { name: /^Journal/ }).click();
+  await page.getByRole("button", { name: "Dictate entry", exact: true }).click();
+  const upload = page.getByLabel("Upload recording");
+  await upload.setInputFiles({ name: "visit.m4a", mimeType: "audio/mp4", buffer: Buffer.from("MZ not a recording") });
+  await expect(page.getByText(/That file is not a recording that can be kept/)).toBeVisible();
+  await upload.setInputFiles({ name: "visit.wav", mimeType: "audio/wav", buffer: silentWav() });
+  await expect(page.getByRole("heading", { name: "Recent recordings" })).toBeVisible();
+  await expect(page.getByText(/^Uploaded /)).toBeVisible();
+  await expect(page.getByText("Transcription of uploaded recordings comes with the server version.", { exact: false })).toBeVisible();
+  await page.getByLabel("What happened").fill("Did the usual foot care. Recommend cream every evening.");
+  await page.getByRole("button", { name: "Structure entry", exact: true }).click();
+  await expect(page.getByLabel("Treatment", { exact: true })).not.toHaveValue("");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Journal entry saved")).toBeVisible();
+});
+
 test("a campaign goes from a Today suggestion to published", async ({ page }) => {
   await page.goto("/studio");
   // Suggestions are rows in the attention card: each has its own action and can be dismissed.

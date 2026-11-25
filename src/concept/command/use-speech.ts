@@ -165,6 +165,7 @@ export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietS
   const recognition = useRef<Recognition | null>(null);
   const starting = useRef(0);
   const pendingStart = useRef(false);
+  const stopping = useRef<Promise<void> | null>(null);
   const handlers = useRef({ onText, onEnd, onInterim });
   useEffect(() => {
     handlers.current = { onText, onEnd, onInterim };
@@ -183,13 +184,30 @@ export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietS
   }, []);
   useEffect(() => () => abort(), [abort]);
 
+  // Journal recording awaits stop() so the last words are kept before the next take starts.
+  // A second stop while one is already in flight reuses that promise.
   const stop = useCallback(() => {
-    if (pendingStart.current && !recognition.current) abort();
-    else recognition.current?.stop();
+    if (stopping.current) return stopping.current;
+    if (pendingStart.current && !recognition.current) {
+      abort();
+      return Promise.resolve();
+    }
+    const current = recognition.current;
+    if (!current) return Promise.resolve();
+    stopping.current = new Promise<void>((resolve) => {
+      const previous = current.onend;
+      current.onend = () => {
+        previous?.();
+        stopping.current = null;
+        resolve();
+      };
+      current.stop();
+    });
+    return stopping.current;
   }, [abort]);
 
   const start = useCallback(() => {
-    if (recognition.current || pendingStart.current) return;
+    if (recognition.current || pendingStart.current || stopping.current) return;
     const mine = ++starting.current;
     pendingStart.current = true;
     void (async () => {
