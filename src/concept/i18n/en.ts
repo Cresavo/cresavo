@@ -2700,6 +2700,8 @@ const messages = {
   "holiday.newYearsEve": "New Year's Eve",
 
   "common.edit": "Edit",
+
+  "common.add": "Add",
   "common.remove": "Remove",
   "shell.staffRole": "Staff view",
 
@@ -2719,7 +2721,6 @@ const messages = {
   "hours.from": "{day} from",
   "hours.to": "{day} to",
   "hours.invalid": "Each end time must be after its start time.",
-  "hours.editTitle": "Opening hours",
   "hours.editText": "Free times everywhere follow these hours. Bookings that no longer fit show up on Today.",
   "hours.saved": "Opening hours saved",
 

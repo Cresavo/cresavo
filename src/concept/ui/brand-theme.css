@@ -257,6 +257,22 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 .ui-pop[data-closing] { animation: ui-pop-leave var(--dur-1) var(--ease-in) both; }
 @keyframes ui-pop { from { opacity: 0; transform: scale(.95); } }
 @keyframes ui-pop-leave { to { opacity: 0; transform: scale(.95); } }
+/* Fields that belong to a switch or an Add open in place under it and fold away when it is turned off. The row
+   grows to its content's height, so the fields below move instead of jumping. Reduced motion shows them at once. */
+.ui-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows var(--dur-1) var(--ease-in), opacity var(--dur-1) var(--ease-in);
+}
+.ui-reveal[data-open] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition-duration: var(--dur-2);
+  transition-timing-function: var(--ease-out);
+}
+/* The inner box clips while it grows; its padding keeps focus rings inside the clip. */
+.ui-reveal > * { min-height: 0; overflow: hidden; padding: 3px; margin: -3px; }
 /* An empty state's icon settles in once; it never loops. */
 .ui-empty-icon { animation: ui-fade var(--dur-3) var(--ease-out) both; }
 /* Quiet signs of a wait beside the sentence that names it, in the text's own colour. A slow dot while waiting on

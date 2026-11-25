@@ -30,7 +30,7 @@ describe("booking notices", () => {
     const visit = paid.bookings.at(-1)!;
     const [first, ...rest] = bookingNotices(paid);
     expect(rest).toEqual([]);
-    expect(first).toMatchObject({ event: "booked", bookingId: visit.id, name: "Lisa", service: service.name, date, start: visit.start, paidMinor: service.price * 100 });
+    expect(first).toMatchObject({ event: "booked", bookingId: visit.id, name: "Lisa", fullName: "Lisa Berg", service: service.name, date, start: visit.start, paidMinor: service.price * 100 });
     expect(paid.inbox.find((item) => item.id === first.id)).toMatchObject({ kind: "request", event: "booked", read: false });
     expect(bookingNotices(reduce(paid, { type: "inbox/read", id: first.id }))).toEqual([]);
     expect(noticeHref(visit.id)).toBe(`/studio/calendar?booking=${visit.id}`);
