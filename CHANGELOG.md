@@ -79,6 +79,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **The sandbox deployment unit test no longer depends on a clean operator environment.** It used to fail on a machine that already had an AI key or another setting the hosted sandbox refuses, because the proxy then returned 503 instead of the Swedish sandbox redirect. The test now clears those keys before applying the sealed profile, and still checks that such a leftover key is refused.
+
 - **The Studio no longer fills in the owner's own details for a customer.** When a booking is made from the Studio, the customer's name, phone and e-mail fields no longer offer the browser's saved details, which are the owner's, not the customer's.
 - **One icon on "too late to change online".** The notice under a booking that can no longer be changed online showed a phone icon beside the warning icon; it now has just the warning.
 
