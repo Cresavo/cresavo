@@ -14,26 +14,19 @@
   --on-plum: light-dark(#ffffff, #1f1819);
   --unfilled: light-dark(#776d70, #8f8687);
   --text-2: light-dark(#4a4145, #e8e0dd);
-  --dim: light-dark(#e9e3de, #100e0f);
   --uline: light-dark(rgb(70 48 59 / 0.35), rgb(242 177 132 / 0.4));
   --sh-2: light-dark(rgb(42 35 38 / 0.26), rgb(0 0 0 / 0.55));
-  --sh-3: light-dark(rgb(42 35 38 / 0.3), rgb(0 0 0 / 0.6));
   --dot-main: light-dark(#46303b, #fbf5f0);
   --dot-ink: light-dark(#2a2326, #bcb3b1);
   --dot-acc: light-dark(#e9a06f, #f2b184);
   --wordmark: light-dark(#46303b, #fbf5f0);
   --line: light-dark(#e6ded8, #383234);
   --line-2: light-dark(#d9cfc8, #4a4244);
-  --apricot: #f2b184;
-  --erik: light-dark(#6e7b3b, #b7c47e);
-  --erik-bg: light-dark(#eef0e1, #252a1d);
-  --erik-bd: light-dark(#dce1c4, #3b4229);
   --anna: light-dark(#3f6b8a, #93b6d4);
   --anna-bg: light-dark(#e9eff5, #1e2833);
   --anna-bd: light-dark(#d2dee9, #2f4052);
   --serif: var(--font-display, "Instrument Serif"), "Iowan Old Style", Georgia, serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --r: 12px;
   --wrap: 1200px;
   --gut: 20px;
   --sec: 64px;
@@ -167,7 +160,7 @@
 @keyframes appear { from { opacity: 0; } }
 
 /* ---------- hero: left on phones, a centred stack under the wordmark from 600 px ---------- */
-.hero { padding: 8px 0 28px; }
+.hero { padding: 8px 0 var(--sec); }
 .dotStage { height: 88px; }
 .dotStage .fallback { position: absolute; left: 50%; top: 50%; width: min(88vw, 1040px); max-height: 86%; transform: translate(-50%, -50%); fill: var(--wordmark); }
 .heroCopy { display: flex; flex-direction: column; align-items: flex-start; }
@@ -176,7 +169,7 @@
 .heroCta { flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 24px; width: 100%; max-width: 420px; }
 .heroCta .btn { width: 100%; }
 @media (min-width: 600px) {
-  .hero { padding-bottom: clamp(56px, 6vw, 80px); padding-top: clamp(12px, 1.6vw, 24px); }
+  .hero { padding-top: clamp(12px, 1.6vw, 24px); }
   .dotStage { height: clamp(110px, 10vw + 36px, 180px); }
   .heroCopy { margin-top: clamp(4px, 1vw, 14px); align-items: center; text-align: center; }
   .kicker { font-size: 15px; margin-bottom: 20px; }
@@ -184,6 +177,23 @@
   .heroCta { flex-direction: row; align-items: center; justify-content: center; gap: 28px; max-width: none; margin-top: clamp(24px, 2.6vw, 34px); }
   .heroCta .btn { width: auto; }
 }
+
+/* ---------- product screenshots ---------- */
+/* A screenshot of the demo on the page's one surface level: a hairline and a radius, no shadow or chrome.
+   Light and dark pictures follow the page: the system's scheme, or the visitor's pinned choice. */
+.shot { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); min-width: 0; }
+.shot img { width: 100%; height: auto; }
+.shotDark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .root:not([data-theme="light"]) .shotLight { display: none; }
+  .root:not([data-theme="light"]) .shotDark { display: block; }
+}
+.root[data-theme="dark"] .shotLight { display: none; }
+.root[data-theme="dark"] .shotDark { display: block; }
+
+/* Today, right under the hero's links: the product is in the first view on a desktop and on a phone. */
+.showcase { margin-top: 32px; }
+@media (min-width: 600px) { .showcase { margin: clamp(40px, 4vw, 56px) auto 0; max-width: 1120px; } }
 
 /* ---------- section scaffolding ---------- */
 .root section { position: relative; }
@@ -213,6 +223,7 @@
 /* The phone call: a short closing beat on its own band. */
 .mCall { margin-top: 64px; padding: 48px 0 var(--sec); background: var(--surface); border-top: 1px solid var(--line); }
 .mCall .momentText h3 { font-size: 30px; }
+.callShot { max-width: 576px; }
 
 @media (min-width: 600px) {
   .moment { padding-top: 80px; }
