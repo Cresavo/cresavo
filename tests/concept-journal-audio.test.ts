@@ -4,7 +4,8 @@ import { runTask } from "@/concept/ai/run-task";
 import { clipTranscript } from "@/concept/journals/clip-transcript";
 import { claim, waitToStart } from "@/concept/studio/customers/in-flight";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
-import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
+import { MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
+import { elapsedSeconds, liveRecordingDuration, reachedAudioLimit } from "@/concept/journals/audio-limit";
 import { audioScope, beyondLimit, clearForgottenAudio, forgetCustomerAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
 
 // Journal audio in the concept demo: what a file is by its bytes, the size and
@@ -338,5 +339,20 @@ describe("in-flight guards", () => {
     release();
     expect(await first).toBe("ran");
     expect(began).toEqual(["busy"]);
+  });
+});
+
+describe("live recording time limit", () => {
+  const start = 1_000_000;
+
+  it("uses wall-clock time, stops at ten minutes, and refuses a late capture", () => {
+    expect(elapsedSeconds(start, start + 90_000)).toBe(90);
+    expect(reachedAudioLimit(start, start + MAX_AUDIO_SECONDS * 1000 - 1)).toBe(false);
+    expect(reachedAudioLimit(start, start + MAX_AUDIO_SECONDS * 1000)).toBe(true);
+    expect(liveRecordingDuration(start, start + 125_000)).toEqual({ ok: true, seconds: 125 });
+    expect(liveRecordingDuration(start, start + (MAX_AUDIO_SECONDS + 0.5) * 1000)).toEqual({ ok: true, seconds: MAX_AUDIO_SECONDS + 0.5 });
+    expect(liveRecordingDuration(start, start + (MAX_AUDIO_SECONDS + 1) * 1000)).toEqual({ ok: true, seconds: MAX_AUDIO_SECONDS + 1 });
+    expect(liveRecordingDuration(start, start + (MAX_AUDIO_SECONDS + 1.1) * 1000)).toEqual({ ok: false });
+    expect(liveRecordingDuration(start, start + 15 * 60 * 1000)).toEqual({ ok: false });
   });
 });

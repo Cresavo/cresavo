@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { AUDIO_TIMESLICE_MS, elapsedSeconds, liveRecordingDuration, reachedAudioLimit } from "../../journals/audio-limit";
 import { MAX_AUDIO_SECONDS, recorderMime } from "../../journals/audio-file";
 import { t } from "../../i18n";
 import { showToast } from "../../ui/toast";
@@ -37,6 +38,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   const live = useRef(true);
   const tick = useRef<ReturnType<typeof setInterval>>(undefined);
   const limit = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const onVisible = useRef<(() => void) | undefined>(undefined);
   const pendingStop = useRef<((id?: string) => void)[]>([]);
   const saving = useRef<Promise<string | undefined> | null>(null);
   const starting = useRef(false);
@@ -50,6 +52,10 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     clearTimeout(limit.current);
     tick.current = undefined;
     limit.current = undefined;
+    if (onVisible.current) {
+      document.removeEventListener("visibilitychange", onVisible.current);
+      onVisible.current = undefined;
+    }
   };
 
   const finishStop = (id?: string) => {
@@ -116,13 +122,23 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       return false;
     }
     const chunks: Blob[] = [];
-    const startedAt = performance.now();
-    tick.current = setInterval(() => setSeconds(Math.floor((performance.now() - startedAt) / 1000)), 1000);
-    limit.current = setTimeout(() => {
+    const startedAt = Date.now();
+    let hitLimit = false;
+    const atLimit = () => {
+      if (hitLimit) return;
+      hitLimit = true;
       showToast(t("journal.audio.autoStopped"));
       void stop();
-    }, MAX_AUDIO_SECONDS * 1000);
+    };
+    tick.current = setInterval(() => setSeconds(Math.floor(elapsedSeconds(startedAt))), 1000);
+    limit.current = setTimeout(() => { if (reachedAudioLimit(startedAt)) atLimit(); }, MAX_AUDIO_SECONDS * 1000);
+    onVisible.current = () => { if (reachedAudioLimit(startedAt)) atLimit(); };
+    document.addEventListener("visibilitychange", onVisible.current);
     next.ondataavailable = (event) => {
+      if (reachedAudioLimit(startedAt)) {
+        atLimit();
+        return;
+      }
       if (event.data.size) chunks.push(event.data);
     };
     next.onstop = () => {
@@ -131,11 +147,12 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       recorder.current = null;
       setRecording(false);
       const audio = new Blob(chunks, { type: next.mimeType || mimeType || chunks[0]?.type || "" });
-      const length = Math.min((performance.now() - startedAt) / 1000, MAX_AUDIO_SECONDS);
+      const duration = liveRecordingDuration(startedAt);
+      if (!duration.ok && !hitLimit) showToast(t("journal.audio.autoStopped"));
       saving.current = (async () => {
         try {
           await handlers.current.onEnd?.();
-          const id = audio.size ? await handlers.current.onRecorded(audio, length) : undefined;
+          const id = audio.size && duration.ok ? await handlers.current.onRecorded(audio, duration.seconds) : undefined;
           finishStop(typeof id === "string" ? id : undefined);
           return typeof id === "string" ? id : undefined;
         } catch {
@@ -150,7 +167,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     setSeconds(0);
     setRecording(true);
     try {
-      next.start(1000);
+      next.start(AUDIO_TIMESLICE_MS);
     } catch {
       clearTimers();
       stream.getTracks().forEach((track) => track.stop());
