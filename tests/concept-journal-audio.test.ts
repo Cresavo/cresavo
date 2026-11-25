@@ -2,6 +2,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runTask } from "@/concept/ai/run-task";
 import { clipTranscript } from "@/concept/journals/clip-transcript";
+import { claim, waitToStart } from "@/concept/studio/customers/in-flight";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
 import { audioScope, beyondLimit, clearForgottenAudio, forgetCustomerAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
@@ -295,5 +296,47 @@ describe("clipTranscript", () => {
     expect(clipTranscript("  Noticed dry skin.  ", "")).toBe("Noticed dry skin.");
     expect(clipTranscript("Rewrote the note.", "Did the usual foot care.")).toBe("Rewrote the note.");
     expect(clipTranscript("   ", "Earlier text.")).toBeUndefined();
+  });
+});
+
+describe("in-flight guards", () => {
+  it("takes the start lock before waiting for a save, so a second start is refused", async () => {
+    const starting = { current: false };
+    let release!: () => void;
+    const saving = { current: new Promise<void>((resolve) => { release = resolve; }) };
+    const first = waitToStart(starting, saving);
+    const second = waitToStart(starting, saving);
+    expect(starting.current).toBe(true);
+    expect(await second).toBe(false);
+    release();
+    expect(await first).toBe(true);
+    expect(starting.current).toBe(true);
+  });
+
+  it("refuses a second exclusive run while the first is still awaiting", async () => {
+    const lock = { current: false };
+    const began: string[] = [];
+    let release!: () => void;
+    const firstWork = new Promise<void>((resolve) => { release = resolve; });
+    const first = (async () => {
+      if (!claim(lock)) return "skipped";
+      began.push("busy");
+      try {
+        await firstWork;
+        return "ran";
+      } finally {
+        lock.current = false;
+      }
+    })();
+    expect(began).toEqual(["busy"]);
+    const second = (async () => {
+      if (!claim(lock)) return "skipped";
+      began.push("again");
+      return "ran";
+    })();
+    expect(await second).toBe("skipped");
+    release();
+    expect(await first).toBe("ran");
+    expect(began).toEqual(["busy"]);
   });
 });

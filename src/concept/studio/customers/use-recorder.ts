@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { MAX_AUDIO_SECONDS, recorderMime } from "../../journals/audio-file";
 import { t } from "../../i18n";
 import { showToast } from "../../ui/toast";
+import { waitToStart } from "./in-flight";
 
 // Records the microphone with MediaRecorder for the journal. Stops by itself at
 // the ten-minute limit. Where MediaRecorder is missing, `supported` is false.
@@ -89,12 +90,11 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   }, []);
 
   const start = useCallback(async (): Promise<boolean> => {
-    if (starting.current || !canRecord()) return false;
+    if (!canRecord()) return false;
     const gen = startGen.current;
-    if (saving.current) await saving.current;
-    if (gen !== startGen.current || recorder.current || !live.current || !canRecord()) return false;
-    starting.current = true;
+    if (!(await waitToStart(starting, saving))) return false;
     try {
+    if (gen !== startGen.current || recorder.current || !live.current || !canRecord()) return false;
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });

@@ -24,6 +24,7 @@ import { useStudio } from "../use-studio";
 import { suggestedWeeks } from "../../customers/next-visit";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 import { formatClock, JournalRecordings, useRecordings } from "./journal-recordings";
+import { claim } from "./in-flight";
 import { useRecorder } from "./use-recorder";
 
 interface Structured {
@@ -58,6 +59,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   const [transcript, setTranscript] = useState("");
   const [fields, setFields] = useState<{ treatment: string; observations: string; advice: string; nextVisit: string; source: Source } | null>(null);
   const [busy, setBusy] = useState(false);
+  const structuring = useRef(false);
   const [booking, setBooking] = useState<NewBookingPreset | null>(null);
   const [current, setCurrent] = useState<Pick<JournalRecording, "id" | "source">>();
   const text = useRef(transcript);
@@ -117,24 +119,28 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   };
 
   const structure = async () => {
-    const recordedId = await recorder.stop();
-    await speech.stop();
-    const spoken = text.current.trim() || [transcript.trim(), speech.interim].filter(Boolean).join(" ");
-    if (spoken !== transcript) setTranscript(spoken);
+    if (!claim(structuring)) return;
     setBusy(true);
-    const recorded = recordedId ?? (current?.source === "recorded" ? current.id : undefined);
-    if (recorded) {
-      const clip = clipTranscript(spoken, clipStart.current);
-      if (clip) void keepTranscript(recorded, clip).catch(() => {});
-    } else if (current?.id && current.source === "uploaded") {
-      void keepTranscript(current.id, spoken).catch(() => {});
-    }
     try {
-      const { output, log } = await runAiTask<Structured>("structure-journal", { transcript: spoken }, !!state.industry);
-      setFields({ treatment: output.treatment, observations: output.observations, advice: output.recommendation, nextVisit: output.nextVisit, source: log.source });
-    } catch {
-      showToast(t("journal.structureFailed"));
+      const recordedId = await recorder.stop();
+      await speech.stop();
+      const spoken = text.current.trim() || [transcript.trim(), speech.interim].filter(Boolean).join(" ");
+      if (spoken !== transcript) setTranscript(spoken);
+      const recorded = recordedId ?? (current?.source === "recorded" ? current.id : undefined);
+      if (recorded) {
+        const clip = clipTranscript(spoken, clipStart.current);
+        if (clip) void keepTranscript(recorded, clip).catch(() => {});
+      } else if (current?.id && current.source === "uploaded") {
+        void keepTranscript(current.id, spoken).catch(() => {});
+      }
+      try {
+        const { output, log } = await runAiTask<Structured>("structure-journal", { transcript: spoken }, !!state.industry);
+        setFields({ treatment: output.treatment, observations: output.observations, advice: output.recommendation, nextVisit: output.nextVisit, source: log.source });
+      } catch {
+        showToast(t("journal.structureFailed"));
+      }
     } finally {
+      structuring.current = false;
       setBusy(false);
     }
   };
