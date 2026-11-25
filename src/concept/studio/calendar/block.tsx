@@ -58,6 +58,8 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         aria-disabled={!settled || undefined}
         className={cx(
           "h-full w-full !items-start overflow-hidden border-l-2 !text-minimum",
+          // The studio's button reset (`all: unset`) also turns off native dragging in Chromium.
+          settled && "[-webkit-user-drag:element]",
           compact ? "!px-1" : "!px-2",
           anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
           misfit && "ring-2 ring-danger",
