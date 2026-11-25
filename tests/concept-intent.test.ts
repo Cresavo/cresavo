@@ -60,6 +60,14 @@ describe("booking proposals", () => {
       expect(result.action).toBe("question");
       expect(result.params.staffId).toBeUndefined();
     });
+    it.each([
+      ["move Lisa to next week at 10:00", "2026-11-23", "10:00"],
+      ["Move Lisa to 24 December at 10", "2026-12-24", "10:00"],
+    ])("keeps a date-only destination: %s", (text, date, time) => {
+      const result = interpretCommand(text, context);
+      expect(result).toMatchObject({ action: "move", params: { bookingId: "lisa-friday", date, time } });
+      expect(result.params.staffId).toBeUndefined();
+    });
   });
   it("cancels and offers to the waiting list", () => expect(interpretCommand("Cancel 15:00 today and offer the slot to the waiting list", context)).toMatchObject({ action: "cancel", params: { bookingId: "today", offerWaitingList: true } }));
   it("cancels without waiting list", () => expect(interpretCommand("Cancel Erik today", context)).toMatchObject({ action: "cancel", params: { offerWaitingList: false } }));

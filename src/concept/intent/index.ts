@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { translate } from "../i18n";
-import { clock, dateRange, parseDate, parseTime } from "./dates";
+import { clock, dateRange, months, parseDate, parseTime } from "./dates";
 import { matchNames } from "./match";
 import { normalizeSwedishCommand } from "./swedish";
 import { interpretSchedule } from "./schedule";
@@ -135,12 +135,15 @@ function withText(text: string): string | undefined {
 
 /** Words in the move target that are not the day, the time or a "with" phrase. */
 function scheduleLeftover(text: string): string | undefined {
+  const monthWords = [...months, ...months.map((name) => name.slice(0, 3))].join("|");
   const leftover = text
     .replace(/\bwith\s+.+?(?=\bon\b|\bat\b|\btomorrow\b|\btoday\b|\bnext\b|$)/gi, " ")
-    .replace(/\b(?:on|at|today|tomorrow|tonight|next|this|last|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|after work)\b/gi, " ")
+    .replace(/\bchristmas eve\b/gi, " ")
+    .replace(new RegExp(`\\b(?:on|at|today|tomorrow|tonight|yesterday|next|this|last|past|previous|coming|of|monday|tuesday|wednesday|thursday|friday|saturday|sunday|${monthWords}|week|month|year|morning|afternoon|after work)\\b`, "gi"), " ")
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
     .replace(/\b(?:[01]?\d|2[0-3])(?::[0-5]\d)?\s*(?:am|pm)?\b/gi, " ")
     .replace(/\b(?:[1-9]|1[0-2])\s*(?:am|pm)\b/gi, " ")
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)?\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return leftover || undefined;
