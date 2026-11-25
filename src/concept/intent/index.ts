@@ -89,8 +89,9 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
   else if (halves.length > 1) {
     // "…to Friday 10 with Erik", or just "…to Erik": the same time with another person.
     const explicit = withText(target);
-    const destination = staffNamed(explicit ?? (!parseDate(target, context) && !parseTime(target) ? target : undefined), context);
-    if (destination === null && explicit) return question("command.question.staff");
+    const leftover = scheduleLeftover(target);
+    const destination = staffNamed(explicit ?? leftover ?? (!parseDate(target, context) && !parseTime(target) ? target : undefined), context);
+    if (destination === null && (explicit || leftover || (!parseDate(target, context) && !parseTime(target)))) return question("command.question.staff");
     if (destination) params.staffId = destination;
   }
   params.date = parseDate(target, context) ?? (action === "move" ? parseDate(halves[0], context) : undefined);
@@ -130,6 +131,19 @@ export function interpretCommand(input: string, context: IntentContext): IntentR
 /** The words after "with" up to the day or time. */
 function withText(text: string): string | undefined {
   return text.match(/\bwith\s+(.+?)(?:\bon\b|\bat\b|\btomorrow\b|\btoday\b|\bnext\b|$)/)?.[1];
+}
+
+/** Words in the move target that are not the day, the time or a "with" phrase. */
+function scheduleLeftover(text: string): string | undefined {
+  const leftover = text
+    .replace(/\bwith\s+.+?(?=\bon\b|\bat\b|\btomorrow\b|\btoday\b|\bnext\b|$)/gi, " ")
+    .replace(/\b(?:on|at|today|tomorrow|tonight|next|this|last|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|after work)\b/gi, " ")
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
+    .replace(/\b(?:[01]?\d|2[0-3])(?::[0-5]\d)?\s*(?:am|pm)?\b/gi, " ")
+    .replace(/\b(?:[1-9]|1[0-2])\s*(?:am|pm)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return leftover || undefined;
 }
 
 /** The one staff member the words name; null when they name none or several. */

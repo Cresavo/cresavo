@@ -55,6 +55,11 @@ describe("booking proposals", () => {
       expect(result.params.staffId).toBeUndefined();
     });
     it("asks when the new person is unknown", () => expect(interpretCommand("Move Lisa to Friday 10 with Nobody", context).action).toBe("question"));
+    it.each(["Move Lisa to Nobody", "Move Lisa to Friday 10 Nobody"])("asks when the new person is unnamed or leftover: %s", (text) => {
+      const result = interpretCommand(text, context);
+      expect(result.action).toBe("question");
+      expect(result.params.staffId).toBeUndefined();
+    });
   });
   it("cancels and offers to the waiting list", () => expect(interpretCommand("Cancel 15:00 today and offer the slot to the waiting list", context)).toMatchObject({ action: "cancel", params: { bookingId: "today", offerWaitingList: true } }));
   it("cancels without waiting list", () => expect(interpretCommand("Cancel Erik today", context)).toMatchObject({ action: "cancel", params: { offerWaitingList: false } }));

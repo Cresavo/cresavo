@@ -51,7 +51,10 @@ function quotesJournal(text: string, state: SpeechState): boolean {
 export function safeSpeech(text: string, state: SpeechState): string | null {
   const plain = text.replace(/\s+/g, " ").trim();
   if (!plain) return null;
-  // A treatment's name ("Medical foot care", "Ingrown nail treatment") is the salon's menu, not anyone's health.
+  // A treatment's name is the salon's menu, not anyone's health or journal: it is
+  // taken out before those checks so "Medical foot care tomorrow" can be read even
+  // if a journal entry happens to use the same words. Any leftover journal wording
+  // after the menu name is removed still stays off the spoken line.
   const withoutServices = state.services.reduce((out, service) => out.replace(word(service.name), " "), plain);
   if (sensitiveKind(withoutServices, state) || quotesJournal(withoutServices, state)) return t("assistant.voice.onScreen");
   let named = 0;

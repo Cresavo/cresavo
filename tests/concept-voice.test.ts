@@ -402,6 +402,8 @@ describe("what is read aloud", () => {
   it("reads a treatment's name, which is the salon's menu and not anyone's health", () => {
     const medical = state.services.find((s) => /medical|ingrown/i.test(s.name))!;
     expect(safeSpeech(`${medical.name} tomorrow at 10:00.`, state)).toBe(`${medical.name} tomorrow at 10:00.`);
+    const withSameWords = { ...state, journals: [{ ...journal, treatment: medical.name, observations: "", advice: "", nextVisit: "" }] };
+    expect(safeSpeech(`${medical.name} tomorrow at 10:00.`, withSameWords)).toBe(`${medical.name} tomorrow at 10:00.`);
   });
 
   it("does not read out a list of many customers", () => {
