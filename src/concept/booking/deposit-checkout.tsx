@@ -9,6 +9,7 @@ import { formatDayLong, formatTime } from "../i18n/format";
 import { salonClock } from "../tools/clock";
 import { Button } from "../ui/button";
 import { Input } from "../ui/controls";
+import { StatusDot } from "../ui/feedback";
 import { useCommit } from "../ui/use-commit";
 import { showActionFailure } from "../ui/toast";
 import { type CheckoutHold, type DemoMethod } from "./protection";
@@ -103,7 +104,7 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
             <Button disabled={pending} loading={paying} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
             <Button variant="tertiary" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
           </div>
-          <p role="status" className="min-h-[1lh] text-meta text-text-secondary">{paying && t("pay.confirming")}</p>
+          <p role="status" className="flex min-h-[1lh] items-center gap-2 text-meta text-text-secondary">{paying && <><StatusDot kind="progress" />{t("pay.confirming")}</>}</p>
         </div>
       </div>
     </div>

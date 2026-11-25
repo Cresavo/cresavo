@@ -14,6 +14,7 @@ import { useServerSalon } from "../server-salon";
 import { openBookingWorkspace, usePublicDemo, useWorkspaceSlug } from "../store";
 import { ButtonLink } from "../ui/button";
 import { Select } from "../ui/controls";
+import { Bone, SkeletonGroup, SkeletonText } from "../ui/feedback";
 import { pinThemeColor } from "../ui/theme";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
@@ -58,6 +59,29 @@ export function BookShell({ children, visitorLanguage }: { children: ReactNode; 
   );
 }
 
+/** While the salon loads: its name, a sentence and the treatment rows with their Book buttons, as quiet blocks. */
+function PageSkeleton() {
+  return (
+    <SkeletonGroup className="max-w-3xl space-y-6 py-4">
+      <div aria-hidden="true" className="space-y-3">
+        <Bone className="h-8 w-2/3" />
+        <SkeletonText lines={2} />
+      </div>
+      <div aria-hidden="true" className="divide-y divide-hairline">
+        {Array.from({ length: 4 }, (_, row) => (
+          <div key={row} className="flex min-h-16 items-center gap-4 py-3">
+            <span className="min-w-0 flex-1 space-y-2">
+              <Bone className="h-4 w-1/2" />
+              <Bone className="h-3 w-1/3" />
+            </span>
+            <Bone className="h-10 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
+  );
+}
+
 function Frame({ children, slug, widget, switchLanguage }: {
   children: ReactNode;
   slug: string;
@@ -73,7 +97,7 @@ function Frame({ children, slug, widget, switchLanguage }: {
   useTenantIcon(known && page.theme.logo !== brokenLogo ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
-  if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
+  if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <PageSkeleton />}</main><Toaster /></PageRoot>;
   const logo = page.theme.logo && page.theme.logo !== brokenLogo ? page.theme.logo : null;
   return (
     <PageRoot page={page} className="flex min-h-dvh flex-col">
@@ -117,7 +141,7 @@ function Frame({ children, slug, widget, switchLanguage }: {
         </div>
       </header>
       <main className="booking-gutters mx-auto w-full max-w-5xl flex-1 pb-8 pt-5 lg:pt-8">
-        {state ? children : <p role="status" className="py-12 text-center text-text-secondary">{t("booking.loading")}</p>}
+        {state ? children : <PageSkeleton />}
       </main>
       <footer className="booking-gutters booking-safe-bottom border-t border-hairline py-4 text-center text-meta text-text-secondary print:hidden">
         {!fromServer && (

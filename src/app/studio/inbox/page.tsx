@@ -132,7 +132,10 @@ function InboxPageContent() {
             ))}
           </Card>
         ) : (
-          <EmptyState icon={<InboxIcon size={22} />} title={t("inbox.empty")} />
+          <EmptyState icon={<InboxIcon size={22} />} title={t("inbox.empty")}
+            action={filter !== "all" && inbox.length > 0 && (
+              <Button variant="secondary" onClick={() => router.replace("/studio/inbox", { scroll: false })}>{t("inbox.showAll")}</Button>
+            )} />
         )}
         <div className="hidden lg:block">
           {selected ? (

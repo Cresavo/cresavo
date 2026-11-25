@@ -46,6 +46,23 @@
   --studio-nav-selected-text: #fff;
 }
 .studio-nav-link:hover { background: var(--studio-nav-hover); }
+
+/* The phone tab bar's one selection mark. It sits behind the icon of the open tab and slides to the next one, so
+   switching reads as one move; with reduced motion it jumps. The icon's ink changes with it, at the same pace. */
+.studio-tab-indicator {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+  width: calc(100% / var(--tab-count));
+  transform: translateX(calc(var(--tab-index) * 100%));
+  transition: transform var(--dur-2) var(--ease-out);
+  pointer-events: none;
+}
+.studio-tab-icon { transition: color var(--dur-2) var(--ease-out); }
+@media (max-width: 299.98px) { .studio-tab-indicator { align-items: center; padding-top: 0; } }
 .studio-nav-link.studio-nav-active { background: var(--studio-nav-selected); color: var(--studio-nav-selected-text); }
 
 body:has(.studio-root) {

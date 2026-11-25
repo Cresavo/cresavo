@@ -13,6 +13,7 @@ import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { EmptyState } from "../../ui/empty-state";
+import { SkeletonCard, SkeletonGroup } from "../../ui/feedback";
 import { useStudio } from "../use-studio";
 
 /** Which AI task runs on which model, and what calls have cost since the server started. */
@@ -40,7 +41,7 @@ export function AiSection() {
     };
     return <EmptyState icon={<CircleAlert size={22} />} title={t("ai.unavailable")} action={<Button size="sm" variant="secondary" onClick={retry}>{t("ai.retry")}</Button>} />;
   }
-  if (!overview) return <Card className="h-40 animate-pulse bg-surface-2" aria-busy />;
+  if (!overview) return <SkeletonGroup className="grid grid-cols-1 gap-4 lg:grid-cols-2"><SkeletonCard lines={4} /><SkeletonCard lines={3} /></SkeletonGroup>;
   const { tasks, costLog, totals } = overview;
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -5,6 +5,7 @@ import { QrCode } from "../../account/two-step/qr-code";
 import type { RegisterMethod } from "../../connections/ports/register";
 import { getActiveLocale, locale, t, type MessageKey } from "../../i18n";
 import { Button } from "../../ui/button";
+import { StatusDot } from "../../ui/feedback";
 import { Notice } from "../../ui/notice";
 
 type PhoneMethod = Exclude<RegisterMethod, "cash">;
@@ -148,7 +149,7 @@ export function PhonePayPanel({ paymentId, business, workspace, amountMinor, amo
         {request ? (
           <>
             <QrCode value={url} label={t("register.phoneQr")} size="lg" />
-            <p role="status" className="ui-breathe text-center text-meta text-text-secondary">{t("register.phoneWaiting", { time: until })}</p>
+            <p role="status" className="text-center text-meta text-text-secondary"><StatusDot className="mr-2 align-middle" />{t("register.phoneWaiting", { time: until })}</p>
             <a href={url} target="_blank" rel="noreferrer" className="max-w-full text-meta text-text-secondary underline underline-offset-2 hover:text-text">
               {t("register.phoneOpen")}
             </a>

@@ -82,7 +82,8 @@ export function ActivityList() {
           </ul>
         </Card>
       ) : (
-        <EmptyState icon={<History size={22} />} title={t("log.noMatch")} />
+        <EmptyState icon={<History size={22} />} title={t("log.noMatch")}
+          action={<Button variant="secondary" onClick={() => setFilter({})}>{t("log.showAll")}</Button>} />
       )}
     </div>
   );

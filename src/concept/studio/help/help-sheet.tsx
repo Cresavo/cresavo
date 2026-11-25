@@ -13,6 +13,7 @@ import { HISTORY_PAGE } from "../nav";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { TextInput } from "../../ui/controls";
+import { StatusDot } from "../../ui/feedback";
 import { Sheet } from "../../ui/sheet";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
@@ -124,7 +125,7 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
           </div>
         )}
 
-        {view.kind === "loading" && <p className="animate-pulse text-sm text-text-secondary">{t("help.looking")}</p>}
+        {view.kind === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-text-secondary"><StatusDot />{t("help.looking")}</p>}
 
         {view.kind === "failed" && <p className="rounded-md bg-warning-bg p-3 text-sm text-text">{t("help.failed")}</p>}
 
