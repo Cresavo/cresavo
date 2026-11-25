@@ -137,6 +137,7 @@ Security
       | `concept/ai/[task]` | provider calls need the server bearer token and same origin, then 8 per min per address and 200 per day per instance (process); the rules fallback costs no money | address; instance | paid AI calls |
       | `concept/ai` PUT/DELETE, `concept/proposals` DELETE, `concept/proposals/[id]` POST | 30 per min (process), added 2026-11-22 | address | disk and demo-state writes |
       | `concept/poster` | 120 per min (process) | address | CPU |
+      | `concept/register/pay-requests` POST, `.../[token]/pay` POST, `.../[token]` GET | 30 per 15 min to create, 30 per 15 min to pay, 1200 per 15 min to poll (process); same origin; open on the read-only demo. A request is a signed token (amount, currency, methods, sample business, ten-minute expiry, no customer data); only its paid mark is kept, in process memory, at most 5000. Instances do not share the marks: the register keeps polling, so it sees a payment when a poll reaches the instance that took it, and tokens are accepted across instances only when `SESSION_SECRET` is set | address | memory, fake payments |
       | `concept/mcp` | 120 per min after the bearer check (process) | token hash | demo tool calls |
       | `concept/a2a` | 300 per min (process) | one shared key | read-only calls |
       | `waitlist` | 5 per 10 min (process); also limit it in the firewall when a real provider is set | address | waiting-list writes |
