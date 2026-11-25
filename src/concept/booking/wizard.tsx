@@ -39,8 +39,9 @@ function Progress({ step }: { step: Step }) {
     <ol className="flex flex-wrap items-center gap-2 text-meta" aria-label={t("booking.progress")}>
       {PROGRESS_LABELS.map((label, index) => (
         <li key={label} aria-current={index === current ? "step" : undefined} className={cx("flex items-center gap-2", index === current ? "font-semibold text-text" : "text-text-secondary")}>
-          <span className={cx("flex size-5 items-center justify-center rounded-full text-meta", index < current ? "bg-action text-on-action" : index === current ? "bg-text text-bg" : "bg-surface-2")}>
-            {index < current ? <Check size={12} /> : index + 1}
+          <span aria-hidden className={cx("flex size-5 shrink-0 items-center justify-center rounded-full transition-colors duration-[var(--dur-2)]",
+            index < current ? "bg-action text-on-action" : index === current ? "ring-2 ring-inset ring-text" : "ring-1 ring-inset ring-border")}>
+            {index < current ? <Check size={12} /> : index === current && <span className="size-2 rounded-full bg-text" />}
           </span>
           {t(label)}
           {index < PROGRESS_LABELS.length - 1 && <span className="mx-1 h-px w-4 bg-border" />}

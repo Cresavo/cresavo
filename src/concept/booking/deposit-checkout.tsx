@@ -56,6 +56,7 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
 }) {
   const [method, setMethod] = useState<DemoMethod>("card");
   const [run, pending] = useCommit();
+  const [paying, setPaying] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
@@ -66,7 +67,9 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
     return () => window.clearTimeout(timer);
   }, [hold, target]);
   const pay = () => run(async () => {
+    setPaying(true);
     const paid = await commitHold(target, { type: "online/pay", id: hold.id, method });
+    setPaying(false);
     // The saved state is this payment's: its newest booking is the one the hold became.
     const booked = paid?.state.bookings.at(-1);
     if (booked) onPaid(booked);
@@ -95,9 +98,12 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
               </label>)}
           </div>
         </fieldset>
-        <div className="flex flex-wrap gap-2">
-          <Button disabled={pending} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
-          <Button variant="tertiary" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={pending} loading={paying} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
+            <Button variant="tertiary" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
+          </div>
+          <p role="status" className="min-h-[1lh] text-meta text-text-secondary">{paying && t("pay.confirming")}</p>
         </div>
       </div>
     </div>

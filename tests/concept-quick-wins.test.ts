@@ -61,6 +61,22 @@ function elements(tree: ReactNode): ReactElement<{ children?: ReactNode }>[] {
   );
 }
 
+/** Text of our own static markup. A tag parser, not a one-pass regex replace (CodeQL). */
+function textFromMarkup(markup: string) {
+  let text = "";
+  let i = 0;
+  while (i < markup.length) {
+    const open = markup.indexOf("<", i);
+    if (open === -1) return text + markup.slice(i);
+    text += markup.slice(i, open);
+    const close = markup.indexOf(">", open + 1);
+    if (close === -1) return text;
+    i = close + 1;
+  }
+  return text;
+}
+
+
 function propsOf<P>(tree: ReactNode, component: (props: P) => ReactNode): P[] {
   return elements(tree).filter(node => node.type === component).map(node => node.props as P);
 }
@@ -106,7 +122,7 @@ it("retains the list price and qualifies salon payment when prepaid visits are a
   const price = formatMoney(booking.price, "EUR", "en");
   const withPackages = BookingSummary({ ...summary, packagesEnabled: true });
   const withoutPackages = BookingSummary({ ...summary, packagesEnabled: false });
-  const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => node.props.children);
+  const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => textFromMarkup(renderToStaticMarkup(node)));
   expect(amounts(withPackages)).toEqual([price, formatMoney(0, "EUR", "en"), price]);
   const deposit = BookingSummary({ ...summary, terms: { ...summary.terms, depositMinor: 12345 }, packagesEnabled: true });
   expect(amounts(deposit)).toEqual([price, formatMinor(12345, "EUR"), formatMinor(summary.terms.priceMinor - 12345, "EUR")]);

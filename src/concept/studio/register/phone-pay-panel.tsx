@@ -141,16 +141,16 @@ export function PhonePayPanel({ paymentId, business, workspace, amountMinor, amo
   const url = request ? `${window.location.origin}/betala/demo/${request.token}?lang=${getActiveLocale()}` : "";
   const until = request ? new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(request.expiresAt) : "";
   return (
-    <section className="space-y-3 border-t border-hairline pt-4">
+    <section className="ui-arrive space-y-3 border-t border-hairline pt-4">
       <h3 className="text-body font-semibold">{t("register.phoneTitle")}</h3>
       <p className="text-text-secondary">{t("register.phoneScan", { amount })}</p>
       <div className="flex min-h-64 flex-col items-center justify-center gap-3">
         {request ? (
           <>
             <QrCode value={url} label={t("register.phoneQr")} size="lg" />
-            <p role="status" className="text-center text-meta text-text-secondary">{t("register.phoneWaiting", { time: until })}</p>
-            <a href={url} target="_blank" rel="noreferrer" className="block max-w-full truncate text-meta text-text-secondary underline underline-offset-2 hover:text-text">
-              {url.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}
+            <p role="status" className="ui-breathe text-center text-meta text-text-secondary">{t("register.phoneWaiting", { time: until })}</p>
+            <a href={url} target="_blank" rel="noreferrer" className="max-w-full text-meta text-text-secondary underline underline-offset-2 hover:text-text">
+              {t("register.phoneOpen")}
             </a>
           </>
         ) : (
