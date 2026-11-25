@@ -246,6 +246,7 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 }
 /* A short menu or panel grows out of the button that opened it and folds back the same way. */
 .ui-pop {
+  min-width: min(14rem, calc(100vw - 2 * var(--space-4)));
   max-width: calc(100vw - 2 * var(--space-4));
   transform-origin: top right;
   animation: ui-pop var(--dur-2) var(--ease-out) both;

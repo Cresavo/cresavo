@@ -99,6 +99,8 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
     const wrap = wrapRef.current;
     if (!open || !present || !panel || !button || !wrap) return;
     const place = () => {
+      panel.style.height = "auto";
+      panel.style.width = "auto";
       const box = button.getBoundingClientRect();
       const wrapBox = wrap.getBoundingClientRect();
       const horiz = popoverPlacement(align, box, panel.offsetWidth, window.innerWidth);
@@ -195,7 +197,7 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
           data-stack={stack}
           data-closing={!open || undefined}
           inert={!open}
-          className={cx("ui-pop absolute left-0 z-popover overflow-y-auto outline-none min-w-56 rounded-lg border border-hairline bg-surface text-text shadow-raised", kind === "menu" ? "py-1" : "p-4")}
+          className={cx("ui-pop absolute left-0 z-popover overflow-y-auto outline-none rounded-lg border border-hairline bg-surface text-text shadow-raised", kind === "menu" ? "py-1" : "p-4")}
           onKeyDown={kind === "menu" ? moveInMenu : undefined}
           onClick={event => chosen(event, close)}
         >

@@ -26,6 +26,7 @@ describe("popover and action menu", () => {
   });
 
   it("grow from the trigger's side and fold back, with only a fade under reduced motion", () => {
+    expect(theme).toMatch(/\.ui-pop \{[^}]*min-width: min\(14rem, calc\(100vw - 2 \* var\(--space-4\)\)\);/);
     expect(theme).toMatch(/\.ui-pop \{[^}]*transform-origin: top right/);
     expect(theme).toMatch(/\.ui-pop\[data-side="start"\] \{ transform-origin: top left; \}/);
     expect(theme).toMatch(/\.ui-pop\[data-closing\] \{ animation: ui-pop-leave var\(--dur-1\) var\(--ease-in\)/);
