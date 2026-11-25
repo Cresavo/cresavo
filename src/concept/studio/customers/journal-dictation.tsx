@@ -120,9 +120,10 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
     const spoken = text.current.trim() || [transcript.trim(), speech.interim].filter(Boolean).join(" ");
     if (spoken !== transcript) setTranscript(spoken);
     setBusy(true);
-    if (recordedId) {
+    const recorded = recordedId ?? (current?.source === "recorded" ? current.id : undefined);
+    if (recorded) {
       const clip = clipTranscript(spoken, clipStart.current);
-      if (clip) void keepTranscript(recordedId, clip).catch(() => {});
+      if (clip) void keepTranscript(recorded, clip).catch(() => {});
     } else if (current?.id && current.source === "uploaded") {
       void keepTranscript(current.id, spoken).catch(() => {});
     }
