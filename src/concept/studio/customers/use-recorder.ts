@@ -39,6 +39,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   const pendingStop = useRef<((id?: string) => void)[]>([]);
   const saving = useRef<Promise<string | undefined> | null>(null);
   const starting = useRef(false);
+  const startGen = useRef(0);
   useEffect(() => {
     handlers.current = { onRecorded, onEnd };
   });
@@ -57,6 +58,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   };
 
   const stop = useCallback(() => new Promise<string | undefined>((resolve) => {
+    startGen.current += 1;
     if (recorder.current?.state === "recording") {
       pendingStop.current.push(resolve);
       recorder.current.stop();
@@ -74,6 +76,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     live.current = true;
     return () => {
       live.current = false;
+      startGen.current += 1;
       clearTimers();
       finishStop();
       const current = recorder.current;
@@ -87,8 +90,9 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
 
   const start = useCallback(async (): Promise<boolean> => {
     if (starting.current || !canRecord()) return false;
+    const gen = startGen.current;
     if (saving.current) await saving.current;
-    if (recorder.current || !live.current || !canRecord()) return false;
+    if (gen !== startGen.current || recorder.current || !live.current || !canRecord()) return false;
     starting.current = true;
     try {
     let stream: MediaStream;
@@ -98,7 +102,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       showToast(microphoneProblem(error));
       return false;
     }
-    if (!live.current) {
+    if (!live.current || gen !== startGen.current) {
       stream.getTracks().forEach((track) => track.stop());
       return false;
     }
