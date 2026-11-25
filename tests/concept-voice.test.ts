@@ -6,6 +6,7 @@ import { buildIntentContext } from "@/concept/command/intent-context";
 import { formatTime } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { CONVERSATION_SILENCE_MS, createConversation, type ConversationPorts, type ConversationState } from "@/concept/studio/assistant/conversation";
+import { holdListenRequest } from "@/concept/studio/assistant/talk-controls";
 import { safeSpeech, spokenReply } from "@/concept/studio/assistant/spoken-text";
 import { setLocale } from "@/concept/i18n";
 import { fullName } from "@/concept/selectors";
@@ -68,6 +69,15 @@ describe("Labs switch", () => {
     expect(reloaded.labFlag("voiceAssistant")).toBe(true);
     reloaded.setLabFlag("voiceAssistant", false);
     expect(reloaded.labFlag("voiceAssistant")).toBe(false);
+  });
+});
+
+describe("header microphone while the conversation chunk loads", () => {
+  it("leaves the listen request pending until VoiceSession is ready, and does not hold it otherwise", () => {
+    expect(holdListenRequest(true, false)).toBe(true);
+    expect(holdListenRequest(true, true)).toBe(false);
+    expect(holdListenRequest(false, false)).toBe(false);
+    expect(holdListenRequest(false, true)).toBe(false);
   });
 });
 

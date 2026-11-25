@@ -20,7 +20,7 @@ import { useAssistant } from "./use-assistant";
 import { undoBlockMessageKey } from "../log/undo-toast";
 import { useStudio } from "../use-studio";
 import { ConversationBar } from "./conversation-bar";
-import { INACTIVE_TALK, type TalkControls } from "./talk-controls";
+import { holdListenRequest, INACTIVE_TALK, type TalkControls } from "./talk-controls";
 
 const VoiceSession = lazy(() => import("./voice-session"));
 
@@ -103,12 +103,17 @@ function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof us
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const labOn = useLabFlag("voiceAssistant");
   // The header microphone can ask to listen after the panel is already open.
   useEffect(() => {
-    if (!thread.listen || !takeListen()) return;
+    if (!thread.listen) return;
+    // The Suspense fallback still uses inactive talk: leave the request pending
+    // and do not start the one-phrase microphone until VoiceSession is ready.
+    if (holdListenRequest(labOn, talk.enabled)) return;
+    if (!takeListen()) return;
     if (talk.enabled) talk.start();
     else startListening();
-  }, [thread.listen, talk.enabled, talk.start, startListening]);
+  }, [thread.listen, labOn, talk.enabled, talk.start, startListening]);
 
   useEffect(() => {
     if (thread.messages.length) end.current?.scrollIntoView({ block: "end" });

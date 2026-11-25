@@ -35,3 +35,8 @@ export const INACTIVE_TALK: TalkControls = {
   setMuted: noop,
   close: noop,
 };
+
+/** True while the Labs switch is on but the conversation chunk has not yet enabled talking. */
+export function holdListenRequest(labOn: boolean, talkEnabled: boolean): boolean {
+  return labOn && !talkEnabled;
+}
