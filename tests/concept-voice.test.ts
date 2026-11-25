@@ -106,10 +106,9 @@ describe("recognition on the device", () => {
     stubWindow({ SpeechRecognition: Local });
     const speech = await import("@/concept/command/use-speech");
     expect(speech.createRecognition({ lang: "sv", continuous: false })!.onDevice).toBe(false);
-    await expect(speech.probeLocalSpeech("sv")).resolves.toBe("available");
-    const created = speech.createRecognition({ lang: "sv", continuous: false })!;
-    expect(created.onDevice).toBe(true);
-    expect(created.recognition.processLocally).toBe(true);
+    const first = await speech.prepareRecognition({ lang: "sv", continuous: false });
+    expect(first!.onDevice).toBe(true);
+    expect(first!.recognition.processLocally).toBe(true);
   });
 
   it("leaves recognition as it is when the language pack is only downloadable", async () => {

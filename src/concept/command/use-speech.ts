@@ -99,6 +99,16 @@ export function usesLocalSpeech(lang: string): boolean {
   return localSpeechStatus(lang) === "available";
 }
 
+/**
+ * A recogniser for one listening turn, after asking whether this language is
+ * already available on the device. The first utterance can then stay on the
+ * device when the pack is already there. Does not download a pack.
+ */
+export async function prepareRecognition(options: { lang: string; continuous: boolean }): Promise<{ recognition: Recognition; onDevice: boolean } | null> {
+  if (recognisesOnDevice() && localSpeechStatus(options.lang) === null) await probeLocalSpeech(options.lang);
+  return createRecognition(options);
+}
+
 /** A recogniser set up for one listening turn, or null where the browser has none. */
 export function createRecognition(options: { lang: string; continuous: boolean }): { recognition: Recognition; onDevice: boolean } | null {
   const Recognizer = recognitionConstructor();
@@ -141,62 +151,72 @@ export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietS
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const recognition = useRef<Recognition | null>(null);
+  const starting = useRef(0);
   const handlers = useRef({ onText, onEnd, onInterim });
   useEffect(() => {
     handlers.current = { onText, onEnd, onInterim };
   });
-  useEffect(() => () => recognition.current?.abort(), []);
+  useEffect(() => () => {
+    starting.current++;
+    recognition.current?.abort();
+  }, []);
 
   const stop = useCallback(() => recognition.current?.stop(), []);
-  const abort = useCallback(() => recognition.current?.abort(), []);
+  const abort = useCallback(() => {
+    starting.current++;
+    recognition.current?.abort();
+  }, []);
 
   const start = useCallback(() => {
     if (recognition.current) return;
-    const created = createRecognition({ lang: locale, continuous });
-    if (!created) return;
-    const next = created.recognition;
-    let heard = false;
-    let failure: string | undefined;
-    next.onresult = (event) => {
-      let finished = "";
-      let partial = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) finished += result[0].transcript;
-        else partial += result[0].transcript;
+    const mine = ++starting.current;
+    void (async () => {
+      const created = await prepareRecognition({ lang: locale, continuous });
+      if (starting.current !== mine || recognition.current) return;
+      if (!created) return;
+      const next = created.recognition;
+      let heard = false;
+      let failure: string | undefined;
+      next.onresult = (event) => {
+        let finished = "";
+        let partial = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) finished += result[0].transcript;
+          else partial += result[0].transcript;
+        }
+        setInterim(partial);
+        if (partial.trim()) handlers.current.onInterim?.(partial.trim());
+        if (finished.trim()) {
+          heard = true;
+          handlers.current.onText(finished.trim());
+        }
+      };
+      next.onerror = ({ error }) => {
+        failure = error;
+        if (error === "not-allowed" || error === "service-not-allowed") showToast(t("voice.blocked"));
+        else if (error === "language-not-supported" && created.onDevice) showToast(t("voice.notOnDevice"));
+        else if (error === "no-speech") {
+          if (!quietSilence) showToast(t("voice.noSpeech"));
+        } else if (error !== "aborted") showToast(t("voice.failed"));
+      };
+      next.onend = () => {
+        if (recognition.current === next) recognition.current = null;
+        setListening(false);
+        setInterim("");
+        handlers.current.onEnd?.({ heard, error: failure });
+      };
+      recognition.current = next;
+      setListening(true);
+      try {
+        next.start();
+      } catch {
+        // Already listening elsewhere or blocked: the turn ends at once.
+        recognition.current = null;
+        setListening(false);
+        handlers.current.onEnd?.({ heard: false, error: "failed" });
       }
-      setInterim(partial);
-      if (partial.trim()) handlers.current.onInterim?.(partial.trim());
-      if (finished.trim()) {
-        heard = true;
-        handlers.current.onText(finished.trim());
-      }
-    };
-    next.onerror = ({ error }) => {
-      failure = error;
-      if (error === "not-allowed" || error === "service-not-allowed") showToast(t("voice.blocked"));
-      else if (error === "language-not-supported" && created.onDevice) showToast(t("voice.notOnDevice"));
-      else if (error === "no-speech") {
-        if (!quietSilence) showToast(t("voice.noSpeech"));
-      } else if (error !== "aborted") showToast(t("voice.failed"));
-    };
-    next.onend = () => {
-      if (recognition.current === next) recognition.current = null;
-      setListening(false);
-      setInterim("");
-      handlers.current.onEnd?.({ heard, error: failure });
-    };
-    recognition.current = next;
-    setListening(true);
-    if (recognisesOnDevice() && localSpeechStatus(locale) === null) void probeLocalSpeech(locale);
-    try {
-      next.start();
-    } catch {
-      // Already listening elsewhere or blocked: the turn ends at once.
-      recognition.current = null;
-      setListening(false);
-      handlers.current.onEnd?.({ heard: false, error: "failed" });
-    }
+    })();
   }, [continuous, quietSilence]);
 
   const toggle = useCallback(() => (recognition.current ? stop() : start()), [start, stop]);
