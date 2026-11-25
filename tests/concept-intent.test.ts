@@ -64,7 +64,9 @@ describe("booking proposals", () => {
       ["move Lisa to next week at 10:00", "2026-11-23", "10:00"],
       ["Move Lisa to 24 December at 10", "2026-12-24", "10:00"],
       ["Move Lisa to Friday at 10.", "2026-11-20", "10:00"],
+      ["Move Lisa to Friday at 10 please", "2026-11-20", "10:00"],
       ["Flytta Lisa till fredag 10.", "2026-11-20", "10:00"],
+      ["Flytta Lisa till fredag 10 tack", "2026-11-20", "10:00"],
     ])("keeps a date-only destination: %s", (text, date, time) => {
       const result = interpretCommand(text, context);
       expect(result).toMatchObject({ action: "move", params: { bookingId: "lisa-friday", date, time } });
