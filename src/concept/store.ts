@@ -87,6 +87,19 @@ function forgetJournalAudio(workspace: Workspace, epoch?: string) {
   void forgetSalonAudio(workspace, epoch).catch(() => {});
 }
 
+function generatedForOf(document: unknown): string | undefined {
+  return document && typeof document === "object" && !Array.isArray(document) && typeof (document as { generatedFor?: unknown }).generatedFor === "string"
+    ? (document as { generatedFor: string }).generatedFor
+    : undefined;
+}
+
+/** The audio lifetime of a saved salon, used when this tab has not held it in memory (a fresh load). */
+function audioEpochFromSaved(workspace: Workspace, lifetime: string | undefined, document: unknown): string | undefined {
+  const day = generatedForOf(document);
+  if (workspace === "demo" && day) return `${lifetime ?? "legacy"}:${day}`;
+  return lifetime;
+}
+
 function forgetExpiredRecordings(workspace: Workspace, state: DemoState, customerIds: string[]) {
   const scope = audioScope({ workspace, epoch: epochOf(workspace, state) }, state.salon);
   for (const id of customerIds) void forgetCustomerAudio(id, scope).catch(() => {});
@@ -305,9 +318,11 @@ function refresh(workspace: Workspace) {
   const before = snapshot.state ? epochOf(workspace, snapshot.state) : undefined;
   if (raw === snapshot.raw && snapshot.unsaved && snapshot.state) {
     // Only the day changed, and the salon here was never saved: today's sample of that salon, same lifetime.
+    const previous = epochOf(workspace, snapshot.state);
     snapshot.state = load(snapshot.state, workspace);
     keep(snapshot.state, snapshot.epoch);
     salonRemoved(workspace);
+    if (!snapshot.state || epochOf(workspace, snapshot.state) !== previous) forgetJournalAudio(workspace, previous);
     return true;
   }
   snapshot.raw = raw;
@@ -322,6 +337,7 @@ function refresh(workspace: Workspace) {
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
+  const previous = before ?? audioEpochFromSaved(workspace, snapshot.epoch, document);
   snapshot.state = load(document, workspace);
   // A sample business made because there was no document is a new salon, never the "legacy" one before it.
   if (createdOnLoad) snapshot.epoch = newEpoch();
@@ -331,9 +347,9 @@ function refresh(workspace: Workspace) {
     forgetExpiredRecordings(workspace, snapshot.state, erasedOnLoad);
   }
   // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
-  if (had && (!snapshot.state || epochOf(workspace, snapshot.state) !== before)) {
-    salonRemoved(workspace);
-    forgetJournalAudio(workspace, before);
+  if (previous && (!snapshot.state || epochOf(workspace, snapshot.state) !== previous)) {
+    if (had) salonRemoved(workspace);
+    forgetJournalAudio(workspace, previous);
   }
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
