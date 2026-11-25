@@ -92,23 +92,38 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
   };
 
   // Line up with the preferred edge, flip when that side has no room, and clamp when neither edge fits.
+  // Recalculate while the panel is open if the window is resized or the page is scrolled.
   useLayoutEffect(() => {
     const panel = panelRef.current;
     const button = triggerRef.current;
     const wrap = wrapRef.current;
     if (!open || !present || !panel || !button || !wrap) return;
-    const box = button.getBoundingClientRect();
-    const wrapBox = wrap.getBoundingClientRect();
-    const place = popoverPlacement(align, box, panel.offsetWidth, window.innerWidth);
-    const stackPlace = popoverStack(box, panel.offsetHeight, window.innerHeight);
-    setSide(place.side);
-    setStack(stackPlace.placement);
-    panel.style.left = `${place.left - wrapBox.left}px`;
-    panel.style.right = "auto";
-    panel.style.width = `${place.width}px`;
-    panel.style.top = `${stackPlace.top - wrapBox.top}px`;
-    panel.style.height = `${stackPlace.height}px`;
-    panel.style.bottom = "auto";
+    const place = () => {
+      const box = button.getBoundingClientRect();
+      const wrapBox = wrap.getBoundingClientRect();
+      const horiz = popoverPlacement(align, box, panel.offsetWidth, window.innerWidth);
+      const stackPlace = popoverStack(box, panel.offsetHeight, window.innerHeight);
+      setSide(horiz.side);
+      setStack(stackPlace.placement);
+      panel.style.left = `${horiz.left - wrapBox.left}px`;
+      panel.style.right = "auto";
+      panel.style.width = `${horiz.width}px`;
+      panel.style.top = `${stackPlace.top - wrapBox.top}px`;
+      panel.style.height = `${stackPlace.height}px`;
+      panel.style.bottom = "auto";
+    };
+    place();
+    const view = window.visualViewport;
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    view?.addEventListener("resize", place);
+    view?.addEventListener("scroll", place);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+      view?.removeEventListener("resize", place);
+      view?.removeEventListener("scroll", place);
+    };
   }, [open, present, align]);
 
   useEffect(() => {
