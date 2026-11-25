@@ -339,6 +339,14 @@ describe("spoken conversation", () => {
     expect(h.conversation.state()).toMatchObject({ phase: "ended", ended: "failed" });
   });
 
+  it("ends on a network failure instead of starting another listen", () => {
+    const h = harness();
+    h.conversation.start();
+    h.conversation.listenEnded({ heard: false, error: "network" });
+    expect(h.conversation.state()).toMatchObject({ phase: "ended", ended: "failed" });
+    expect(h.log.filter((entry) => entry === "listen")).toEqual(["listen"]);
+  });
+
   it("stops on Stop, on leaving the tab and on closing, and ignores a reply that arrives later", () => {
     const h = harness();
     h.conversation.start();

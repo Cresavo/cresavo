@@ -61,7 +61,7 @@ export interface Conversation {
   close(): void;
 }
 
-const BLOCKED = new Set(["not-allowed", "service-not-allowed", "language-not-supported", "audio-capture", "failed"]);
+const BLOCKED = new Set(["not-allowed", "service-not-allowed", "language-not-supported", "audio-capture", "failed", "network"]);
 
 export function createConversation(ports: ConversationPorts): Conversation {
   let current: ConversationState = { phase: "off", muted: false };

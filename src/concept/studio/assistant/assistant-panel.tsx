@@ -14,7 +14,7 @@ import { cx } from "../../ui/cx";
 import { replyUndoBlockReason } from "./reply-actions";
 import { ReplyCardView, type CardActions } from "./reply-card";
 import { canSpeak, stopSpeaking } from "./speak";
-import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
+import { closeAssistant, setSpeak, takeListen, takePendingQuestion } from "./thread-store";
 import { useAssistant } from "./use-assistant";
 import { undoBlockMessageKey } from "../log/undo-toast";
 import { useStudio } from "../use-studio";
@@ -87,13 +87,18 @@ function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof us
   useEffect(() => {
     const question = takePendingQuestion();
     if (question) send(question);
-    else if (thread.listen && talk.enabled) talk.start();
-    else if (thread.listen) startListening();
     // The dialog opens (and focuses its first button) after this effect: the message box takes focus once it has.
-    else window.setTimeout(() => input.current?.focus(), 0);
+    else if (!thread.listen) window.setTimeout(() => input.current?.focus(), 0);
     // Only when the panel opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The header microphone can ask to listen after the panel is already open.
+  useEffect(() => {
+    if (!thread.listen || !takeListen()) return;
+    if (talk.enabled) talk.start();
+    else startListening();
+  }, [thread.listen, talk.enabled, talk.start, startListening]);
 
   useEffect(() => {
     if (thread.messages.length) end.current?.scrollIntoView({ block: "end" });
