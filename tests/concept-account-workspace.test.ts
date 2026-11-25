@@ -60,7 +60,7 @@ it("keeps account recordings in this browser after sign-out", async () => {
   const { audioScope, journalAudioStore } = await import("@/concept/journals/audio-store");
   const target = store.currentTarget();
   expect(target?.workspace).toBe("account");
-  const scope = audioScope(target!);
+  const scope = audioScope(target!, store.currentState()?.salon);
   const audio = journalAudioStore();
   await audio.add({
     id: "rec-1", customerId: "c1", scope, createdAt: 1, source: "recorded",
@@ -69,4 +69,23 @@ it("keeps account recordings in this browser after sign-out", async () => {
   store.closeAccountSalon();
   expect(store.currentTarget()?.workspace).not.toBe("account");
   expect((await audio.list("c1", scope)).map((row) => row.id)).toEqual(["rec-1"]);
+});
+
+it("finds the same account recordings after signing out and opening the salon again", async () => {
+  const { store } = await openTab();
+  const { audioScope, journalAudioStore } = await import("@/concept/journals/audio-store");
+  store.openAccountSalon(salon(), () => {});
+  const first = store.currentTarget()!;
+  const scope = audioScope(first, store.currentState()?.salon);
+  const audio = journalAudioStore();
+  await audio.add({
+    id: "rec-1", customerId: "c1", scope, createdAt: 1, source: "recorded",
+    mime: "audio/webm", seconds: 5, bytes: new Uint8Array([1]).buffer,
+  });
+  store.closeAccountSalon();
+  store.openAccountSalon(salon(), () => {});
+  const again = store.currentTarget()!;
+  expect(again.epoch).not.toBe(first.epoch);
+  expect(audioScope(again, store.currentState()?.salon)).toBe(scope);
+  expect((await audio.list("c1", audioScope(again, store.currentState()?.salon))).map((row) => row.id)).toEqual(["rec-1"]);
 });

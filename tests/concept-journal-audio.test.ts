@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runTask } from "@/concept/ai/run-task";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
-import { beyondLimit, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
+import { audioScope, beyondLimit, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
 
 // Journal audio in the concept demo: what a file is by its bytes, the size and
 // length limits, the last five per customer, and that structuring sees text only.
@@ -226,5 +226,14 @@ describe("journal recordings when the salon itself changes", () => {
     });
     await startBusiness();
     expect(await audio.list("k001", scope)).toEqual([]);
+  });
+});
+
+describe("audioScope", () => {
+  it("keys account recordings by the salon address, and other workspaces by lifetime", () => {
+    expect(audioScope({ workspace: "demo", epoch: "one:2026-11-25" })).toBe("demo:one:2026-11-25");
+    expect(audioScope({ workspace: "own", epoch: "abc" })).toBe("own:abc");
+    expect(audioScope({ workspace: "account", epoch: "account:random" }, { slug: "studio-server" })).toBe("account:studio-server");
+    expect(audioScope({ workspace: "account", epoch: "account:random" })).toBe("account:account:random");
   });
 });

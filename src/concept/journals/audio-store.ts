@@ -23,7 +23,7 @@ const BY_CUSTOMER = "byCustomer";
 export interface JournalRecording {
   id: string;
   customerId: string;
-  /** Workspace and salon lifetime (`workspace:epoch`), so demo IDs are not mixed across salons. */
+  /** Workspace and salon lifetime (`workspace:epoch`), or `account:<slug>` for a signed-in salon. */
   scope: string;
   /** Milliseconds since the epoch; orders the five kept. */
   createdAt: number;
@@ -36,8 +36,12 @@ export interface JournalRecording {
   bytes: ArrayBuffer;
 }
 
-/** Storage key for one salon lifetime. */
-export const audioScope = (target: { workspace: string; epoch: string }) => `${target.workspace}:${target.epoch}`;
+/**
+ * Storage key for one salon lifetime. Account recordings use the slug so they
+ * remain after sign-out, when the store issues a new session epoch.
+ */
+export const audioScope = (target: { workspace: string; epoch: string }, salon?: { slug?: string }) =>
+  target.workspace === "account" && salon?.slug ? `account:${salon.slug}` : `${target.workspace}:${target.epoch}`;
 
 export interface JournalAudioStore {
   /** The customer's recordings in this salon lifetime, newest first. */

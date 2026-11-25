@@ -63,7 +63,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   useEffect(() => {
     text.current = transcript;
   });
-  const scope = audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" });
+  const scope = audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }, state?.salon);
   const { recordings, add, setTranscript: keepTranscript } = useRecordings(customer.id, scope);
   const speech = useSpeech({
     continuous: true,

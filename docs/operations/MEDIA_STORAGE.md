@@ -122,7 +122,9 @@ privacy notice need a lawyer's review for this.
 Journal audio exists only in the concept demo. Recordings and uploaded audio
 files (m4a, mp3, wav, webm, ogg, flac, recognised from their bytes, at most
 20 MB and ten minutes) stay in the browser's own `concept-journal-audio`
-IndexedDB database, five per customer, and are never uploaded. Live
+IndexedDB database, five per customer, and are never uploaded. Demo and
+trial recordings are kept per salon lifetime; a signed-in account salon's
+recordings are keyed by its address so they remain after sign-out. Live
 speech-to-text uses the browser's Speech Recognition API, as dictation
 already did; some browsers may process that speech off-device. Forcing
 `processLocally` is a later production decision (it can fail when the

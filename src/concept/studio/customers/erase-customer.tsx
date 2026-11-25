@@ -7,7 +7,7 @@ import type { Customer } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { audioScope, isAudioStoreUnavailable, journalAudioStore } from "../../journals/audio-store";
 import { fullName } from "../../selectors";
-import { currentTarget, dispatch } from "../../store";
+import { currentState, currentTarget, dispatch } from "../../store";
 import { TRASH_DAYS } from "../../trash/trash";
 import { Button } from "../../ui/button";
 import { Field, TextInput } from "../../ui/controls";
@@ -40,7 +40,7 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
       // Recordings live only in this browser; remove them before the customer so a failure can be retried.
       if (!audioBlocked) {
         try {
-          await journalAudioStore().removeCustomer(customer.id, audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }));
+          await journalAudioStore().removeCustomer(customer.id, audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }, currentState()?.salon));
         } catch (error) {
           if (isAudioStoreUnavailable(error)) {
             setAudioBlocked(true);
