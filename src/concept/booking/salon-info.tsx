@@ -6,6 +6,7 @@ import { formatDate, formatTime } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
+import { mapLink } from "./links";
 import { publicName, recentReviews, reviewSummary } from "./reviews";
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -39,7 +40,6 @@ const linkClass = "font-medium text-action underline-offset-2 hover:underline";
 /** Address with a plain link to a map (no embed, no third-party script), and how to reach the business. */
 export function FindUs({ state }: { state: DemoState }) {
   const { salon } = state;
-  const mapLink = `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${salon.address}, ${salon.area.split(" · ")[0]}`)}`;
   return (
     <Section title={t("booking.findUs")}>
       <Card id="find-us" className="scroll-mt-4 divide-y divide-hairline px-4 text-meta">
@@ -48,7 +48,7 @@ export function FindUs({ state }: { state: DemoState }) {
           <address className="min-w-0 flex-1 not-italic">
             <span className="block">{salon.address}</span>
             <span className="block text-text-secondary">{salon.area}</span>
-            <a href={mapLink} target="_blank" rel="noopener noreferrer" className={cx(linkClass, "mt-1 inline-flex min-h-11 items-center")}>
+            <a href={mapLink(salon.address, salon.area)} target="_blank" rel="noopener noreferrer" className={cx(linkClass, "mt-1 inline-flex min-h-11 items-center")}>
               {t("booking.openMap")}
             </a>
           </address>

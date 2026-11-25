@@ -13,6 +13,7 @@ import { useCommit } from "../ui/use-commit";
 import { useSalonNow } from "../use-now";
 import type { PublicBookingView } from "./public-booking-view";
 import type { OpenSlot } from "./suggest";
+import { mapLink } from "./links";
 import { TimePicker } from "./time-picker";
 
 type Change = "cancel" | "move";
@@ -33,7 +34,7 @@ function CallTheSalon({ salon }: { salon: PublicBookingView["salon"] }) {
       <ul className="space-y-1">
         {salon.phone && <li><a className={link} href={telephone(salon.phone)}><Phone size={16} aria-hidden />{salon.phone}</a></li>}
         {salon.email && <li><a className={link} href={`mailto:${salon.email}`}><Mail size={16} aria-hidden />{salon.email}</a></li>}
-        {salon.address && <li className="flex items-start gap-2"><MapPin size={16} className="mt-1 shrink-0" aria-hidden />{salon.address}</li>}
+        {salon.address && <li><a className={link} href={mapLink(salon.address)} target="_blank" rel="noopener noreferrer"><MapPin size={16} aria-hidden />{salon.address}<span className="sr-only"> ({t("booking.openMap")})</span></a></li>}
       </ul>
     </Notice>
   );

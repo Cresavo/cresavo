@@ -9,6 +9,7 @@ import { bookingMessage, type BookingMessageKind, type MessageChannel } from "@/
 import { MessagePreviews } from "@/concept/booking/message-previews";
 import { quote } from "@/concept/booking/protection";
 import { formatMinor } from "@/concept/booking/policy-summary";
+import { mapLink } from "@/concept/booking/links";
 import { TimePicker } from "@/concept/booking/time-picker";
 import { sellGiftCard } from "@/concept/giftcards/cards";
 import { t } from "@/concept/i18n";
@@ -154,6 +155,27 @@ it.each([
   expect(html).toContain(copy("booking.me.rebook"));
   expect(html).not.toContain(copy("booking.confirmation.text"));
   expect(html).not.toContain(copy("booking.googleCalendar"));
+});
+
+it("shows an upcoming visit as label-value rows with the address on the map and Add to calendar as the one primary", () => {
+  vi.stubGlobal("window", { location: new URL("http://localhost:3000"), setTimeout: vi.fn() });
+  vi.mocked(usePublicDemo).mockReturnValue({ ...fixture, bookings: [booking] });
+  vi.mocked(useSalonNow).mockReturnValue(now);
+  const html = renderToStaticMarkup(createElement(Confirmation, { id: booking.id }));
+  for (const label of ["booking.ticket.date", "booking.ticket.time", "booking.ticket.place"] as const) expect(html).toContain(`>${copy(label)}</dt>`);
+  const map = mapLink(fixture.salon.address, fixture.salon.area);
+  expect(html.split(`href="${map.replace(/&/g, "&amp;")}"`)).toHaveLength(3);
+  expect(html).toContain(copy("booking.directions"));
+  expect(html).toContain(copy("booking.calendarFile"));
+  expect(html.match(/bg-action text-on-action/g)).toHaveLength(1);
+  expect(html).not.toMatch(/\d+ ?min (walk|drive)/);
+});
+
+it("builds the same map search when the area is already joined onto the address", () => {
+  // The booking-link contact list receives address and area already joined; a suffix like " · District" must still be dropped.
+  const expected = mapLink(fixture.salon.address, fixture.salon.area);
+  expect(mapLink([fixture.salon.address, fixture.salon.area].filter(Boolean).join(", "))).toBe(expected);
+  expect(expected).not.toContain(encodeURIComponent(" · "));
 });
 
 it("keeps each message kind's channel while showing the same localized body that is sent", () => {
