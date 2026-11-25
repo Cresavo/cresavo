@@ -94,9 +94,11 @@ describe("morning brief", () => {
     const cancelled = base.bookings.find((b) => b.date === today && b.status === "cancelled" && eventReactions(base, clock).some((i) => i.id === `cancel-${b.id}`))!;
     expect(morningBrief(base, clock).items.map((i) => i.id)).toContain(`cancel-${cancelled.id}`);
     const reported = event(base, "fictional-cancel", cancelled.id, "cancelled");
-    const ids = morningBrief(reported, clock).items.map((i) => i.id);
-    expect(ids).toContain("notice-fictional-cancel");
-    expect(ids).not.toContain(`cancel-${cancelled.id}`);
+    const brief = morningBrief(reported, clock);
+    const ids = brief.items.map((i) => i.id);
+    expect(ids).toContain(`cancel-${cancelled.id}`);
+    expect(ids).not.toContain("notice-fictional-cancel");
+    expect(brief.items.find((i) => i.id === `cancel-${cancelled.id}`)?.text).toMatch(/the slot is free/i);
   });
 });
 

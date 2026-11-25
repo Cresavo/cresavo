@@ -67,15 +67,22 @@ export function MorningBrief({ className }: { className?: string }) {
     setSpeaking(started);
   }, [brief, speaking]);
 
-  // Leaving Today stops this card's reading; it never starts one.
+  // Leaving Today, or the evening summary taking over, stops this card's reading; it never starts one.
   const speakingNow = useRef(false);
   useEffect(() => {
     speakingNow.current = speaking;
   }, [speaking]);
+  const due = summaryDue(state, { today, minutes });
+  useEffect(() => {
+    if (!due || !speakingNow.current) return;
+    turn.current += 1;
+    stopSpeaking();
+    setSpeaking(false);
+  }, [due]);
   useEffect(() => () => {
     if (speakingNow.current) stopSpeaking();
   }, []);
 
-  if (summaryDue(state, { today, minutes })) return null;
+  if (due) return null;
   return <MorningBriefView brief={brief} speakable={speakable} speaking={speaking} onToggle={toggle} className={className} />;
 }
