@@ -37,8 +37,9 @@ async function startBooking(page: Page) {
   await page.getByLabel("Mobile number").fill("070-000 99 11");
   await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
-  // White-label: the confirmation carries a neutral demo notice, never the platform's name (#27).
-  await expect(page.getByText(/^Fictional demo: confirmations are simulated/)).toBeVisible();
+  // White-label: the confirmation never names the platform (#27), and it no longer
+  // carries a disclaimer line on the receipt.
+  await expect(page.getByText(/^Fictional demo: confirmations are simulated/)).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain(BRAND.name);
 }
 
