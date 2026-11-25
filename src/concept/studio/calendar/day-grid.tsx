@@ -76,7 +76,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   };
 
   return (
-    <div className="studio-calendar-flat overflow-x-auto"
+    <div className="overflow-x-auto"
       onDragStart={(event) => {
         // Changing the page inside dragstart can cancel the drag in Chromium, so the targets appear a frame later.
         if (carriesBooking(event)) requestAnimationFrame(() => setDragging(true));

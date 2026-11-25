@@ -55,7 +55,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   return (
     <>
     {staff.length > 1 && <StaffKey staff={staff} />}
-    <div className="studio-calendar-flat overflow-x-auto" onDragEnd={() => setOver(null)}>
+    <div className="overflow-x-auto" onDragEnd={() => setOver(null)}>
       <div className="studio-calendar-grid studio-calendar-week" style={{ "--calendar-columns": days.length * Math.max(1, staff.length) } as React.CSSProperties}>
         <div className="flex pr-1">
           <div className="w-11 shrink-0" />
@@ -78,9 +78,10 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
           <div className="flex border-b border-hairline pb-1 pr-1">
             <div className="w-11 shrink-0" />
             {days.map((d) => (
-              <div key={d} className="flex min-w-0 flex-1 gap-1 px-1">
+              <div key={d} className="flex min-w-0 flex-1">
                 {openingFor(state.salon, d) && staff.map((person) => (
-                  <span key={person.id} className={cx("h-0.5 min-w-0 flex-1 rounded-full", staffFill(person.id))}>
+                  <span key={person.id} className="flex min-w-0 flex-1 justify-center">
+                    <span aria-hidden className={cx("h-0.5 w-4 rounded-full opacity-80", staffFill(person.id))} />
                     <span className="sr-only">{person.firstName}</span>
                   </span>
                 ))}

@@ -210,14 +210,28 @@ body:has(.studio-root) .demo-banner {
 }
 
 .studio-calendar-day { --calendar-column-width: calc(3 * var(--space-8) + var(--space-4)); }
+/* A week column is a little wider than a touch target, so a first name such as "Susanne" fits beside a colleague's
+   column; below that the grid scrolls sideways rather than crushing the names. */
+.studio-calendar-week { --calendar-column-width: calc(var(--touch-target) + 4 * var(--space-1)); }
 
-/* Lunch reads the same in the day and week grids: a faint tint with sparse lines,
-   so it is clearly not free time and never louder than a booking. */
-.studio-calendar-lunch {
-  background:
-    repeating-linear-gradient(135deg, transparent 0 9px, var(--ui-hairline) 9px 10px),
-    color-mix(in srgb, var(--ui-surface-2) 70%, transparent);
+/* Lunch reads the same in the day and week grids: a soft wash, clearly not free time and never louder than a booking. */
+.studio-calendar-lunch { background: var(--ui-surface-2); }
+
+/* The week's day number. Today is a filled circle in the page's own ink, like a chosen day in the month: neutral, so
+   it never reads as the red now-line or as an error. */
+.studio-week-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  margin-top: 2px;
+  border-radius: var(--radius-pill);
+  font-size: var(--type-body);
+  font-weight: 500;
+  color: var(--ui-text);
 }
+.studio-today-mark { background: var(--ui-text); color: var(--ui-bg); font-weight: 600; }
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 
