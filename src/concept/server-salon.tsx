@@ -6,6 +6,7 @@ import { acceptedTerms } from "./booking/public-terms";
 import { timingOf } from "./data/slots";
 import type { Booking, DemoState, StaffId } from "./data/types";
 import { getActiveLocale } from "./i18n";
+import { noteNetworkFailure } from "./ui/connection";
 
 // A salon the server sent to the booking pages (`publicSalonView`), instead of
 // the browser's own copy, and the one way those pages book on it. Without a
@@ -79,11 +80,13 @@ export function ServerSalonProvider({ state, issuedAt, children }: { state: Demo
     const { key, body: sent } = attempt.current;
     const send = () => fetch(`${address}/bookings`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: sent });
     let response = await send().catch(() => null);
+    if (!response) noteNetworkFailure();
     // The salon was busy for a moment: after the wait it asks for, the same key makes the second try safe.
     if (response?.status === 503) {
       const asked = Number(response.headers.get("Retry-After"));
       await new Promise((resolve) => setTimeout(resolve, Math.min(Math.max(Number.isFinite(asked) ? asked : 1, 0), 10) * 1000));
       response = await send().catch(() => null);
+      if (!response) noteNetworkFailure();
     }
     // Nothing is in doubt once the salon has answered, except that it was busy or the answer never came.
     if (response && response.status !== 503 && response.status !== 429) attempt.current = undefined;

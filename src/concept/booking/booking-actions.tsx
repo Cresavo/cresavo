@@ -24,7 +24,7 @@ import { buildIcs, buildPublicIcs, freeHoursFromDeadline, googleCalendarLink, ic
 import type { PublicBookingView } from "./public-booking-view";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
-import { bookingHome, bookingPage, mapLink } from "./links";
+import { bookingHome, mapLink } from "./links";
 import { shareVisit, type SharedVisit } from "./share-visit";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
@@ -103,7 +103,7 @@ export function CalendarActions({ state, booking }: { state: DemoState; booking:
       onDownload={() => downloadCalendar(state, booking)}
       mapHref={mapLink(state.salon.address, state.salon.area)}
       googleHref={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })}
-      share={{ salon: state.salon.name, date: booking.date, start: booking.start, path: bookingPage(state.salon.slug, booking.id) }}
+      share={{ salon: state.salon.name, date: booking.date, start: booking.start, path: bookingHome(state.salon.slug) }}
     />
   );
 }

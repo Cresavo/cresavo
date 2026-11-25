@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { t, type MessageKey } from "../i18n";
 import { formatDate, formatDayLong, formatTime } from "../i18n/format";
 import { useServerReload, useServerSalon } from "../server-salon";
+import { noteNetworkFailure } from "../ui/connection";
 import { SALON_TIMEZONE } from "../tools/clock";
 import { Button } from "../ui/button";
 import { Notice } from "../ui/notice";
@@ -91,6 +92,7 @@ export function ManageBooking({ slug, id, token, view, onChanged }: {
   /** The booking as it is now, shown again for the customer to confirm anew. */
   const refresh = async () => {
     const response = await fetch(address, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }), cache: "no-store" }).catch(() => null);
+    if (!response) noteNetworkFailure();
     const body = response?.ok ? await response.json().catch(() => null) as { booking?: PublicBookingView } | null : null;
     if (body?.booking) onChanged(body.booking);
   };
@@ -102,10 +104,12 @@ export function ManageBooking({ slug, id, token, view, onChanged }: {
       method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": attempt.current!.key }, body: JSON.stringify({ token, expected, ...body }), cache: "no-store",
     }).catch(() => null);
     let response = await post();
+    if (!response) noteNetworkFailure();
     // The salon was busy for a moment: after the wait it asks for, the same key makes the second try safe.
     if (response?.status === 503) {
       await new Promise((resolve) => setTimeout(resolve, Math.min(Math.max(Number(response!.headers.get("Retry-After")) || 1, 0), 10) * 1000));
       response = await post();
+      if (!response) noteNetworkFailure();
     }
     if (response && response.status !== 503 && response.status !== 429) attempt.current = undefined;
     const answer = response ? await response.json().catch(() => ({})) as { booking?: PublicBookingView; error?: string } : {};

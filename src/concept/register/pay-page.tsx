@@ -14,6 +14,7 @@ import { StatusDot, SuccessCheck } from "../ui/feedback";
 import { ChoiceCards } from "../ui/controls";
 import { cx } from "../ui/cx";
 import { Notice } from "../ui/notice";
+import { noteNetworkFailure } from "../ui/connection";
 import { OfflineBanner } from "../ui/offline-banner";
 import { CONTENT_ID, SkipLink } from "../ui/skip-link";
 
@@ -91,6 +92,7 @@ function Payment({ token, initial, request }: { token: string; initial: Step; re
       else if (response.status === 410) setStep("expired");
       else setFailed(true);
     } catch {
+      noteNetworkFailure();
       setFailed(true);
     } finally {
       setBusy(false);

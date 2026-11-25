@@ -45,6 +45,8 @@ export function CalendarShortcuts({ onPrevious, onNext, onToday, label }: Shortc
 
   useEffect(() => {
     const press = (event: KeyboardEvent) => {
+      // The help control is hidden below the desktop breakpoint; the keys must stay quiet there too.
+      if (!help.current?.offsetParent) return;
       const target = event.target instanceof Element && event.target !== document.body ? event.target : null;
       const action = calendarKey({ key: event.key, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, defaultPrevented: event.defaultPrevented, target });
       if (!action) return;
