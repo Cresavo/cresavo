@@ -8,6 +8,7 @@ import { canOpen, type Role } from "../ops/access";
 import { ActionMenu } from "../ui/popover";
 import { openAssistant } from "./assistant/thread-store";
 import { BookingSheets, type OpenSheet } from "./booking/booking-sheets";
+import { openSearch } from "./search/search-palette";
 
 const CUSTOMERS = "/studio/customers";
 
@@ -21,7 +22,8 @@ export function QuickActions({ role, assistant, page }: { role: Role; assistant:
   const [sheet, setSheet] = useState<OpenSheet>(null);
   const actions: { label: string; icon: LucideIcon; run: () => void }[] = [
     { label: t("calendar.newBooking"), icon: CalendarPlus, run: () => setSheet({ kind: "new", preset: {} }) },
-    ...(canOpen(role, CUSTOMERS) ? [{ label: t("quick.findCustomer"), icon: Search, run: () => router.push(CUSTOMERS) }] : []),
+    // The same Search as ⌘K on a desktop: customers first, and days, pages and settings too.
+    ...(canOpen(role, CUSTOMERS) ? [{ label: t("quick.findCustomer"), icon: Search, run: openSearch }] : []),
     { label: t("today.phoneMode"), icon: Phone, run: () => setSheet({ kind: "phone" }) },
     ...(assistant ? [{ label: t("quick.ask"), icon: MessageCircle, run: () => openAssistant() }] : []),
     { label: t("quick.viewPage"), icon: ExternalLink, run: () => router.push(page) },

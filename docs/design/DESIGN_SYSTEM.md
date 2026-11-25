@@ -111,5 +111,6 @@ The foundation baseline is 314 warnings across application TSX: 185 raw controls
 - Page titles are larger in the studio than the kit's app scale (about 30 px on a phone, 36 px wide), set on `.studio-root`; the kit token is unchanged.
 - Apricot is a highlight fill with dark ink (`.studio-highlight`), used for counts. Never apricot text on a light ground, and not on passive facts such as a time.
 - On phones a plus in the masthead opens Quick actions: New booking, Find a customer, Someone is calling, Ask the assistant.
+- Ctrl+K (⌘K) and Search in the sidebar open Search: customers, days, pages and settings in one list. "Ask the assistant" is its first result and Ctrl+K pressed again goes on to the assistant. "Find a customer" in the phone's plus menu opens the same Search.
 - An export button becomes "Open file" after the download.
 - Review rule: no centred-everything layouts, no rows of identical cards, no icons on plates, no dotted "A · B · C" strings where separate facts read better, no arrows appended to links.

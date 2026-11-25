@@ -22,12 +22,13 @@ const errors = new WeakMap<Page, string[]>();
 async function state(page: Page): Promise<DemoState> {
   return salonState(page) as Promise<DemoState>;
 }
-/** Quick commands go through the assistant panel: the button on phones, Ctrl+K (the keyboard shortcut) from tablet width. */
+/** Quick commands go through the assistant panel: the button on phones, Ctrl+K twice (Search, then the assistant) from tablet width. */
 async function command(page: Page, text: string) {
   if (page.viewportSize()!.width < 640) await page.getByRole("button", { name: ASSISTANT.name, exact: true }).locator("visible=true").click();
   const message = page.getByRole("textbox", { name: "Message" });
   // The shortcut only works once the studio has hydrated: press until the panel is there.
   if (page.viewportSize()!.width >= 640) await expect(async () => {
+    await page.keyboard.press("Control+K");
     await page.keyboard.press("Control+K");
     await expect(message).toBeVisible({ timeout: 1000 });
   }).toPass();
@@ -389,6 +390,7 @@ test("switches, segmented options, assistant composer buttons and the booking he
   await page.goto("/studio/more/settings");
   await expect(page.getByRole("radio").first()).toBeVisible();
   for (const h of await heights("[role=radiogroup] [role=radio]")) expect(h).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Control+K");
   await page.keyboard.press("Control+K");
   await page.getByRole("textbox", { name: "Message" }).fill("hello");
   for (const h of await heights("dialog form button, dialog [data-sheet-header] button")) expect(h).toBeGreaterThanOrEqual(44);

@@ -5,11 +5,14 @@ import { TimePicker } from "@/concept/booking/time-picker";
 import { isDateKey } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { setLocale } from "@/concept/i18n";
+import { fullName } from "@/concept/selectors";
 import { swipeDirection } from "@/concept/studio/calendar/month-reveal";
+import { fold, matchScore, paletteResults, resolveRecent } from "@/concept/studio/search/palette-items";
 import { monthCells, shiftMonth } from "@/concept/ui/month-grid";
 
 const today = "2026-11-16";
 const state = createDemoState(today);
+const owner = { state, role: "owner" as const, today };
 
 afterEach(() => setLocale("en"));
 
@@ -56,5 +59,65 @@ describe("booking time picker", () => {
     // Days before today cannot be chosen.
     expect(html).toMatch(/data-date="2026-11-10" disabled=""/);
     expect(html).toContain("ui-day-time-layout");
+  });
+});
+
+describe("search palette", () => {
+  it("folds case and accents", () => {
+    expect(fold("Åse Öberg")).toBe("ase oberg");
+    expect(matchScore("Calendar", "cal")).toBe(0);
+    expect(matchScore("History and undo", "undo")).toBe(1);
+    expect(matchScore("Opening hours", "ning")).toBe(2);
+    expect(matchScore("Inbox", "zz")).toBeNull();
+  });
+
+  it("puts the assistant first on an empty search so the shortcut and Enter still reach it", () => {
+    const results = paletteResults(owner, "");
+    expect(results[0]).toMatchObject({ id: "assistant", label: "Ask the assistant" });
+    expect(results.some((item) => item.href === "/studio/inbox")).toBe(true);
+    expect(results.some((item) => item.href === "/studio/more/settings/hours")).toBe(true);
+    expect(results.some((item) => item.group === "customers")).toBe(false);
+    const off = { ...owner, state: { ...state, modules: { ...state.modules, assistant: false } } };
+    expect(paletteResults(off, "").some((item) => item.id === "assistant")).toBe(false);
+  });
+
+  it("finds a customer, a day and a page, and offers the typed words to the assistant last", () => {
+    const customer = state.customers[0];
+    const results = paletteResults(owner, customer.firstName);
+    expect(results[0].group).toBe("customers");
+    expect(results.some((item) => item.href === `/studio/customers/${customer.id}`)).toBe(true);
+    expect(results.at(-1)).toMatchObject({ id: "assistant", label: `Ask the assistant: ${customer.firstName}` });
+
+    expect(paletteResults(owner, "tomorrow")[0]).toMatchObject({ group: "days", href: "/studio/calendar?date=2026-11-17" });
+    expect(paletteResults(owner, "2026-12-24")[0]).toMatchObject({ group: "days", href: "/studio/calendar?date=2026-12-24" });
+    expect(paletteResults(owner, "inbox").find((item) => item.group === "places")?.href).toBe("/studio/inbox");
+  });
+
+  it("speaks Swedish", () => {
+    setLocale("sv");
+    expect(paletteResults(owner, "imorgon")[0]).toMatchObject({ group: "days", href: "/studio/calendar?date=2026-11-17" });
+    expect(paletteResults(owner, "")[0].label).toBe("Fråga assistenten");
+  });
+
+  it("gives staff only their pages and the customers they serve", () => {
+    const staff = { ...owner, role: "staff" as const };
+    const hrefs = paletteResults(staff, "").map((item) => item.href).filter(Boolean);
+    expect(hrefs).toEqual(expect.arrayContaining(["/studio", "/studio/calendar", "/studio/customers"]));
+    expect(hrefs).not.toContain("/studio/inbox");
+    expect(hrefs.some((href) => href!.startsWith("/studio/more"))).toBe(false);
+    const viewer = state.staff[1];
+    const stranger = state.customers.find((c) => !state.bookings.some((b) => b.customerId === c.id && b.staffId === viewer.id));
+    if (stranger) {
+      expect(paletteResults(staff, fullName(stranger)).some((item) => item.id === `customer:${stranger.id}`)).toBe(false);
+      expect(resolveRecent(staff, `customer:${stranger.id}`)).toBeUndefined();
+    }
+    expect(resolveRecent(staff, "page:/studio/more/finance")).toBeUndefined();
+  });
+
+  it("finds Recent items again and drops ones that are gone", () => {
+    expect(resolveRecent(owner, "page:/studio/inbox")?.label).toBe("Inbox");
+    expect(resolveRecent(owner, "day:2026-12-03")?.href).toBe("/studio/calendar?date=2026-12-03");
+    expect(resolveRecent(owner, "customer:nobody")).toBeUndefined();
+    expect(resolveRecent(owner, "day:not-a-day")).toBeUndefined();
   });
 });

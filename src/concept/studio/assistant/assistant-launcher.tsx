@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef } from "react";
 import { MessageCircle } from "lucide-react";
 import { createRoutineAttempts } from "../../assistant/routine-attempts";
 import { dueRun, type Routine } from "../../assistant/routines";
@@ -17,9 +17,8 @@ import { useStudio } from "../use-studio";
 import { AssistantPanel } from "./assistant-panel";
 import { addMessages, messageId, openAssistant } from "./thread-store";
 
-/** Mounts the assistant panel, keyboard shortcut and routine runner. */
+/** Mounts the assistant panel and routine runner. Ctrl+K (⌘K) reaches it through Search (`SearchPalette`). */
 export function AssistantLauncher() {
-  useShortcut();
   return (
     <>
       <AssistantPanel />
@@ -28,28 +27,11 @@ export function AssistantLauncher() {
   );
 }
 
-const noChange = () => () => {};
-
-/** Ctrl+K (⌘K on a Mac) opens the panel from anywhere in the studio; quick commands are typed there. */
-function useShortcut() {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "k" || !(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
-      event.preventDefault();
-      openAssistant();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-}
-
-/** The button in the top bar from tablet width, with its keyboard shortcut. A secondary action: never competes with a page's primary button. */
+/** The button in the top bar from tablet width. A secondary action: never competes with a page's primary button. */
 export function AssistantHeaderButton() {
-  const mac = useSyncExternalStore(noChange, () => /Mac|iPhone|iPad/.test(navigator.platform), () => false);
   return (
-    <Button size="sm" variant="tertiary" data-help="assistant" aria-keyshortcuts="Control+K Meta+K" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
+    <Button size="sm" variant="tertiary" data-help="assistant" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
       <span className="max-sm:sr-only">{t("assistant.open")}</span>
-      <kbd aria-hidden className="hidden font-sans text-xs text-text-secondary lg:inline">{t(mac ? "assistant.shortcut.mac" : "assistant.shortcut.pc")}</kbd>
     </Button>
   );
 }
