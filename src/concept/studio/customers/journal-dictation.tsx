@@ -112,6 +112,8 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   const use = (recording: JournalRecording) => {
     setTranscript(recording.transcript ?? "");
     setCurrent({ id: recording.id, source: recording.source });
+    // This is an existing clip, not a take started after earlier draft text.
+    clipStart.current = "";
   };
 
   const structure = async () => {
