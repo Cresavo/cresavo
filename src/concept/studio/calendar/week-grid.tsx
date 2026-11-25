@@ -10,18 +10,18 @@ import { formatDayMonth, weekdayName } from "../../i18n/format";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
 import type { OpenSheet } from "../booking/booking-sheets";
-import { StaffDot } from "../staff-dot";
+import { staffFill } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
 import { snapMinutes } from "./gap";
-import { calendarRange, calendarScale, HourLines, TimeAxis, useTextScale } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, NowLine, TimeAxis, useTextScale } from "./time-axis";
 
 const PX_PER_MIN = 0.9;
 
 /** Seven days side by side (desktop). Each day is split per selected staff member; drag a booking to another day or time. */
 export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { monday: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void; onPickDay: (date: DateKey) => void }) {
-  const { state, today } = useStudio();
+  const { state, today, minutes } = useStudio();
   const text = useTextScale();
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const open = days.map((d) => openingFor(state.salon, d)).filter((h) => h !== null);
@@ -53,37 +53,43 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
   };
 
   return (
-    <div className="studio-raised overflow-x-auto rounded-lg bg-surface" onDragEnd={() => setOver(null)}>
-      <div className="studio-calendar-grid" style={{ "--calendar-columns": days.length * Math.max(1, staff.length) } as React.CSSProperties}>
-        <div className="flex border-b border-hairline">
+    <>
+    {staff.length > 1 && <StaffKey staff={staff} />}
+    <div className="studio-calendar-flat overflow-x-auto" onDragEnd={() => setOver(null)}>
+      <div className="studio-calendar-grid studio-calendar-week" style={{ "--calendar-columns": days.length * Math.max(1, staff.length) } as React.CSSProperties}>
+        <div className="flex pr-1">
           <div className="w-11 shrink-0" />
           {days.map((d) => (
             <Button variant="tertiary" size="sm"
               key={d}
               onClick={() => onPickDay(d)}
-              className={cx("flex-1 flex-col !gap-0 !px-1", d === today && "text-action")}
+              aria-current={d === today ? "date" : undefined}
+              className="studio-week-day flex-1 flex-col !gap-0 !px-1 !py-2"
             >
-              <span className="block font-medium">{weekdayName(d).slice(0, 3)}</span>
-              <span className={cx("block text-xs", d === today ? "font-semibold" : "text-text-secondary")}>{formatDayMonth(d)}</span>
+              <span className={cx("block text-minimum", d === today ? "font-semibold text-text" : "text-text-secondary")}>{weekdayName(d).slice(0, 3)}</span>
+              {/* The bare number is what the eye reads; "25 Nov" stays the button's name for screen readers. */}
+              <span className="sr-only">{formatDayMonth(d)}</span>
+              <span aria-hidden className={cx("studio-week-num", d === today && "studio-today-mark")}>{Number(d.slice(8))}</span>
             </Button>
           ))}
         </div>
         {staff.length > 1 && (
-          <div className="flex border-b border-hairline py-1 pr-1">
+          /* A thin tick in each person's colour over their column; the key above names the colours once. */
+          <div className="flex border-b border-hairline pb-1 pr-1">
             <div className="w-11 shrink-0" />
             {days.map((d) => (
-              <div key={d} className="flex min-w-0 flex-1">
+              <div key={d} className="flex min-w-0 flex-1 gap-1 px-1">
                 {openingFor(state.salon, d) && staff.map((person) => (
-                  <span key={person.id} className="flex min-w-0 flex-1 items-center justify-center gap-1 text-minimum text-text-secondary">
-                    <StaffDot staffId={person.id} />
-                    <span className="truncate">{person.firstName}</span>
+                  <span key={person.id} className={cx("h-0.5 min-w-0 flex-1 rounded-full", staffFill(person.id))}>
+                    <span className="sr-only">{person.firstName}</span>
                   </span>
                 ))}
               </div>
             ))}
           </div>
         )}
-        <div className="flex py-3 pr-1">
+        {staff.length < 2 && <div className="border-b border-hairline" />}
+        <div className="relative flex py-3 pr-1">
           <TimeAxis from={from} to={to} pxPerMin={scale} />
           {days.map((d, dayIndex) => {
             const hours = openingFor(state.salon, d);
@@ -93,7 +99,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                 onDragOver={!hours && d >= today ? onDragOver(`closed:${d}`) : undefined}
                 onDragLeave={onDragLeave(`closed:${d}`)}
                 onDrop={!hours && d >= today ? onDropClosed(d) : undefined}
-                className={cx("relative flex min-w-0 flex-1 border-l border-hairline", !hours && "bg-surface-2/70", over === `closed:${d}` && "bg-action-bg/60")}
+                className={cx("relative flex min-w-0 flex-1 border-l border-hairline/70", !hours && "bg-surface-2/70", over === `closed:${d}` && "bg-action-bg/60")}
                 style={{ height: (to - from) * scale }}>
                 <HourLines from={from} to={to} pxPerMin={scale} />
                 {hours &&
@@ -132,14 +138,33 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                   })}
                 {hours && lunch && staff.some((person) => staffWorks(state, person.id, d)) && (
                   <div className="pointer-events-none absolute inset-x-0 flex items-center justify-center text-minimum text-text-secondary" style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}>
-                    <span className="rounded-sm bg-surface px-2">{t("calendar.lunch")}</span>
+                    {t("calendar.lunch")}
                   </div>
                 )}
               </div>
             );
           })}
+          {days.includes(today) && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
         </div>
       </div>
     </div>
+    </>
+  );
+}
+
+/**
+ * Which colour is whose, said once above the week: a tick and the first name for each person, in the same order as
+ * the columns under every day. The week's columns then need only a thin tick, never a row of repeated names.
+ */
+function StaffKey({ staff }: { staff: Staff[] }) {
+  return (
+    <ul aria-label={t("calendar.staff")} className="mb-2 flex flex-wrap justify-end gap-x-4 gap-y-1 text-minimum text-text-secondary">
+      {staff.map((person) => (
+        <li key={person.id} className="flex items-center gap-1.5">
+          <span aria-hidden className={cx("h-3 w-0.5 rounded-full", staffFill(person.id))} />
+          {person.firstName}
+        </li>
+      ))}
+    </ul>
   );
 }

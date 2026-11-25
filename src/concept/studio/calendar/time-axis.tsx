@@ -68,3 +68,20 @@ export function HourLines({ from, to, pxPerMin }: { from: number; to: number; px
     </>
   );
 }
+
+/**
+ * The one now-line across a grid's columns, with the time in a small pill on the axis. Place it in the grid's body
+ * (relative, `py-3`, axis first). Decorative: the heading already says which day it is.
+ */
+export function NowLine({ minutes, from, to, pxPerMin }: { minutes: number; from: number; to: number; pxPerMin: number }) {
+  if (minutes <= from || minutes >= to) return null;
+  return (
+    <div aria-hidden data-calendar-now className="pointer-events-none absolute left-0 right-1 z-sticky flex h-0 items-center" style={{ top: `calc(var(--space-3) + ${(minutes - from) * pxPerMin}px)` }}>
+      <span className="flex w-11 shrink-0 justify-end pr-1">
+        <span className="rounded-xs bg-danger px-1 text-minimum font-semibold leading-4 text-surface tabular-nums">{formatTime(minutes)}</span>
+      </span>
+      <span className="-ml-1 size-2 shrink-0 rounded-full bg-danger" />
+      <span className="h-0.5 flex-1 bg-danger" />
+    </div>
+  );
+}

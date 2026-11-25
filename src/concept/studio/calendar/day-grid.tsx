@@ -16,7 +16,7 @@ import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
 import { snapMinutes } from "./gap";
-import { calendarRange, calendarScale, HourLines, TimeAxis, useTextScale } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, NowLine, TimeAxis, useTextScale } from "./time-axis";
 
 const PX_PER_MIN = 1.25;
 const WARNING_BLOCK_HEIGHT = 64;
@@ -76,7 +76,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   };
 
   return (
-    <div className="studio-raised overflow-x-auto rounded-lg bg-surface"
+    <div className="studio-calendar-flat overflow-x-auto"
       onDragStart={(event) => {
         // Changing the page inside dragstart can cancel the drag in Chromium, so the targets appear a frame later.
         if (carriesBooking(event)) requestAnimationFrame(() => setDragging(true));
@@ -95,7 +95,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
             </div>
           ))}
         </div>
-        <div className="flex py-3 pr-1">
+        <div className="relative flex py-3 pr-1">
           <TimeAxis from={from} to={to} pxPerMin={scale} />
           {columns.map(({ person, shift, entries }) => {
             const works = shift !== null;
@@ -113,11 +113,10 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                 {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-surface-2/70" style={{ height: (to - shift.end) * scale }} />}
                 {lunch && works && (
                   <div
-                    className="studio-calendar-lunch pointer-events-none absolute inset-x-0 flex items-center justify-center text-minimum text-text-secondary"
+                    aria-hidden
+                    className="studio-calendar-lunch pointer-events-none absolute inset-x-0"
                     style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
-                  >
-                    <span className="rounded-sm bg-surface px-2">{t("calendar.lunch")}</span>
-                  </div>
+                  />
                 )}
                 {entries.map(({ booking, misfit }) => (
                   <BookingBlock
@@ -131,14 +130,17 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                     onGapOpen={(start) => onOpen({ kind: "new", preset: { staffId: person.id, date, start } })}
                   />
                 ))}
-                {date === today && minutes > from && minutes < to && (
-                  <div className="pointer-events-none absolute inset-x-0 z-sticky border-t-2 border-danger" style={{ top: (minutes - from) * scale }}>
-                    <span className="absolute -left-1 -top-1 size-2 rounded-full bg-danger" />
-                  </div>
-                )}
               </div>
             );
           })}
+          {/* One "Lunch" for the day, centred over the columns of the people who work. */}
+          {lunch && columns.some(({ shift }) => shift) && (
+            <div className="pointer-events-none absolute left-11 right-1 flex items-center justify-center text-minimum text-text-secondary"
+              style={{ top: `calc(var(--space-3) + ${(lunch.start - from) * scale}px)`, height: (lunch.end - lunch.start) * scale }}>
+              {t("calendar.lunch")}
+            </div>
+          )}
+          {date === today && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
         </div>
       </div>
     </div>
@@ -162,7 +164,7 @@ function NextDayTargets({ date, onDrop }: { date: DateKey; onDrop: () => void })
     if (booking) drop(event, booking.staffId, day, booking.start);
   };
   return (
-    <div className="absolute inset-0 z-sticky flex gap-2 bg-surface p-1">
+    <div className="absolute inset-0 z-sticky flex gap-2 bg-bg p-1">
       {days.map((day, index) => day < today ? <div key={day} className="flex-1" /> : (
         <div
           key={day}

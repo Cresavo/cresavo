@@ -1,7 +1,7 @@
 "use client";
 
 import { formatTime } from "../../i18n/format";
-import { useEffect, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type RefObject } from "react";
 import { processingGap } from "../../data/slots";
 import type { Booking } from "../../data/types";
 import { findCustomer, findService, visitorName } from "../../selectors";
@@ -43,6 +43,8 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
   // Until the server answers, a booking a pending change made has only a provisional id: it cannot be opened or moved yet.
   const settled = accountRecordSettled("bookings", booking.id);
   const anna = booking.staffId === "anna";
+  const serviceRef = useRef<HTMLSpanElement>(null);
+  const serviceFits = useFitsInside(serviceRef, !!compact, service?.name);
   const previewed = usePreviewedId() === booking.id;
   // A block that leaves the screen (another day, a closed sheet) takes its preview with it.
   useEffect(() => () => hidePreview(booking.id), [booking.id]);
@@ -70,10 +72,10 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
         onBlur={() => hidePreview(booking.id)}
         aria-disabled={!settled || undefined}
         className={cx(
-          "h-full w-full !items-start overflow-hidden border-l-2 !text-minimum",
+          "h-full w-full !items-start overflow-hidden !rounded-xs border-l-2 !text-minimum !leading-tight",
           // The studio's button reset (`all: unset`) also turns off native dragging in Chromium.
           settled && "[-webkit-user-drag:element]",
-          compact ? "!px-1" : "!px-2",
+          compact ? "!py-1 !pl-1 !pr-0.5 tracking-tight" : "!px-2",
           anna ? "border-staff-1 bg-staff-1-bg" : "border-staff-2 bg-staff-2-bg",
           misfit && "ring-2 ring-danger",
         )}
@@ -84,6 +86,10 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
             {formatTime(booking.start)}
             {!compact && ` · ${service?.name}`}
           </span>
+          {/* In the week the treatment shows only when the whole name fits the block, never as "Medic…". */}
+          {compact && service && (
+            <span ref={serviceRef} aria-hidden className={cx("mt-0.5 block overflow-hidden whitespace-nowrap text-text-secondary", !serviceFits && "invisible")}>{service.name}</span>
+          )}
           {gap && <span className="sr-only">{t("calendar.processing", { from: formatTime(gap.start), to: formatTime(gap.end) })}</span>}
           {misfit && <Badge tone="warn" className="max-w-full">
             <span className="truncate">{t("calendar.needsMoving")}</span>
@@ -112,4 +118,26 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
       ))}
     </div>
   );
+}
+
+/**
+ * Whether the element is shown whole inside its button: no wider than the line and not cut off at the bottom.
+ * Measured again when the button changes size (window, docked panel, larger text).
+ */
+function useFitsInside(ref: RefObject<HTMLElement | null>, active: boolean, text: string | undefined) {
+  const [fits, setFits] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    const box = element?.closest("button");
+    if (!active || !element || !box) return;
+    const measure = () => {
+      const bottom = box.getBoundingClientRect().bottom - parseFloat(getComputedStyle(box).paddingBottom);
+      setFits(element.scrollWidth <= element.clientWidth && element.getBoundingClientRect().bottom <= bottom + 0.5);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [ref, active, text]);
+  return fits;
 }
