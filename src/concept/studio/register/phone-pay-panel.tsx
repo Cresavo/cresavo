@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { QrCode } from "../../account/two-step/qr-code";
 import type { RegisterMethod } from "../../connections/ports/register";
-import { getActiveLocale, locale, t } from "../../i18n";
+import { getActiveLocale, locale, t, type MessageKey } from "../../i18n";
 import { Button } from "../../ui/button";
 import { Notice } from "../../ui/notice";
 
@@ -12,7 +12,14 @@ interface PayRequest {
   token: string;
   expiresAt: number;
 }
-type Phase = { step: "creating" } | { step: "waiting" | "expired"; request: PayRequest } | { step: "failed" };
+/** `unknown`: the server cannot read this code (another instance with its own key); only a new code helps. */
+type Phase = { step: "creating" } | { step: "waiting" | "expired" | "unknown"; request: PayRequest } | { step: "failed" };
+type Ended = Exclude<Phase["step"], "creating" | "waiting">;
+const ENDED: Record<Ended, { tone: "danger" | "info"; text: MessageKey; action: MessageKey }> = {
+  failed: { tone: "danger", text: "register.phoneFailed", action: "register.phoneRetry" },
+  expired: { tone: "info", text: "register.phoneExpired", action: "register.phoneNew" },
+  unknown: { tone: "info", text: "register.phoneUnknown", action: "register.phoneNew" },
+};
 
 const POLL_MS = 2000;
 const API = "/api/concept/register/pay-requests";
@@ -95,13 +102,15 @@ export function PhonePayPanel({ paymentId, business, workspace, amountMinor, amo
       let status: { status?: string; method?: PhoneMethod } = {};
       try {
         const response = await fetch(`${API}/${request.token}`, { signal: abort.signal, cache: "no-store" });
-        // An instance that does not know the request answers 404; another poll may reach the one that does.
-        if (response.ok) status = await response.json();
+        // 404: the server cannot read this code, so polling on would only wait for it to expire.
+        if (response.status === 404) status = { status: "unknown" };
+        else if (response.ok) status = await response.json();
       } catch {
         // Offline for a moment: ask again.
       }
       if (abort.signal.aborted) return;
       if (status.status === "paid" && status.method) return paid(status.method);
+      if (status.status === "unknown") return setPhase({ step: "unknown", request });
       if (status.status === "expired" || Date.now() >= request.expiresAt) return setPhase({ step: "expired", request });
       timer = setTimeout(poll, POLL_MS);
     };
@@ -118,14 +127,13 @@ export function PhonePayPanel({ paymentId, business, workspace, amountMinor, amo
     setAttempt((n) => n + 1);
   };
 
-  if (phase.step === "failed" || phase.step === "expired") {
+  if (phase.step !== "creating" && phase.step !== "waiting") {
+    const ended = ENDED[phase.step];
     return (
       <section className="space-y-3 border-t border-hairline pt-4">
         <h3 className="text-body font-semibold">{t("register.phoneTitle")}</h3>
-        <Notice tone={phase.step === "failed" ? "danger" : "info"} role={phase.step === "failed" ? "alert" : "status"}>
-          {t(phase.step === "failed" ? "register.phoneFailed" : "register.phoneExpired")}
-        </Notice>
-        <Button variant="secondary" onClick={again}>{t(phase.step === "failed" ? "register.phoneRetry" : "register.phoneNew")}</Button>
+        <Notice tone={ended.tone} role={ended.tone === "danger" ? "alert" : "status"}>{t(ended.text)}</Notice>
+        <Button variant="secondary" onClick={again}>{t(ended.action)}</Button>
       </section>
     );
   }

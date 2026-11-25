@@ -91,6 +91,23 @@ describe("pay request token", () => {
     expect(payRequestStatus(issued.request, issued.request.expiresAt + 3 * 60_000)).toEqual({ status: "expired" });
   });
 
+  it("refuses new requests and payments while the paid marks are full, and never drops an unexpired one", () => {
+    const requests = Array.from({ length: 5001 }, () => {
+      const issued = issuePayRequest(input, now);
+      if (!issued.ok) throw new Error("refused");
+      return issued.request;
+    });
+    for (const request of requests.slice(0, 5000)) expect(payPayRequest(request, "card", now)).toBe("paid");
+    expect(payPayRequest(requests[5000], "card", now)).toBe("busy");
+    expect(issuePayRequest(input, now)).toEqual({ ok: false, reason: "busy" });
+    // The oldest mark is still there, so that request cannot be paid again.
+    expect(payPayRequest(requests[0], "card", now)).toBe("already_paid");
+    expect(payRequestStatus(requests[0], now)).toEqual({ status: "paid", method: "card" });
+    // Once the marks have expired there is room again.
+    const later = requests[0].expiresAt + 3 * 60_000;
+    expect(issuePayRequest(input, later).ok).toBe(true);
+  });
+
   it("is refused for anything but the sample business on simulated payments", () => {
     expect(issuePayRequest({ ...input, workspace: "account" }, now)).toEqual({ ok: false, reason: "not_demo" });
     expect(issuePayRequest({ ...input, workspace: "own" }, now)).toEqual({ ok: false, reason: "not_demo" });

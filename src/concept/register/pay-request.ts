@@ -14,9 +14,19 @@ import { demoRegisterAllowed, type RegisterContext } from "./factory";
 // the currency, the allowed methods, the demo business and its expiry, and
 // nothing about the customer or the booking. Only "this request was paid, by
 // card or Swish" is kept, in a bounded map in process memory until the request
-// has expired. Server instances do not share that map: a phone and a register
-// that reach different instances meet only when a later poll reaches the
-// instance that took the payment (docs/QUALITY_SECURITY.md).
+// has expired. When the map is full, new requests and payments are refused
+// until marks expire; an unexpired mark is never dropped, so a paid request
+// cannot be paid again on this instance.
+//
+// Known limit, accepted for the demo (docs/QUALITY_SECURITY.md): server
+// instances share no state. Behind more than one instance
+// - a request is paid once per instance, not once overall;
+// - the register sees a payment only when a poll reaches the instance that
+//   took it, and may show the code as expired after the phone has paid;
+// - without `SESSION_SECRET` each instance signs with its own key, so another
+//   instance cannot read the request at all (404) and the register asks for a
+//   new code.
+// A real phone payment needs the payment provider's own state, not this map.
 
 export const PAY_REQUEST_TTL_MS = 10 * 60_000;
 /** A paid mark outlives its request a little, so a register polling at the very end still sees it. */
@@ -83,7 +93,7 @@ export interface PayRequestInput {
   methods: PhoneMethod[];
 }
 
-export type IssueResult = { ok: true; token: string; request: PayRequest } | { ok: false; reason: "not_demo" | "invalid" };
+export type IssueResult = { ok: true; token: string; request: PayRequest } | { ok: false; reason: "not_demo" | "invalid" | "busy" };
 
 /**
  * A new request for the demo register. Refused for anything but the sample
@@ -99,6 +109,7 @@ export function issuePayRequest(input: PayRequestInput, now = Date.now()): Issue
     methods.length > 0 && methods.length === input.methods.length &&
     (!methods.includes("swish") || swishEligible({ amountMinor: input.amountMinor, currency: input.currency }));
   if (!valid) return { ok: false, reason: "invalid" };
+  if (full(now)) return { ok: false, reason: "busy" };
   const request: PayRequest = {
     id: randomBytes(9).toString("base64url"), amountMinor: input.amountMinor, currency: input.currency, methods, business: input.business,
     expiresAt: (Math.floor(now / 1000) + PAY_REQUEST_TTL_MS / 1000) * 1000,
@@ -124,6 +135,13 @@ function sweep(paid: Vault["paid"], now: number) {
   for (const [id, mark] of paid) if (mark.until <= now) paid.delete(id);
 }
 
+/** True when no more paid marks fit until some expire. */
+function full(now: number) {
+  const { paid } = vault();
+  sweep(paid, now);
+  return paid.size >= MAX_PAID;
+}
+
 export function payRequestStatus(request: PayRequest, now = Date.now()): PayRequestStatus {
   const { paid } = vault();
   sweep(paid, now);
@@ -132,16 +150,20 @@ export function payRequestStatus(request: PayRequest, now = Date.now()): PayRequ
   return now >= request.expiresAt ? { status: "expired" } : { status: "pending" };
 }
 
-export type PayOutcome = "paid" | "already_paid" | "expired" | "method_not_allowed";
+export type PayOutcome = "paid" | "already_paid" | "expired" | "method_not_allowed" | "busy";
 
-/** Pays a request once. A second attempt, an expired request or a method the register did not offer is refused. */
+/**
+ * Pays a request once. A second attempt, an expired request or a method the
+ * register did not offer is refused, and so is any payment while the paid
+ * marks are full (`busy`): evicting one would let its request be paid again.
+ */
 export function payPayRequest(request: PayRequest, method: string, now = Date.now()): PayOutcome {
   const { paid } = vault();
   sweep(paid, now);
   if (paid.has(request.id)) return "already_paid";
   if (now >= request.expiresAt) return "expired";
   if (!request.methods.includes(method as PhoneMethod)) return "method_not_allowed";
-  if (paid.size >= MAX_PAID) paid.delete(paid.keys().next().value!);
+  if (paid.size >= MAX_PAID) return "busy";
   paid.set(request.id, { method: method as PhoneMethod, until: request.expiresAt + PAID_GRACE_MS });
   return "paid";
 }
