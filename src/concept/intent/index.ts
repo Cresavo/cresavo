@@ -144,6 +144,7 @@ function scheduleLeftover(text: string): string | undefined {
     .replace(/\b(?:[01]?\d|2[0-3])(?::[0-5]\d)?\s*(?:am|pm)?\b/gi, " ")
     .replace(/\b(?:[1-9]|1[0-2])\s*(?:am|pm)\b/gi, " ")
     .replace(/\b\d{1,2}(?:st|nd|rd|th)?\b/g, " ")
+    .replace(/[.,!?;:'"«»]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return leftover || undefined;

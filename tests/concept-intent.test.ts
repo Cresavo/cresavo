@@ -55,7 +55,7 @@ describe("booking proposals", () => {
       expect(result.params.staffId).toBeUndefined();
     });
     it("asks when the new person is unknown", () => expect(interpretCommand("Move Lisa to Friday 10 with Nobody", context).action).toBe("question"));
-    it.each(["Move Lisa to Nobody", "Move Lisa to Friday 10 Nobody"])("asks when the new person is unnamed or leftover: %s", (text) => {
+    it.each(["Move Lisa to Nobody", "Move Lisa to Friday 10 Nobody", "Move Lisa to Friday 10 Nobody."])("asks when the new person is unnamed or leftover: %s", (text) => {
       const result = interpretCommand(text, context);
       expect(result.action).toBe("question");
       expect(result.params.staffId).toBeUndefined();
@@ -63,6 +63,8 @@ describe("booking proposals", () => {
     it.each([
       ["move Lisa to next week at 10:00", "2026-11-23", "10:00"],
       ["Move Lisa to 24 December at 10", "2026-12-24", "10:00"],
+      ["Move Lisa to Friday at 10.", "2026-11-20", "10:00"],
+      ["Flytta Lisa till fredag 10.", "2026-11-20", "10:00"],
     ])("keeps a date-only destination: %s", (text, date, time) => {
       const result = interpretCommand(text, context);
       expect(result).toMatchObject({ action: "move", params: { bookingId: "lisa-friday", date, time } });
