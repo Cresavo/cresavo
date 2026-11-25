@@ -3,7 +3,7 @@
 import { customerText } from "../i18n/customer-text";
 
 import { useState } from "react";
-import { CalendarClock, CalendarPlus, Navigation, XCircle } from "lucide-react";
+import { CalendarClock, CalendarPlus, Navigation, Share2, XCircle } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { getActiveLocale, t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
@@ -24,7 +24,8 @@ import { buildIcs, buildPublicIcs, freeHoursFromDeadline, googleCalendarLink, ic
 import type { PublicBookingView } from "./public-booking-view";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
-import { mapLink } from "./links";
+import { bookingHome, bookingPage, mapLink } from "./links";
+import { shareVisit, type SharedVisit } from "./share-visit";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
@@ -63,7 +64,18 @@ interface BookingActionsProps {
  * Save the visit and find the way: the calendar file is the main action, with directions beside it.
  * The map app works out the route and the travel time; the page never guesses one.
  */
-function CalendarActionRow({ onDownload, mapHref, googleHref }: { onDownload: () => void; mapHref: string; googleHref: string }) {
+function CalendarActionRow({ onDownload, mapHref, googleHref, share }: {
+  onDownload: () => void;
+  mapHref: string;
+  googleHref: string;
+  /** The visit to pass on, with the path of the page to link to. */
+  share: Omit<SharedVisit, "url"> & { path: string };
+}) {
+  const send = async () => {
+    const result = await shareVisit({ ...share, url: new URL(share.path, window.location.origin).href });
+    if (result === "copied") showToast(t("booking.share.copied"));
+    if (result === "failed") showToast(t("booking.share.failed"));
+  };
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button icon={<CalendarPlus size={16} />} onClick={onDownload}>
@@ -76,6 +88,9 @@ function CalendarActionRow({ onDownload, mapHref, googleHref }: { onDownload: ()
       <a href={googleHref} target="_blank" rel="noopener noreferrer" className={buttonClass("link")}>
         {t("booking.googleCalendar")}
       </a>
+      <Button variant="link" icon={<Share2 size={16} />} onClick={send}>
+        {t("booking.share")}
+      </Button>
     </div>
   );
 }
@@ -88,6 +103,7 @@ export function CalendarActions({ state, booking }: { state: DemoState; booking:
       onDownload={() => downloadCalendar(state, booking)}
       mapHref={mapLink(state.salon.address, state.salon.area)}
       googleHref={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })}
+      share={{ salon: state.salon.name, date: booking.date, start: booking.start, path: bookingPage(state.salon.slug, booking.id) }}
     />
   );
 }
@@ -121,6 +137,8 @@ export function PublicCalendarActions({ slug, id, view }: { slug: string; id: st
       onDownload={download}
       mapHref={mapLink(visit.salon.address, visit.salon.area ?? "")}
       googleHref={publicGoogleCalendarLink(visit)}
+      // The link in the e-mail carries the key to change the booking; the salon's page is what is safe to pass on.
+      share={{ salon: visit.salon.name, date: view.date, start: view.start, path: bookingHome(slug) }}
     />
   );
 }

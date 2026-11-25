@@ -3433,6 +3433,12 @@ const messages = {
   "addons.consent.prepaid": "Money paid in advance belongs to the customer until the visit is used.",
   "addons.consent.refunds": "You decide how long cards are valid and when you refund. Tell customers before they pay.",
   "addons.consent.demo": "Demo: nothing is sold or charged. Payments here are simulated.",
+  "booking.closingSoon": "Closing soon, until {until}",
+  "booking.lunchNow": "Closed for lunch until {until}",
+  "booking.share": "Share this time",
+  "booking.share.text": "My time at {salon}: {day} at {time}.",
+  "booking.share.copied": "Link copied",
+  "booking.share.failed": "The link could not be copied.",
 } as const;
 
 export const en = {

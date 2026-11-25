@@ -3344,6 +3344,12 @@ const messages = {
   "addons.consent.prepaid": "Pengar som betalats i förväg tillhör kunden tills besöket används.",
   "addons.consent.refunds": "Du bestämmer hur länge korten gäller och när du betalar tillbaka. Berätta det för kunderna innan de betalar.",
   "addons.consent.demo": "Demo: inget säljs eller dras. Betalningarna här är simulerade.",
+  "booking.closingSoon": "Stänger snart, till {until}",
+  "booking.lunchNow": "Lunchstängt till {until}",
+  "booking.share": "Dela tiden",
+  "booking.share.text": "Min tid hos {salon}: {day} kl. {time}.",
+  "booking.share.copied": "Länken är kopierad",
+  "booking.share.failed": "Länken kunde inte kopieras.",
 } satisfies Record<keyof typeof en.messages, string>;
 
 export const sv = {
