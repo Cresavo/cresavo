@@ -3,7 +3,7 @@
 import { customerText } from "../i18n/customer-text";
 
 import { useState } from "react";
-import { CalendarClock, CalendarPlus, XCircle } from "lucide-react";
+import { CalendarClock, CalendarPlus, Navigation, XCircle } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
 import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
@@ -22,6 +22,7 @@ import { useCommit } from "../ui/use-commit";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
+import { mapLink } from "./links";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
@@ -56,7 +57,30 @@ interface BookingActionsProps {
   booking: Booking;
 }
 
-/** Add to calendar, reschedule and cancel. Inside the 24 h window the customer is asked to call. */
+/**
+ * Save the visit and find the way: the calendar file is the main action, with directions beside it.
+ * The map app works out the route and the travel time; the page never guesses one.
+ */
+export function CalendarActions({ state, booking }: { state: DemoState; booking: Booking }) {
+  const service = findService(state, booking.serviceId);
+  if (!service) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
+        {t("booking.calendarFile")}
+      </Button>
+      <a href={mapLink(state.salon.address, state.salon.area)} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
+        <Navigation aria-hidden size={16} />
+        {t("booking.directions")}
+      </a>
+      <a href={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })} target="_blank" rel="noopener noreferrer" className={buttonClass("link")}>
+        {t("booking.googleCalendar")}
+      </a>
+    </div>
+  );
+}
+
+/** Reschedule and cancel. Inside the 24 h window the customer is asked to call. */
 export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const [run, pending] = useCommit();
@@ -147,15 +171,6 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
         </Notice>
       )}
       {!moveOpen && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
-          {t("booking.calendarFile")}
-        </Button>
-        <a href={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
-          {t("booking.googleCalendar")}
-        </a>
-      </div>
 
       <Sheet
         open={rule === "free" && sheet === "cancel"}

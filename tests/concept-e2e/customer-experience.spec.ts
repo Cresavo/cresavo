@@ -493,7 +493,7 @@ test("the confirmation link moves the same visit, exports its new time and enfor
   const google = new URL((await page.getByRole("link", { name: "Google Calendar" }).getAttribute("href"))!);
   expect(google.hostname).toBe("calendar.google.com");
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Download calendar file/ }).click();
+  await page.getByRole("button", { name: "Add to calendar" }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe(`salong-eko-${moved.date}.ics`);
   const contents = await file.createReadStream();
