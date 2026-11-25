@@ -179,7 +179,14 @@ test("a visit for someone else names the visitor to the booker and keeps the boo
 
   await page.goto(`/boka/salong-eko/me?ref=${contact.id}`);
   await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
-  await page.getByRole("button", { name: "Cancel booking", exact: true }).first().click();
+  // This customer can already have an earlier upcoming visit in the demo (today's
+  // evening booking). The first Cancel booking would open that one, not Elsa's.
+  const visit = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Coming up", exact: true }) })
+    .getByText("Visit for Elsa Demo", { exact: true })
+    .locator("xpath=ancestor::*[.//button[normalize-space()='Cancel booking']][1]");
+  await visit.getByRole("button", { name: "Cancel booking", exact: true }).click();
   const cancel = page.getByRole("dialog");
   await expect(cancel.getByText(/Visit for Elsa Demo\./)).toBeVisible();
   await cancel.getByRole("button", { name: "Keep booking" }).click();
