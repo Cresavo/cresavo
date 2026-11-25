@@ -72,17 +72,21 @@ export function Confirmation({ id, onBack }: { id: string; onBack?: () => void }
         <div>
           <p className="text-h3 font-semibold">{service.name}</p>
           <p className="mt-1 flex items-center gap-2 text-body">
-            <CalendarCheck size={16} className="shrink-0 text-action" />
+            <CalendarCheck size={16} className="shrink-0 text-action" aria-hidden />
             {formatDayLong(booking.date)}, {formatTime(booking.start)}–{formatTime(booking.start + booking.duration)}
           </p>
         </div>
         {booking.visitFor && <p className="text-body">{t("booking.for.visit", { name: booking.visitFor })}</p>}
-        <div className="flex items-center gap-3 text-meta text-text-secondary">
-          <StaffAvatar person={person} size="sm" />
-          <span>{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })} · {formatDuration(booking.duration)}</span>
+        {/* The person the customer is going to, by face or initials, then how long it takes. */}
+        <div className="flex items-center gap-3">
+          <StaffAvatar person={person} size="md" />
+          <span className="min-w-0">
+            <span className="block text-body font-medium">{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })}</span>
+            <span className="block text-meta text-text-secondary">{formatDuration(booking.duration)}</span>
+          </span>
         </div>
         <p className="flex items-start gap-2 text-meta text-text-secondary">
-          <MapPin size={16} className="mt-1 shrink-0" />
+          <MapPin size={16} className="mt-0.5 shrink-0" aria-hidden />
           {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
         </p>
         {booking.protection ? <PaymentSummary booking={booking} state={state} active={active} /> : <p className="border-t border-hairline pt-3 text-meta">

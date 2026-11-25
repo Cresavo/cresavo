@@ -125,7 +125,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         <p className="text-meta text-text-secondary">{t(suggested ? "booking.nextAvailable" : "booking.yourVisit")}</p>
         <h2 className="text-h2 font-semibold">{service.name}</h2>
         <p aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-body">
-          <CalendarCheck size={16} className="shrink-0 text-action" />
+          <CalendarCheck size={16} className="shrink-0 text-action" aria-hidden />
           {formatDayLong(slot.date)}, {formatTime(slot.start)}–{formatTime(slot.start + service.duration)}
         </p>
         <p className="flex items-center gap-2 text-meta text-text-secondary">
