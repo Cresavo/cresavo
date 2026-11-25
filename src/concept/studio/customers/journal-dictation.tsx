@@ -74,14 +74,16 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
       const dropped = await add({ id, customerId: customer.id, createdAt: Date.now(), source, mime, seconds, transcript: source === "recorded" ? text.current.trim() || undefined : undefined, bytes: await audio.arrayBuffer() });
       setCurrent({ id, source });
       if (dropped.length) showToast(t("journal.audio.oldestDropped"));
+      return id;
     } catch {
       showToast(t("journal.audio.saveFailed"));
+      return undefined;
     }
   };
 
   const recorder = useRecorder({
     onEnd: speech.stop,
-    onRecorded: (audio, seconds) => void keep(audio, "recorded", audio.type, seconds),
+    onRecorded: (audio, seconds) => keep(audio, "recorded", audio.type, seconds),
   });
 
   const record = async () => {
@@ -103,12 +105,16 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   };
 
   const structure = async () => {
-    recorder.stop();
+    const spoken = [transcript.trim(), speech.interim].filter(Boolean).join(" ");
+    text.current = spoken;
+    if (spoken !== transcript) setTranscript(spoken);
+    const recordedId = await recorder.stop();
     speech.stop();
     setBusy(true);
-    if (current) void keepTranscript(current.id, transcript.trim()).catch(() => {});
+    const id = recordedId ?? current?.id;
+    if (id) void keepTranscript(id, spoken).catch(() => {});
     try {
-      const { output, log } = await runAiTask<Structured>("structure-journal", { transcript }, !!state.industry);
+      const { output, log } = await runAiTask<Structured>("structure-journal", { transcript: spoken }, !!state.industry);
       setFields({ treatment: output.treatment, observations: output.observations, advice: output.recommendation, nextVisit: output.nextVisit, source: log.source });
     } catch {
       showToast(t("journal.structureFailed"));

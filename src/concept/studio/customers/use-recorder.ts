@@ -21,8 +21,8 @@ function microphoneProblem(error: unknown): string {
 }
 
 interface RecorderOptions {
-  /** A finished recording: its audio and how long it ran. */
-  onRecorded: (audio: Blob, seconds: number) => void;
+  /** A finished recording: its audio and how long it ran. May return the stored recording id. */
+  onRecorded: (audio: Blob, seconds: number) => void | Promise<string | undefined>;
   /** Called whenever recording ends, by Stop or by the time limit. */
   onEnd?: () => void;
 }
@@ -33,21 +33,47 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   const [seconds, setSeconds] = useState(0);
   const recorder = useRef<MediaRecorder | null>(null);
   const handlers = useRef({ onRecorded, onEnd });
+  const live = useRef(true);
+  const tick = useRef<ReturnType<typeof setInterval>>(undefined);
+  const limit = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pendingStop = useRef<((id?: string) => void) | null>(null);
   useEffect(() => {
     handlers.current = { onRecorded, onEnd };
   });
 
-  const stop = useCallback(() => {
-    if (recorder.current?.state === "recording") recorder.current.stop();
-  }, []);
+  const clearTimers = () => {
+    clearInterval(tick.current);
+    clearTimeout(limit.current);
+    tick.current = undefined;
+    limit.current = undefined;
+  };
+
+  const finishStop = (id?: string) => {
+    pendingStop.current?.(id);
+    pendingStop.current = null;
+  };
+
+  const stop = useCallback(() => new Promise<string | undefined>((resolve) => {
+    if (recorder.current?.state === "recording") {
+      pendingStop.current = resolve;
+      recorder.current.stop();
+    } else resolve(undefined);
+  }), []);
 
   // Leaving the journal mid-recording releases the microphone and keeps nothing.
-  useEffect(() => () => {
-    const current = recorder.current;
-    if (!current) return;
-    current.onstop = null;
-    if (current.state !== "inactive") current.stop();
-    current.stream.getTracks().forEach((track) => track.stop());
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+      clearTimers();
+      finishStop();
+      const current = recorder.current;
+      if (!current) return;
+      current.onstop = null;
+      if (current.state !== "inactive") current.stop();
+      current.stream.getTracks().forEach((track) => track.stop());
+      recorder.current = null;
+    };
   }, []);
 
   const start = useCallback(async (): Promise<boolean> => {
@@ -57,6 +83,10 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (error) {
       showToast(microphoneProblem(error));
+      return false;
+    }
+    if (!live.current) {
+      stream.getTracks().forEach((track) => track.stop());
       return false;
     }
     const mimeType = recorderMime((mime) => MediaRecorder.isTypeSupported(mime));
@@ -70,24 +100,26 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     }
     const chunks: Blob[] = [];
     const startedAt = performance.now();
-    const tick = setInterval(() => setSeconds(Math.floor((performance.now() - startedAt) / 1000)), 1000);
-    const limit = setTimeout(() => {
+    tick.current = setInterval(() => setSeconds(Math.floor((performance.now() - startedAt) / 1000)), 1000);
+    limit.current = setTimeout(() => {
       showToast(t("journal.audio.autoStopped"));
-      stop();
+      void stop();
     }, MAX_AUDIO_SECONDS * 1000);
     next.ondataavailable = (event) => {
       if (event.data.size) chunks.push(event.data);
     };
     next.onstop = () => {
-      clearInterval(tick);
-      clearTimeout(limit);
+      clearTimers();
       stream.getTracks().forEach((track) => track.stop());
       recorder.current = null;
       setRecording(false);
       const audio = new Blob(chunks, { type: next.mimeType || mimeType || chunks[0]?.type || "" });
       const length = Math.min((performance.now() - startedAt) / 1000, MAX_AUDIO_SECONDS);
       handlers.current.onEnd?.();
-      if (audio.size) handlers.current.onRecorded(audio, length);
+      void Promise.resolve(audio.size ? handlers.current.onRecorded(audio, length) : undefined).then(
+        (id) => finishStop(typeof id === "string" ? id : undefined),
+        () => finishStop(),
+      );
     };
     recorder.current = next;
     setSeconds(0);

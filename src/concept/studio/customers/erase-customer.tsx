@@ -34,18 +34,26 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
 
   const run = async () => {
     setBusy(true);
-    const report = await erase(customer.id, name);
-    setBusy(false);
-    if (!report) {
-      showToast(t("customer.erase.failed"));
-      return;
+    try {
+      // Recordings live only in this browser; remove them before the customer so a failure can be retried.
+      try {
+        await journalAudioStore().removeCustomer(customer.id);
+      } catch {
+        showToast(t("journal.audio.eraseFailed"));
+        return;
+      }
+      const report = await erase(customer.id, name);
+      if (!report) {
+        showToast(t("customer.erase.failed"));
+        return;
+      }
+      const notes = [report.pendingPayments ? tc("customer.erase.pending", report.pendingPayments) : "", report.inFlightMessages ? t("customer.erase.inFlight") : ""];
+      showToast([t("customer.erase.done"), ...notes].filter(Boolean).join(" "));
+      close();
+      onErased?.();
+    } finally {
+      setBusy(false);
     }
-    // Journal recordings live only in this browser; erasure takes them too.
-    void journalAudioStore().removeCustomer(customer.id).catch(() => {});
-    const notes = [report.pendingPayments ? tc("customer.erase.pending", report.pendingPayments) : "", report.inFlightMessages ? t("customer.erase.inFlight") : ""];
-    showToast([t("customer.erase.done"), ...notes].filter(Boolean).join(" "));
-    close();
-    onErased?.();
   };
 
   return (

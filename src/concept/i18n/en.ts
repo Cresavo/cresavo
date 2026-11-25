@@ -1261,6 +1261,7 @@ const messages = {
   "journal.audio.noMicrophone": "No microphone was found. You can upload a recording or type instead.",
   "journal.audio.recordFailed": "Recording could not start. You can upload a recording or type instead.",
   "journal.audio.saveFailed": "The recording could not be kept in this browser.",
+  "journal.audio.eraseFailed": "The recordings could not be removed. Try again.",
   "journal.audio.oldestDropped": "Recording kept. The oldest of five was removed.",
   "journal.audio.recent": "Recent recordings",
   "journal.audio.recorded": "Recorded {when}",

@@ -1236,6 +1236,7 @@ const messages = {
   "journal.audio.noMicrophone": "Ingen mikrofon hittades. Du kan ladda upp en inspelning eller skriva i stället.",
   "journal.audio.recordFailed": "Inspelningen kunde inte starta. Du kan ladda upp en inspelning eller skriva i stället.",
   "journal.audio.saveFailed": "Inspelningen kunde inte sparas i den här webbläsaren.",
+  "journal.audio.eraseFailed": "Inspelningarna kunde inte tas bort. Försök igen.",
   "journal.audio.oldestDropped": "Inspelningen sparades. Den äldsta av fem togs bort.",
   "journal.audio.recent": "Senaste inspelningarna",
   "journal.audio.recorded": "Inspelad {when}",
