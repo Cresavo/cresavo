@@ -341,12 +341,12 @@ describe("spoken conversation", () => {
 
   it("does not start another listen when Stop aborts a pending probe", () => {
     const log: string[] = [];
-    let conversation: ReturnType<typeof createConversation>;
+    const held: { talk?: ReturnType<typeof createConversation> } = {};
     const ports: ConversationPorts = {
       listen: () => void log.push("listen"),
       stopListening: () => {
         log.push("stop-listening");
-        conversation.listenEnded({ heard: false, error: "aborted" });
+        held.talk!.listenEnded({ heard: false, error: "aborted" });
       },
       speak: () => false,
       stopSpeaking: () => void log.push("stop-speaking"),
@@ -355,10 +355,10 @@ describe("spoken conversation", () => {
       clearTimer: () => {},
       onChange: () => {},
     };
-    conversation = createConversation(ports);
-    conversation.start();
-    conversation.stop();
-    expect(conversation.state()).toMatchObject({ phase: "ended", ended: "stopped" });
+    held.talk = createConversation(ports);
+    held.talk.start();
+    held.talk.stop();
+    expect(held.talk.state()).toMatchObject({ phase: "ended", ended: "stopped" });
     expect(log.filter((entry) => entry === "listen")).toEqual(["listen"]);
   });
 
@@ -434,6 +434,7 @@ describe("what is read aloud", () => {
     ["an email", "Her email is lena@example.com."],
     ["an English address", "She lives at Storgatan 12."],
     ["a numbered English street", "She lives at 12 Main St."],
+    ["a multiword street", "The salon is at 12 North Main St."],
     ["an avenue", "The salon is at 12 Main Avenue."],
     ["a Swedish address", "Hon bor på Ringvägen 4."],
   ])("never reads %s", (_, text) => {
@@ -451,6 +452,8 @@ describe("what is read aloud", () => {
     expect(safeSpeech("She uses insulin.", short)).toBe("The details are on the screen.");
     const brief = { ...state, journals: [{ ...journal, treatment: "Visit", observations: "HIV", advice: "", nextVisit: "" }] };
     expect(safeSpeech("She has HIV.", brief)).toBe("The details are on the screen.");
+    const paraphrase = { ...state, journals: [{ ...journal, treatment: "Visit", observations: "Customer is HIV positive", advice: "", nextVisit: "" }] };
+    expect(safeSpeech("She is HIV positive.", paraphrase)).toBe("The details are on the screen.");
   });
 
   it("reads a treatment's name, which is the salon's menu and not anyone's health", () => {

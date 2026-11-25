@@ -37,7 +37,7 @@ const PHONE = /(?:\+|\b0)\d[\d\s.()-]{5,}\d\b|\b\d{7,}\b/;
 const FORMATTED_PHONE = /(?<!\d)(?:\(\d{2,4}\)|\d{2,4})[\s.-]\d{2,4}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?(?!\d)/;
 const STREET_SUFFIX = "st|street|ave|avenue|rd|road|ln|lane|blvd|boulevard|dr|drive|ct|court|pl|place|way|terrace|ter|circle|cir|hwy|highway";
 const ADDRESS = new RegExp(
-  String.raw`\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+|\b\d{1,5}\s+[a-zåäö][a-zåäö.'-]*\s+(?:${STREET_SUFFIX})\b`,
+  String.raw`\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+|\b\d{1,5}\s+(?:[a-zåäö][a-zåäö.'-]*\s+){1,4}(?:${STREET_SUFFIX})\b`,
   "i",
 );
 

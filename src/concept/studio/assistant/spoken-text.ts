@@ -26,15 +26,17 @@ const word = (text: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(text)}(?!
 /** A full name, also in the Swedish genitive ("Lena Bergs"). */
 const nameWord = (text: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(text)}(s?)(?![\\p{L}\\p{N}])`, "giu");
 
-/** Four consecutive journal words in the spoken line: enough to catch an excerpt, not a short common phrase. */
-const MIN_JOURNAL_WORDS = 4;
+/** Three consecutive journal words in the spoken line, if at least one is a distinctive word. */
+const MIN_JOURNAL_WORDS = 3;
 
 function quotesWords(journal: string, spoken: string): boolean {
   const words = journal.split(" ").filter(Boolean);
   if (words.length < MIN_JOURNAL_WORDS) return false;
   const haystack = ` ${spoken} `;
   for (let start = 0; start + MIN_JOURNAL_WORDS <= words.length; start++) {
-    if (haystack.includes(` ${words.slice(start, start + MIN_JOURNAL_WORDS).join(" ")} `)) return true;
+    const slice = words.slice(start, start + MIN_JOURNAL_WORDS);
+    if (slice.every((word) => word.length < 3 || SCHEDULE_FIELD.test(word) || SHORT_FIELD_STOP.test(word))) continue;
+    if (haystack.includes(` ${slice.join(" ")} `)) return true;
   }
   return false;
 }
