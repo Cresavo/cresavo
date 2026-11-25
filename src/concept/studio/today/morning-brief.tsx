@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Square, Volume2 } from "lucide-react";
 import { briefSpeech, morningBrief, type Brief } from "../../assistant/briefs";
 import { t } from "../../i18n";
+import { taskEnabled } from "../../modules/registry";
 import { summaryDue } from "../../summary/day";
 import { Button } from "../../ui/button";
 import { Section } from "../../ui/card";
@@ -72,7 +73,8 @@ export function MorningBrief({ className }: { className?: string }) {
   useEffect(() => {
     speakingNow.current = speaking;
   }, [speaking]);
-  const due = summaryDue(state, { today, minutes });
+  // Step aside only when the evening summary will actually take its place.
+  const due = summaryDue(state, { today, minutes }) && taskEnabled(state.modules, "daily-summary") && state.bookings.some((booking) => !booking.example);
   useEffect(() => {
     if (!due || !speakingNow.current) return;
     turn.current += 1;
