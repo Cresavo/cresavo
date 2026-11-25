@@ -62,6 +62,8 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       recorder.current.stop();
     } else if (pendingStop.current.length) {
       pendingStop.current.push(resolve);
+    } else if (saving.current) {
+      saving.current.then(resolve, () => resolve(undefined));
     } else {
       resolve(undefined);
     }

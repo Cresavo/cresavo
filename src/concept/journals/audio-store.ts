@@ -47,7 +47,9 @@ export interface JournalAudioStore {
   setTranscript(id: string, transcript: string): Promise<void>;
   /** Removes every recording of a customer in this salon lifetime (erasure). */
   removeCustomer(customerId: string, scope: string): Promise<void>;
-  /** Removes every recording whose scope belongs to this workspace (salon deleted or replaced). */
+  /** Removes every recording of one salon lifetime. */
+  removeScope(scope: string): Promise<void>;
+  /** Removes every recording whose scope belongs to this workspace (salon deleted with no successor). */
   removeWorkspace(workspace: string): Promise<void>;
 }
 
@@ -78,6 +80,9 @@ export function memoryAudioStore(): JournalAudioStore {
     },
     async removeCustomer(customerId, scope) {
       of(customerId, scope).forEach((row) => rows.delete(row.id));
+    },
+    async removeScope(scope) {
+      [...rows.values()].filter((row) => row.scope === scope).forEach((row) => rows.delete(row.id));
     },
     async removeWorkspace(workspace) {
       inWorkspace(workspace).forEach((row) => rows.delete(row.id));
@@ -158,6 +163,15 @@ export function indexedDbAudioStore(factory: IDBFactory): JournalAudioStore {
       }),
     removeCustomer: (customerId, scope) =>
       run<void>("readwrite", (store) => forCustomer(store, customerId, scope, (rows) => rows.forEach((row) => store.delete(row.id)))),
+    removeScope: (scope) =>
+      run<void>("readwrite", (store) => {
+        const request = store.getAll();
+        request.onsuccess = () => {
+          for (const row of request.result as JournalRecording[]) {
+            if (row.scope === scope) store.delete(row.id);
+          }
+        };
+      }),
     removeWorkspace: (workspace) =>
       run<void>("readwrite", (store) => {
         const request = store.getAll();

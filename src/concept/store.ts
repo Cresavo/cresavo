@@ -81,9 +81,10 @@ function salonRemoved(workspace: Workspace) {
   removalListeners.forEach(listener => listener(workspace));
 }
 
-/** Drops journal recordings when a salon is deleted or replaced, not when the owner only signs out. */
-function forgetJournalAudio(workspace: Workspace) {
-  void journalAudioStore().removeWorkspace(workspace).catch(() => {});
+/** Drops journal recordings of one salon lifetime, or of the whole workspace when it has no successor. */
+function forgetJournalAudio(workspace: Workspace, epoch?: string) {
+  const store = journalAudioStore();
+  void (epoch ? store.removeScope(`${workspace}:${epoch}`) : store.removeWorkspace(workspace)).catch(() => {});
 }
 
 /** Called when a workspace's salon is deleted (trial expiry, "Delete now", another tab) or replaced (a new sample business). */
@@ -187,9 +188,10 @@ function removeOwnSalon(announce: boolean) {
     window.localStorage.removeItem(lastUseKey());
     window.localStorage.removeItem(epochKey("own"));
   } catch { /* Nothing more to remove. */ }
+  const previous = snapshots.own.state ? epochOf("own", snapshots.own.state) : snapshots.own.epoch;
   snapshots.own = {};
   salonRemoved("own");
-  forgetJournalAudio("own");
+  forgetJournalAudio("own", previous);
   if (active === "own") {
     active = "demo";
     try { window.sessionStorage.setItem(SELECTION_KEY, "demo"); }
@@ -324,7 +326,7 @@ function refresh(workspace: Workspace) {
   // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
   if (had && (!snapshot.state || epochOf(workspace, snapshot.state) !== before)) {
     salonRemoved(workspace);
-    forgetJournalAudio(workspace);
+    forgetJournalAudio(workspace, before);
   }
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
@@ -628,8 +630,9 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
     refreshFromStorage();
     const next = createDemoState(today(), setup);
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
+    const previous = snapshots.demo.state ? epochOf("demo", snapshots.demo.state) : snapshots.demo.epoch;
     salonRemoved("demo");
-    forgetJournalAudio("demo");
+    forgetJournalAudio("demo", previous);
     // The new lifetime goes into the same write as the new salon, or stays with it in memory.
     snapshots.demo.epoch = newEpoch();
     return setState(next);

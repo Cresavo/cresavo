@@ -128,6 +128,15 @@ describe.each<[string, () => JournalAudioStore]>([
     expect(await store.list("k001", "demo:two")).toEqual([]);
     expect((await store.list("k001", "own:three")).map((r) => r.id)).toEqual(["a3"]);
   });
+
+  it("drops only one salon lifetime, leaving a newer one in the same workspace", async () => {
+    const store = make();
+    await store.add(recording("a1", "k001", 1, { scope: "demo:old" }));
+    await store.add(recording("a2", "k001", 2, { scope: "demo:new" }));
+    await store.removeScope("demo:old");
+    expect(await store.list("k001", "demo:old")).toEqual([]);
+    expect((await store.list("k001", "demo:new")).map((r) => r.id)).toEqual(["a2"]);
+  });
 });
 
 

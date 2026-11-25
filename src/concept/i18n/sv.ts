@@ -1237,6 +1237,8 @@ const messages = {
   "journal.audio.recordFailed": "Inspelningen kunde inte starta. Du kan ladda upp en inspelning eller skriva i stället.",
   "journal.audio.saveFailed": "Inspelningen kunde inte sparas i den här webbläsaren.",
   "journal.audio.eraseFailed": "Inspelningarna kunde inte tas bort. Försök igen.",
+  "journal.audio.eraseUnavailable": "Inspelningarna kunde inte tas bort eftersom webbläsarens lagring är blockerad. Försök igen, eller radera kunden utan dem.",
+  "journal.audio.eraseAnyway": "Radera ändå",
   "journal.audio.oldestDropped": "Inspelningen sparades. Den äldsta av fem togs bort.",
   "journal.audio.recent": "Senaste inspelningarna",
   "journal.audio.recorded": "Inspelad {when}",
