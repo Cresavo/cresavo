@@ -32,7 +32,7 @@ jobs:
       DATABASE_URL: postgresql://booking:booking@127.0.0.1:5432/booking_ci_test
       SESSION_SECRET: synthetic-ci-session-secret-never-use-in-deployment
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -131,7 +131,7 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       CHECKPOINT_DISABLE: "1"
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
