@@ -6,9 +6,8 @@ import { openingFor } from "../../data/slots";
 import type { DateKey, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
 import { formatDayLong, formatTime } from "../../i18n/format";
-import { dayBookings, findCustomer, findService, fullName, utilisation, visitorName } from "../../selectors";
+import { dayBookings, findCustomer, findService, fullName, visitorName } from "../../selectors";
 import { Badge } from "../../ui/badge";
-import { Meter } from "../../ui/charts";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
@@ -33,7 +32,6 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
                 {closed ? <Badge>{t("calendar.closed")}</Badge>
                   : <p className="text-meta text-text-secondary">{tc("calendar.bookingCount", list.length)}</p>}
               </div>
-              {!closed && <Meter value={utilisation(state, d, 1, staffId)} className="w-20" />}
             </div>
             {list.length > 0 && (
               <ul className="divide-y divide-hairline border-y border-hairline">

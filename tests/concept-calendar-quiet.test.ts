@@ -68,4 +68,6 @@ it("marks today in the phone's week list in words, not by colour alone", () => {
   const html = renderToStaticMarkup(createElement(WeekAgenda, { monday, staff: state.staff, onOpen: vi.fn() }));
   expect(count(html, 'aria-current="date"')).toBe(1);
   expect(html).toContain(`>${t("date.today")}<`);
+  // The old occupancy bar was a weak grey meter; utilisation belongs on Today, not in this list.
+  expect(html).not.toContain("h-1.5 overflow-hidden");
 });
