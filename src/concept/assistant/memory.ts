@@ -39,6 +39,12 @@ const ADDRESS = /\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|z
 export function memoryRejection(text: string, state?: Pick<DemoState, "journals">): MemoryRejection | null {
   const plain = text.trim();
   if (!plain || plain.length > MAX_LENGTH) return "empty";
+  return sensitiveKind(plain, state);
+}
+
+/** Whether text holds health or journal details or contact details, of any length. Speech and the memory both check it. */
+export function sensitiveKind(text: string, state?: Pick<DemoState, "journals">): Exclude<MemoryRejection, "empty"> | null {
+  const plain = text.trim();
   if (EMAIL.test(plain) || PHONE.test(plain) || ADDRESS.test(plain.toLowerCase())) return "contact";
   const words = normalize(plain);
   if (HEALTH.test(words) || SWEDISH_HEALTH.test(words)) return "health";

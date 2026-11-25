@@ -17,11 +17,24 @@ import { canSpeak, stopSpeaking } from "./speak";
 import { closeAssistant, setSpeak, takePendingQuestion } from "./thread-store";
 import { useAssistant } from "./use-assistant";
 import { undoBlockMessageKey } from "../log/undo-toast";
+import { useStudio } from "../use-studio";
+import { ConversationBar } from "./conversation-bar";
+import { useConversation, type ConversationControls } from "./use-conversation";
 
 /** The conversation with the assistant: full screen on phones, a side panel on larger screens. */
 export function AssistantPanel() {
+  const { state } = useStudio();
   const assistant = useAssistant();
-  const { thread } = assistant;
+  const { thread, role } = assistant;
+  const talk = useConversation(assistant.send, state.modules.assistant);
+  const { close: endTalk } = talk;
+  // Closing the panel or switching role ends a spoken conversation.
+  useEffect(() => {
+    if (!thread.open) endTalk();
+  }, [thread.open, endTalk]);
+  useEffect(() => endTalk, [role, endTalk]);
+  // In a spoken conversation the speaker button mutes that conversation; the saved choice is for typed replies.
+  const speaking = talk.active ? !talk.muted : thread.speak;
   return (
     <Sheet
       variant="side"
@@ -31,14 +44,15 @@ export function AssistantPanel() {
       headerActions={<>
         {canSpeak() && (
           <IconButton
-            label={thread.speak ? t("assistant.speakOff") : t("assistant.speakOn")}
-            aria-pressed={thread.speak}
+            label={speaking ? t("assistant.speakOff") : t("assistant.speakOn")}
+            aria-pressed={speaking}
             onClick={() => {
+              if (talk.active) return talk.setMuted(!talk.muted);
               if (thread.speak) stopSpeaking();
               setSpeak(!thread.speak);
             }}
           >
-            {thread.speak ? <Volume2 size={18} aria-hidden /> : <VolumeX size={18} aria-hidden />}
+            {speaking ? <Volume2 size={18} aria-hidden /> : <VolumeX size={18} aria-hidden />}
           </IconButton>
         )}
         {thread.messages.length > 0 && (
@@ -48,12 +62,14 @@ export function AssistantPanel() {
         )}
       </>}
     >
-      <PanelBody key={assistant.role} assistant={assistant} />
+      <PanelBody key={assistant.role} assistant={assistant} talk={talk} />
     </Sheet>
   );
 }
 
-function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }) {
+function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof useAssistant>; talk: ConversationControls }) {
+  // A tap on a card while a reply is read aloud cuts the reading short: what is said never stands for the tap.
+  const assistant = talk.active ? withQuiet(plain, talk.interrupt) : plain;
   const { thread, send } = assistant;
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -71,6 +87,7 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
   useEffect(() => {
     const question = takePendingQuestion();
     if (question) send(question);
+    else if (thread.listen && talk.enabled) talk.start();
     else if (thread.listen) startListening();
     // The dialog opens (and focuses its first button) after this effect: the message box takes focus once it has.
     else window.setTimeout(() => input.current?.focus(), 0);
@@ -121,32 +138,34 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
       </div>
 
       <form onSubmit={submit} className="ui-action-bar border-t border-hairline bg-surface px-3 pt-3">
+        <ConversationBar talk={talk} />
         <div className="flex items-end gap-1 rounded-md bg-surface p-1 ring-1 ring-input-border focus-within:ring-2 focus-within:ring-focus">
           <Textarea
             variant="composer"
             ref={input}
             rows={1}
-            value={speech.listening ? speech.interim : text}
-            readOnly={speech.listening}
+            value={speech.listening || talk.listening ? speech.interim || talk.interim : text}
+            readOnly={speech.listening || talk.listening}
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) submit(event);
             }}
-            placeholder={speech.listening ? t("command.listening") : t("assistant.placeholder")}
+            placeholder={speech.listening || talk.listening ? t("command.listening") : t("assistant.placeholder")}
             aria-label={t("assistant.message")}
             enterKeyHint="send"
             className="max-h-32"
           />
-          {speech.supported && (
+          {speech.supported && !talk.enabled && (
             <IconButton
               label={t("command.voice")}
               aria-pressed={speech.listening}
               onClick={speech.toggle}
-              className={cx(speech.listening && "animate-pulse bg-action-bg")}
+              className={cx(speech.listening && "bg-action-bg motion-safe:animate-pulse")}
             >
               <Mic size={18} aria-hidden />
             </IconButton>
           )}
+          {talk.enabled && <ConversationMic talk={talk} />}
           <IconButton type="submit" label={t("assistant.send")} variant="primary" disabled={!text.trim()}>
             <ArrowUp size={18} aria-hidden />
           </IconButton>
@@ -154,6 +173,27 @@ function PanelBody({ assistant }: { assistant: ReturnType<typeof useAssistant> }
       </form>
     </div>
   );
+}
+
+const MIC_LABEL = { off: "assistant.voice.start", ended: "assistant.voice.start", listening: "assistant.voice.stopLabel", thinking: "assistant.voice.stopLabel", speaking: "assistant.voice.interrupt" } as const;
+
+/** The microphone of a spoken conversation: starts it, interrupts a reply being read, or stops it. */
+function ConversationMic({ talk }: { talk: ConversationControls }) {
+  return (
+    <IconButton label={t(MIC_LABEL[talk.phase])} aria-pressed={talk.active} onClick={talk.press} className={cx(talk.phase === "listening" && "bg-action-bg")}>
+      <Mic size={18} aria-hidden />
+    </IconButton>
+  );
+}
+
+/** The panel's actions, each first stopping a reply that is being read aloud. */
+function withQuiet(assistant: ReturnType<typeof useAssistant>, quiet: () => void): ReturnType<typeof useAssistant> {
+  return {
+    ...assistant,
+    approve: (...args) => (quiet(), assistant.approve(...args)),
+    decline: (...args) => (quiet(), assistant.decline(...args)),
+    pick: (...args) => (quiet(), assistant.pick(...args)),
+  };
 }
 
 function cardActions(assistant: ReturnType<typeof useAssistant>, id: string, undoId?: string, onEdit?: () => void): CardActions {
