@@ -404,6 +404,7 @@ describe("what is read aloud", () => {
     ["a Swedish health detail", "Hon har ont och svullnad i foten."],
     ["a Swedish health word with å, ä, ö", "Kunden har eksem och smärta."],
     ["a phone number", "Call her on 070-123 45 67."],
+    ["a phone number in parentheses", "Call her on (070) 123-45-67."],
     ["an international phone number", "Ring +46 70 123 45 67."],
     ["an email", "Her email is lena@example.com."],
     ["an English address", "She lives at Storgatan 12."],

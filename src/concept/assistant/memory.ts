@@ -32,7 +32,7 @@ const HEALTH =
   /\b(allerg\w*|diabet\w*|pain\w*|ache\w*|fung\w*|wart\w*|verruca\w*|wound\w*|infect\w*|inflam\w*|diagnos\w*|medic\w*|prescri\w*|pregnan\w*|blood|psoria\w*|eczema|cancer|surger\w*|operation|injur\w*|illness|ill|sick\w*|symptom\w*|skin|ingrown|callus\w*|corns?|swollen|swelling|rash|bleed\w*|condition|therapy|depress\w*|anxiety|disease|health)\b/;
 const SWEDISH_HEALTH = /\b(smart\w*|vark\w*|blod\w*|gravid\w*|svull\w*|svamp\w*|sjuk\w*|skad\w*|hud\w*|eksem\w*|lakemedel\w*|sar\w*|nageltrang\w*|forhardnad\w*|angest\w*)\b/;
 const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
-const PHONE = /(?:\+|\b0)\d[\d\s-]{5,}\d\b|\b\d{7,}\b/;
+const PHONE = /(?:\+|\b0)\d[\d\s.()-]{5,}\d\b|\b\d{7,}\b/;
 const ADDRESS = /\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+/;
 
 /** Why a note must not be stored, or null when it may. Journal text is matched against the business's journal entries. */
