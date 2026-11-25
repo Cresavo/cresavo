@@ -23,6 +23,8 @@ interface BookingBlockProps {
   /** Pixels per minute of the column, to place the processing gap and buffers. */
   scale: number;
   compact?: boolean;
+  /** Who the booking is with, said to assistive tech where the column does not already name them. */
+  staffName?: string;
   /** The booking lies outside the plan (someone is off, the salon is closed) and needs moving. */
   misfit?: boolean;
   onOpen: () => void;
@@ -31,7 +33,7 @@ interface BookingBlockProps {
 }
 
 /** A booking positioned in a time column. Draggable on devices with a mouse. */
-export function BookingBlock({ booking, top, height, scale, compact, misfit, onOpen, onGapOpen }: BookingBlockProps) {
+export function BookingBlock({ booking, top, height, scale, compact, staffName, misfit, onOpen, onGapOpen }: BookingBlockProps) {
   const { state } = useStudio();
   const customer = findCustomer(state, booking.customerId);
   const service = findService(state, booking.serviceId);
@@ -94,6 +96,7 @@ export function BookingBlock({ booking, top, height, scale, compact, misfit, onO
           {misfit && <Badge tone="warn" className="max-w-full">
             <span className="truncate">{t("calendar.needsMoving")}</span>
           </Badge>}
+          {staffName && <span className="sr-only">{t("calendar.withStaff", { name: staffName })}</span>}
         </span>
       </Button>
       {gap && (

@@ -2734,6 +2734,7 @@ const messages = {
   "calendar.rooms": "Rum",
   "calendar.allRooms": "Alla rum",
   "calendar.staff": "Personal",
+  "calendar.withStaff": "hos {name}",
   "booking.room": "Rum",
   "resources.title": "Rum och stolar",
   "resources.add": "Lägg till ett rum",

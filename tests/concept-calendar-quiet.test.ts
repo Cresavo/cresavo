@@ -18,6 +18,7 @@ vi.mock("@/concept/studio/use-studio", () => ({ useStudio: () => ({ state, today
 afterEach(() => setLocale("en"));
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
+const day = (date = today) => renderToStaticMarkup(createElement(DayGrid, { date, staff: state.staff, onOpen: vi.fn() }));
 const week = (staff = state.staff) => renderToStaticMarkup(createElement(WeekGrid, { monday, staff, onOpen: vi.fn(), onPickDay: vi.fn() }));
 
 it("marks today in the week header as the current date, once", () => {
@@ -30,10 +31,35 @@ it("names each person once in a visible staff key, not under every day", () => {
   const html = week();
   const [anna, erik] = state.staff;
   expect(html).toContain(`aria-label="${t("calendar.staff")}"`);
-  // The key once, plus the screen-reader name of each open day's column (six open days in the demo week).
+  // The key once, plus the screen-reader name of each open day's column (six open days in the demo week). Bookings
+  // say "with Anna" to assistive tech, which these exact-name counts leave out.
   const openDays = 6;
   expect(count(html, `>${anna.firstName}<`)).toBe(1 + openDays);
   expect(count(html, `<span class="sr-only">${erik.firstName}</span>`)).toBe(openDays);
+});
+
+it("gives each week column a visible initial, not only a colour", () => {
+  const html = week();
+  // One initial per person under each of the six open days, beside the colour tick.
+  for (const person of state.staff) {
+    expect(count(html, `<span aria-hidden="true" class="text-minimum leading-none text-text-secondary">${person.firstName[0]}</span>`)).toBe(6);
+  }
+});
+
+it("names the staff member inside each week booking for assistive tech, after the visible text", () => {
+  const html = week();
+  const bookings = count(html, "data-calendar-booking=");
+  const named = state.staff.reduce((sum, person) => sum + count(html, `<span class="sr-only">${t("calendar.withStaff", { name: person.firstName })}</span></span></button>`), 0);
+  expect(named).toBe(bookings);
+  expect(html).not.toMatch(/data-calendar-booking="[^"]*"[^>]*aria-label=/);
+});
+
+it("does not name the staff member in a one-person week or the day grid", () => {
+  for (const html of [week([state.staff[0]]), day()]) {
+    expect(html).not.toContain(t("calendar.withStaff", { name: state.staff[0].firstName }));
+    expect(html).not.toContain(t("calendar.withStaff", { name: state.staff[1].firstName }));
+  }
+  expect(week([state.staff[0]])).not.toContain("leading-none text-text-secondary");
 });
 
 it("leaves the staff key out when the week shows one person", () => {
@@ -52,7 +78,6 @@ it("draws one now-line and one lunch label in the day view, not one per staff co
   expect(count(html, `>${t("calendar.lunch")}<`)).toBe(1);
 });
 
-const day = (date = today) => renderToStaticMarkup(createElement(DayGrid, { date, staff: state.staff, onOpen: vi.fn() }));
 const label = 'class="studio-calendar-lunch-label';
 
 it("draws each day's lunch label behind bookings: right after the wash, before the column's bookings", () => {

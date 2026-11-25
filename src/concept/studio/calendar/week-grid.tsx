@@ -75,14 +75,16 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
           ))}
         </div>
         {staff.length > 1 && (
-          /* A thin tick in each person's colour over their column; the key above names the colours once. */
+          /* A thin tick in each person's colour and their initial over their column, so the column never relies on colour
+             alone; the key above names everyone once. */
           <div className="flex border-b border-hairline pb-1 pr-1">
             <div className="w-11 shrink-0" />
             {days.map((d) => (
               <div key={d} className="flex min-w-0 flex-1">
                 {openingFor(state.salon, d) && staff.map((person) => (
-                  <span key={person.id} className="flex min-w-0 flex-1 justify-center">
-                    <span aria-hidden className={cx("h-0.5 w-4 rounded-full opacity-80", staffFill(person.id))} />
+                  <span key={person.id} className="flex min-w-0 flex-1 items-center justify-center gap-1">
+                    <span aria-hidden className={cx("h-0.5 w-3 rounded-full opacity-80", staffFill(person.id))} />
+                    <span aria-hidden className="text-minimum leading-none text-text-secondary">{person.firstName.slice(0, 1)}</span>
                     <span className="sr-only">{person.firstName}</span>
                   </span>
                 ))}
@@ -127,6 +129,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
                             key={b.id}
                             booking={b}
                             compact
+                            staffName={staff.length > 1 ? person.firstName : undefined}
                             top={(b.start - from) * scale + 1}
                             height={b.duration * scale - 2}
                             scale={scale}
@@ -148,7 +151,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
 
 /**
  * Which colour is whose, said once above the week: a tick and the first name for each person, in the same order as
- * the columns under every day. The week's columns then need only a thin tick, never a row of repeated names.
+ * the columns under every day. The week's columns then need only a thin tick and an initial, never a row of repeated names.
  */
 function StaffKey({ staff }: { staff: Staff[] }) {
   return (
