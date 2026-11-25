@@ -214,10 +214,10 @@ function LocalCalendar({ switchCalendar, requestedDate }: { switchCalendar?: Rea
               { value: "week", label: t("calendar.week") },
             ]}
           />
-          {staffControl && <div className="hidden min-w-0 xl:block">{staffControl}</div>}
+          {staffControl && <div className="studio-calendar-staff hidden min-w-0 xl:block">{staffControl}</div>}
           <CalendarOverflow rooms={state.resources} roomId={room} onRoom={setResourceId}
             onToday={() => setDate(today)} atToday={date === today && view === "day"}>
-            {staffControl && <div className="space-y-2 xl:hidden">
+            {staffControl && <div className="studio-calendar-staff-menu space-y-2 xl:hidden">
               <p className="text-body font-medium">{t("calendar.staff")}</p>
               {staffControl}
             </div>}

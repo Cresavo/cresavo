@@ -306,7 +306,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               href={item.href}
               data-help={item.href}
               aria-current={active ? "page" : undefined}
-              className={cx("studio-tab relative flex min-h-16 min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
+              className={cx("studio-tab relative flex min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
               <span className={cx("studio-tab-icon flex h-7 w-12 items-center justify-center max-[299px]:w-9", active && "text-on-action")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />

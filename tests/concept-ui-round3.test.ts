@@ -181,6 +181,8 @@ describe("large text", () => {
     const css = readFileSync("src/app/studio/studio.css", "utf8");
     expect(css).toMatch(/\.studio-tab \{ container-type: inline-size; \}/);
     expect(css).toMatch(/@container \(max-width: 4rem\) \{\s*\.studio-tab-label/);
+    // The tab's height is in pixels, so hidden labels leave no empty band under the icons.
+    expect(css).toMatch(/\.studio-tab \{ min-height: calc\(var\(--touch-target\) \+ var\(--space-5\)\); \}/);
     expect(css).toMatch(/\.studio-root \{[^}]*font-size: 1rem;/);
   });
 });
