@@ -3,17 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { journalAudioStore, type JournalRecording } from "../../journals/audio-store";
 import { locale, t } from "../../i18n";
-import { onSalonRemoved } from "../../store";
 import { Button } from "../../ui/button";
-
-let watchingSalons = false;
-function watchSalonRemoval() {
-  if (watchingSalons || typeof window === "undefined") return;
-  watchingSalons = true;
-  onSalonRemoved((workspace) => {
-    void journalAudioStore().removeWorkspace(workspace).catch(() => {});
-  });
-}
 
 /** A customer's kept recordings (newest first) and the calls that change them. */
 export function useRecordings(customerId: string, scope: string) {
@@ -23,7 +13,6 @@ export function useRecordings(customerId: string, scope: string) {
     setRecordings(next);
   }, [customerId, scope]);
   useEffect(() => {
-    watchSalonRemoval();
     let live = true;
     journalAudioStore().list(customerId, scope).then((next) => live && setRecordings(next), () => {});
     return () => {

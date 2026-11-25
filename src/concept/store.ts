@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { DemoAction } from "./actions";
+import { journalAudioStore } from "./journals/audio-store";
 import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
@@ -77,6 +78,7 @@ const removalListeners = new Set<(workspace: Workspace) => void>();
 /** Tells `BrowserStudioStore` that a workspace's salon was deleted or replaced, so its records for it end. */
 function salonRemoved(workspace: Workspace) {
   forgetDemoSends(workspace);
+  void journalAudioStore().removeWorkspace(workspace).catch(() => {});
   removalListeners.forEach(listener => listener(workspace));
 }
 

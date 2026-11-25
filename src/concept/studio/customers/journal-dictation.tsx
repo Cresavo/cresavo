@@ -111,11 +111,10 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   };
 
   const structure = async () => {
-    const spoken = [transcript.trim(), speech.interim].filter(Boolean).join(" ");
-    text.current = spoken;
-    if (spoken !== transcript) setTranscript(spoken);
     const recordedId = await recorder.stop();
-    speech.stop();
+    await speech.stop();
+    const spoken = text.current.trim() || [transcript.trim(), speech.interim].filter(Boolean).join(" ");
+    if (spoken !== transcript) setTranscript(spoken);
     setBusy(true);
     const id = recordedId ?? current?.id;
     if (id) void keepTranscript(id, spoken).catch(() => {});
