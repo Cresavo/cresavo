@@ -28,7 +28,10 @@ export function HoursSection() {
   const { salon } = state;
   const [draft, setDraft] = useState<Draft | null>(null);
   const { hours, lunch } = draft ?? salon;
-  const edit = (next: Partial<Draft>) => setDraft({ hours, lunch, ...next });
+  const edit = (next: Partial<Draft>) => {
+    const value = { hours, lunch, ...next };
+    setDraft(same(value, salon) ? null : value);
+  };
   const dirty = !!draft && !same(draft, salon);
   const valid = Object.values(hours).every((h) => !h || h.open < h.close) && (!lunch || lunch.start < lunch.end);
   const save = () => {
