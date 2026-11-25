@@ -98,7 +98,12 @@ export function quote(policy: CancellationPolicy, service: Pick<Service, "id" | 
   };
 }
 
-/** True when any of these treatments would take a payment at booking. Hosted booking cannot take that payment yet. */
+/** True when this policy would take a payment at booking, including for a treatment added later. */
+export function policyRequiresOnlinePayment(policy: Pick<CancellationPolicy, "payAtSalonDefault" | "payAtSalon">): boolean {
+  return !policy.payAtSalonDefault || Object.values(policy.payAtSalon).some((atSalon) => atSalon === false);
+}
+
+/** True when any of these treatments would take a payment at booking under this policy. */
 export function requiresOnlinePayment(policy: CancellationPolicy, services: Pick<Service, "id" | "price">[], currency: string): boolean {
   return services.some((service) => quote(policy, service, currency, true).depositMinor > 0);
 }
