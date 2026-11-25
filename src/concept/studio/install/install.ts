@@ -32,17 +32,26 @@ const publish = () => listeners.forEach((listener) => listener());
  * studio's shell only: the booking pages carry no platform manifest and never offer to install the studio.
  */
 export function watchInstall() {
-  if (watching) return;
+  if (watching) return () => undefined;
   watching = true;
-  window.addEventListener("beforeinstallprompt", (event) => {
+  const onPrompt = (event: Event) => {
     event.preventDefault();
     deferred = event as InstallPrompt;
     publish();
-  });
-  window.addEventListener("appinstalled", () => {
+  };
+  const onInstalled = () => {
     deferred = null;
     publish();
-  });
+  };
+  window.addEventListener("beforeinstallprompt", onPrompt);
+  window.addEventListener("appinstalled", onInstalled);
+  return () => {
+    window.removeEventListener("beforeinstallprompt", onPrompt);
+    window.removeEventListener("appinstalled", onInstalled);
+    deferred = null;
+    watching = false;
+    publish();
+  };
 }
 
 function currentWay(): InstallWay {
