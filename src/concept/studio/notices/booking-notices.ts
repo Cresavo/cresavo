@@ -34,7 +34,7 @@ export function bookingNotices(state: DemoState): BookingNotice[] {
       id: item.id, event: item.event, bookingId: booking.id,
       name: findCustomer(state, booking.customerId)?.firstName ?? "",
       service: findService(state, booking.serviceId)?.name ?? "",
-      date: booking.date, start: booking.start,
+      date: item.visitDate ?? booking.date, start: item.visitStart ?? booking.start,
       paidMinor: item.event === "booked" && protection?.deposit ? protection.terms.depositMinor : 0,
       currency: protection?.terms.currency ?? state.localization.currency,
       at: { date: item.date, time: item.time },

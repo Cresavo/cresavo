@@ -52,7 +52,7 @@ describe("booking notices", () => {
     const to = slot(booked, "2026-11-25");
     const moved = reduce(booked, { type: "online/move", id: visit.id, at: { date: today, time: 700 }, instant: instant(700), public: { slug: base.salon.slug }, expected: { date, start: visit.start, staffId: "anna" }, staffId: "anna", date: "2026-11-25", start: to } as DemoAction);
     const cancelled = reduce(moved, { type: "online/cancel", id: visit.id, at: { date: today, time: 720 }, instant: instant(720), public: { slug: base.salon.slug }, expected: { date: "2026-11-25", start: to, staffId: "anna" } } as DemoAction);
-    expect(bookingNotices(cancelled).map((n) => [n.event, n.date, n.start])).toEqual([["cancelled", "2026-11-25", to], ["moved", "2026-11-25", to], ["booked", "2026-11-25", to]]);
+    expect(bookingNotices(cancelled).map((n) => [n.event, n.date, n.start])).toEqual([["cancelled", "2026-11-25", to], ["moved", "2026-11-25", to], ["booked", date, visit.start]]);
   });
 
   it("leave out an item whose visit is gone, and an owner's own notes about a booking", () => {

@@ -352,14 +352,14 @@ function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "onl
   const service = findService(state, booking.serviceId);
   const name = fullName(customer);
   const when = (visit: Pick<Booking, "date" | "start">) => `${formatDayLong(visit.date)} ${formatTime(visit.start)}`;
-  const notice = (kind: "cancel" | "reschedule", title: string, body: string) =>
-    ({ kind, event: kind === "cancel" ? "cancelled" as const : "moved" as const, customerId: customer.id, bookingId: id, date: at.date, time: at.time, title, body, read: false, handled: kind === "reschedule" });
+  const notice = (kind: "cancel" | "reschedule", title: string, body: string, visit: Pick<Booking, "date" | "start">) =>
+    ({ kind, event: kind === "cancel" ? "cancelled" as const : "moved" as const, customerId: customer.id, bookingId: id, date: at.date, time: at.time, visitDate: visit.date, visitStart: visit.start, title, body, read: false, handled: kind === "reschedule" });
   // Each change is its own message: the counter tells a move back to a time the visit had before from the first one.
   const mail = (next: DemoState, kind: "cancellation" | "moved") => sendBookingMessage(next, { type: "booking-message/send", bookingId: id, kind, channel: "email", at, occasion: next.seq });
   if (action.type === "online/cancel") {
     const cancelled = reduce(state, {
       type: "booking/cancel", id, reason: t("booking.cancel.reason"),
-      notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name, service: service?.name ?? "", when: when(booking) })),
+      notice: notice("cancel", t("booking.cancel.inboxTitle"), t("booking.cancel.inboxBody", { name, service: service?.name ?? "", when: when(booking) }), booking),
     }, now);
     return cancelled === state ? state : mail(cancelled, "cancellation");
   }
@@ -369,7 +369,7 @@ function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "onl
   if (same || !bookable?.staffIds.includes(staffId) || date < at.date || date > addDays(at.date, PUBLIC_WINDOW_DAYS) || visitTime({ date, start }).toMillis() < action.instant + LEAD_MINUTES * 60_000) return state;
   const moved = moveBooking(state, id, date, start, staffId);
   if (moved === state) return state;
-  const noted = reduce(moved, { type: "inbox/add", item: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name, service: service?.name ?? "", from: when(booking), to: when({ date, start }) })) });
+  const noted = reduce(moved, { type: "inbox/add", item: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name, service: service?.name ?? "", from: when(booking), to: when({ date, start }) }), { date, start }) });
   return mail(noted, "moved");
 }
 
@@ -408,6 +408,8 @@ function confirmOnline(state: DemoState, action: OnlineConfirmation, service: De
       time: action.guest.at.time,
       ...action.notice,
       event: "booked",
+      visitDate: action.date,
+      visitStart: action.start,
       read: false,
       handled: true,
     },

@@ -334,6 +334,9 @@ export interface InboxItem {
   bookingId?: string;
   /** What a customer did to `bookingId` on the booking page: the studio's "New since last time" and its toast list these. */
   event?: InboxEvent;
+  /** The visit's day and start as they stood for this event, so a later move does not rewrite earlier notices. */
+  visitDate?: DateKey;
+  visitStart?: number;
   /** Practitioner requested by a customer joining the waiting list. */
   requestedStaffId?: StaffId;
   reviewId?: string;
