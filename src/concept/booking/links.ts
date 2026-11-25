@@ -14,7 +14,7 @@ export const rebookLink = (slug: string, serviceId: string, staffId?: string) =>
 
 /** A plain map search for the business's address (no embed, no third-party script); the map app finds the route and the time. */
 export const mapLink = (address: string, area = "") =>
-  `https://www.openstreetmap.org/search?query=${encodeURIComponent([address, area.split(" · ")[0]].filter(Boolean).join(", "))}`;
+  `https://www.openstreetmap.org/search?query=${encodeURIComponent([address, area].filter(Boolean).join(", ").replace(/\s+·\s+.*$/, ""))}`;
 
 type SharedCard = Pick<GiftCard, "code" | "amount" | "recipient" | "message">;
 

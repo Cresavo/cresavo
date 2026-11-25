@@ -171,6 +171,13 @@ it("shows an upcoming visit as label-value rows with the address on the map and 
   expect(html).not.toMatch(/\d+ ?min (walk|drive)/);
 });
 
+it("builds the same map search when the area is already joined onto the address", () => {
+  // The booking-link contact list receives address and area already joined; a suffix like " · District" must still be dropped.
+  const expected = mapLink(fixture.salon.address, fixture.salon.area);
+  expect(mapLink([fixture.salon.address, fixture.salon.area].filter(Boolean).join(", "))).toBe(expected);
+  expect(expected).not.toContain(encodeURIComponent(" · "));
+});
+
 it("keeps each message kind's channel while showing the same localized body that is sent", () => {
   const origin = new URL("http://localhost:3000");
   vi.mocked(dispatch).mockReturnValue(true);
