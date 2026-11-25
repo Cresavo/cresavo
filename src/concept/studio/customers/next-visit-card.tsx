@@ -20,7 +20,7 @@ export function NextVisitCard({ customer, next, lastVisit }: { customer: Custome
       <Card className="flex items-start gap-3 p-4">
         <CalendarClock size={20} className="mt-1 shrink-0 text-text-secondary" />
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("customer.next.title")}</p>
+          <p className="text-xs font-semibold text-text-secondary">{t("customer.next.title")}</p>
           <p className="mt-1 text-sm">{t("customer.next.none")}</p>
         </div>
       </Card>
@@ -40,7 +40,7 @@ export function NextVisitCard({ customer, next, lastVisit }: { customer: Custome
       <div className="flex items-start gap-3">
         <CalendarClock size={20} className="mt-1 shrink-0 text-action" />
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("customer.next.title")}</p>
+          <p className="text-xs font-semibold text-text-secondary">{t("customer.next.title")}</p>
           <p className="mt-1 font-semibold">{headline}</p>
           <p className="text-sm text-text-secondary">{t("customer.next.interval", { service: next.service.name, weeks: next.weeks })}</p>
           {due && time && <p className="mt-1 text-sm">{t("dueBack.suggests", time)}</p>}

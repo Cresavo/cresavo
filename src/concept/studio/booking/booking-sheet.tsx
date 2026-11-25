@@ -275,13 +275,13 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
         )}
         {customer?.note && !booking.visitFor && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
+            <p className="mb-1 text-xs font-semibold text-warning">{t("booking.note")}</p>
             {customer.note}
           </div>
         )}
         {lastJournal && (
           <div className="rounded-lg bg-surface-2 px-4 py-3 text-sm">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
+            <p className="mb-1 text-xs font-semibold text-text-secondary">{t("booking.lastAdvice")}</p>
             {lastJournal.advice}
             <JournalRead customerId={booking.customerId} />
           </div>
