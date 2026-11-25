@@ -36,7 +36,8 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   const live = useRef(true);
   const tick = useRef<ReturnType<typeof setInterval>>(undefined);
   const limit = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const pendingStop = useRef<((id?: string) => void) | null>(null);
+  const pendingStop = useRef<((id?: string) => void)[]>([]);
+  const starting = useRef(false);
   useEffect(() => {
     handlers.current = { onRecorded, onEnd };
   });
@@ -49,15 +50,20 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   };
 
   const finishStop = (id?: string) => {
-    pendingStop.current?.(id);
-    pendingStop.current = null;
+    const waiters = pendingStop.current;
+    pendingStop.current = [];
+    waiters.forEach((resolve) => resolve(id));
   };
 
   const stop = useCallback(() => new Promise<string | undefined>((resolve) => {
     if (recorder.current?.state === "recording") {
-      pendingStop.current = resolve;
+      pendingStop.current.push(resolve);
       recorder.current.stop();
-    } else resolve(undefined);
+    } else if (pendingStop.current.length) {
+      pendingStop.current.push(resolve);
+    } else {
+      resolve(undefined);
+    }
   }), []);
 
   // Leaving the journal mid-recording releases the microphone and keeps nothing.
@@ -77,7 +83,9 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   }, []);
 
   const start = useCallback(async (): Promise<boolean> => {
-    if (recorder.current || !canRecord()) return false;
+    if (recorder.current || starting.current || !canRecord()) return false;
+    starting.current = true;
+    try {
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -126,6 +134,9 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
     setRecording(true);
     next.start(1000);
     return true;
+    } finally {
+      starting.current = false;
+    }
   }, [stop]);
 
   return { supported, recording, seconds, start, stop };

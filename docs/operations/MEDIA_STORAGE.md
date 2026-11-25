@@ -122,7 +122,11 @@ privacy notice need a lawyer's review for this.
 Journal audio exists only in the concept demo. Recordings and uploaded audio
 files (m4a, mp3, wav, webm, ogg, flac, recognised from their bytes, at most
 20 MB and ten minutes) stay in the browser's own `concept-journal-audio`
-IndexedDB database, five per customer, and are never uploaded.
+IndexedDB database, five per customer, and are never uploaded. Live
+speech-to-text uses the browser's Speech Recognition API, as dictation
+already did; some browsers may process that speech off-device. Forcing
+`processLocally` is a later production decision (it can fail when the
+language is not on the device).
 
 Before real customers, the recommendation is the photo library's store with
 a `journal-audio/<tenant>/<id>` prefix: private, encrypted, in the EU,

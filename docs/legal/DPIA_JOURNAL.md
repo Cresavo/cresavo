@@ -55,8 +55,10 @@ personuppgifter, patienter): [Fyll i. Utkastet rekommenderar att inte föra jour
 4. Journaltexten ingår inte i meddelanden till kunden eller i bokningssidan för kunder.
 5. Export av en kunds uppgifter innehåller kundens journal med versioner.
 6. Journal med ljud finns bara i konceptdemon: inspelningar och uppladdade ljudfiler sparas i
-   webbläsarens egen databas, högst fem per kund, och skickas aldrig till servern eller till en
-   modell. Bara texten struktureras. Uppladdade filer skrivs inte ut till text i demon.
+   webbläsarens egen databas, högst fem per kund, och laddas inte upp till servern eller till en
+   modell. Bara texten struktureras. Uppladdade filer skrivs inte ut till text i demon. Live
+   diktering använder webbläsarens egen taligenkänning, som redan fanns; en del webbläsare kan
+   behandla det talet utanför enheten.
 
 ### 2.4 Mottagare och underbiträden
 
