@@ -117,7 +117,7 @@ it("uses the fixture vocabulary in the summary and in the migration labels", () 
 it("retains the list price and qualifies salon payment when prepaid visits are available", () => {
   const summary = {
     slot: { ...booking, start: 900, date: now.today },
-    terms: quote(fixture.cancellationPolicy, { id: booking.serviceId, price: booking.price }, "EUR", true), now, phone: fixture.salon.phone,
+    terms: quote({ ...fixture.cancellationPolicy, payAtSalonDefault: true }, { id: booking.serviceId, price: booking.price }, "EUR", true), now, phone: fixture.salon.phone,
   };
   const price = formatMoney(booking.price, "EUR", "en");
   const withPackages = BookingSummary({ ...summary, packagesEnabled: true });

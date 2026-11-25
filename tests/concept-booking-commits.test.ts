@@ -2,6 +2,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { addDays, toKey, weekday } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState, StaffId } from "@/concept/data/types";
 
@@ -125,7 +126,7 @@ async function details(state: DemoState, slot: { staffId: StaffId; date: string;
 }
 
 it("books once from the booking page, even when Confirm is pressed twice", async () => {
-  const { state, saved } = await open(createDemoState(today));
+  const { state, saved } = await open(payAtSalon(createDemoState(today)));
   const { service, slot } = freeSlot(state);
   const page = await details(state, slot, service.id);
   page.submit();

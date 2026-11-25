@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { freeCancellationDeadline } from "../../src/concept/booking/policy";
 import { monthlySmsEstimate } from "../../src/concept/booking/reminders";
-import { formatDate, formatMoney, formatTime } from "../../src/concept/i18n/format";
+import { formatDate, formatTime } from "../../src/concept/i18n/format";
 import { intlLocale } from "../../src/lib/locale";
 import { createSalon, salonDraft } from "../../src/concept/onboarding/salon";
 import { SALON_TIMEZONE } from "../../src/concept/tools/clock";
-import { englishDemoState, fixtureText, salonState } from "./fixtures";
+import { continueAndPay, englishDemoState, fixtureText, salonState } from "./fixtures";
 
 const today = "2026-11-17";
 const home = "/boka/salong-eko";
@@ -32,14 +32,14 @@ test("shows the payment split and salon deadline before confirmation, then offer
   const amountFor = (label: string) => form.getByText(label, { exact: true }).locator("xpath=../dd");
   const total = amountFor(copy("booking.summary.total"));
   await expect(total).toBeVisible();
-  const atSalon = fixture.modules.packages ? "booking.summary.atSalonWithPackages" : "booking.summary.atSalon";
-  await expect(amountFor(copy(atSalon))).toHaveText(await total.innerText());
-  await expect(amountFor(copy("booking.summary.dueNow"))).toHaveText(formatMoney(0, currency, language));
+  // The demo takes the full price when booking, so nothing is left to pay at the salon and that row is not shown.
+  await expect(amountFor(copy("booking.summary.dueNow"))).toHaveText(await total.innerText());
+  await expect(form.getByText(copy("booking.summary.atSalon"), { exact: true })).toHaveCount(0);
   const deadlineTemplate = copy("booking.freeUntil", { day: "DEADLINE_DAY", time: "DEADLINE_TIME", zone: SALON_TIMEZONE });
   const deadline = await form.getByText(deadlineTemplate.split("DEADLINE_DAY")[0]).innerText();
   await page.getByLabel(copy("booking.yourName"), { exact: true }).fill("Nova Demo");
   await page.getByLabel(copy("booking.yourPhone")).fill("070-000 99 11");
-  await page.getByRole("button", { name: copy("booking.confirm"), exact: true }).click();
+  await continueAndPay(page, copy);
   await expect(page.getByRole("heading", { name: copy("booking.confirmation.title") })).toBeVisible();
   const saved = (await salonState(page))!;
   const booking = saved.bookings.at(-1)!;

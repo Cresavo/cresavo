@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays, formatTime } from "../../src/concept/data/dates";
-import { englishDemoState, salonState } from "./fixtures";
+import { continueAndPay, englishDemoState, salonState } from "./fixtures";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
@@ -68,7 +68,7 @@ test("a customer books online and the booking appears in the studio", async ({ p
   await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
   await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 12");
-  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await continueAndPay(page);
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
 
   await page.goto("/studio/customers");
@@ -94,9 +94,9 @@ test("a customer books for someone else and the studio shows the guest and the c
   await who.getByRole("radio", { name: "For someone else" }).click();
   await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 13");
-  await expect(page.getByRole("button", { name: "Confirm booking", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue to deposit", exact: true })).toBeDisabled();
   await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
-  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await continueAndPay(page);
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
   await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
   await expect(page.getByText(/The visit is for Elsa Demo\./)).toBeVisible();
@@ -134,7 +134,7 @@ test("a visit for someone else names the visitor to the booker and keeps the boo
   await page.getByLabel("Your name", { exact: true }).fill(fullName(contact));
   await page.getByLabel("Mobile number").fill(contact.phone);
   await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
-  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await continueAndPay(page);
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
   const booking = (await state(page)).bookings.at(-1)!;
   expect(booking).toMatchObject({ customerId: contact.id, visitFor: "Elsa Demo" });

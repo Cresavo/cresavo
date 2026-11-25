@@ -57,6 +57,13 @@ test("Swedish booking, confirmation and management", async ({ page }) => {
   await expect(both).not.toBeChecked();
   await page.reload();
   await expect(page.getByRole("combobox", { name: "Default booking language" })).toHaveValue("sv");
+  // Paid visits are changed by the salon, so this journey lets customers pay at the salon and manage the visit online.
+  await page.goto("/studio/more/settings/reminders");
+  const atSalon = page.getByRole("switch", { name: "Let customers pay at the salon", exact: true });
+  await atSalon.click();
+  await expect(atSalon).toBeChecked();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("salong-eko-demo")!).cancellationPolicy.payAtSalonDefault)).toBe(true);
 
   await page.goto(bookingUrl);
   await expect(page.locator("html")).toHaveAttribute("lang", "sv");

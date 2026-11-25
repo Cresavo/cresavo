@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { addDays } from "@/concept/data/dates";
 import { createDemoState, DEMO_VERSION } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { migrateState } from "@/concept/data/migrate";
 import { freeStarts, needOf } from "@/concept/data/slots";
 import type { DemoState } from "@/concept/data/types";
@@ -17,7 +18,7 @@ import { salonCopy } from "@/concept/i18n/salon-eko-copy";
 import { publicSalonView } from "@/concept/booking/public-projection";
 
 const today = "2026-11-16";
-const base = createDemoState(today);
+const base = payAtSalon(createDemoState(today));
 const meta: LogMeta = { actor: "owner", source: "button", at: Date.UTC(2026, 10, 16, 9, 30) };
 const draft: ServiceDraft = { name: "Hot stone massage", category: "massage", duration: 75, price: 990, description: "Warm stones and slow strokes.", staffIds: ["erik"] };
 const guest = { name: "Test Person", phone: "070-000 00 01", at: { date: today, time: 600 } };

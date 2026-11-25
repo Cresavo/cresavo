@@ -5,6 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { translate, type MessageKey } from "../../src/concept/i18n";
 import { createSalon, salonDraft } from "../../src/concept/onboarding/salon";
 import { salonClock } from "../../src/concept/tools/clock";
+import { continueAndPay } from "./fixtures";
 
 const axe = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 const screens = "docs/design/cresavo/screens/onboarding";
@@ -90,7 +91,8 @@ for (const language of ["sv", "en"] as const) {
       await page.goto("/boka/studio-vide?service=svc-1#book");
       await page.getByLabel(m("booking.yourName"), { exact: true }).fill("Nova Demo");
       await page.getByLabel(m("booking.yourPhone")).fill("0700009911");
-      await page.getByRole("button", { name: m("booking.confirm"), exact: true }).click();
+      // A new salon takes the full price when booking.
+      await continueAndPay(page, m);
       await expect(page).toHaveURL(/\/boka\/studio-vide\/booking\//);
       await page.goto("/studio");
       await expect(page.getByText(m("setup.progress", { done: 3, total: 4 }))).toBeVisible();

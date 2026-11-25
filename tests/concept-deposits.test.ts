@@ -53,6 +53,30 @@ describe("quoted cancellation terms", () => {
     expect(changeRule(booking, "2026-10-25", 150, Date.parse("2026-10-25T02:31:00+01:00"))).toBe("late");
   });
 
+  it("takes the full price by default, nothing for a treatment paid at the salon, and a smaller deposit when one is set", () => {
+    const [first, second] = state.services;
+    const full = (s: typeof first) => quote(DEFAULT_POLICY, s, "SEK", true).depositMinor;
+    expect(full(first)).toBe(first.price * 100);
+    const atSalon = { ...DEFAULT_POLICY, payAtSalonDefault: true, payAtSalon: { [second.id]: false } };
+    expect(quote(atSalon, first, "SEK", true).depositMinor).toBe(0);
+    expect(quote(atSalon, second, "SEK", true).depositMinor).toBe(second.price * 100);
+    const one = { ...DEFAULT_POLICY, payAtSalon: { [first.id]: true }, deposits: { [second.id]: 5000 } };
+    expect(quote(one, first, "SEK", true).depositMinor).toBe(0);
+    expect(quote(one, second, "SEK", true).depositMinor).toBe(5000);
+    expect(quote({ ...one, newCustomersOnly: true }, second, "SEK", false).depositMinor).toBe(0);
+    expect(quote({ ...DEFAULT_POLICY, exemptServices: [first.id] }, first, "SEK", true).depositMinor).toBe(0);
+  });
+
+  it("refuses rules without a payment choice, or with one that is not true or false", () => {
+    const changed = (policy: object) => reduce(state, { type: "salon/policy", policy: policy as typeof DEFAULT_POLICY });
+    const { payAtSalonDefault: _d, ...noDefault } = state.cancellationPolicy;
+    void _d;
+    expect(changed(noDefault)).toBe(state);
+    expect(changed({ ...state.cancellationPolicy, payAtSalon: { [service.id]: "yes" } })).toBe(state);
+    expect(changed({ ...state.cancellationPolicy, payAtSalon: { "s-unknown": true } })).toBe(state);
+    expect(changed({ ...state.cancellationPolicy, payAtSalon: { [service.id]: true } }).cancellationPolicy.payAtSalon).toEqual({ [service.id]: true });
+  });
+
   it("rounds once in minor units, caps deposits and applies exemptions", () => {
     const offer = { id: service.id, price: 1.01 };
     const terms = quote(policy, offer, "EUR", true);

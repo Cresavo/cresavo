@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DetailsStep } from "@/concept/booking/details-step";
 import { publicSalonView } from "@/concept/booking/public-projection";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { setLocale } from "@/concept/i18n";
 import { acceptedTerms } from "@/concept/booking/public-terms";
 import { ServerSalonProvider, useServerBook, type ServerBookingInput } from "@/concept/server-salon";
@@ -13,7 +14,7 @@ import { ServerSalonProvider, useServerBook, type ServerBookingInput } from "@/c
 // reloaded when the time was taken. The network is a stub. Fictional data only.
 
 const NOW = new Date("2026-11-16T10:00:00+01:00");
-const base = createDemoState("2026-11-16");
+const base = payAtSalon(createDemoState("2026-11-16"));
 const publicState = (over: Partial<typeof base> = {}) => publicSalonView({ ...base, salon: { ...base.salon, slug: "salong-fiktiv" }, ...over }, NOW);
 const service = base.services[0];
 
@@ -45,7 +46,7 @@ describe("the details step on a salon from the server", () => {
   });
 
   it("says so, with the salon's phone, before collecting details, when the treatment needs a deposit", () => {
-    const state = publicState({ cancellationPolicy: { ...base.cancellationPolicy, deposits: { [service.id]: 20000 } } });
+    const state = publicState({ cancellationPolicy: { ...base.cancellationPolicy, payAtSalonDefault: false, deposits: { [service.id]: 20000 } } });
     const html = renderDetails(state);
     expect(html).toContain(`This treatment needs a deposit. Please call the salon on ${state.salon.phone} to book it.`);
     expect(html).not.toContain("<form");
@@ -54,7 +55,7 @@ describe("the details step on a salon from the server", () => {
   });
 
   it("says the same when the deposit is for new customers only: no guest is known to the page, so none is exempt", () => {
-    const state = publicState({ cancellationPolicy: { ...base.cancellationPolicy, deposits: { [service.id]: 20000 }, newCustomersOnly: true } });
+    const state = publicState({ cancellationPolicy: { ...base.cancellationPolicy, payAtSalonDefault: false, deposits: { [service.id]: 20000 }, newCustomersOnly: true } });
     const html = renderDetails(state);
     expect(html).toContain("This treatment needs a deposit");
     expect(html).not.toContain("<form");

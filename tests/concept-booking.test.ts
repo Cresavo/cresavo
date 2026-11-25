@@ -8,12 +8,13 @@ import { parseBookingRequest } from "@/concept/booking/request";
 import { openSlots, suggestSlots } from "@/concept/booking/suggest";
 import { addDays } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts, isFree } from "@/concept/data/slots";
 
 // 2026-11-16 is a Monday.
 const today = "2026-11-16";
 const clock = { today, minutes: 9 * 60 };
-const state = createDemoState(today);
+const state = payAtSalon(createDemoState(today));
 
 describe("booking request wrapper", () => {
   it("reads the flagship sentence", () => {
