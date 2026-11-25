@@ -109,7 +109,8 @@ export function demoRegister(book: RegisterBook = emptyRegisterBook(), save: (bo
       const payment = book.payments.find((p) => p.id === input.paymentId);
       if (!payment) return refuse("not_found");
       if (payment.state !== "pending") return payment.state === (input.outcome === "paid" ? "completed" : "failed") ? outcome(payment) : refuse("conflict");
-      const done: RegisterPayment = { ...payment, state: input.outcome === "paid" ? "completed" : "failed" };
+      if (input.method && (payment.method === "cash" || !["card", "swish"].includes(input.method))) return refuse("invalid_input");
+      const done: RegisterPayment = { ...payment, state: input.outcome === "paid" ? "completed" : "failed", ...(input.outcome === "paid" && input.method ? { method: input.method } : {}) };
       const sale = book.sales.find((s) => s.id === payment.saleId)!;
       const updated: Sale = { ...sale, state: input.outcome === "paid" ? "paid" : "open" };
       commit({

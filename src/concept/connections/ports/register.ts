@@ -124,8 +124,12 @@ export interface RegisterPort {
   readonly info: RegisterInfo;
   startSale(input: StartSaleInput): Promise<PortResult<Sale>>;
   recordPayment(input: RecordPaymentInput): Promise<PortResult<{ sale: Sale; payment: RegisterPayment; receipt?: RegisterRecord }>>;
-  /** Confirms or fails a pending payment. A confirmed one issues the receipt. */
-  completePayment(input: { paymentId: string; outcome: "paid" | "failed"; at: UtcTimestamp }): Promise<PortResult<{ sale: Sale; payment: RegisterPayment; receipt?: RegisterRecord }>>;
+  /**
+   * Confirms or fails a pending payment. A confirmed one issues the receipt.
+   * `method` is for a payment the customer finished on their own phone, where
+   * they chose card or Swish after the register started it.
+   */
+  completePayment(input: { paymentId: string; outcome: "paid" | "failed"; method?: Exclude<RegisterMethod, "cash">; at: UtcTimestamp }): Promise<PortResult<{ sale: Sale; payment: RegisterPayment; receipt?: RegisterRecord }>>;
   /** Refunds a sale's receipt in full with a refund receipt. */
   refund(input: { receiptId: string; date: string; at: UtcTimestamp; idempotencyKey: string }): Promise<PortResult<RegisterRecord>>;
   dailyReport(input: { business: string; date: string }): Promise<PortResult<DailyReport>>;
