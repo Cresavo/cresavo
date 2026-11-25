@@ -194,3 +194,89 @@ let shared: JournalAudioStore | undefined;
 export function journalAudioStore(): JournalAudioStore {
   return (shared ??= typeof indexedDB === "undefined" ? memoryAudioStore() : indexedDbAudioStore(indexedDB));
 }
+
+const FORGET_KEY = "concept-journal-audio-forget";
+
+export type AudioForgetJob = { scope: string } | { workspace: string };
+
+const jobKey = (job: AudioForgetJob) => ("scope" in job ? `scope:${job.scope}` : `workspace:${job.workspace}`);
+
+const isForgetJob = (value: unknown): value is AudioForgetJob =>
+  !!value && typeof value === "object" && (
+    ("scope" in value && typeof value.scope === "string") ||
+    ("workspace" in value && typeof value.workspace === "string")
+  );
+
+let forgetQueue: AudioForgetJob[] = [];
+let forgetQueueLoaded = false;
+
+function loadForgetQueue(): AudioForgetJob[] {
+  if (!forgetQueueLoaded) {
+    forgetQueueLoaded = true;
+    try {
+      if (typeof window !== "undefined") {
+        const raw = window.localStorage.getItem(FORGET_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) forgetQueue = parsed.filter(isForgetJob);
+      }
+    } catch {
+      forgetQueue = [];
+    }
+  }
+  return forgetQueue;
+}
+
+function saveForgetQueue(jobs: AudioForgetJob[]) {
+  const seen = new Set<string>();
+  forgetQueue = jobs.filter((job) => {
+    const key = jobKey(job);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  try {
+    if (typeof window === "undefined") return;
+    if (forgetQueue.length === 0) window.localStorage.removeItem(FORGET_KEY);
+    else window.localStorage.setItem(FORGET_KEY, JSON.stringify(forgetQueue));
+  } catch { /* Keep the queue in memory for this tab. */ }
+}
+
+async function applyForget(store: JournalAudioStore, job: AudioForgetJob) {
+  if ("scope" in job) await store.removeScope(job.scope);
+  else await store.removeWorkspace(job.workspace);
+}
+
+/** Queued salon cleanups that have not yet succeeded. Used by tests. */
+export function forgottenAudioJobs(): AudioForgetJob[] {
+  return [...loadForgetQueue()];
+}
+
+/** Drops the retry queue (tests). */
+export function clearForgottenAudio() {
+  forgetQueueLoaded = true;
+  saveForgetQueue([]);
+}
+
+/** Retries removals that failed because storage was blocked, and drops the ones that now succeed. */
+export async function retryForgottenAudio(store: JournalAudioStore = journalAudioStore()): Promise<void> {
+  for (const job of [...loadForgetQueue()]) {
+    try {
+      await applyForget(store, job);
+      saveForgetQueue(loadForgetQueue().filter((item) => jobKey(item) !== jobKey(job)));
+    } catch {
+      // Stay queued until storage works again.
+    }
+  }
+}
+
+/** Removes recordings of a deleted or replaced salon; remembers the job if storage is blocked so it can be retried. */
+export async function forgetSalonAudio(workspace: string, epoch?: string, store: JournalAudioStore = journalAudioStore()): Promise<void> {
+  const job: AudioForgetJob = epoch ? { scope: `${workspace}:${epoch}` } : { workspace };
+  await retryForgottenAudio(store);
+  try {
+    await applyForget(store, job);
+    saveForgetQueue(loadForgetQueue().filter((item) => jobKey(item) !== jobKey(job)));
+  } catch {
+    saveForgetQueue([...loadForgetQueue(), job]);
+  }
+}

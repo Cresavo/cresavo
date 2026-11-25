@@ -2,7 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { DemoAction } from "./actions";
-import { journalAudioStore } from "./journals/audio-store";
+import { forgetSalonAudio, retryForgottenAudio } from "./journals/audio-store";
 import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
@@ -67,6 +67,7 @@ function initialize() {
     if (selection === "own" || selection === "demo") active = selection;
   } catch { /* The selection still lasts for this tab. */ }
   expireIdleTrial(Date.now(), false);
+  void retryForgottenAudio().catch(() => {});
 }
 
 function storageKey(workspace: Workspace) {
@@ -83,8 +84,7 @@ function salonRemoved(workspace: Workspace) {
 
 /** Drops journal recordings of one salon lifetime, or of the whole workspace when it has no successor. */
 function forgetJournalAudio(workspace: Workspace, epoch?: string) {
-  const store = journalAudioStore();
-  void (epoch ? store.removeScope(`${workspace}:${epoch}`) : store.removeWorkspace(workspace)).catch(() => {});
+  void forgetSalonAudio(workspace, epoch).catch(() => {});
 }
 
 /** Called when a workspace's salon is deleted (trial expiry, "Delete now", another tab) or replaced (a new sample business). */

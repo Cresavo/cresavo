@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runTask } from "@/concept/ai/run-task";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
-import { audioScope, beyondLimit, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
+import { audioScope, beyondLimit, clearForgottenAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
 
 // Journal audio in the concept demo: what a file is by its bytes, the size and
 // length limits, the last five per customer, and that structuring sees text only.
@@ -235,5 +235,39 @@ describe("audioScope", () => {
     expect(audioScope({ workspace: "own", epoch: "abc" })).toBe("own:abc");
     expect(audioScope({ workspace: "account", epoch: "account:random" }, { slug: "studio-server" })).toBe("account:studio-server");
     expect(audioScope({ workspace: "account", epoch: "account:random" })).toBe("account:account:random");
+  });
+});
+
+describe("journal audio cleanup retries", () => {
+  afterEach(() => clearForgottenAudio());
+
+  const failing = (inner: JournalAudioStore, times = 1): JournalAudioStore => {
+    let left = times;
+    const once = async <T>(run: () => Promise<T>) => {
+      if (left > 0) {
+        left -= 1;
+        throw new Error("blocked");
+      }
+      return run();
+    };
+    return {
+      ...inner,
+      removeScope: (scope) => once(() => inner.removeScope(scope)),
+      removeWorkspace: (workspace) => once(() => inner.removeWorkspace(workspace)),
+    };
+  };
+
+  it("remembers a blocked salon cleanup and finishes it when storage works again", async () => {
+    const inner = memoryAudioStore();
+    await inner.add(recording("a1", "k001", 1, { scope: "demo:old" }));
+    await inner.add(recording("a2", "k001", 2, { scope: "demo:new" }));
+    const store = failing(inner);
+    await forgetSalonAudio("demo", "old", store);
+    expect((await inner.list("k001", "demo:old")).map((row) => row.id)).toEqual(["a1"]);
+    expect(forgottenAudioJobs()).toEqual([{ scope: "demo:old" }]);
+    await retryForgottenAudio(store);
+    expect(await inner.list("k001", "demo:old")).toEqual([]);
+    expect((await inner.list("k001", "demo:new")).map((row) => row.id)).toEqual(["a2"]);
+    expect(forgottenAudioJobs()).toEqual([]);
   });
 });
