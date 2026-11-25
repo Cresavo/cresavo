@@ -10,6 +10,7 @@ import { t, tc } from "../i18n";
 import { formatMoney, formatNumber, formatTime } from "../i18n/format";
 import { needsMoving } from "../ops/needs-moving";
 import { dayFacts, daySummaryText, summaryDue } from "../summary/day";
+import { noticeItems } from "./brief-notices";
 
 // Proactive briefs. Rules decide what matters and how much (cost 0); an AI
 // model may only rephrase and reorder the same items (`phrase-brief`).
@@ -70,7 +71,21 @@ export function morningBrief(state: DemoState, clock: Clock): Brief {
   if (gaps) items.push({ id: "gaps", text: tc("brief.gaps", gaps), priority: 2, href: "/studio/calendar" });
   const due = dueBackList(state, buildCustomerStats(state, clock.today), clock.today).length;
   if (due) items.push({ id: "due-back", text: tc("brief.dueBack", due), priority: 1, href: "/studio/customers/due-back" });
-  return { kind: "morning", title: t("brief.morning"), items: byPriority([...items, ...eventReactions(state, clock)]) };
+  // What customers did on the booking page leads; a cancellation it already names is not repeated as a free slot.
+  const notices = noticeItems(state, clock);
+  const named = new Set(notices.filter((n) => n.event === "cancelled").map((n) => `cancel-${n.bookingId}`));
+  const reactions = eventReactions(state, clock).filter((item) => !named.has(item.id));
+  return { kind: "morning", title: t("brief.morning"), items: byPriority([...items, ...notices.map(({ id, text, priority, href }) => ({ id, text, priority, href })), ...reactions]) };
+}
+
+/** The brief as one spoken paragraph: the title, then each item as its own sentence. Nothing is added. */
+export function briefSpeech(brief: Brief): string {
+  const sentence = (text: string) => {
+    const trimmed = text.trim();
+    return /[.!?…]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+  };
+  const lines = brief.items.length ? brief.items.map((item) => item.text) : [t("assistant.brief.quiet")];
+  return [brief.title, ...lines].filter((text) => text.trim()).map(sentence).join(" ");
 }
 
 /** After the last booking: the day in numbers, the same facts as the evening summary. */
