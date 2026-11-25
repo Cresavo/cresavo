@@ -40,6 +40,7 @@ All notable changes to this project are documented here. Format follows
 - **The chosen view or filter stands off its track.** The selected segment of a segmented control (Day/Week, staff and room filters) keeps its outline and gets the soft shadow of a floating surface, so the choice reads at a glance.
 - **The staff member's face on time cards and the confirmation.** A suggested time on the booking page shows the staff member's photo (or initials) larger and their name in full ink. The confirmation shows a larger photo with "with Anna Berg" on its own line and the length of the visit under it.
 - **Deposit payment uses method cards.** Paying a deposit on a booking page offers Card and Swish as the same large cards as the phone pay page, right above the Pay button; with only one way to pay there is no choice to make, so none is shown.
+- **Calmer typing in the Studio's contact fields.** A customer's first and last name start with a capital, and an e-mail address is neither capitalised nor spell-checked.
 
 - **Closing a day and adding a room happen in the list.** Close a day (Settings › Opening hours) and Add a room (Advanced › Rooms and chairs) open a short form at the top of their own list instead of a sheet, with the holiday suggestions, Cancel and the verb; Escape cancels and focus returns to the button. Editing an existing room, with the treatments that use it, stays in its sheet. English and Swedish.
 - **Opening hours are edited where they are listed.** Settings › Opening hours no longer opens a sheet: each day has its switch in the list, turning a day on opens its from and to times in the row and turning it off folds them away, and lunch works the same way. Save and Cancel appear once something differs from the saved hours, with what the change affects, and rest above the phone tab bar. The staff weekly schedule sheet opens and folds its times the same way. With reduced motion the times appear and disappear at once. The hours still hold one opening time per day. English and Swedish.
@@ -69,6 +70,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **The Studio no longer fills in the owner's own details for a customer.** When a booking is made from the Studio, the customer's name, phone and e-mail fields no longer offer the browser's saved details, which are the owner's, not the customer's.
 - **One icon on "too late to change online".** The notice under a booking that can no longer be changed online showed a phone icon beside the warning icon; it now has just the warning.
 
 - **Dragging a booking in Chrome and Edge.** The Studio's button reset also switched off native dragging in Chromium, so a booking could not be dragged to a new time there at all; a booking block now turns it back on.
