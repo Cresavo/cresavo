@@ -1,14 +1,14 @@
 "use client";
 
-import { Navigation } from "lucide-react";
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
 import { useServerSalon } from "../server-salon";
-import { ButtonLink, buttonClass } from "../ui/button";
+import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { Bone, SkeletonCard, SkeletonGroup } from "../ui/feedback";
 import { captureLinkToken } from "./link-token";
-import { bookingHome, mapLink } from "./links";
+import { bookingHome } from "./links";
+import { PublicCalendarActions } from "./booking-actions";
 import { ManageBooking } from "./manage-booking";
 import type { PublicBookingView } from "./public-booking-view";
 import { VisitTicket } from "./visit-ticket";
@@ -69,12 +69,7 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
         staff={<p className="text-body font-medium">{t("booking.withStaff", { name: view.staffFirstName })}</p>}
         place={place}
       />
-      {view.status === "booked" && place.address && (
-        <a href={mapLink(place.address, place.area)} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
-          <Navigation aria-hidden size={16} />
-          {t("booking.directions")}
-        </a>
-      )}
+      {view.status === "booked" && <PublicCalendarActions slug={slug} id={id} view={view} />}
       <ManageBooking slug={slug} id={id} token={loaded.token} view={view} onChanged={(changed) => setLoaded({ ...loaded, view: changed })} />
       <ButtonLink href={bookingHome(slug)} variant="secondary">{t("booking.backToSalon")}</ButtonLink>
     </div>

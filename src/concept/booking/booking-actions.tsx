@@ -5,9 +5,10 @@ import { customerText } from "../i18n/customer-text";
 import { useState } from "react";
 import { CalendarClock, CalendarPlus, Navigation, XCircle } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
-import { t } from "../i18n";
+import { getActiveLocale, t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
+import { useServerSalon } from "../server-salon";
 import { currentState, targetOf } from "../store";
 import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
@@ -19,7 +20,8 @@ import { Sheet } from "../ui/sheet";
 import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { useCommit } from "../ui/use-commit";
-import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
+import { buildIcs, buildPublicIcs, googleCalendarLink, icsTimestamp, publicGoogleCalendarLink } from "./ics";
+import type { PublicBookingView } from "./public-booking-view";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
 import { mapLink } from "./links";
@@ -61,22 +63,64 @@ interface BookingActionsProps {
  * Save the visit and find the way: the calendar file is the main action, with directions beside it.
  * The map app works out the route and the travel time; the page never guesses one.
  */
+function CalendarActionRow({ onDownload, mapHref, googleHref }: { onDownload: () => void; mapHref: string; googleHref: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button icon={<CalendarPlus size={16} />} onClick={onDownload}>
+        {t("booking.calendarFile")}
+      </Button>
+      <a href={mapHref} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
+        <Navigation aria-hidden size={16} />
+        {t("booking.directions")}
+      </a>
+      <a href={googleHref} target="_blank" rel="noopener noreferrer" className={buttonClass("link")}>
+        {t("booking.googleCalendar")}
+      </a>
+    </div>
+  );
+}
+
 export function CalendarActions({ state, booking }: { state: DemoState; booking: Booking }) {
   const service = findService(state, booking.serviceId);
   if (!service) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
-        {t("booking.calendarFile")}
-      </Button>
-      <a href={mapLink(state.salon.address, state.salon.area)} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
-        <Navigation aria-hidden size={16} />
-        {t("booking.directions")}
-      </a>
-      <a href={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })} target="_blank" rel="noopener noreferrer" className={buttonClass("link")}>
-        {t("booking.googleCalendar")}
-      </a>
-    </div>
+    <CalendarActionRow
+      onDownload={() => downloadCalendar(state, booking)}
+      mapHref={mapLink(state.salon.address, state.salon.area)}
+      googleHref={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })}
+    />
+  );
+}
+
+/** Save the visit from a booking-link page: the public salon and the link's own fields, never a customer record. */
+export function PublicCalendarActions({ slug, id, view }: { slug: string; id: string; view: PublicBookingView }) {
+  const salon = useServerSalon()?.salon;
+  if (view.status !== "booked") return null;
+  const visit = {
+    id,
+    treatment: view.treatment,
+    date: view.date,
+    start: view.start,
+    duration: view.duration,
+    staffFirstName: view.staffFirstName,
+    salon: { name: salon?.name ?? "", slug, address: salon?.address || view.salon.address, area: salon?.area },
+    language: getActiveLocale(),
+  };
+  const download = () => {
+    const ics = buildPublicIcs({ ...visit, createdAt: icsTimestamp(new Date()) });
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slug}-${view.date}.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <CalendarActionRow
+      onDownload={download}
+      mapHref={mapLink(visit.salon.address, visit.salon.area ?? "")}
+      googleHref={publicGoogleCalendarLink(visit)}
+    />
   );
 }
 

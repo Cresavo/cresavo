@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
-import { buildIcs, googleCalendarLink } from "@/concept/booking/ics";
+import { buildIcs, buildPublicIcs, googleCalendarLink, publicGoogleCalendarLink } from "@/concept/booking/ics";
 import { recallGuest, rememberGuest } from "@/concept/booking/guest";
 import { customerBookings, findCustomerByPhone, isMobilePhone, normalizePhone, phoneMatches } from "@/concept/booking/lookup";
 import { changeRule, freeCancellationDeadline } from "@/concept/booking/policy";
@@ -264,3 +264,27 @@ describe("device contact consent", () => {
     }
   });
 });
+
+it("builds a calendar file from the booking-link fields without a customer record", () => {
+  const visit = {
+    id: "ref-fictional",
+    treatment: "Cut and finish",
+    date: "2026-11-24",
+    start: 600,
+    duration: 60,
+    staffFirstName: "Anna",
+    salon: { name: "Salong Eko", slug: "salong-eko", address: "Dalagatan 34", area: "Stockholm · Vasastan" },
+    language: "en" as const,
+  };
+  const ics = buildPublicIcs({ ...visit, createdAt: "20261116T080000Z" });
+  expect(ics).toContain("SUMMARY:Cut and finish at Salong Eko");
+  expect(ics).toContain("LOCATION:Salong Eko\\, Dalagatan 34\\, Stockholm");
+  expect(ics).toContain("UID:ref-fictional@salong-eko.example");
+  expect(ics).toContain("TRIGGER:-PT1H");
+  expect(ics).not.toContain("lisa@");
+  expect(ics).not.toContain("Private note");
+  const google = new URL(publicGoogleCalendarLink(visit));
+  expect(google.searchParams.get("text")).toBe("Cut and finish at Salong Eko");
+  expect(google.searchParams.get("location")).toBe("Salong Eko, Dalagatan 34, Stockholm");
+});
+

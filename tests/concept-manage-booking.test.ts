@@ -1,6 +1,7 @@
 import { createElement, type ComponentType, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
+import { PublicCalendarActions } from "@/concept/booking/booking-actions";
 import { ManageBooking } from "@/concept/booking/manage-booking";
 import type { PublicBookingView } from "@/concept/booking/public-booking-view";
 import { publicSalonView } from "@/concept/booking/public-projection";
@@ -57,3 +58,20 @@ describe("the booking link's changes", () => {
     for (const status of ["cancelled", "completed"] as const) expect(render({ status, freeUntil: { date: "2026-11-23", time: 600 } })).toBe("");
   });
 });
+
+it("offers Add to calendar and Directions on a live booking-link visit", () => {
+  const html = renderToString(createElement(Server, { state, issuedAt: "fictional-token" },
+    createElement(PublicCalendarActions, { slug: "salong-fiktiv", id: "ref-fictional", view })));
+  expect(html).toMatch(/<button[^>]*>.*Add to calendar<\/button>/);
+  expect(html).toContain("Directions");
+  expect(html).toContain("Google Calendar");
+  expect(html).not.toContain("ref-secret");
+});
+
+it("hides calendar actions once the booking-link visit is no longer booked", () => {
+  const html = renderToString(createElement(Server, { state, issuedAt: "fictional-token" },
+    createElement(PublicCalendarActions, { slug: "salong-fiktiv", id: "ref-fictional", view: { ...view, status: "cancelled" } })));
+  expect(html).not.toContain("Add to calendar");
+  expect(html).not.toContain("Directions");
+});
+
