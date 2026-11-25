@@ -1,9 +1,9 @@
 import { IDBFactory } from "fake-indexeddb";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { runTask } from "@/concept/ai/run-task";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
-import { beyondLimit, indexedDbAudioStore, memoryAudioStore, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
+import { beyondLimit, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
 
 // Journal audio in the concept demo: what a file is by its bytes, the size and
 // length limits, the last five per customer, and that structuring sees text only.
@@ -130,6 +130,40 @@ describe.each<[string, () => JournalAudioStore]>([
   });
 });
 
+
+describe("journal audio when IndexedDB cannot be opened", () => {
+  const blockedFactory = (): IDBFactory => ({
+    open() {
+      const request = {} as IDBOpenDBRequest;
+      queueMicrotask(() => {
+        Object.defineProperty(request, "error", { value: new DOMException("The user denied permission.", "UnknownError") });
+        request.onerror?.(new Event("error"));
+      });
+      return request;
+    },
+    deleteDatabase() { return {} as IDBOpenDBRequest; },
+    cmp: () => 0,
+    databases: async () => [],
+  });
+
+  it("names an open failure so erasure can still finish", async () => {
+    const store = indexedDbAudioStore(blockedFactory());
+    try {
+      await store.removeCustomer("anna", "demo:one");
+      throw new Error("expected removeCustomer to reject");
+    } catch (error) {
+      expect(isAudioStoreUnavailable(error)).toBe(true);
+    }
+    // A later attempt is not stuck on the failed open.
+    try {
+      await store.list("anna", "demo:one");
+      throw new Error("expected list to reject");
+    } catch (error) {
+      expect(isAudioStoreUnavailable(error)).toBe(true);
+    }
+  });
+});
+
 describe("journal audio retention rule", () => {
   it("names only what is beyond the newest five", () => {
     const rows = [3, 1, 6, 2, 5, 4, 7].map((n) => recording(`r${n}`, "anna", n));
@@ -153,5 +187,35 @@ describe("structuring a transcript", () => {
       recommendation: "Recommend cream every evening.",
       nextVisit: "Next visit in 6 weeks.",
     });
+  });
+});
+
+describe("journal recordings when the salon itself changes", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+  });
+
+  it("drops demo recordings when the sample business is replaced", async () => {
+    vi.resetModules();
+    const items = new Map<string, string>();
+    const memory = {
+      getItem: (key: string) => items.get(key) ?? null,
+      setItem: (key: string, value: string) => { items.set(key, value); },
+      removeItem: (key: string) => { items.delete(key); },
+    };
+    vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage: memory, sessionStorage: memory }));
+    const { currentTarget, startBusiness } = await import("@/concept/store");
+    const { audioScope, journalAudioStore } = await import("@/concept/journals/audio-store");
+    const target = currentTarget();
+    expect(target?.workspace).toBe("demo");
+    const scope = audioScope(target!);
+    const audio = journalAudioStore();
+    await audio.add({
+      id: "rec-demo", customerId: "k001", scope, createdAt: 1, source: "recorded",
+      mime: "audio/webm", seconds: 5, bytes: new Uint8Array([1]).buffer,
+    });
+    await startBusiness();
+    expect(await audio.list("k001", scope)).toEqual([]);
   });
 });

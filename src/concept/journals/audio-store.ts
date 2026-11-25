@@ -91,6 +91,17 @@ const whenDone = (tx: IDBTransaction) =>
     tx.onabort = tx.onerror = () => reject(tx.error ?? new Error("journal audio transaction failed"));
   });
 
+/** True when the audio database could not be opened (storage blocked or missing). */
+export function isAudioStoreUnavailable(error: unknown): boolean {
+  return error instanceof Error && error.name === "AudioStoreUnavailableError";
+}
+
+function unavailable(cause: unknown): Error {
+  const error = new Error("journal audio store unavailable", { cause });
+  error.name = "AudioStoreUnavailableError";
+  return error;
+}
+
 function open(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(AUDIO_DB_NAME, AUDIO_DB_VERSION);
@@ -100,13 +111,21 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
       db.createObjectStore(STORE, { keyPath: "id" }).createIndex(BY_CUSTOMER, ["scope", "customerId"]);
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(unavailable(request.error));
   });
 }
 
 export function indexedDbAudioStore(factory: IDBFactory): JournalAudioStore {
   let db: Promise<IDBDatabase> | undefined;
-  const connect = () => (db ??= open(factory));
+  const connect = () => {
+    if (!db) {
+      db = open(factory).catch((error) => {
+        db = undefined;
+        throw error;
+      });
+    }
+    return db;
+  };
   /** Every read and write of one call in one transaction, in callbacks only so it cannot commit early. */
   const run = async <T>(mode: IDBTransactionMode, body: (store: IDBObjectStore, set: (value: T) => void) => void): Promise<T> => {
     const tx = (await connect()).transaction(STORE, mode);
