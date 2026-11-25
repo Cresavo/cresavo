@@ -5,7 +5,7 @@ import { eraseAccountCustomer, type ErasureReport } from "../../account/sync";
 import { BRAND } from "../../brand";
 import type { Customer } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { audioScope, isAudioStoreUnavailable, journalAudioStore } from "../../journals/audio-store";
+import { audioScope, forgetCustomerAudio, isAudioStoreUnavailable, journalAudioStore } from "../../journals/audio-store";
 import { fullName } from "../../selectors";
 import { currentState, currentTarget, dispatch } from "../../store";
 import { TRASH_DAYS } from "../../trash/trash";
@@ -38,9 +38,10 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
     setBusy(true);
     try {
       // Recordings live only in this browser; remove them before the customer so a failure can be retried.
+      const scope = audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }, currentState()?.salon);
       if (!audioBlocked) {
         try {
-          await journalAudioStore().removeCustomer(customer.id, audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }, currentState()?.salon));
+          await journalAudioStore().removeCustomer(customer.id, scope);
         } catch (error) {
           if (isAudioStoreUnavailable(error)) {
             setAudioBlocked(true);
@@ -50,6 +51,9 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
           showToast(t("journal.audio.eraseFailed"));
           return;
         }
+      } else {
+        // Storage is still blocked: remember the customer so the recordings go when it works again.
+        await forgetCustomerAudio(customer.id, scope);
       }
       const report = await erase(customer.id, name);
       if (!report) {
