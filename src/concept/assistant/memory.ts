@@ -52,8 +52,12 @@ export function memoryRejection(text: string, state?: Pick<DemoState, "journals"
 export function contactKind(text: string): "contact" | null {
   const plain = text.trim();
   if (EMAIL.test(plain) || PHONE.test(plain) || ADDRESS.test(plain.toLowerCase())) return "contact";
-  const formatted = plain.match(FORMATTED_PHONE);
-  if (formatted && !/^\d{4}-\d{2}-\d{2}$/.test(formatted[0].trim()) && formatted[0].replace(/\D/g, "").length >= 7) return "contact";
+  // Every grouped number, not only the first: an ISO date must not hide a phone after it.
+  for (const match of plain.matchAll(new RegExp(FORMATTED_PHONE, "g"))) {
+    const token = match[0].trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(token)) continue;
+    if (token.replace(/\D/g, "").length >= 7) return "contact";
+  }
   return null;
 }
 

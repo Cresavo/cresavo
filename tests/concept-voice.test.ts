@@ -430,6 +430,7 @@ describe("what is read aloud", () => {
     ["a phone number in parentheses", "Call her on (070) 123-45-67."],
     ["a space-separated phone number", "070 123 45 67"],
     ["a formatted number without a leading zero", "Call her on (212) 555-1234."],
+    ["a formatted number after an ISO date", "2026-11-17: call (212) 555-1234"],
     ["an international phone number", "Ring +46 70 123 45 67."],
     ["an email", "Her email is lena@example.com."],
     ["an English address", "She lives at Storgatan 12."],
@@ -439,6 +440,10 @@ describe("what is read aloud", () => {
     ["a Swedish address", "Hon bor på Ringvägen 4."],
   ])("never reads %s", (_, text) => {
     expect(safeSpeech(text, state)).toBe("The details are on the screen.");
+  });
+
+  it("still reads a line that is only an ISO date, not a phone number", () => {
+    expect(safeSpeech("The booking is on 2026-11-17.", state)).toBe("The booking is on 2026-11-17.");
   });
 
   it("never reads journal text, whole or in part", () => {

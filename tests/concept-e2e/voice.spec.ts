@@ -43,6 +43,7 @@ test.beforeEach(async ({ page }) => {
       // As in Chrome, the on-device choice is an attribute of the prototype.
       get processLocally() { return this.local; }
       set processLocally(value: boolean) { this.local = value; }
+      static available() { return Promise.resolve("available"); }
       onresult: ((event: unknown) => void) | null = null; onerror: ((event: { error: string }) => void) | null = null; onend: (() => void) | null = null;
       start() { voice.recognisers.push(this); }
       stop() { this.onend?.(); }
