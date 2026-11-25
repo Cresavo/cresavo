@@ -51,6 +51,19 @@ export function Sheet({ open, onClose, title, description, children, footer, var
         if (docked) dialog.show();
         else dialog.showModal();
       }
+      // A docked panel is not modal: Escape must still close it after focus has moved back to the page.
+      if (dialog.hasAttribute("data-docked")) {
+        const onEscape = (event: KeyboardEvent) => {
+          if (event.key !== "Escape" || event.defaultPrevented) return;
+          // A nested open dialog (Move, for example) takes Escape first.
+          const others = [...dialog.ownerDocument.querySelectorAll("dialog[open]")].filter((node) => node !== dialog);
+          if (others.length) return;
+          event.preventDefault();
+          setDismissing(true);
+        };
+        dialog.ownerDocument.addEventListener("keydown", onEscape);
+        return () => dialog.ownerDocument.removeEventListener("keydown", onEscape);
+      }
       return;
     }
     if (!dialog.open) return;
