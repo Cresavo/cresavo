@@ -47,7 +47,16 @@ export function ShowcaseConfirmation({
   const now = useSalonNow();
   const [history, setHistory] = useState(false);
   useEffect(() => {
-    document.getElementById("boka")?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const band = document.getElementById("boka");
+    // The standalone page uses <main id="boka">. Scroll to the top so a
+    // non-sticky salon header stays on screen. On the homepage the same id
+    // is a mid-page section, so scroll that band into view instead.
+    if (band?.tagName === "MAIN") {
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+      return;
+    }
+    band?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   }, [id]);
   const booking = state?.bookings.find((item) => item.id === id);
   const service = state && findService(state, booking?.serviceId);
