@@ -17,6 +17,7 @@ import { Button, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Field, Input, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
+import { StatusDot } from "@/concept/ui/feedback";
 import { showToast } from "@/concept/ui/toast";
 
 const EXAMPLE = "/demo/customers-example.csv";
@@ -149,7 +150,7 @@ export default function ImportCustomersPage() {
               {!fits && <p role="alert" className="text-sm text-danger">{t("import.tooLargeForServer", { rows: maxRowsForServer(ready) })}</p>}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button width="responsive" disabled={!ready.length || !fits || importing} aria-busy={importing} onClick={runImport}>{importing ? t("import.saving") : tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length || !fits || importing} aria-busy={importing} onClick={runImport}>{importing ? <><StatusDot kind="progress" />{t("import.saving")}</> : tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

@@ -6,6 +6,7 @@ import type { Customer, JournalContent } from "../../data/types";
 import { t } from "../../i18n";
 import { Button } from "../../ui/button";
 import { EmptyState } from "../../ui/empty-state";
+import { StatusDot } from "../../ui/feedback";
 import { useStudio } from "../use-studio";
 import { BLANK_ENTRY, JournalForm } from "./journal-form";
 import { JournalEntryCard } from "./journal-entry";
@@ -38,7 +39,7 @@ export function Journal({ customer, journal }: { customer: Customer; journal?: S
       </div>
       {dictating && <JournalDictation customer={customer} onClose={() => setDictating(false)} />}
       {writing && <JournalForm initial={BLANK_ENTRY} templatesFor={customer.category} onSubmit={save} onCancel={() => setWriting(false)} />}
-      {journal?.loading && <p role="status" className="text-meta text-text-secondary">{t("journal.loading")}</p>}
+      {journal?.loading && <p role="status" className="flex items-center gap-2 text-meta text-text-secondary"><StatusDot />{t("journal.loading")}</p>}
       {journal?.failed && (
         <div role="alert" className="flex flex-wrap items-center gap-3 text-meta text-text-secondary">
           <span>{t("journal.loadFailed")}</span>

@@ -9,6 +9,7 @@ import { Button } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { SegmentedControl } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
+import { SkeletonCard, SkeletonGroup } from "../../ui/feedback";
 import { showToast } from "../../ui/toast";
 import { claudeCodeCommand, claudeDesktopConfig, fetchProtocolInfo, shellToken, type ProtocolInfo } from "./protocol-setup";
 
@@ -100,7 +101,7 @@ export function useProtocolInfo() {
 export function ConnectSection({ info, failed }: { info?: ProtocolInfo; failed?: boolean }) {
   const [client, setClient] = useState<Client>("claude-code");
   if (failed) return <EmptyState icon={<PlugZap size={22} />} title={t("data.unavailable")} />;
-  if (!info) return <Card className="h-64 animate-pulse bg-surface-2" aria-busy />;
+  if (!info) return <SkeletonGroup><SkeletonCard lines={5} /></SkeletonGroup>;
   const endpoint = `${window.location.origin}${info.paths.mcp}`;
   return (
     <Card className="space-y-4 p-5">

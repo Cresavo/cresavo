@@ -3,7 +3,7 @@
 import { Button } from "@/concept/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
@@ -19,6 +19,7 @@ import { dispatch, markTrialUsed, useDemo, useTrialRemoved } from "../store";
 import { openSignedInSalon } from "../account/sync";
 import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
+import { Bone, SkeletonColumn, SkeletonGroup, SkeletonRow } from "../ui/feedback";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeToggle } from "../ui/theme-toggle";
@@ -73,7 +74,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   useStartPreset(!!state);
   // Opening a page counts as using the trial salon; it is removed after a day without use.
   useEffect(() => { if (own) markTrialUsed(); }, [own, pathname]);
-  if (!state) return <LoadingScreen />;
+  if (!state) return <LoadingScreen calendar={pathname.startsWith("/studio/calendar")} />;
   if (removed || pathname === WELCOME_PATH || isSetup) {
     return (
       <>
@@ -119,11 +120,53 @@ export function StudioShell({ children }: { children: ReactNode }) {
   );
 }
 
-function LoadingScreen() {
+/**
+ * The first load: the studio's own chrome is already in place (masthead and tab bar on a phone, the sidebar on a
+ * desktop) with the page as a quiet silhouette, so nothing jumps when the salon arrives.
+ */
+function LoadingScreen({ calendar }: { calendar: boolean }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <Wordmark className="w-32 animate-pulse" />
-    </div>
+    <SkeletonGroup>
+      <aside aria-hidden className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col gap-3 bg-surface px-4 pb-3 pt-5 lg:flex">
+        <span className="flex min-h-target items-center px-3"><Wordmark label="" className="w-32" /></span>
+        <Bone className="mx-3 h-4 w-32" />
+        <div className="mt-6 space-y-5 px-3">
+          {PRIMARY_NAV.map((item) => <Bone key={item.href} className="h-4 w-28" />)}
+        </div>
+      </aside>
+      <header aria-hidden className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface px-4 lg:hidden">
+        <Wordmark label="" className="w-28" />
+      </header>
+      <main aria-hidden className="studio-content lg:pl-64">
+        <div className={PAGE_FRAME}>
+          <div className="space-y-3 pb-6 pt-4">
+            <Bone className="h-8 w-48" />
+            <Bone className="h-4 w-64 max-w-full" />
+          </div>
+          {calendar ? (
+            <div className="flex gap-4">
+              <SkeletonColumn />
+              <SkeletonColumn className="max-sm:hidden" />
+              <SkeletonColumn className="max-lg:hidden" />
+            </div>
+          ) : (
+            <div className="rounded-lg bg-surface md:max-w-3xl">
+              {Array.from({ length: 5 }, (_, row) => <SkeletonRow key={row} />)}
+            </div>
+          )}
+        </div>
+      </main>
+      <div aria-hidden className="fixed inset-x-0 bottom-0 border-t border-hairline bg-surface studio-safe-bottom lg:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
+          {[...PRIMARY_NAV, MORE_TAB].map((item) => (
+            <span key={item.href} className="flex min-h-16 flex-col items-center justify-center gap-2">
+              <Bone className="size-6 rounded-full" />
+              <Bone className="h-2 w-10" />
+            </span>
+          ))}
+        </div>
+      </div>
+    </SkeletonGroup>
   );
 }
 
@@ -241,12 +284,19 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
 function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: string; role: Role }) {
   const unread = unreadCount(state);
   const tabs = [...PRIMARY_NAV, MORE_TAB].filter((item) => canOpen(role, item.href));
+  const current = tabs.findIndex((item) => isActivePath(pathname, item.href));
   return (
     <nav
       aria-label={t("shell.navigation")}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface studio-safe-bottom lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+      <div className="relative mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {/* One mark for the whole bar that slides to the tab you open, so the move reads as one change. */}
+        {current >= 0 && (
+          <span aria-hidden className="studio-tab-indicator" style={{ "--tab-index": current, "--tab-count": tabs.length } as CSSProperties}>
+            <span className="h-7 w-12 rounded-full bg-action max-[299px]:w-9" />
+          </span>
+        )}
         {tabs.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
@@ -257,9 +307,9 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               href={item.href}
               data-help={item.href}
               aria-current={active ? "page" : undefined}
-              className={cx("relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
+              className={cx("relative flex min-h-16 min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors max-[299px]:w-9", active && "bg-action text-on-action")}>
+              <span className={cx("studio-tab-icon flex h-7 w-12 items-center justify-center max-[299px]:w-9", active && "text-on-action")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
               {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}

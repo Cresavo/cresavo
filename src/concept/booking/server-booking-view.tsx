@@ -7,6 +7,7 @@ import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
 import { useServerSalon } from "../server-salon";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
+import { Bone, SkeletonCard, SkeletonGroup } from "../ui/feedback";
 import { captureLinkToken } from "./link-token";
 import { bookingHome } from "./links";
 import { ManageBooking } from "./manage-booking";
@@ -37,7 +38,14 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
   }, [slug, id]);
 
   const back = <ButtonLink href={bookingHome(slug)}>{t("booking.notFound.action")}</ButtonLink>;
-  if (loaded.state === "loading") return <p role="status" className="text-center text-text-secondary">{t("bookingView.loading")}</p>;
+  if (loaded.state === "loading") {
+    return (
+      <SkeletonGroup className="mx-auto max-w-lg space-y-5">
+        <Bone className="mx-auto h-8 w-2/3" />
+        <SkeletonCard lines={3} />
+      </SkeletonGroup>
+    );
+  }
   if (loaded.state !== "ready") {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">

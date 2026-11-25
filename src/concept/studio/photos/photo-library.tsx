@@ -13,6 +13,7 @@ import { Card } from "../../ui/card";
 import { cx } from "../../ui/cx";
 import { Field, TextInput } from "../../ui/controls";
 import { EmptyState } from "../../ui/empty-state";
+import { StatusDot } from "../../ui/feedback";
 import { Notice } from "../../ui/notice";
 import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
@@ -76,7 +77,8 @@ function AccountLibrary() {
           <TextInput type="file" accept="image/*" multiple className="sr-only" disabled={busy > 0}
             onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ""; if (files.length) void add(files); }} />
         </label>
-        <p className="text-meta text-text-secondary" role="status">
+        <p className="flex items-center gap-2 text-meta text-text-secondary" role="status">
+          {(busy > 0 || !library) && <StatusDot kind={busy > 0 ? "progress" : "wait"} />}
           {busy > 0 ? tc("photos.uploading", busy) : library ? t("photos.count", { count: photos.length, max: MAX_PHOTOS }) : t("ui.loading")}
         </p>
       </div>

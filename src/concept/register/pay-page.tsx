@@ -10,7 +10,7 @@ import { ConceptLanguage } from "../i18n/boundary";
 import { DEFAULT_CURRENCY } from "../i18n/business";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { SuccessCheck } from "../ui/feedback";
+import { StatusDot, SuccessCheck } from "../ui/feedback";
 import { ChoiceCards } from "../ui/controls";
 import { cx } from "../ui/cx";
 import { Notice } from "../ui/notice";
@@ -117,7 +117,7 @@ function Payment({ token, initial, request }: { token: string; initial: Step; re
         {failed && <Notice tone="danger" role="alert">{t("pay.failed")}</Notice>}
         <div className="space-y-2">
           <Button size="lg" className="w-full" loading={busy} onClick={pay}>{t("pay.submit", { amount })}</Button>
-          <p role="status" className="min-h-[1lh] text-center text-meta text-text-secondary">{busy && t("pay.confirming")}</p>
+          <p role="status" className="flex min-h-[1lh] items-center justify-center gap-2 text-center text-meta text-text-secondary">{busy && <><StatusDot kind="progress" />{t("pay.confirming")}</>}</p>
         </div>
       </div>
     </Card>
