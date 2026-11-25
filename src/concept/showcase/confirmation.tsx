@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarPlus, Navigation, Share2 } from "lucide-react";
 import { BookingActions } from "../booking/booking-actions";
 import { buildIcs, googleCalendarLink, icsTimestamp } from "../booking/ics";
@@ -44,6 +44,9 @@ export function ShowcaseConfirmation({
   const state = usePublicDemo();
   const now = useSalonNow();
   const [history, setHistory] = useState(false);
+  useEffect(() => {
+    document.getElementById("boka")?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }, [id]);
   const booking = state?.bookings.find((item) => item.id === id);
   const service = state && findService(state, booking?.serviceId);
   const person = state?.staff.find((item) => item.id === booking?.staffId);
