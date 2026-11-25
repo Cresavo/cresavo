@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { EmptyState } from "@/concept/ui/empty-state";
 import { SkeletonCard, SkeletonGroup, SkeletonRow, StatusDot } from "@/concept/ui/feedback";
-import { ActionMenu, Popover, popoverPlacement } from "@/concept/ui/popover";
+import { ActionMenu, Popover, popoverPlacement, popoverStack } from "@/concept/ui/popover";
 
 // Menus that grow from their trigger, the sliding tab mark, shaped skeletons, calm empty states and quiet status dots.
 
@@ -20,7 +20,7 @@ describe("popover and action menu", () => {
     expect(menu).toContain('aria-expanded="false"');
     expect(menu).toContain('aria-label="Quick actions"');
     expect(menu).not.toContain('role="menu"');
-    const panel = html(createElement(Popover, { title: "Calendar options", icon: "…" }, "Rooms"));
+    const panel = html(createElement(Popover, { title: "Calendar options", icon: "…", children: "Rooms" })) // eslint-disable-line react/no-children-prop -- createElement typings require children on the props object;
     expect(panel).toContain('aria-haspopup="dialog"');
     expect(panel).not.toContain("Rooms");
   });
@@ -40,6 +40,21 @@ describe("popover and action menu", () => {
     expect(wide.left).toBe(16);
     expect(wide.width).toBe(288);
     expect(wide.left + wide.width).toBe(304);
+  });
+
+  it("opens above the trigger when there is more room there, and caps its height", () => {
+    const below = popoverStack({ top: 40, bottom: 72 }, 160, 400);
+    expect(below.placement).toBe("below");
+    expect(below.top).toBe(80);
+    expect(below.height).toBe(160);
+    const above = popoverStack({ top: 300, bottom: 332 }, 200, 360);
+    expect(above.placement).toBe("above");
+    expect(above.top).toBeGreaterThanOrEqual(16);
+    expect(above.top + above.height).toBe(292);
+    const tight = popoverStack({ top: 200, bottom: 232 }, 300, 280);
+    expect(tight.placement).toBe("above");
+    expect(tight.top).toBe(16);
+    expect(tight.height).toBe(176);
   });
 
 });

@@ -24,6 +24,8 @@ const PHONE = "(max-width: 639.98px)";
 const FOCUSABLE = "[role=menuitem], button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])";
 const EDGE = 16;
 
+const GAP = 8;
+
 /** Place a panel under a trigger, flipping the side when needed and clamping it inside the viewport. */
 export function popoverPlacement(
   align: "start" | "end",
@@ -39,6 +41,22 @@ export function popoverPlacement(
   const desired = side === "end" ? trigger.right - used : trigger.left;
   const left = Math.min(Math.max(desired, EDGE), EDGE + Math.max(0, room - used));
   return { side, left, width: used };
+}
+
+/** Sit the panel below the trigger, or above it when there is more room there, and cap its height. */
+export function popoverStack(
+  trigger: { top: number; bottom: number },
+  height: number,
+  viewportHeight: number,
+  gap = GAP,
+): { placement: "below" | "above"; top: number; height: number } {
+  const belowRoom = Math.max(0, viewportHeight - EDGE - (trigger.bottom + gap));
+  const aboveRoom = Math.max(0, trigger.top - gap - EDGE);
+  const placement = belowRoom >= height || belowRoom >= aboveRoom ? "below" : "above";
+  const room = placement === "below" ? belowRoom : aboveRoom;
+  const used = Math.min(height, room);
+  const top = placement === "below" ? trigger.bottom + gap : trigger.top - gap - used;
+  return { placement, top, height: used };
 }
 
 function watchPhone(listener: () => void) {
@@ -63,8 +81,10 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
   const [open, setOpen] = useState(false);
   const [present, setPresent] = useState(false);
   const [side, setSide] = useState(align);
+  const [stack, setStack] = useState<"below" | "above">("below");
   const phone = usePhone(sheetOnPhone);
   if (open && !present && !phone) setPresent(true);
+  if (phone && present) setPresent(false);
 
   const close = (refocus = true) => {
     setOpen(false);
@@ -77,23 +97,29 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
     const button = triggerRef.current;
     const wrap = wrapRef.current;
     if (!open || !present || !panel || !button || !wrap) return;
-    const place = popoverPlacement(align, button.getBoundingClientRect(), panel.offsetWidth, window.innerWidth);
+    const box = button.getBoundingClientRect();
     const wrapBox = wrap.getBoundingClientRect();
+    const place = popoverPlacement(align, box, panel.offsetWidth, window.innerWidth);
+    const stackPlace = popoverStack(box, panel.offsetHeight, window.innerHeight);
     setSide(place.side);
+    setStack(stackPlace.placement);
     panel.style.left = `${place.left - wrapBox.left}px`;
     panel.style.right = "auto";
     panel.style.width = `${place.width}px`;
+    panel.style.top = `${stackPlace.top - wrapBox.top}px`;
+    panel.style.height = `${stackPlace.height}px`;
+    panel.style.bottom = "auto";
   }, [open, present, align]);
 
   useEffect(() => {
-    if (!open || !present) return;
+    if (phone || !open || !present) return;
     panelRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
     const outside = (event: PointerEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [open, present]);
+  }, [open, present, phone]);
 
   // Stay mounted through the exit so the panel folds back into the trigger before it goes.
   useEffect(() => {
@@ -151,9 +177,10 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
           role={kind === "menu" ? "menu" : "dialog"}
           aria-label={title}
           data-side={side}
+          data-stack={stack}
           data-closing={!open || undefined}
           inert={!open}
-          className={cx("ui-pop absolute top-full left-0 z-popover mt-2 outline-none min-w-56 rounded-lg border border-hairline bg-surface text-text shadow-raised", kind === "menu" ? "py-1" : "p-4")}
+          className={cx("ui-pop absolute left-0 z-popover overflow-y-auto outline-none min-w-56 rounded-lg border border-hairline bg-surface text-text shadow-raised", kind === "menu" ? "py-1" : "p-4")}
           onKeyDown={kind === "menu" ? moveInMenu : undefined}
           onClick={event => chosen(event, close)}
         >

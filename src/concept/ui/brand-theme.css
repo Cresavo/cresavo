@@ -251,6 +251,8 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   animation: ui-pop var(--dur-2) var(--ease-out) both;
 }
 .ui-pop[data-side="start"] { transform-origin: top left; }
+.ui-pop[data-stack="above"] { transform-origin: bottom right; }
+.ui-pop[data-stack="above"][data-side="start"] { transform-origin: bottom left; }
 .ui-pop[data-closing] { animation: ui-pop-leave var(--dur-1) var(--ease-in) both; }
 @keyframes ui-pop { from { opacity: 0; transform: scale(.95); } }
 @keyframes ui-pop-leave { to { opacity: 0; transform: scale(.95); } }
