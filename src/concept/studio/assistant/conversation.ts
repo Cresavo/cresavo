@@ -43,7 +43,7 @@ export interface ConversationPorts {
 export interface Conversation {
   state(): ConversationState;
   start(): void;
-  /** Final words from the recogniser. While a reply is read aloud they interrupt it. */
+  /** Final words from the recogniser while it is listening. */
   heard(text: string): void;
   /** Unfinished words arrived: the quiet moment starts again. */
   hearing(): void;
@@ -117,12 +117,15 @@ export function createConversation(ports: ConversationPorts): Conversation {
       listen(true);
     },
     heard(text) {
-      if (!active() || !text.trim()) return;
-      const interrupting = current.phase === "speaking";
+      // Only a listening turn accepts words. Late results from a recogniser that
+      // has already been stopped, and anything heard while thinking or while a
+      // reply is being read, are ignored: the assistant must not send its own
+      // speech as a new command. Barge-in is the microphone, which calls interrupt().
+      if (current.phase !== "listening" || !text.trim()) return;
       turn++;
       clearSilence();
+      ports.stopListening();
       set({ phase: "thinking" });
-      if (interrupting) ports.stopSpeaking();
       ports.send(text.trim());
     },
     listenEnded({ heard, error }) {

@@ -60,11 +60,28 @@ export function safeSpeech(text: string, state: SpeechState): string | null {
   let named = 0;
   let spoken = plain;
   // Longest names first, so "Anna Berg Lind" is not read as "Anna Lind".
-  for (const customer of [...state.customers].sort((a, b) => fullName(b).length - fullName(a).length)) {
+  const customers = [...state.customers].sort((a, b) => fullName(b).length - fullName(a).length);
+  for (const customer of customers) {
     const name = nameWord(fullName(customer));
-    if (!name.test(spoken)) continue;
+    if (!spoken.match(name)) continue;
     named++;
-    spoken = spoken.replace(name, `${customer.firstName}$1`);
+    spoken = spoken.replace(nameWord(fullName(customer)), `${customer.firstName}$1`);
+  }
+  // A surname on its own, or a genitive of it, is still that person: say the first
+  // name. A shared surname cannot be reduced to one person, so it stays on the screen.
+  const byLast = new Map<string, typeof customers>();
+  for (const customer of customers) {
+    const last = customer.lastName.trim();
+    if (!last) continue;
+    const key = normalize(last);
+    byLast.set(key, [...(byLast.get(key) ?? []), customer]);
+  }
+  for (const group of [...byLast.values()].sort((a, b) => b[0].lastName.length - a[0].lastName.length)) {
+    const last = nameWord(group[0].lastName.trim());
+    if (!spoken.match(last)) continue;
+    if (group.length > 1) return t("assistant.voice.onScreen");
+    named++;
+    spoken = spoken.replace(nameWord(group[0].lastName.trim()), `${group[0].firstName}$1`);
   }
   if (named > MAX_SPOKEN_CUSTOMERS) return t("assistant.voice.onScreen");
   return spoken;

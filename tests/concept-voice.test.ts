@@ -208,7 +208,7 @@ describe("spoken conversation", () => {
     expect(h.phase()).toBe("speaking");
     h.finishSpeaking();
     expect(h.phase()).toBe("listening");
-    expect(h.log).toEqual(["listen", "send:Who is coming today?", "speak:Three bookings today.", "listen"]);
+    expect(h.log).toEqual(["listen", "stop-listening", "send:Who is coming today?", "speak:Three bookings today.", "listen"]);
   });
 
   it("listens again at once when muted, when there is nothing to say, or when the browser cannot speak", () => {
@@ -255,14 +255,17 @@ describe("spoken conversation", () => {
     expect(h.log.filter((entry) => entry === "listen")).toHaveLength(2);
   });
 
-  it("treats new words heard during a reply as the next turn", () => {
+  it("ignores further words until it is listening again", () => {
     const h = harness();
     h.conversation.start();
     h.conversation.heard("first");
-    h.conversation.replied("Reply.");
-    h.conversation.heard("second");
+    h.conversation.heard("late from the same turn");
     expect(h.phase()).toBe("thinking");
-    expect(h.log.slice(-2)).toEqual(["stop-speaking", "send:second"]);
+    expect(h.log.filter((entry) => entry.startsWith("send:"))).toEqual(["send:first"]);
+    h.conversation.replied("Reply.");
+    h.conversation.heard("echo of the reply");
+    expect(h.phase()).toBe("speaking");
+    expect(h.log.filter((entry) => entry.startsWith("send:"))).toEqual(["send:first"]);
   });
 
   it("muting during a reply stops it and listens", () => {
@@ -376,6 +379,17 @@ describe("what is read aloud", () => {
     expect(safeSpeech(`${fullName(customer)} is next at 10:00.`, state)).toBe(`${customer.firstName} is next at 10:00.`);
     expect(safeSpeech(`Move ${fullName(customer)}'s booking.`, state)).toBe(`Move ${customer.firstName}'s booking.`);
     expect(safeSpeech(`Boka om besöket för ${fullName(customer)}s vän`, state)).toBe(`Boka om besöket för ${customer.firstName}s vän`);
+    const unique = { ...customer, id: "spoken-unique", firstName: "Lina", lastName: "Kvickstrand" };
+    const named = { ...state, customers: [...state.customers, unique] };
+    expect(safeSpeech("Kvickstrand is next at 10:00.", named)).toBe("Lina is next at 10:00.");
+    expect(safeSpeech("Move Kvickstrand's booking.", named)).toBe("Move Lina's booking.");
+  });
+
+  it("keeps a shared surname on the screen", () => {
+    const other = { ...customer, id: "other-" + customer.id, firstName: "Other", lastName: customer.lastName };
+    const shared = { ...state, customers: [...state.customers, other] };
+    expect(safeSpeech(`${customer.lastName} is next at 10:00.`, shared)).toBe("The details are on the screen.");
+    expect(safeSpeech(`${fullName(customer)} and ${fullName(other)} are next.`, shared)).toBe(`${customer.firstName} and ${other.firstName} are next.`);
   });
 
   it.each([
