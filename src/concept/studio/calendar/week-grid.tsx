@@ -92,6 +92,7 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
         {staff.length < 2 && <div className="border-b border-hairline" />}
         <div className="relative flex py-3 pr-1">
           <TimeAxis from={from} to={to} pxPerMin={scale} />
+          {days.includes(today) && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
           {days.map((d, dayIndex) => {
             const hours = openingFor(state.salon, d);
             const lunch = lunchFor(state.salon, d);
@@ -145,7 +146,6 @@ export function WeekGrid({ monday, staff, resourceId, onOpen, onPickDay }: { mon
               </div>
             );
           })}
-          {days.includes(today) && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
         </div>
       </div>
     </div>

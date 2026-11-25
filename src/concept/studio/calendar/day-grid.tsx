@@ -97,6 +97,7 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
         </div>
         <div className="relative flex py-3 pr-1">
           <TimeAxis from={from} to={to} pxPerMin={scale} />
+          {date === today && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
           {columns.map(({ person, shift, entries }) => {
             const works = shift !== null;
             return (
@@ -140,7 +141,6 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
               {t("calendar.lunch")}
             </div>
           )}
-          {date === today && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
         </div>
       </div>
     </div>
