@@ -178,6 +178,12 @@ body:has(.ui-media-dialog[open]) { overflow: hidden; }
 .ui-segments[data-fit] { grid-auto-columns: max-content; min-width: 0; }
 .ui-segments[data-fit]::before { display: none; }
 .ui-segments[data-fit] [aria-checked="true"] { background: var(--ui-surface); box-shadow: inset 0 0 0 1px var(--ui-input-border); }
+/* Four content-sized options on a phone (the register's methods): two rows of
+   two, each option half the width, instead of one cramped row. */
+@media (max-width: 639.98px) {
+  :has(> .ui-segments[data-fit] > :nth-child(4):last-child) { display: block; width: 100%; }
+  .ui-segments[data-fit]:has(> :nth-child(4):last-child) { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+}
 /* Quiet segments (a utility such as the theme switch): bare icons, and a short
    line under the selected one. */
 .ui-segments[data-quiet] { min-width: 0; }
@@ -214,7 +220,7 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 .ui-sheet-side-header { padding-top: max(var(--space-2), env(safe-area-inset-top)); }
 @media (min-width: 640px) { .ui-sheet-side { width: 27.5rem; } }
 .ui-composer-input:focus-visible { outline: none; }
-.ui-sheet[open], .ui-toast, [data-row-motion="enter"] { animation: ui-arrive var(--dur-2) var(--ease-out) both; }
+.ui-sheet[open], .ui-toast, .ui-arrive, [data-row-motion="enter"] { animation: ui-arrive var(--dur-2) var(--ease-out) both; }
 .ui-sheet[open] { animation-duration: var(--dur-3); }
 .ui-sheet[open]::backdrop { animation: ui-fade var(--dur-2) var(--ease-out) both; }
 .ui-sheet[open][data-closing], .ui-toast[data-closing], [data-row-motion="exit"] {
@@ -232,6 +238,15 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 .ui-skeleton { animation: ui-fade 1s ease-in-out infinite alternate; }
 .ui-check { animation: ui-draw var(--dur-3) var(--ease-out) both; }
 @keyframes ui-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* A receipt comes out like a short slip from the printer: unrolled from its top edge. */
+.ui-print { animation: ui-print calc(var(--dur-3) * 1.5) var(--ease-out) both; }
+@keyframes ui-print {
+  from { clip-path: inset(0 0 100% 0 round var(--radius-lg)); transform: translateY(calc(-1 * var(--space-2))); }
+  to { clip-path: inset(0 round var(--radius-lg)); transform: none; }
+}
+/* A quiet sign of life while a code waits for the customer's phone. */
+.ui-breathe { animation: ui-breathe 2.4s ease-in-out infinite alternate; }
+@keyframes ui-breathe { to { opacity: .7; } }
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-1: .01ms; --dur-2: .01ms; --dur-3: .01ms; }
@@ -242,7 +257,7 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
     scroll-behavior: auto !important;
   }
   .ui-press:active:not(:disabled) { transform: none; }
-  .ui-skeleton { animation: none; }
-  .ui-sheet[open], .ui-sheet[open]::backdrop, .ui-toast, [data-row-motion] { animation-name: ui-fade; animation-duration: 80ms !important; }
+  .ui-skeleton, .ui-breathe { animation: none; }
+  .ui-sheet[open], .ui-sheet[open]::backdrop, .ui-toast, .ui-arrive, .ui-print, [data-row-motion] { animation-name: ui-fade; animation-duration: 80ms !important; }
   .ui-sheet[open][data-closing], .ui-toast[data-closing], [data-row-motion="exit"] { animation-name: ui-fade-out; }
 }

@@ -58,7 +58,7 @@ test("owner configures a deposit and the customer resumes checkout by simulated 
   expect(pending.checkoutHolds).toHaveLength(1);
   const [hold] = pending.checkoutHolds;
   await expect(flow.getByText(freeUntilText(hold, hold.terms.freeHours, Date.parse(day + "T10:00:00+01:00")))).toBeVisible();
-  await expect(flow.getByText(label("protection.simulated"))).toBeVisible();
+  await expect(flow.getByText(label("protection.simulated"))).toHaveCount(0);
   await page.reload();
   await flow.getByRole("radio", { name: label("protection.swish") }).check();
   await flow.getByRole("button", { name: label("protection.pay", { amount: deposit }) }).click();

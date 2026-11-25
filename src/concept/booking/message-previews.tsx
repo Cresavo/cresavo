@@ -5,7 +5,6 @@ import type { Booking, DemoState } from "../data/types";
 import { ownerViewHref } from "../page/resolve";
 import { t } from "../i18n";
 import { dispatch } from "../store";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Segmented } from "../ui/controls";
@@ -24,7 +23,6 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
   return (
     <Card className="space-y-4 p-5">
       <h2 className="font-semibold">{t("messages.title")}</h2>
-      <p className="text-meta text-text-secondary">{t("messages.note")}</p>
       <Segmented value={kind} onChange={setKind} label={t("messages.kind")} options={(["confirmation", "reminder"] as const).map(value => ({ value, label: t(`messages.kind.${value}`) }))} className="w-full" />
       <Segmented value={channel} onChange={value => setOverrides(previous => ({ ...previous, [kind]: value }))} label={t("messages.channel")} options={(["sms", "email"] as const).map(value => ({ value, label: t(`messages.channel.${value}`) }))} className="w-full" />
       <div className={channel === "sms" ? "rounded-lg bg-surface-2 p-4" : "rounded-md border border-hairline p-4"}>
@@ -39,7 +37,6 @@ export function MessagePreviews({ state, booking, now }: { state: DemoState; boo
         if (ok) showToast(sentText);
         else showActionFailure("messages.failed", undefined, "booking");
       }}>{t("messages.simulate")}</Button>}
-      <Badge>{t("common.simulated")}</Badge>
     </Card>
   );
 }

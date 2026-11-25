@@ -10,6 +10,7 @@ import { ConceptLanguage } from "../i18n/boundary";
 import { DEFAULT_CURRENCY } from "../i18n/business";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { SuccessCheck } from "../ui/feedback";
 import { ChoiceCards } from "../ui/controls";
 import { cx } from "../ui/cx";
 import { Notice } from "../ui/notice";
@@ -62,9 +63,9 @@ function Payment({ token, initial, request }: { token: string; initial: Step; re
   if (step !== "pending" || !request) {
     const end = ENDS[step === "pending" ? "invalid" : step];
     return (
-      <Card className="space-y-4 p-6 text-center">
+      <Card className="ui-arrive space-y-4 p-6 text-center">
         <span data-tone={end.tone} className={cx("mx-auto flex size-12 items-center justify-center rounded-full text-text", end.tone ? "bg-success-bg" : "bg-action-bg")}>
-          <end.icon size={22} data-tone-mark={end.tone ? true : undefined} className={end.tone && "text-success"} />
+          {step === "paid" ? <span data-tone-mark className="flex"><SuccessCheck /></span> : <end.icon size={22} />}
         </span>
         <h1 className="text-h2 font-semibold tracking-tight">{t(end.title)}</h1>
         <p className="text-body text-text-secondary">{t(end.text)}</p>
@@ -114,7 +115,10 @@ function Payment({ token, initial, request }: { token: string; initial: Step; re
           </div>
         )}
         {failed && <Notice tone="danger" role="alert">{t("pay.failed")}</Notice>}
-        <Button size="lg" className="w-full" loading={busy} onClick={pay}>{t("pay.submit", { amount })}</Button>
+        <div className="space-y-2">
+          <Button size="lg" className="w-full" loading={busy} onClick={pay}>{t("pay.submit", { amount })}</Button>
+          <p role="status" className="min-h-[1lh] text-center text-meta text-text-secondary">{busy && t("pay.confirming")}</p>
+        </div>
       </div>
     </Card>
   );

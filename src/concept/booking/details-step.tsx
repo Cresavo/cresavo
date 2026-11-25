@@ -153,7 +153,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
             </>
           ) : <RememberContact checked={remember} onChange={chooseRemember} />}
         </div>
-        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} demo={!book} />
+        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} />
         <div className="space-y-2">
           <Button type="submit" size="lg" className="w-full" disabled={pending || !ready || (!!book && !validEmail)}>
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}

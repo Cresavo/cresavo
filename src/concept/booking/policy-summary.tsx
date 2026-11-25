@@ -27,7 +27,8 @@ export function PolicySummary({ terms }: { terms: BookingTerms }) {
   </div>;
 }
 
-export function PaymentSummary({ booking, state, active = booking.status === "booked" }: { booking: Booking; state: DemoState; active?: boolean }) {
+/** `note`: the owner's own views say the money is simulated; the customer's confirmation does not. */
+export function PaymentSummary({ booking, state, active = booking.status === "booked", note }: { booking: Booking; state: DemoState; active?: boolean; note?: boolean }) {
   const protection = booking.protection;
   if (!protection) return null;
   const { currency } = protection.terms;
@@ -45,6 +46,6 @@ export function PaymentSummary({ booking, state, active = booking.status === "bo
     {protection.decision && <p>{t("protection.feeTotal", { amount: money(protection.decision.outcome === "charge" ? protection.decision.proposedMinor : 0) })}</p>}
     {protection.decision && <p>{t(protection.decision.outcome === "waive" ? "protection.waived" : "protection.charged")}</p>}
     {balance.refund > 0 && <p>{t("protection.refunded", { amount: money(balance.refund) })}</p>}
-    {(protection.deposit || protection.decision) && <p className="text-text-secondary">{t("protection.simulated")}</p>}
+    {note && (protection.deposit || protection.decision) && <p className="text-text-secondary">{t("protection.simulated")}</p>}
   </div>;
 }

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { billableVisit, dueOf, settle, settleable } from "../../booking/settle";
 import { formatMinor } from "../../booking/policy-summary";
+import { RollingAmount } from "../../booking/rolling-amount";
 import { demoPayments } from "../../connections/demo";
 import { swishEligible } from "../../connections/ports/payments";
 import { cashChange, type RegisterMethod } from "../../connections/ports/register";
@@ -13,6 +14,7 @@ import { findService, findCustomer, visitorName } from "../../selectors";
 import { commitAction } from "../../store/commit";
 import { Button } from "../../ui/button";
 import { Field, Segmented, TextInput } from "../../ui/controls";
+import { SuccessCheck } from "../../ui/feedback";
 import { Sheet } from "../../ui/sheet";
 import { showActionFailure } from "../../ui/toast";
 import { useCommit } from "../../ui/use-commit";
@@ -59,6 +61,7 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
   const visit = billableVisit(state, booking, today);
   const due = dueOf(visit);
   const money = (amount: number) => formatMinor(amount, visit.currency);
+  const rolling = (amount: number) => <RollingAmount minor={amount} currency={visit.currency} />;
   const swish = swishEligible({ amountMinor: due, currency: visit.currency });
   // The payment page knows the sample business only, so a visitor's own trial salon takes payment at the counter.
   const methods: Choice[] = [...(swish ? ["card", "swish", "cash"] as const : ["card", "cash"] as const), ...(target?.workspace === "demo" ? ["phone"] as const : [])];
@@ -140,6 +143,7 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
           <Button width="responsive" onClick={onClose}>{t("common.close")}</Button>
         </>}>
         <div className="space-y-4">
+          {!refund && <p className="ui-arrive flex items-center gap-2 font-medium"><SuccessCheck />{t("pay.paid.title")}</p>}
           <Receipt record={sale} salon={state.salon} />
           {refund && <Receipt record={refund} salon={state.salon} />}
         </div>
@@ -160,8 +164,8 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
       <div className="space-y-5">
         {takes && <dl className="divide-y divide-hairline">
           {visit.lines.map((line, i) => <AmountRow key={i} label={line.description} value={money(line.grossMinor)} className="py-3" />)}
-          {visit.prepaidMinor > 0 && <AmountRow label={t("register.prepaid")} value={money(-visit.prepaidMinor)} className="py-3" />}
-          <AmountRow label={t("register.due")} value={money(due)} strong className="py-3" />
+          {visit.prepaidMinor > 0 && <AmountRow label={t("register.prepaid")} value={rolling(-visit.prepaidMinor)} className="py-3" />}
+          <AmountRow label={t("register.due")} value={rolling(due)} strong className="py-3" />
         </dl>}
         {!takes && <p className="text-text-secondary">{t("register.closedText")}</p>}
         {takes && due > 0 && !waiting && (
@@ -169,12 +173,12 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
             <Segmented label={t("register.method")} value={method} onChange={choose} fit={methods.length > 3}
               options={methods.map((value) => ({ value, label: t(`register.${value}`) }))} />
             {method === "cash" && (
-              <div className="space-y-3">
+              <div className="ui-arrive space-y-3">
                 <Field label={t("register.received", { currency: visit.currency })} width="short"
                   error={received && change === null ? t("register.short") : undefined}>
                   <TextInput inputMode="decimal" autoComplete="off" value={received} onChange={(e) => receive(e.target.value)} />
                 </Field>
-                <dl><AmountRow label={t("register.change")} value={change === null ? "–" : money(change)} strong className="py-3" /></dl>
+                <dl><AmountRow label={t("register.change")} value={change === null ? "–" : rolling(change)} strong className="py-3" /></dl>
               </div>
             )}
           </div>

@@ -106,7 +106,7 @@ it("retains the list price and qualifies salon payment when prepaid visits are a
   const price = formatMoney(booking.price, "EUR", "en");
   const withPackages = BookingSummary({ ...summary, packagesEnabled: true });
   const withoutPackages = BookingSummary({ ...summary, packagesEnabled: false });
-  const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => node.props.children);
+  const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => renderToStaticMarkup(node).replace(/<[^>]+>/g, ""));
   expect(amounts(withPackages)).toEqual([price, formatMoney(0, "EUR", "en"), price]);
   const deposit = BookingSummary({ ...summary, terms: { ...summary.terms, depositMinor: 12345 }, packagesEnabled: true });
   expect(amounts(deposit)).toEqual([price, formatMinor(12345, "EUR"), formatMinor(summary.terms.priceMinor - 12345, "EUR")]);
