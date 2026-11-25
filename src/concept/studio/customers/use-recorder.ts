@@ -37,6 +37,7 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   const tick = useRef<ReturnType<typeof setInterval>>(undefined);
   const limit = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pendingStop = useRef<((id?: string) => void)[]>([]);
+  const saving = useRef<Promise<string | undefined> | null>(null);
   const starting = useRef(false);
   useEffect(() => {
     handlers.current = { onRecorded, onEnd };
@@ -83,7 +84,9 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
   }, []);
 
   const start = useCallback(async (): Promise<boolean> => {
-    if (recorder.current || starting.current || !canRecord()) return false;
+    if (starting.current || !canRecord()) return false;
+    if (saving.current) await saving.current;
+    if (recorder.current || !live.current || !canRecord()) return false;
     starting.current = true;
     try {
     let stream: MediaStream;
@@ -123,13 +126,17 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       setRecording(false);
       const audio = new Blob(chunks, { type: next.mimeType || mimeType || chunks[0]?.type || "" });
       const length = Math.min((performance.now() - startedAt) / 1000, MAX_AUDIO_SECONDS);
-      void (async () => {
+      saving.current = (async () => {
         try {
           await handlers.current.onEnd?.();
           const id = audio.size ? await handlers.current.onRecorded(audio, length) : undefined;
           finishStop(typeof id === "string" ? id : undefined);
+          return typeof id === "string" ? id : undefined;
         } catch {
           finishStop();
+          return undefined;
+        } finally {
+          saving.current = null;
         }
       })();
     };
