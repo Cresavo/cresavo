@@ -7,6 +7,7 @@ import { formatMinor, PaymentSummary } from "../../booking/policy-summary";
 import { feeMinor, settleFee, termsOf } from "../../booking/protection";
 import type { Booking, DemoState } from "../../data/types";
 import { locale, t } from "../../i18n";
+import { cancelPendingPayment } from "../../register/ledger";
 import { targetOf } from "../../store";
 import { commitAction } from "../../store/commit";
 import { useCommit } from "../../ui/use-commit";
@@ -40,7 +41,9 @@ export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking
         return currentRole() === "owner" && current?.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
       },
     }).catch(() => null);
-    if (!result?.ok) showActionFailure("booking.visitChanged");
+    if (!result?.ok) return showActionFailure("booking.visitChanged");
+    // The decision closes the visit, so a payment waiting at the register has nothing left to take.
+    if (!(await cancelPendingPayment(target, booking.id))) showActionFailure("register.failed");
   });
   return <div className="space-y-3">
     <PaymentSummary state={state} booking={booking} />

@@ -2,7 +2,7 @@
 
 import { moduleEnabled } from "../../modules/registry";
 import { useState } from "react";
-import { CalendarClock, CalendarX2, Check, Gift, Phone, UserRound } from "lucide-react";
+import { CalendarClock, CalendarX2, Check, CreditCard, Gift, Phone, ReceiptText, UserRound } from "lucide-react";
 import { paidWithCards, remainingForCards } from "../../giftcards/cards";
 import { t, tc, type MessageKey } from "../../i18n";
 import { formatDayLong, formatDuration, formatMoney, formatTime } from "../../i18n/format";
@@ -29,8 +29,10 @@ import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 import { isStub } from "../../journals/sealed";
+import { registerFor, useRegisterReceipts } from "../../register/ledger";
+import { RegisterSheet } from "../register/register-sheet";
 
-type Mode = "details" | "move" | "cancel" | "giftcard";
+type Mode = "details" | "move" | "cancel" | "giftcard" | "register";
 
 const CANCEL_REASONS: MessageKey[] = ["cancel.reason.customer", "cancel.reason.ill", "cancel.reason.salon", "cancel.reason.other"];
 
@@ -47,6 +49,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const [reason, setReason] = useState<MessageKey>(CANCEL_REASONS[0]);
   const [offer, setOffer] = useState(false);
   const [failure, setFailure] = useState<ActionFailureInfo>();
+  const receipts = useRegisterReceipts(target);
   if (!booking) return null;
   const go = (next: Mode) => { setFailure(undefined); setMode(next); };
   const report = (reason: MessageKey) => setFailure({ reason, requestId: newActionRequestId() });
@@ -73,6 +76,9 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   const protection = booking.protection;
   const salonCancellation = salonCancellationOnly(booking, clock.instant ?? 0);
   const paidByCard = paidWithCards(state, booking.id);
+  const receipt = receipts.some((r) => r.reference === booking.id);
+  // The register takes payment for a visit of today or earlier; a package visit is already paid for.
+  const takesPayment = !receipt && !pkg && booking.status === "booked" && booking.date <= today && registerFor(target).info.kind !== "unavailable";
 
   const markDone = () => run(async () => {
     const usesStock = state.modules.stock && !!service?.consumption?.length;
@@ -107,6 +113,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     if (done) onClose();
     else report("booking.visitChanged");
   });
+
+  if (mode === "register") return <RegisterSheet bookingId={booking.id} onBack={() => go("details")} onClose={onClose} />;
 
   if (mode === "giftcard") return <RedeemSheet bookingId={booking.id} onBack={() => go("details")} onClose={onClose} />;
 
@@ -205,8 +213,14 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
               {t("booking.customerCard")}
             </ButtonLink>
           )}
+          {receipt && (
+            <Button variant="secondary" icon={<ReceiptText size={18} />} onClick={() => go("register")}>{t("register.viewReceipt")}</Button>
+          )}
           {finished && (
-            <Button icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
+            <Button variant={takesPayment ? "secondary" : "primary"} icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
+          )}
+          {takesPayment && (
+            <Button icon={<CreditCard size={18} />} onClick={() => go("register")}>{t("register.take")}</Button>
           )}
           {upcoming && (
             <>

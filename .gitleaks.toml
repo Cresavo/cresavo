@@ -138,3 +138,12 @@ commits = ["981ae7f431367485e4126c8f7b47758ffd037b9c"]
 paths = ['''^tests/integration/store-rls\.test\.ts$''']
 regexTarget = "match"
 regexes = ['''password: "fictional-password-long"''']
+
+# Demo register test: an obviously fabricated pay-request token (fixed letters,
+# fake signature) used to check that the token holds no customer data.
+[[allowlists]]
+description = "Fabricated demo register pay-request token in tests"
+condition = "AND"
+paths = ['''^tests/concept-register-pay\.test\.ts$''']
+regexTarget = "line"
+regexes = ['''AbCdEfGhIjKl\.79500\.SEK\.cs\.salong-eko\.1795600000\.AbCdEfGhIjKlMnOpQrStUv''']
