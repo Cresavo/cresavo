@@ -231,7 +231,7 @@ export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietS
     })();
   }, [continuous, quietSilence]);
 
-  const toggle = useCallback(() => (recognition.current ? stop() : start()), [start, stop]);
+  const toggle = useCallback(() => (recognition.current || pendingStart.current ? stop() : start()), [start, stop]);
 
   return { supported, listening, interim, start, toggle, stop, abort };
 }
