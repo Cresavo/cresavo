@@ -45,10 +45,14 @@ export interface Conversation {
   start(): void;
   /** Final words from the recogniser. While a reply is read aloud they interrupt it. */
   heard(text: string): void;
+  /** Unfinished words arrived: the quiet moment starts again. */
+  hearing(): void;
   /** The recogniser stopped. Without words it listens again until the silence timeout. */
   listenEnded(end: { heard: boolean; error?: string }): void;
-  /** The reply to the last message is on screen; `spoken` is the safe text to read, or null for none. */
-  replied(spoken: string | null): void;
+  /** The turn now in flight, so a late reply can be dropped if a newer one has started. */
+  turn(): number;
+  /** The reply to the last message is on screen; `spoken` is the safe text to read, or null for none. A late reply from an earlier turn is ignored. */
+  replied(spoken: string | null, expectedTurn?: number): void;
   /** Stops reading aloud and listens again: the microphone pressed during a reply, or a card tapped. */
   interrupt(): void;
   setMuted(muted: boolean): void;
@@ -75,14 +79,16 @@ export function createConversation(ports: ConversationPorts): Conversation {
   };
   const active = () => current.phase !== "off" && current.phase !== "ended";
 
+  const armSilence = () => {
+    clearSilence();
+    timer = ports.setTimer(() => {
+      timer = null;
+      if (current.phase === "listening") stop("silence");
+    }, CONVERSATION_SILENCE_MS);
+  };
+
   const listen = (fresh: boolean) => {
-    if (fresh) {
-      clearSilence();
-      timer = ports.setTimer(() => {
-        timer = null;
-        if (current.phase === "listening") stop("silence");
-      }, CONVERSATION_SILENCE_MS);
-    }
+    if (fresh) armSilence();
     set({ phase: "listening", ended: undefined });
     ports.listen();
   };
@@ -98,6 +104,11 @@ export function createConversation(ports: ConversationPorts): Conversation {
 
   return {
     state: () => current,
+    turn: () => turn,
+    hearing() {
+      if (current.phase !== "listening") return;
+      armSilence();
+    },
     start() {
       if (active()) return;
       turn++;
@@ -121,7 +132,8 @@ export function createConversation(ports: ConversationPorts): Conversation {
       else if (timer !== null) listen(false);
       else stop("silence");
     },
-    replied(spoken) {
+    replied(spoken, expectedTurn?: number) {
+      if (expectedTurn !== undefined && expectedTurn !== turn) return;
       if (current.phase !== "thinking") return;
       const mine = turn;
       const done = () => {

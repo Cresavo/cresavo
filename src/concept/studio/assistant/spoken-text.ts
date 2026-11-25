@@ -23,14 +23,28 @@ const word = (text: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(text)}(?!
 /** A full name, also in the Swedish genitive ("Lena Bergs"). */
 const nameWord = (text: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(text)}(s?)(?![\\p{L}\\p{N}])`, "giu");
 
-/** Whether the text repeats a sentence of any journal entry. */
+/** Four consecutive journal words in the spoken line: enough to catch an excerpt, not a short common phrase. */
+const MIN_JOURNAL_WORDS = 4;
+
+function quotesWords(journal: string, spoken: string): boolean {
+  const words = journal.split(" ").filter(Boolean);
+  if (words.length < MIN_JOURNAL_WORDS) return false;
+  const haystack = ` ${spoken} `;
+  for (let start = 0; start + MIN_JOURNAL_WORDS <= words.length; start++) {
+    if (haystack.includes(` ${words.slice(start, start + MIN_JOURNAL_WORDS).join(" ")} `)) return true;
+  }
+  return false;
+}
+
+/** Whether the text repeats a sentence of any journal entry, or a meaningful part of one. */
 function quotesJournal(text: string, state: SpeechState): boolean {
   const spoken = normalize(text);
+  if (spoken.length < MIN_JOURNAL_QUOTE) return false;
   return state.journals
     .flatMap((entry) => [entry.treatment, entry.observations, entry.advice, entry.nextVisit ?? ""])
-    .flatMap((field) => field.split(/[.!?;\n]+/))
+    .flatMap((field) => [field, ...field.split(/[.!?;\n]+/)])
     .map(normalize)
-    .some((sentence) => sentence.length >= MIN_JOURNAL_QUOTE && spoken.includes(sentence));
+    .some((sentence) => sentence.length >= MIN_JOURNAL_QUOTE && (spoken.includes(sentence) || (spoken.length >= MIN_JOURNAL_QUOTE && sentence.includes(spoken)) || quotesWords(sentence, spoken)));
 }
 
 /** The line to read aloud for any text, or null when there is nothing to say. */

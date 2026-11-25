@@ -1,7 +1,8 @@
 "use client";
 
-import { recognisesOnDevice, useSpeechSupported } from "../../command/use-speech";
-import { t } from "../../i18n";
+import { useEffect, useState } from "react";
+import { getActiveLocale, t } from "../../i18n";
+import { localSpeechStatus, probeLocalSpeech, useSpeechSupported, type LocalSpeechAvailability } from "../../command/use-speech";
 import { setLabFlag, useLabFlag } from "../../labs/flags";
 import { useRole } from "../../ops/role";
 import { Card, Section } from "../../ui/card";
@@ -14,9 +15,19 @@ export function LabsSection() {
   const role = useRole();
   const voice = useLabFlag("voiceAssistant");
   const canListen = useSpeechSupported();
+  const [local, setLocal] = useState<LocalSpeechAvailability | null>(() => localSpeechStatus(getActiveLocale()));
+  useEffect(() => {
+    let alive = true;
+    void probeLocalSpeech(getActiveLocale()).then((status) => {
+      if (alive) setLocal(status);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   if (role !== "owner") return null;
-  // What this browser does with speech, said plainly; nothing is promised that the browser does not do.
-  const hint = !canListen ? t("labs.voice.unsupported") : !state.modules.assistant ? t("labs.voice.needsAssistant") : recognisesOnDevice() ? t("labs.voice.onDevice") : t("labs.voice.online");
+  // Only promise on-device recognition when the language pack is already there.
+  const hint = !canListen ? t("labs.voice.unsupported") : !state.modules.assistant ? t("labs.voice.needsAssistant") : local === "available" ? t("labs.voice.onDevice") : t("labs.voice.online");
   return (
     <Section title={t("labs.title")}>
       <Card className="p-4">

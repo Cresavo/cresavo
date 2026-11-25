@@ -6,9 +6,12 @@ import { showToast } from "../ui/toast";
 
 // Browser speech recognition (Chrome, Edge, Safari). Where it is missing,
 // `supported` is false and callers hide their microphone. Where the browser
-// can recognise on the device (`processLocally`), it is asked to, so the audio
-// is not sent to an online service; elsewhere the browser's own service is used.
-// Nothing here records or keeps audio.
+// can recognise this language on the device, it is asked to (`processLocally`),
+// so the audio is not sent to an online service. That is only set once the
+// browser says the language pack is already available: forcing it otherwise
+// fails with language-not-supported, including on the existing one-phrase and
+// dictation microphones. Nothing here records or keeps audio, and language
+// packs are never installed on their own.
 
 interface Alternative {
   transcript: string;
@@ -34,7 +37,9 @@ export interface Recognition {
   stop(): void;
   abort(): void;
 }
-type RecognitionConstructor = new () => Recognition;
+type RecognitionConstructor = (new () => Recognition) & {
+  available?: (options: { langs: string[]; processLocally?: boolean }) => Promise<string>;
+};
 
 function recognitionConstructor(): RecognitionConstructor | undefined {
   if (typeof window === "undefined") return undefined;
@@ -42,10 +47,56 @@ function recognitionConstructor(): RecognitionConstructor | undefined {
   return host.SpeechRecognition ?? host.webkitSpeechRecognition;
 }
 
-/** Whether this browser can be asked to recognise speech on the device. */
+/** What the browser says about on-device recognition for a language, if it can say. */
+export type LocalSpeechAvailability = "available" | "downloadable" | "downloading" | "unavailable" | "unknown";
+
+const LOCAL_STATUS = new Set<LocalSpeechAvailability>(["available", "downloadable", "downloading", "unavailable"]);
+
+let localProbe: { lang: string; status: LocalSpeechAvailability } | null = null;
+
+function supportsProcessLocally(Recognizer: RecognitionConstructor): boolean {
+  return "processLocally" in Recognizer.prototype || "processLocally" in new Recognizer();
+}
+
+/** Whether this browser has the on-device recognition option at all. */
 export function recognisesOnDevice(): boolean {
   const Recognizer = recognitionConstructor();
-  return !!Recognizer && "processLocally" in Recognizer.prototype;
+  return !!Recognizer && supportsProcessLocally(Recognizer);
+}
+
+/** Last known on-device status for this language, or null when it has not been asked. */
+export function localSpeechStatus(lang: string): LocalSpeechAvailability | null {
+  return localProbe?.lang === lang ? localProbe.status : null;
+}
+
+/**
+ * Asks whether this language can already be recognised on the device. Does not
+ * download a language pack. Used so `processLocally` is only set when it will work.
+ */
+export async function probeLocalSpeech(lang: string): Promise<LocalSpeechAvailability> {
+  const Recognizer = recognitionConstructor();
+  if (!Recognizer || !supportsProcessLocally(Recognizer)) {
+    localProbe = { lang, status: "unknown" };
+    return "unknown";
+  }
+  if (typeof Recognizer.available !== "function") {
+    localProbe = { lang, status: "unknown" };
+    return "unknown";
+  }
+  try {
+    const raw = await Recognizer.available({ langs: [lang], processLocally: true });
+    const status = LOCAL_STATUS.has(raw as LocalSpeechAvailability) ? (raw as LocalSpeechAvailability) : "unknown";
+    localProbe = { lang, status };
+    return status;
+  } catch {
+    localProbe = { lang, status: "unknown" };
+    return "unknown";
+  }
+}
+
+/** True only when this language is already available to recognise on the device. */
+export function usesLocalSpeech(lang: string): boolean {
+  return localSpeechStatus(lang) === "available";
 }
 
 /** A recogniser set up for one listening turn, or null where the browser has none. */
@@ -56,7 +107,8 @@ export function createRecognition(options: { lang: string; continuous: boolean }
   recognition.lang = options.lang;
   recognition.continuous = options.continuous;
   recognition.interimResults = true;
-  const onDevice = "processLocally" in recognition;
+  // Only when the pack is already there: setting processLocally otherwise fails the turn.
+  const onDevice = usesLocalSpeech(options.lang);
   if (onDevice) recognition.processLocally = true;
   return { recognition, onDevice };
 }
@@ -78,18 +130,20 @@ interface SpeechOptions {
   onText: (text: string) => void;
   /** Called when a listening turn is over. */
   onEnd?: (end: SpeechEnd) => void;
+  /** Called with unfinished words while the person is still speaking. */
+  onInterim?: (text: string) => void;
   /** No note when nothing was heard: the caller decides what silence means (a conversation listens again). */
   quietSilence?: boolean;
 }
 
-export function useSpeech({ continuous = false, onText, onEnd, quietSilence = false }: SpeechOptions) {
+export function useSpeech({ continuous = false, onText, onEnd, onInterim, quietSilence = false }: SpeechOptions) {
   const supported = useSpeechSupported();
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const recognition = useRef<Recognition | null>(null);
-  const handlers = useRef({ onText, onEnd });
+  const handlers = useRef({ onText, onEnd, onInterim });
   useEffect(() => {
-    handlers.current = { onText, onEnd };
+    handlers.current = { onText, onEnd, onInterim };
   });
   useEffect(() => () => recognition.current?.abort(), []);
 
@@ -112,6 +166,7 @@ export function useSpeech({ continuous = false, onText, onEnd, quietSilence = fa
         else partial += result[0].transcript;
       }
       setInterim(partial);
+      if (partial.trim()) handlers.current.onInterim?.(partial.trim());
       if (finished.trim()) {
         heard = true;
         handlers.current.onText(finished.trim());
@@ -133,6 +188,7 @@ export function useSpeech({ continuous = false, onText, onEnd, quietSilence = fa
     };
     recognition.current = next;
     setListening(true);
+    if (recognisesOnDevice() && localSpeechStatus(locale) === null) void probeLocalSpeech(locale);
     try {
       next.start();
     } catch {

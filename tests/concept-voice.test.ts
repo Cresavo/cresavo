@@ -84,16 +84,47 @@ describe("recognition on the device", () => {
     abort() {}
   }
 
-  it("asks a browser that can recognise on the device to do so", async () => {
+  it("does not force on-device recognition just because the option exists", async () => {
     class Local extends Recognizer {
       processLocally = false;
     }
     stubWindow({ SpeechRecognition: Local });
     const speech = await import("@/concept/command/use-speech");
     const created = speech.createRecognition({ lang: "sv", continuous: false })!;
+    expect(created.onDevice).toBe(false);
+    expect(created.recognition.processLocally).toBe(false);
+    expect(created.recognition).toMatchObject({ lang: "sv", continuous: false, interimResults: true });
+  });
+
+  it("asks for on-device recognition only after the browser says the language pack is already there", async () => {
+    class Local extends Recognizer {
+      processLocally = false;
+      static available() {
+        return Promise.resolve("available");
+      }
+    }
+    stubWindow({ SpeechRecognition: Local });
+    const speech = await import("@/concept/command/use-speech");
+    expect(speech.createRecognition({ lang: "sv", continuous: false })!.onDevice).toBe(false);
+    await expect(speech.probeLocalSpeech("sv")).resolves.toBe("available");
+    const created = speech.createRecognition({ lang: "sv", continuous: false })!;
     expect(created.onDevice).toBe(true);
     expect(created.recognition.processLocally).toBe(true);
-    expect(created.recognition).toMatchObject({ lang: "sv", continuous: false, interimResults: true });
+  });
+
+  it("leaves recognition as it is when the language pack is only downloadable", async () => {
+    class Local extends Recognizer {
+      processLocally = false;
+      static available() {
+        return Promise.resolve("downloadable");
+      }
+    }
+    stubWindow({ SpeechRecognition: Local });
+    const speech = await import("@/concept/command/use-speech");
+    await expect(speech.probeLocalSpeech("sv")).resolves.toBe("downloadable");
+    const created = speech.createRecognition({ lang: "sv", continuous: false })!;
+    expect(created.onDevice).toBe(false);
+    expect(created.recognition.processLocally).toBe(false);
   });
 
   it("still listens where the browser has no such choice, and says nothing about the device", async () => {
@@ -258,6 +289,33 @@ describe("spoken conversation", () => {
     expect(CONVERSATION_SILENCE_MS).toBeLessThanOrEqual(20_000);
   });
 
+  it("starts the quiet moment again when words are still coming in", () => {
+    const h = harness();
+    h.conversation.start();
+    h.advance(CONVERSATION_SILENCE_MS - 1000);
+    h.conversation.hearing();
+    h.advance(CONVERSATION_SILENCE_MS - 1000);
+    expect(h.phase()).toBe("listening");
+    h.advance(1000);
+    expect(h.conversation.state()).toMatchObject({ phase: "ended", ended: "silence" });
+  });
+
+  it("ignores a late reply from a previous turn", () => {
+    const h = harness();
+    h.conversation.start();
+    h.conversation.heard("first");
+    const first = h.conversation.turn();
+    h.conversation.stop();
+    h.conversation.start();
+    h.conversation.heard("second");
+    h.conversation.replied("Old answer.", first);
+    expect(h.phase()).toBe("thinking");
+    expect(h.log.filter((entry) => entry.startsWith("speak:"))).toEqual([]);
+    h.conversation.replied("New answer.", h.conversation.turn());
+    expect(h.phase()).toBe("speaking");
+    expect(h.log.filter((entry) => entry.startsWith("speak:"))).toEqual(["speak:New answer."]);
+  });
+
   it("gives each turn its own quiet moment", () => {
     const h = harness();
     h.conversation.start();
@@ -337,6 +395,8 @@ describe("what is read aloud", () => {
     expect(safeSpeech(journal.treatment, state)).toBe("The details are on the screen.");
     const sentence = journal.observations.split(".")[0];
     expect(safeSpeech(`Last time: ${sentence}. Anything else?`, state)).toBe("The details are on the screen.");
+    const withNote = { ...state, journals: [{ ...journal, observations: "Prefers a quiet room and a shorter appointment." }] };
+    expect(safeSpeech("Last time she prefers a quiet room.", withNote)).toBe("The details are on the screen.");
   });
 
   it("reads a treatment's name, which is the salon's menu and not anyone's health", () => {

@@ -36,9 +36,11 @@ function browserConversation(onChange: (state: ConversationState) => void) {
     stopSpeaking,
     send: (text) => {
       if (!send) return conversation.replied(null);
+      const mine = conversation.turn();
       send(text, "voice", (reply) => {
+        if (conversation.turn() !== mine) return;
         const saved = currentState();
-        conversation.replied(reply && saved ? spokenReply(reply, saved) : null);
+        conversation.replied(reply && saved ? spokenReply(reply, saved) : null, mine);
       });
     },
     setTimer: (run, ms) => window.setTimeout(run, ms),
@@ -70,7 +72,12 @@ export function useConversation(send: Send, assistantOn: boolean) {
   const [state, setState] = useState<ConversationState>({ phase: "off", muted: false });
   const [browser] = useState(() => browserConversation(setState));
   const { conversation } = browser;
-  const speech = useSpeech({ quietSilence: true, onText: (heard) => conversation.heard(heard), onEnd: browser.ended });
+  const speech = useSpeech({
+    quietSilence: true,
+    onText: (heard) => conversation.heard(heard),
+    onInterim: () => conversation.hearing(),
+    onEnd: browser.ended,
+  });
   // Before any effect of the panel, which may start listening as it opens.
   useLayoutEffect(() => browser.bind(send, speech));
 
