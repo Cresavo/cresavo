@@ -7,7 +7,8 @@ import { taskEnabled } from "../../modules/registry";
 import { eveningRecap, eveningSpeech, summaryDue } from "../../summary/day";
 import { Button } from "../../ui/button";
 import { Section } from "../../ui/card";
-import { canSpeak, speak, stopSpeaking } from "../assistant/speak";
+import { eveningBriefClipUrl } from "../assistant/demo-brief-audio";
+import { canPlaySpeech, speak, stopSpeaking } from "../assistant/speak";
 import { useStudio } from "../use-studio";
 
 const noSubscribe = () => () => undefined;
@@ -50,13 +51,14 @@ export function EveningSummaryView({ recap, speakable, speaking, onToggle }: Vie
 
 /**
  * After the last booking: the day and tomorrow in a few lines, from rules only (no model, no cost).
- * A button reads them aloud with the browser's speech synthesis, and only ever when that button is pressed.
+ * A button reads them aloud: a static clip on the recorded Swedish Salong Eko demo day, otherwise the browser's speech synthesis, and only ever when that button is pressed.
  */
 export function EveningSummary() {
   const { state, today, minutes } = useStudio();
   const due = taskEnabled(state.modules, "daily-summary") && summaryDue(state, { today, minutes });
   const recap = useMemo(() => eveningRecap(state, { today, minutes }), [state, today, minutes]);
-  const speakable = useSyncExternalStore(noSubscribe, canSpeak, () => false);
+  const clip = eveningBriefClipUrl(recap, { today }, state.generatedFor);
+  const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);
   const [speaking, setSpeaking] = useState(false);
   const turn = useRef(0);
 
@@ -69,9 +71,9 @@ export function EveningSummary() {
     }
     const started = speak(eveningSpeech(recap), () => {
       if (turn.current === mine) setSpeaking(false);
-    });
+    }, clip);
     setSpeaking(started);
-  }, [recap, speaking]);
+  }, [recap, clip, speaking]);
 
   const speakingNow = useRef(false);
   useEffect(() => {
