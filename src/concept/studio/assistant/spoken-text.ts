@@ -15,8 +15,10 @@ type SpeechState = Pick<DemoState, "customers" | "services" | "journals">;
 
 /** More customers than this in one line is a list: it stays on the screen. */
 const MAX_SPOKEN_CUSTOMERS = 3;
-/** A quoted piece of a journal entry at least this long counts as journal text. */
+/** A quoted piece of a longer journal entry at least this long counts as journal text. */
 const MIN_JOURNAL_QUOTE = 12;
+/** A complete short field (treatment, observations, advice) still counts if it has this many letters. */
+const MIN_JOURNAL_FIELD = 6;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const word = (text: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escape(text)}(?![\\p{L}\\p{N}])`, "giu");
@@ -36,9 +38,19 @@ function quotesWords(journal: string, spoken: string): boolean {
   return false;
 }
 
+const SCHEDULE_FIELD = /^(?:today|tomorrow|tonight|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|next week|this week|last week|\d+ weeks?|\d{4}-\d{2}-\d{2})$/;
+
+/** A complete short journal field, as whole words, even when it is shorter than MIN_JOURNAL_QUOTE. */
+function quotesShortField(field: string, spoken: string): boolean {
+  const value = normalize(field);
+  if (!value || value.length < MIN_JOURNAL_FIELD || SCHEDULE_FIELD.test(value)) return false;
+  return ` ${spoken} `.includes(` ${value} `);
+}
+
 /** Whether the text repeats a sentence of any journal entry, or a meaningful part of one. */
 function quotesJournal(text: string, state: SpeechState): boolean {
   const spoken = normalize(text);
+  if (state.journals.some((entry) => [entry.treatment, entry.observations, entry.advice].some((field) => quotesShortField(field, spoken)))) return true;
   if (spoken.length < MIN_JOURNAL_QUOTE) return false;
   return state.journals
     .flatMap((entry) => [entry.treatment, entry.observations, entry.advice, entry.nextVisit ?? ""])

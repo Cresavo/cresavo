@@ -411,6 +411,9 @@ describe("what is read aloud", () => {
     expect(safeSpeech(`Last time: ${sentence}. Anything else?`, state)).toBe("The details are on the screen.");
     const withNote = { ...state, journals: [{ ...journal, observations: "Prefers a quiet room and a shorter appointment." }] };
     expect(safeSpeech("Last time she prefers a quiet room.", withNote)).toBe("The details are on the screen.");
+    const short = { ...state, journals: [{ ...journal, treatment: "Visit", observations: "Uses gel", advice: "insulin", nextVisit: "In 8 weeks" }] };
+    expect(safeSpeech("Uses gel on the nails.", short)).toBe("The details are on the screen.");
+    expect(safeSpeech("She uses insulin.", short)).toBe("The details are on the screen.");
   });
 
   it("reads a treatment's name, which is the salon's menu and not anyone's health", () => {
