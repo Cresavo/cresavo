@@ -24,7 +24,7 @@ export function Receipt({ record, salon }: { record: RegisterRecord; salon: Demo
           {salon.address && <p className="text-text-secondary">{salon.address}</p>}
           {salon.orgNumber && <p className="text-text-secondary">{t("register.orgNumber", { number: salon.orgNumber })}</p>}
         </header>
-        <div className="flex flex-wrap justify-between gap-x-4 tabular-nums">
+        <div className="flex flex-col items-center gap-0.5 text-center tabular-nums sm:flex-row sm:items-baseline sm:justify-between sm:gap-4 sm:text-left">
           <span className="font-medium">{t(refund ? "register.refundReceipt" : "register.receipt", { number: record.receiptNumber })}</span>
           <span className="text-text-secondary">{when}</span>
         </div>

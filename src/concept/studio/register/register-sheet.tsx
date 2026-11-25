@@ -133,11 +133,11 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
       <Sheet open onClose={onClose} title={t("register.title")} description={description}
         footer={<>
           {!refund && sale.paidMinor > 0 && (
-            <Button variant="secondary" disabled={pending} onClick={refundSale}>
+            <Button variant="secondary" width="responsive" disabled={pending} onClick={refundSale}>
               {t("register.refundTaken", { amount: money(sale.paidMinor), method: t(`register.${sale.method}`) })}
             </Button>
           )}
-          <Button onClick={onClose}>{t("common.close")}</Button>
+          <Button width="responsive" onClick={onClose}>{t("common.close")}</Button>
         </>}>
         <div className="space-y-4">
           <Receipt record={sale} salon={state.salon} />
@@ -150,10 +150,10 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
   return (
     <Sheet open onClose={onClose} title={t("register.title")} description={description}
       footer={<>
-        {waiting ? <Button variant="ghost" disabled={pending} onClick={cancelPhone}>{t("register.phoneCancel")}</Button> : <>
-          <Button variant="ghost" onClick={onBack}>{t("common.back")}</Button>
-          {takes && <Button disabled={!ready || pending || register.info.kind === "unavailable"} onClick={take}>
-            {!due ? t("register.payPrepaid") : t(method === "phone" ? "register.phoneShow" : "register.pay", { amount: money(due) })}
+        {waiting ? <Button variant="ghost" width="responsive" disabled={pending} onClick={cancelPhone}>{t("register.phoneCancel")}</Button> : <>
+          <Button variant="ghost" width="responsive" onClick={onBack}>{t("common.back")}</Button>
+          {takes && <Button width="responsive" disabled={!ready || pending || register.info.kind === "unavailable"} onClick={take}>
+            {!due ? t("register.payPrepaid") : method === "phone" ? t("register.phoneShow") : t("register.pay", { amount: money(due) })}
           </Button>}
         </>}
       </>}>

@@ -149,8 +149,8 @@ export function PhonePayPanel({ paymentId, business, workspace, amountMinor, amo
           <>
             <QrCode value={url} label={t("register.phoneQr")} size="lg" />
             <p role="status" className="text-center text-meta text-text-secondary">{t("register.phoneWaiting", { time: until })}</p>
-            <a href={url} target="_blank" rel="noreferrer" className="block max-w-full truncate text-meta text-text-secondary underline underline-offset-2 hover:text-text">
-              {url.replace(/^https?:\/\//, "").replace(/\?.*$/, "")}
+            <a href={url} target="_blank" rel="noreferrer" className="max-w-full text-meta text-text-secondary underline underline-offset-2 hover:text-text">
+              {t("register.phoneOpen")}
             </a>
           </>
         ) : (
