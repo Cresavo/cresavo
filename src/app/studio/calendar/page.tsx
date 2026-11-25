@@ -3,8 +3,8 @@
 import { usePairing } from "@/concept/studio/pairing/session";
 import { PairedCalendar } from "@/concept/studio/pairing/calendar";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, isDateKey, startOfWeek } from "@/concept/data/dates";
 import { openingFor } from "@/concept/data/slots";
@@ -32,13 +32,24 @@ type View = "day" | "week";
 
 export default function CalendarPage() {
   const pairing = usePairing();
-  const bookingLink = useSearchParams()?.get("booking");
-  const [local, setLocal] = useState(!!bookingLink);
+  const params = useSearchParams();
+  const bookingLink = params?.get("booking");
+  const dateLink = params?.get("date");
+  const [local, setLocal] = useState(!!bookingLink || !!(dateLink && isDateKey(dateLink)));
   const [openedLink, setOpenedLink] = useState(bookingLink);
+  const [openedDate, setOpenedDate] = useState(dateLink && isDateKey(dateLink) ? dateLink : null);
   // A notice must open the local visit even when a paired calendar is the usual view.
   if (bookingLink && bookingLink !== openedLink) {
     setOpenedLink(bookingLink);
     setLocal(true);
+  }
+  // A search for a day does the same: the paired calendar does not read ?date=.
+  if (dateLink && isDateKey(dateLink) && dateLink !== openedDate) {
+    setOpenedDate(dateLink);
+    setLocal(true);
+  } else if (!dateLink && openedDate) {
+    // The date is dropped from the URL after it is applied, so the same day can be searched again.
+    setOpenedDate(null);
   }
   if (!pairing?.workspace) return <LocalCalendar />;
   const switchCalendar = <Button variant="secondary" onClick={() => setLocal(!local)}>
@@ -75,7 +86,9 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       openSheet({ kind: "booking", id: booking.id });
     }
   }
-  // `?date=<day>` (from Search) shows that day, once per link.
+  // `?date=<day>` (from Search) shows that day. The param is then dropped so the same day can be
+  // searched again after the owner has moved on with the calendar controls.
+  const router = useRouter();
   const dayLink = useSearchParams()?.get("date") ?? null;
   const [shownLink, setShownLink] = useState<string | null>(null);
   if (dayLink !== shownLink) {
@@ -85,6 +98,14 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       setView("day");
     }
   }
+  useEffect(() => {
+    if (!dayLink || !isDateKey(dayLink)) return;
+    const next = new URLSearchParams(window.location.search);
+    if (!next.has("date")) return;
+    next.delete("date");
+    const qs = next.toString();
+    router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
+  }, [dayLink, router]);
   const setSheet = (next: OpenSheet) => {
     // Closing the visit drops the link, so the same notice can open it again.
     if (!next && focus) window.history.replaceState(window.history.state, "", window.location.pathname);

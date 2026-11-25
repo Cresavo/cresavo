@@ -47,4 +47,28 @@ test("Search finds a customer and a day, and remembers what was opened", async (
   await field.fill("tomorrow");
   await field.press("Enter");
   await expect(page.getByRole("heading", { name: "Wednesday 18 November" })).toBeVisible();
+  // After moving to another day, searching for the same date must apply it again (the ?date= link is dropped once used).
+  await page.getByRole("button", { name: "Previous" }).click();
+  await expect(page.getByRole("heading", { name: "Tuesday 17 November" })).toBeVisible();
+  await expect(async () => {
+    await page.keyboard.press("Control+K");
+    await expect(search).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await field.fill("tomorrow");
+  await field.press("Enter");
+  await expect(page.getByRole("heading", { name: "Wednesday 18 November" })).toBeVisible();
+});
+
+test("Ctrl+K again hands the typed words to the assistant", async ({ page }) => {
+  await page.goto("/studio");
+  const search = page.getByRole("dialog", { name: "Search" });
+  await expect(async () => {
+    await page.keyboard.press("Control+K");
+    await expect(search).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await search.getByRole("combobox").fill("Who is coming today?");
+  await page.keyboard.press("Control+K");
+  const panel = page.getByRole("dialog", { name: "Assistant" });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText("Who is coming today?")).toBeVisible();
 });

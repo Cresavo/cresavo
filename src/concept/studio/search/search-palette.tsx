@@ -25,6 +25,8 @@ const setOpen = (next: boolean) => {
   listeners.forEach((listener) => listener());
 };
 export const openSearch = () => setOpen(true);
+// The field lives in the sheet body; the shortcut reads this so Ctrl+K can hand the words to the assistant.
+let draftQuery = "";
 const subscribe = (listener: () => void) => {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
@@ -81,8 +83,9 @@ function useShortcut(assistant: boolean, assistantOpen: boolean) {
       if (assistantOpen) return;
       if (!isOpen) return openSearch();
       if (!assistant) return;
+      const asked = draftQuery.trim();
       setOpen(false);
-      openAssistant();
+      openAssistant(asked ? { ask: asked } : {});
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -110,6 +113,10 @@ export function SearchPalette() {
 
 function PaletteBody({ context }: { context: Parameters<typeof paletteResults>[0] }) {
   const router = useRouter();
+  useEffect(() => {
+    draftQuery = "";
+    return () => { draftQuery = ""; };
+  }, []);
   const id = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -166,7 +173,7 @@ function PaletteBody({ context }: { context: Parameters<typeof paletteResults>[0
           placeholder={t("palette.placeholder")}
           autoComplete="off"
           value={query}
-          onChange={(event) => { setQuery(event.target.value); setActive(0); }}
+          onChange={(event) => { setQuery(event.target.value); draftQuery = event.target.value; setActive(0); }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
