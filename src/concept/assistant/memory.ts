@@ -32,14 +32,39 @@ const HEALTH =
   /\b(allerg\w*|diabet\w*|pain\w*|ache\w*|fung\w*|wart\w*|verruca\w*|wound\w*|infect\w*|inflam\w*|diagnos\w*|medic\w*|prescri\w*|pregnan\w*|blood|psoria\w*|eczema|cancer|surger\w*|operation|injur\w*|illness|ill|sick\w*|symptom\w*|skin|ingrown|callus\w*|corns?|swollen|swelling|rash|bleed\w*|condition|therapy|depress\w*|anxiety|disease|health)\b/;
 const SWEDISH_HEALTH = /\b(smart\w*|vark\w*|blod\w*|gravid\w*|svull\w*|svamp\w*|sjuk\w*|skad\w*|hud\w*|eksem\w*|lakemedel\w*|sar\w*|nageltrang\w*|forhardnad\w*|angest\w*)\b/;
 const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
-const PHONE = /(?:\+|\b0)\d[\d\s-]{5,}\d\b|\b\d{7,}\b/;
-const ADDRESS = /\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+/;
+const PHONE = /(?:\+|\b0)\d[\d\s.()-]{5,}\d\b|\b\d{7,}\b/;
+/** A grouped number such as (212) 555-1234, without a leading 0 or +. ISO dates are left alone. */
+const FORMATTED_PHONE = /(?<!\d)(?:\(\d{2,4}\)|\d{2,4})[\s.-]\d{2,4}[\s.-]\d{2,4}(?:[\s.-]\d{2,4})?(?!\d)/;
+const STREET_SUFFIX = "st|street|ave|avenue|rd|road|ln|lane|blvd|boulevard|dr|drive|ct|court|pl|place|way|terrace|ter|circle|cir|hwy|highway";
+const ADDRESS = new RegExp(
+  String.raw`\b(address|lives (at|on|in)|street|road|gatan|vägen|postcode|zip|adress|postnummer|bor (?:på|i|vid))\b|[a-zåäö]+(?:gatan|vägen)\s+\d+|\b\d{1,5}\s+(?:[a-zåäö][a-zåäö.'-]*\s+){1,4}(?:${STREET_SUFFIX})\b`,
+  "i",
+);
 
 /** Why a note must not be stored, or null when it may. Journal text is matched against the business's journal entries. */
 export function memoryRejection(text: string, state?: Pick<DemoState, "journals">): MemoryRejection | null {
   const plain = text.trim();
   if (!plain || plain.length > MAX_LENGTH) return "empty";
+  return sensitiveKind(plain, state);
+}
+
+/** Whether text holds a phone number, e-mail address or postal address. */
+export function contactKind(text: string): "contact" | null {
+  const plain = text.trim();
   if (EMAIL.test(plain) || PHONE.test(plain) || ADDRESS.test(plain.toLowerCase())) return "contact";
+  // Every grouped number, not only the first: an ISO date must not hide a phone after it.
+  for (const match of plain.matchAll(new RegExp(FORMATTED_PHONE, "g"))) {
+    const token = match[0].trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(token)) continue;
+    if (token.replace(/\D/g, "").length >= 7) return "contact";
+  }
+  return null;
+}
+
+/** Whether text holds health or journal details or contact details, of any length. Speech and the memory both check it. */
+export function sensitiveKind(text: string, state?: Pick<DemoState, "journals">): Exclude<MemoryRejection, "empty"> | null {
+  const plain = text.trim();
+  if (contactKind(plain)) return "contact";
   const words = normalize(plain);
   if (HEALTH.test(words) || SWEDISH_HEALTH.test(words)) return "health";
   const journalText = (state?.journals ?? []).flatMap((j) => [j.treatment, j.observations, j.advice, j.nextVisit ?? ""]).map(normalize);

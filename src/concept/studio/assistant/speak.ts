@@ -3,7 +3,7 @@
 import { locale } from "../../i18n";
 
 // Spoken text through the browser's speech synthesis. Optional, only on request,
-// and silent where the browser has no speech synthesis.
+// and silent where the browser has no speech synthesis. Nothing is recorded.
 
 export function canSpeak(): boolean {
   return typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
