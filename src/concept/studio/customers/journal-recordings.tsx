@@ -3,22 +3,33 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { journalAudioStore, type JournalRecording } from "../../journals/audio-store";
 import { locale, t } from "../../i18n";
+import { onSalonRemoved } from "../../store";
 import { Button } from "../../ui/button";
 
+let watchingSalons = false;
+function watchSalonRemoval() {
+  if (watchingSalons || typeof window === "undefined") return;
+  watchingSalons = true;
+  onSalonRemoved((workspace) => {
+    void journalAudioStore().removeWorkspace(workspace).catch(() => {});
+  });
+}
+
 /** A customer's kept recordings (newest first) and the calls that change them. */
-export function useRecordings(customerId: string) {
+export function useRecordings(customerId: string, scope: string) {
   const [recordings, setRecordings] = useState<JournalRecording[]>([]);
   const refresh = useCallback(async () => {
-    const next = await journalAudioStore().list(customerId).catch(() => []);
+    const next = await journalAudioStore().list(customerId, scope).catch(() => []);
     setRecordings(next);
-  }, [customerId]);
+  }, [customerId, scope]);
   useEffect(() => {
+    watchSalonRemoval();
     let live = true;
-    journalAudioStore().list(customerId).then((next) => live && setRecordings(next), () => {});
+    journalAudioStore().list(customerId, scope).then((next) => live && setRecordings(next), () => {});
     return () => {
       live = false;
     };
-  }, [customerId]);
+  }, [customerId, scope]);
   /** Keeps a recording; resolves with the ids of older ones it pushed out of the last five. */
   const add = useCallback(async (recording: JournalRecording) => {
     const dropped = await journalAudioStore().add(recording);

@@ -7,7 +7,8 @@ import { useSpeech } from "../../command/use-speech";
 import { addDays } from "../../data/dates";
 import { probeDuration } from "../../journals/audio-duration";
 import { AUDIO_ACCEPT, checkAudioFile } from "../../journals/audio-file";
-import type { JournalRecording } from "../../journals/audio-store";
+import { audioScope, type JournalRecording } from "../../journals/audio-store";
+import { currentTarget } from "../../store";
 import { openingFor } from "../../data/slots";
 import type { Customer, DateKey, Salon } from "../../data/types";
 import { t } from "../../i18n";
@@ -62,16 +63,21 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
   useEffect(() => {
     text.current = transcript;
   });
-  const { recordings, add, setTranscript: keepTranscript } = useRecordings(customer.id);
+  const scope = audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" });
+  const { recordings, add, setTranscript: keepTranscript } = useRecordings(customer.id, scope);
   const speech = useSpeech({
     continuous: true,
-    onText: (spoken) => setTranscript((current) => [current.trim(), spoken].filter(Boolean).join(" ")),
+    onText: (spoken) => setTranscript((current) => {
+      const next = [current.trim(), spoken].filter(Boolean).join(" ");
+      text.current = next;
+      return next;
+    }),
   });
 
   const keep = async (audio: Blob, source: JournalRecording["source"], mime: string, seconds: number) => {
     const id = crypto.randomUUID();
     try {
-      const dropped = await add({ id, customerId: customer.id, createdAt: Date.now(), source, mime, seconds, transcript: source === "recorded" ? text.current.trim() || undefined : undefined, bytes: await audio.arrayBuffer() });
+      const dropped = await add({ id, customerId: customer.id, scope, createdAt: Date.now(), source, mime, seconds, transcript: source === "recorded" ? text.current.trim() || undefined : undefined, bytes: await audio.arrayBuffer() });
       setCurrent({ id, source });
       if (dropped.length) showToast(t("journal.audio.oldestDropped"));
       return id;

@@ -5,7 +5,7 @@ import { eraseAccountCustomer, type ErasureReport } from "../../account/sync";
 import { BRAND } from "../../brand";
 import type { Customer } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { journalAudioStore } from "../../journals/audio-store";
+import { audioScope, journalAudioStore } from "../../journals/audio-store";
 import { fullName } from "../../selectors";
 import { currentTarget, dispatch } from "../../store";
 import { TRASH_DAYS } from "../../trash/trash";
@@ -37,7 +37,7 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
     try {
       // Recordings live only in this browser; remove them before the customer so a failure can be retried.
       try {
-        await journalAudioStore().removeCustomer(customer.id);
+        await journalAudioStore().removeCustomer(customer.id, audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }));
       } catch {
         showToast(t("journal.audio.eraseFailed"));
         return;

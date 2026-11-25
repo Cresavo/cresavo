@@ -56,7 +56,19 @@ export function useSpeech({ continuous = false, onText }: SpeechOptions) {
   });
   useEffect(() => () => recognition.current?.abort(), []);
 
-  const stop = useCallback(() => recognition.current?.stop(), []);
+  const stop = useCallback(() => new Promise<void>((resolve) => {
+    const current = recognition.current;
+    if (!current) {
+      resolve();
+      return;
+    }
+    const previous = current.onend;
+    current.onend = () => {
+      previous?.();
+      resolve();
+    };
+    current.stop();
+  }), []);
 
   const start = useCallback(() => {
     const Recognizer = recognitionConstructor();

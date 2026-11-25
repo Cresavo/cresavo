@@ -87,7 +87,7 @@ describe("journal audio file check", () => {
 });
 
 const recording = (id: string, customerId: string, createdAt: number, extra: Partial<JournalRecording> = {}): JournalRecording => ({
-  id, customerId, createdAt, source: "recorded", mime: "audio/webm", seconds: 30, bytes: new Uint8Array([1, 2, 3]).buffer, ...extra,
+  id, customerId, scope: extra.scope ?? "demo:one", createdAt, source: "recorded", mime: "audio/webm", seconds: 30, bytes: new Uint8Array([1, 2, 3]).buffer, ...extra,
 });
 
 describe.each<[string, () => JournalAudioStore]>([
@@ -99,8 +99,8 @@ describe.each<[string, () => JournalAudioStore]>([
     for (let i = 1; i <= 5; i++) expect(await store.add(recording(`a${i}`, "anna", i * 1000))).toEqual([]);
     await store.add(recording("b1", "bo", 500));
     expect(await store.add(recording("a6", "anna", 6000, { source: "uploaded", mime: "audio/mp4" }))).toEqual(["a1"]);
-    expect((await store.list("anna")).map((r) => r.id)).toEqual(["a6", "a5", "a4", "a3", "a2"]);
-    expect((await store.list("bo")).map((r) => r.id)).toEqual(["b1"]);
+    expect((await store.list("anna", "demo:one")).map((r) => r.id)).toEqual(["a6", "a5", "a4", "a3", "a2"]);
+    expect((await store.list("bo", "demo:one")).map((r) => r.id)).toEqual(["b1"]);
   });
 
   it("keeps the bytes, a transcript added later, and forgets a customer on erasure", async () => {
@@ -108,12 +108,25 @@ describe.each<[string, () => JournalAudioStore]>([
     await store.add(recording("a1", "anna", 1));
     await store.add(recording("b1", "bo", 2));
     await store.setTranscript("a1", "Did the usual foot care.");
-    const [kept] = await store.list("anna");
+    const [kept] = await store.list("anna", "demo:one");
     expect(kept.transcript).toBe("Did the usual foot care.");
     expect([...new Uint8Array(kept.bytes)]).toEqual([1, 2, 3]);
-    await store.removeCustomer("anna");
-    expect(await store.list("anna")).toEqual([]);
-    expect(await store.list("bo")).toHaveLength(1);
+    await store.removeCustomer("anna", "demo:one");
+    expect(await store.list("anna", "demo:one")).toEqual([]);
+    expect(await store.list("bo", "demo:one")).toHaveLength(1);
+  });
+
+  it("keeps the same customer id apart across salon lifetimes and drops a workspace when the salon goes", async () => {
+    const store = make();
+    await store.add(recording("a1", "k001", 1, { scope: "demo:one", transcript: "First salon" }));
+    await store.add(recording("a2", "k001", 2, { scope: "demo:two" }));
+    await store.add(recording("a3", "k001", 3, { scope: "own:three" }));
+    expect((await store.list("k001", "demo:one")).map((r) => r.id)).toEqual(["a1"]);
+    expect((await store.list("k001", "demo:two")).map((r) => r.id)).toEqual(["a2"]);
+    await store.removeWorkspace("demo");
+    expect(await store.list("k001", "demo:one")).toEqual([]);
+    expect(await store.list("k001", "demo:two")).toEqual([]);
+    expect((await store.list("k001", "own:three")).map((r) => r.id)).toEqual(["a3"]);
   });
 });
 

@@ -16,12 +16,15 @@
 
 export const KEEP_RECORDINGS = 5;
 export const AUDIO_DB_NAME = "concept-journal-audio";
+export const AUDIO_DB_VERSION = 2;
 const STORE = "recordings";
-const BY_CUSTOMER = "customerId";
+const BY_CUSTOMER = "byCustomer";
 
 export interface JournalRecording {
   id: string;
   customerId: string;
+  /** Workspace and salon lifetime (`workspace:epoch`), so demo IDs are not mixed across salons. */
+  scope: string;
   /** Milliseconds since the epoch; orders the five kept. */
   createdAt: number;
   source: "recorded" | "uploaded";
@@ -33,14 +36,19 @@ export interface JournalRecording {
   bytes: ArrayBuffer;
 }
 
+/** Storage key for one salon lifetime. */
+export const audioScope = (target: { workspace: string; epoch: string }) => `${target.workspace}:${target.epoch}`;
+
 export interface JournalAudioStore {
-  /** The customer's recordings, newest first. */
-  list(customerId: string): Promise<JournalRecording[]>;
-  /** Keeps a recording and returns the ids of the older ones it pushed out. */
+  /** The customer's recordings in this salon lifetime, newest first. */
+  list(customerId: string, scope: string): Promise<JournalRecording[]>;
+  /** Keeps a recording and returns the ids of the older ones it pushed out (same customer and scope). */
   add(recording: JournalRecording): Promise<string[]>;
   setTranscript(id: string, transcript: string): Promise<void>;
-  /** Removes every recording of a customer (erasure). */
-  removeCustomer(customerId: string): Promise<void>;
+  /** Removes every recording of a customer in this salon lifetime (erasure). */
+  removeCustomer(customerId: string, scope: string): Promise<void>;
+  /** Removes every recording whose scope belongs to this workspace (salon deleted or replaced). */
+  removeWorkspace(workspace: string): Promise<void>;
 }
 
 const newestFirst = (a: JournalRecording, b: JournalRecording) => b.createdAt - a.createdAt || b.id.localeCompare(a.id);
@@ -52,14 +60,15 @@ export function beyondLimit(recordings: JournalRecording[], keep = KEEP_RECORDIN
 
 export function memoryAudioStore(): JournalAudioStore {
   const rows = new Map<string, JournalRecording>();
-  const of = (customerId: string) => [...rows.values()].filter((row) => row.customerId === customerId);
+  const of = (customerId: string, scope: string) => [...rows.values()].filter((row) => row.customerId === customerId && row.scope === scope);
+  const inWorkspace = (workspace: string) => [...rows.values()].filter((row) => row.scope.startsWith(`${workspace}:`));
   return {
-    async list(customerId) {
-      return of(customerId).sort(newestFirst);
+    async list(customerId, scope) {
+      return of(customerId, scope).sort(newestFirst);
     },
     async add(recording) {
       rows.set(recording.id, recording);
-      const dropped = beyondLimit(of(recording.customerId));
+      const dropped = beyondLimit(of(recording.customerId, recording.scope));
       dropped.forEach((id) => rows.delete(id));
       return dropped;
     },
@@ -67,8 +76,11 @@ export function memoryAudioStore(): JournalAudioStore {
       const row = rows.get(id);
       if (row) rows.set(id, { ...row, transcript });
     },
-    async removeCustomer(customerId) {
-      of(customerId).forEach((row) => rows.delete(row.id));
+    async removeCustomer(customerId, scope) {
+      of(customerId, scope).forEach((row) => rows.delete(row.id));
+    },
+    async removeWorkspace(workspace) {
+      inWorkspace(workspace).forEach((row) => rows.delete(row.id));
     },
   };
 }
@@ -81,8 +93,12 @@ const whenDone = (tx: IDBTransaction) =>
 
 function open(factory: IDBFactory): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = factory.open(AUDIO_DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: "id" }).createIndex(BY_CUSTOMER, BY_CUSTOMER);
+    const request = factory.open(AUDIO_DB_NAME, AUDIO_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (db.objectStoreNames.contains(STORE)) db.deleteObjectStore(STORE);
+      db.createObjectStore(STORE, { keyPath: "id" }).createIndex(BY_CUSTOMER, ["scope", "customerId"]);
+    };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
@@ -99,16 +115,16 @@ export function indexedDbAudioStore(factory: IDBFactory): JournalAudioStore {
     await whenDone(tx);
     return result;
   };
-  const forCustomer = (store: IDBObjectStore, customerId: string, then: (rows: JournalRecording[]) => void) => {
-    const request = store.index(BY_CUSTOMER).getAll(customerId);
+  const forCustomer = (store: IDBObjectStore, customerId: string, scope: string, then: (rows: JournalRecording[]) => void) => {
+    const request = store.index(BY_CUSTOMER).getAll([scope, customerId]);
     request.onsuccess = () => then(request.result as JournalRecording[]);
   };
   return {
-    list: (customerId) => run<JournalRecording[]>("readonly", (store, set) => forCustomer(store, customerId, (rows) => set(rows.sort(newestFirst)))),
+    list: (customerId, scope) => run<JournalRecording[]>("readonly", (store, set) => forCustomer(store, customerId, scope, (rows) => set(rows.sort(newestFirst)))),
     add: (recording) =>
       run<string[]>("readwrite", (store, set) => {
         store.put(recording).onsuccess = () =>
-          forCustomer(store, recording.customerId, (rows) => {
+          forCustomer(store, recording.customerId, recording.scope, (rows) => {
             const dropped = beyondLimit(rows);
             dropped.forEach((id) => store.delete(id));
             set(dropped);
@@ -121,8 +137,17 @@ export function indexedDbAudioStore(factory: IDBFactory): JournalAudioStore {
           if (request.result) store.put({ ...request.result, transcript });
         };
       }),
-    removeCustomer: (customerId) =>
-      run<void>("readwrite", (store) => forCustomer(store, customerId, (rows) => rows.forEach((row) => store.delete(row.id)))),
+    removeCustomer: (customerId, scope) =>
+      run<void>("readwrite", (store) => forCustomer(store, customerId, scope, (rows) => rows.forEach((row) => store.delete(row.id)))),
+    removeWorkspace: (workspace) =>
+      run<void>("readwrite", (store) => {
+        const request = store.getAll();
+        request.onsuccess = () => {
+          for (const row of request.result as JournalRecording[]) {
+            if (row.scope.startsWith(`${workspace}:`)) store.delete(row.id);
+          }
+        };
+      }),
   };
 }
 

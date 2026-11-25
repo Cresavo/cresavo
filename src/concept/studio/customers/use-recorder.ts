@@ -24,7 +24,7 @@ interface RecorderOptions {
   /** A finished recording: its audio and how long it ran. May return the stored recording id. */
   onRecorded: (audio: Blob, seconds: number) => void | Promise<string | undefined>;
   /** Called whenever recording ends, by Stop or by the time limit. */
-  onEnd?: () => void;
+  onEnd?: () => void | Promise<void>;
 }
 
 export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
@@ -123,11 +123,15 @@ export function useRecorder({ onRecorded, onEnd }: RecorderOptions) {
       setRecording(false);
       const audio = new Blob(chunks, { type: next.mimeType || mimeType || chunks[0]?.type || "" });
       const length = Math.min((performance.now() - startedAt) / 1000, MAX_AUDIO_SECONDS);
-      handlers.current.onEnd?.();
-      void Promise.resolve(audio.size ? handlers.current.onRecorded(audio, length) : undefined).then(
-        (id) => finishStop(typeof id === "string" ? id : undefined),
-        () => finishStop(),
-      );
+      void (async () => {
+        try {
+          await handlers.current.onEnd?.();
+          const id = audio.size ? await handlers.current.onRecorded(audio, length) : undefined;
+          finishStop(typeof id === "string" ? id : undefined);
+        } catch {
+          finishStop();
+        }
+      })();
     };
     recorder.current = next;
     setSeconds(0);
