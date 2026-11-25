@@ -78,6 +78,24 @@ function subscribe(listener: () => void) {
   };
 }
 
+function pendingIn(book: RegisterBook | undefined, reference: string): RegisterPayment | undefined {
+  const sale = book?.sales.find((s) => s.reference === reference && s.state === "awaiting");
+  return sale && book?.payments.find((p) => p.saleId === sale.id && p.state === "pending");
+}
+
+/**
+ * Cancels the payment a visit is waiting for, if any: a fee decision that
+ * closes the visit leaves nothing for the register to take. True when nothing
+ * is left waiting.
+ */
+export async function cancelPendingPayment(target: Target | null | undefined, reference: string): Promise<boolean> {
+  if (!target || !demoRegisterAllowed({ workspace: target.workspace, payments: demoPayments })) return true;
+  const waiting = pendingIn(read(keyOf(target)), reference);
+  if (!waiting) return true;
+  const result = await registerFor(target).completePayment({ paymentId: waiting.id, outcome: "failed", at: new Date().toISOString() });
+  return result.ok;
+}
+
 /** The payment a visit is waiting for (started, not confirmed yet), live. It survives a reload, so the register can pick it up again. */
 export function usePendingPayment(target: Target | null | undefined, reference: string): RegisterPayment | undefined {
   const book = useSyncExternalStore(
@@ -85,8 +103,7 @@ export function usePendingPayment(target: Target | null | undefined, reference: 
     () => (target && demoRegisterAllowed({ workspace: target.workspace, payments: demoPayments }) ? read(keyOf(target)) : undefined),
     () => undefined,
   );
-  const sale = book?.sales.find((s) => s.reference === reference && s.state === "awaiting");
-  return sale && book?.payments.find((p) => p.saleId === sale.id && p.state === "pending");
+  return pendingIn(book, reference);
 }
 
 /** Every receipt in the salon's register, live. */

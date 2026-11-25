@@ -26,7 +26,16 @@ export interface BillableVisit {
 
 export type SettleIntent =
   | { channel: "online"; method: PaymentMethod; successUrl: string; cancelUrl: string; idempotencyKey: string }
-  | { channel: "in-salon"; method: RegisterMethod; tenderedMinor?: number; pending?: boolean; at: UtcTimestamp };
+  | {
+    channel: "in-salon"; method: RegisterMethod; tenderedMinor?: number; pending?: boolean;
+    /**
+     * One payment attempt at the counter. A retry of the same attempt sends the
+     * same id and `at` and gets the same payment back; a new attempt (after a
+     * cancelled phone payment, say) needs a new id.
+     */
+    attempt: string;
+    at: UtcTimestamp;
+  };
 
 export interface SettlePorts {
   payments: Pick<PaymentsPort, "createCheckout">;
@@ -50,6 +59,13 @@ export function billableVisit(state: DemoState, booking: Booking, date: string):
   };
 }
 
+/**
+ * Whether the register may still take payment for the visit: it is booked and
+ * no late-cancellation or no-show decision has closed it. Checked before a sale
+ * and again before a payment from the customer's phone is confirmed.
+ */
+export const settleable = (booking: Booking) => booking.status === "booked" && !booking.protection?.decision;
+
 export const totalOf = (visit: Pick<BillableVisit, "lines">) => visit.lines.reduce((sum, line) => sum + line.grossMinor, 0);
 export const dueOf = (visit: BillableVisit) => totalOf(visit) - visit.prepaidMinor;
 
@@ -69,7 +85,7 @@ export async function settle(visit: BillableVisit, intent: SettleIntent, ports: 
   const sale = started.value;
   const paid = await ports.register.recordPayment({
     saleId: sale.id, method: intent.method, amountMinor: sale.dueMinor, at: intent.at,
-    idempotencyKey: `${sale.id}-${intent.method}-${intent.tenderedMinor ?? ""}-${intent.pending ? "pending" : "now"}`,
+    idempotencyKey: `${sale.id}-${intent.attempt}-${intent.method}-${intent.tenderedMinor ?? ""}-${intent.pending ? "pending" : "now"}`,
     ...(intent.tenderedMinor === undefined ? {} : { tenderedMinor: intent.tenderedMinor }),
     ...(intent.pending ? { pending: true } : {}),
   });

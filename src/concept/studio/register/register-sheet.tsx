@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { billableVisit, dueOf, settle } from "../../booking/settle";
+import { useRef, useState } from "react";
+import { billableVisit, dueOf, settle, settleable } from "../../booking/settle";
 import { formatMinor } from "../../booking/policy-summary";
 import { demoPayments } from "../../connections/demo";
 import { swishEligible } from "../../connections/ports/payments";
 import { cashChange, type RegisterMethod } from "../../connections/ports/register";
 import { t } from "../../i18n";
 import { minorFromInput } from "../../register/cash";
-import { registerFor, usePendingPayment, useRegisterReceipts } from "../../register/ledger";
+import { cancelPendingPayment, registerFor, usePendingPayment, useRegisterReceipts } from "../../register/ledger";
 import { findService, findCustomer, visitorName } from "../../selectors";
 import { commitAction } from "../../store/commit";
 import { Button } from "../../ui/button";
@@ -27,6 +27,11 @@ import { Receipt } from "./receipt";
 
 /** What the counter can choose: a method the register takes itself, or the customer's own phone. */
 type Choice = RegisterMethod | "phone";
+/** One payment attempt: kept for a retry of the same payment, replaced once a phone payment is cancelled or the input changes. */
+interface Attempt {
+  id: string;
+  at: string;
+}
 
 /**
  * The register for one visit: what is due after the deposit and gift cards,
@@ -44,6 +49,7 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
   const [run, pending] = useCommit();
   const [method, setMethod] = useState<Choice>("card");
   const [received, setReceived] = useState("");
+  const attempt = useRef<Attempt | null>(null);
   const receipts = useRegisterReceipts(target);
   const waiting = usePendingPayment(target, bookingId);
   const booking = state.bookings.find((b) => b.id === bookingId);
@@ -64,7 +70,11 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
   const name = visitorName(booking, findCustomer(state, booking.customerId));
   const description = `${name} · ${findService(state, booking.serviceId)?.name ?? ""}`;
   const terms = booking.protection?.terms;
-  const showFees = !sale && !!eligibleIncident(booking, clock.instant ?? visitTime({ date: clock.today, start: clock.minutes }).toMillis()) && !!(booking.protection?.deposit || terms?.latePercent || terms?.noShowPercent);
+  // A fee decision closes the visit: the register has nothing left to take for it.
+  const takes = settleable(booking);
+  const feeDue = !!eligibleIncident(booking, clock.instant ?? visitTime({ date: clock.today, start: clock.minutes }).toMillis()) && !!(booking.protection?.deposit || terms?.latePercent || terms?.noShowPercent);
+  // The fee section stays after a decision, so the register shows what closed the visit.
+  const showFees = !sale && (feeDue || !!booking.protection?.decision);
 
   const finishVisit = async () => {
     if (booking.status === "booked" && target) {
@@ -74,11 +84,12 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
   };
 
   const take = () => run(async () => {
-    const at = new Date().toISOString();
+    if (!settleable(booking)) return showActionFailure("register.closed");
+    const { id, at } = (attempt.current ??= { id: crypto.randomUUID(), at: new Date().toISOString() });
     // The customer chooses card or Swish on their phone; the pending payment starts as card and is confirmed with their choice.
     const intent = method === "phone"
-      ? { channel: "in-salon" as const, method: "card" as const, pending: true, at }
-      : { channel: "in-salon" as const, method, at, ...(method === "cash" && tendered !== null ? { tenderedMinor: tendered } : {}) };
+      ? { channel: "in-salon" as const, method: "card" as const, pending: true, attempt: id, at }
+      : { channel: "in-salon" as const, method, attempt: id, at, ...(method === "cash" && tendered !== null ? { tenderedMinor: tendered } : {}) };
     const result = await settle(visit, intent, { payments: demoPayments, register });
     if (!result.ok || result.channel !== "in-salon") return showActionFailure("register.failed");
     if (result.receipt) await finishVisit();
@@ -86,6 +97,10 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
 
   const confirmPhone = async (chosen: Exclude<RegisterMethod, "cash">) => {
     if (!waiting) return;
+    if (!settleable(booking)) {
+      await cancelPendingPayment(target, booking.id);
+      return showActionFailure("register.closed");
+    }
     const result = await register.completePayment({ paymentId: waiting.id, outcome: "paid", method: chosen, at: new Date().toISOString() });
     if (!result.ok) return showActionFailure("register.failed");
     await finishVisit();
@@ -94,8 +109,18 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
   const cancelPhone = () => run(async () => {
     if (!waiting) return;
     const result = await register.completePayment({ paymentId: waiting.id, outcome: "failed", at: new Date().toISOString() });
-    if (!result.ok) showActionFailure("register.failed");
+    if (!result.ok) return showActionFailure("register.failed");
+    // The next payment is a new attempt, with its own key and time.
+    attempt.current = null;
   });
+  const choose = (next: Choice) => {
+    attempt.current = null;
+    setMethod(next);
+  };
+  const receive = (value: string) => {
+    attempt.current = null;
+    setReceived(value);
+  };
 
   const refundSale = () => run(async () => {
     if (!sale) return;
@@ -107,7 +132,11 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
     return (
       <Sheet open onClose={onClose} title={t("register.title")} description={description}
         footer={<>
-          {!refund && <Button variant="secondary" disabled={pending} onClick={refundSale}>{t("register.refund")}</Button>}
+          {!refund && sale.paidMinor > 0 && (
+            <Button variant="secondary" disabled={pending} onClick={refundSale}>
+              {t("register.refundTaken", { amount: money(sale.paidMinor), method: t(`register.${sale.method}`) })}
+            </Button>
+          )}
           <Button onClick={onClose}>{t("common.close")}</Button>
         </>}>
         <div className="space-y-4">
@@ -123,33 +152,34 @@ export function RegisterSheet({ bookingId, onBack, onClose }: {
       footer={<>
         {waiting ? <Button variant="ghost" disabled={pending} onClick={cancelPhone}>{t("register.phoneCancel")}</Button> : <>
           <Button variant="ghost" onClick={onBack}>{t("common.back")}</Button>
-          <Button disabled={!ready || pending || register.info.kind === "unavailable"} onClick={take}>
+          {takes && <Button disabled={!ready || pending || register.info.kind === "unavailable"} onClick={take}>
             {!due ? t("register.payPrepaid") : t(method === "phone" ? "register.phoneShow" : "register.pay", { amount: money(due) })}
-          </Button>
+          </Button>}
         </>}
       </>}>
       <div className="space-y-5">
-        <dl className="divide-y divide-hairline">
+        {takes && <dl className="divide-y divide-hairline">
           {visit.lines.map((line, i) => <AmountRow key={i} label={line.description} value={money(line.grossMinor)} className="py-3" />)}
           {visit.prepaidMinor > 0 && <AmountRow label={t("register.prepaid")} value={money(-visit.prepaidMinor)} className="py-3" />}
           <AmountRow label={t("register.due")} value={money(due)} strong className="py-3" />
-        </dl>
-        {due > 0 && !waiting && (
+        </dl>}
+        {!takes && <p className="text-text-secondary">{t("register.closedText")}</p>}
+        {takes && due > 0 && !waiting && (
           <div className="space-y-3">
-            <Segmented label={t("register.method")} value={method} onChange={setMethod} fit={methods.length > 3}
+            <Segmented label={t("register.method")} value={method} onChange={choose} fit={methods.length > 3}
               options={methods.map((value) => ({ value, label: t(`register.${value}`) }))} />
             {method === "cash" && (
               <div className="space-y-3">
                 <Field label={t("register.received", { currency: visit.currency })} width="short"
                   error={received && change === null ? t("register.short") : undefined}>
-                  <TextInput inputMode="decimal" autoComplete="off" value={received} onChange={(e) => setReceived(e.target.value)} />
+                  <TextInput inputMode="decimal" autoComplete="off" value={received} onChange={(e) => receive(e.target.value)} />
                 </Field>
                 <dl><AmountRow label={t("register.change")} value={change === null ? "–" : money(change)} strong className="py-3" /></dl>
               </div>
             )}
           </div>
         )}
-        {waiting && target && (
+        {takes && waiting && target && (
           <PhonePayPanel key={waiting.id} paymentId={waiting.id} business={state.salon.slug} workspace={target.workspace}
             amountMinor={due} amount={money(due)} currency={visit.currency} methods={swish ? ["card", "swish"] : ["card"]} onPaid={confirmPhone} />
         )}

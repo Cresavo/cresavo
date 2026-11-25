@@ -92,6 +92,7 @@ export interface RegisterRecord {
   lines: SaleLine[];
   vat: VatLine[];
   totalMinor: number;
+  /** Paid before the counter. Always 0 on a refund: a deposit or gift card is returned by its own flow. */
   prepaidMinor: number;
   /** Taken at the counter; negative on a refund. */
   paidMinor: number;
@@ -130,7 +131,10 @@ export interface RegisterPort {
    * they chose card or Swish after the register started it.
    */
   completePayment(input: { paymentId: string; outcome: "paid" | "failed"; method?: Exclude<RegisterMethod, "cash">; at: UtcTimestamp }): Promise<PortResult<{ sale: Sale; payment: RegisterPayment; receipt?: RegisterRecord }>>;
-  /** Refunds a sale's receipt in full with a refund receipt. */
+  /**
+   * Refunds what the sale took at the counter with a refund receipt. A deposit
+   * or gift card used for the sale stays with the booking's own refund flows.
+   */
   refund(input: { receiptId: string; date: string; at: UtcTimestamp; idempotencyKey: string }): Promise<PortResult<RegisterRecord>>;
   dailyReport(input: { business: string; date: string }): Promise<PortResult<DailyReport>>;
   /** Every receipt for the business, oldest first. */
@@ -153,6 +157,20 @@ export function vatLines(lines: readonly Pick<SaleLine, "grossMinor" | "vatRateP
   });
 }
 
+/**
+ * The sale's lines scaled to the part of it taken at the counter, negated for
+ * a refund receipt. Shares are rounded down per line; the last line takes the
+ * remainder, so the lines sum to exactly `-paidMinor`.
+ */
+export function refundLines(lines: readonly SaleLine[], totalMinor: number, paidMinor: number): SaleLine[] {
+  let left = paidMinor;
+  return lines.map((line, i) => {
+    const share = i === lines.length - 1 ? left : totalMinor ? Math.floor((line.grossMinor * paidMinor) / totalMinor) : 0;
+    left -= share;
+    return { ...line, grossMinor: -share };
+  });
+}
+
 /** Change for a cash payment, or null when the customer handed over too little. */
 export function cashChange(dueMinor: number, tenderedMinor: number): number | null {
   if (!Number.isSafeInteger(dueMinor) || !Number.isSafeInteger(tenderedMinor) || dueMinor < 0 || tenderedMinor < dueMinor) return null;
@@ -164,6 +182,16 @@ export function demoReceiptNumber(date: string, sequence: number): string {
   return `DEMO-${date.replaceAll("-", "")}-${String(sequence).padStart(4, "0")}`;
 }
 
+/** Sums the receipts' own VAT lines per rate, highest rate first, so the day matches its receipts to the öre. */
+function sumVat(records: readonly RegisterRecord[]): VatLine[] {
+  const rates = new Map<number, VatLine>();
+  for (const line of records.flatMap((r) => r.vat)) {
+    const sum = rates.get(line.ratePercent) ?? { ratePercent: line.ratePercent, grossMinor: 0, netMinor: 0, vatMinor: 0 };
+    rates.set(line.ratePercent, { ...sum, grossMinor: sum.grossMinor + line.grossMinor, netMinor: sum.netMinor + line.netMinor, vatMinor: sum.vatMinor + line.vatMinor });
+  }
+  return [...rates.values()].sort((a, b) => b.ratePercent - a.ratePercent);
+}
+
 /** The day's totals from its receipts: refunds count negative. */
 export function summariseDay(records: readonly RegisterRecord[], business: string, date: string, currency: string, register: RegisterKind): DailyReport {
   const day = records.filter((r) => r.business === business && r.date === date);
@@ -171,9 +199,10 @@ export function summariseDay(records: readonly RegisterRecord[], business: strin
   const add = (method: RegisterMethod | "prepaid", amount: number) => amount && methods.set(method, (methods.get(method) ?? 0) + amount);
   for (const record of day) {
     add(record.method, record.paidMinor);
-    add("prepaid", record.kind === "refund" ? -record.prepaidMinor : record.prepaidMinor);
+    // A refund reverses only the counter payment; prepaid money is returned elsewhere.
+    if (record.kind === "sale") add("prepaid", record.prepaidMinor);
   }
-  const vat = vatLines(day.flatMap((r) => r.vat.map((line) => ({ grossMinor: line.grossMinor, vatRatePercent: line.ratePercent }))));
+  const vat = sumVat(day);
   return {
     business, date, currency, register,
     receipts: day.filter((r) => r.kind === "sale").length,

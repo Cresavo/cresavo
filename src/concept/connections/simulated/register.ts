@@ -1,6 +1,6 @@
 import { connectionError, fail, isCurrency, ok, stableHash, type ConnectionErrorCode, type PortResult } from "../core";
 import {
-  cashChange, demoReceiptNumber, summariseDay, vatLines,
+  cashChange, demoReceiptNumber, refundLines, summariseDay, vatLines,
   type RecordPaymentInput, type RegisterPayment, type RegisterPort, type RegisterRecord, type Sale, type StartSaleInput,
 } from "../ports/register";
 
@@ -130,14 +130,14 @@ export function demoRegister(book: RegisterBook = emptyRegisterBook(), save: (bo
       const original = book.records.find((r) => r.id === input.receiptId && r.kind === "sale");
       if (!original) return refuse("not_found");
       if (book.records.some((r) => r.refundOf === original.receiptNumber)) return refuse("conflict");
-      if (!DAY.test(input.date) || input.date < original.date || !input.at) return refuse("invalid_input");
-      const lines = original.lines.map((line) => ({ ...line, grossMinor: -line.grossMinor }));
+      if (!DAY.test(input.date) || input.date < original.date || !input.at || original.paidMinor <= 0) return refuse("invalid_input");
+      const lines = refundLines(original.lines, original.totalMinor, original.paidMinor);
       const sequence = book.records.filter((r) => r.business === original.business && r.date === input.date).length + 1;
       const record: RegisterRecord = {
         id: `rcpt-${stableHash(`${original.id}:refund`)}`, register: "demo", kind: "refund",
         receiptNumber: demoReceiptNumber(input.date, sequence), business: original.business, saleId: original.saleId, reference: original.reference,
         date: input.date, at: input.at, currency: original.currency, lines, vat: vatLines(lines),
-        totalMinor: -original.totalMinor, prepaidMinor: original.prepaidMinor, paidMinor: -original.paidMinor, method: original.method,
+        totalMinor: -original.paidMinor, prepaidMinor: 0, paidMinor: -original.paidMinor, method: original.method,
         refundOf: original.receiptNumber,
       };
       commit({

@@ -31,10 +31,10 @@ export function Receipt({ record, salon }: { record: RegisterRecord; salon: Demo
         {record.refundOf && <p>{t("register.refundOf", { number: record.refundOf })}</p>}
         <dl className="space-y-1 border-t border-hairline pt-3">
           {record.lines.map((line, i) => <Row key={i} label={line.description} value={money(line.grossMinor)} />)}
-          <Row label={t("register.total")} value={money(record.totalMinor)} strong className="text-body" />
+          <Row label={t(refund ? "register.refundTotal" : "register.total")} value={money(record.totalMinor)} strong className="text-body" />
         </dl>
         <dl className="space-y-1 border-t border-hairline pt-3">
-          {record.prepaidMinor > 0 && <Row label={t("register.prepaid")} value={money(refund ? record.prepaidMinor : -record.prepaidMinor)} />}
+          {record.prepaidMinor > 0 && <Row label={t("register.prepaid")} value={money(-record.prepaidMinor)} />}
           <Row label={t(`register.${record.method}`)} value={money(record.paidMinor)} />
           {record.tenderedMinor !== undefined && <Row label={t("register.received", { currency: record.currency })} value={money(record.tenderedMinor)} />}
           {record.changeMinor !== undefined && <Row label={t("register.change")} value={money(record.changeMinor)} />}

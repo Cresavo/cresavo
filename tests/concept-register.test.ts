@@ -1,10 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { billableVisit, dueOf, settle, type BillableVisit } from "@/concept/booking/settle";
+import { billableVisit, dueOf, settle, settleable, type BillableVisit } from "@/concept/booking/settle";
 import { quote } from "@/concept/booking/protection";
 import { isBalanced } from "@/concept/connections/ports/accounting";
-import { cashChange, demoReceiptNumber, summariseDay, vatLines, type RegisterRecord } from "@/concept/connections/ports/register";
+import { cashChange, demoReceiptNumber, refundLines, summariseDay, vatLines, type RegisterRecord } from "@/concept/connections/ports/register";
 import { stripePayments } from "@/concept/connections/providers/payments/stripe";
 import { simulatedPayments } from "@/concept/connections/simulated/adapters";
 import { createOutbox } from "@/concept/connections/simulated/outbox";
@@ -13,6 +13,7 @@ import { createDemoState } from "@/concept/data/generate";
 import { registerDailySales, registerVoucher } from "@/concept/register/accounting";
 import { minorFromInput } from "@/concept/register/cash";
 import { createRegister, demoRegisterAllowed } from "@/concept/register/factory";
+import { cancelPendingPayment, registerFor } from "@/concept/register/ledger";
 import { Receipt } from "@/concept/studio/register/receipt";
 
 const day = "2026-11-25";
@@ -38,14 +39,14 @@ describe("register guard", () => {
     expect(register.info.kind).toBe("unavailable");
     const started = await register.startSale({ ...visit(), idempotencyKey: "k" });
     expect(started).toMatchObject({ ok: false, error: { code: "not_configured" } });
-    const paid = await settle(visit(), { channel: "in-salon", method: "card", at }, { payments: live, register });
+    const paid = await settle(visit(), { channel: "in-salon", attempt: "a1", method: "card", at }, { payments: live, register });
     expect(paid.ok).toBe(false);
     expect(register.receipts("salong-eko")).toEqual([]);
   });
 
   it("tags every receipt as demo", async () => {
     const register = createRegister({ workspace: "demo", payments: simulated() });
-    await settle(visit(), { channel: "in-salon", method: "swish", at }, { payments: simulated(), register });
+    await settle(visit(), { channel: "in-salon", attempt: "a1", method: "swish", at }, { payments: simulated(), register });
     expect(register.receipts("salong-eko").map((r) => r.register)).toEqual(["demo"]);
   });
 });
@@ -63,7 +64,7 @@ describe("settle routing", () => {
   it("sends an in-salon intent to the register and never to the payments port", async () => {
     const register = demoRegister();
     const createCheckout = vi.fn();
-    const result = await settle(visit("b-1", { prepaidMinor: 20000 }), { channel: "in-salon", method: "card", at }, { payments: { createCheckout }, register });
+    const result = await settle(visit("b-1", { prepaidMinor: 20000 }), { channel: "in-salon", attempt: "a1", method: "card", at }, { payments: { createCheckout }, register });
     expect(createCheckout).not.toHaveBeenCalled();
     expect(result).toMatchObject({ ok: true, channel: "in-salon", receipt: { paidMinor: 59500, prepaidMinor: 20000, totalMinor: 79500, method: "card" } });
   });
@@ -71,19 +72,58 @@ describe("settle routing", () => {
   it("takes one payment per visit: a second attempt is refused and issues no receipt", async () => {
     const register = demoRegister();
     const ports = { payments: simulated(), register };
-    expect((await settle(visit(), { channel: "in-salon", method: "card", at }, ports)).ok).toBe(true);
-    expect((await settle(visit(), { channel: "in-salon", method: "swish", at }, ports)).ok).toBe(false);
+    expect((await settle(visit(), { channel: "in-salon", attempt: "a1", method: "card", at }, ports)).ok).toBe(true);
+    expect((await settle(visit(), { channel: "in-salon", attempt: "a1", method: "swish", at }, ports)).ok).toBe(false);
     expect(register.receipts("salong-eko")).toHaveLength(1);
   });
 
   it("leaves a pending payment without a receipt until it is confirmed", async () => {
     const register = demoRegister();
-    const result = await settle(visit(), { channel: "in-salon", method: "swish", pending: true, at }, { payments: simulated(), register });
+    const result = await settle(visit(), { channel: "in-salon", attempt: "a1", method: "swish", pending: true, at }, { payments: simulated(), register });
     if (!result.ok || result.channel !== "in-salon") throw new Error("expected a register payment");
     expect(result.payment.state).toBe("pending");
     expect(result.receipt).toBeUndefined();
     const confirmed = await register.completePayment({ paymentId: result.payment.id, outcome: "paid", at });
     expect(confirmed).toMatchObject({ ok: true, value: { payment: { state: "completed" }, receipt: { receiptNumber: "DEMO-20261125-0001" } } });
+  });
+
+  it("takes a new phone attempt after a cancelled one, and replays a retry of the same attempt", async () => {
+    const register = demoRegister();
+    const ports = { payments: simulated(), register };
+    const first = await settle(visit(), { channel: "in-salon", attempt: "a1", method: "card", pending: true, at }, ports);
+    if (!first.ok || first.channel !== "in-salon") throw new Error("expected a pending payment");
+    const retry = await settle(visit(), { channel: "in-salon", attempt: "a1", method: "card", pending: true, at }, ports);
+    expect(retry).toMatchObject({ ok: true, payment: { id: first.payment.id, state: "pending" } });
+    expect((await register.completePayment({ paymentId: first.payment.id, outcome: "failed", at })).ok).toBe(true);
+    const later = "2026-11-25T10:05:00Z";
+    const second = await settle(visit(), { channel: "in-salon", attempt: "a2", method: "card", pending: true, at: later }, ports);
+    if (!second.ok || second.channel !== "in-salon") throw new Error("expected a second pending payment");
+    expect(second.payment.id).not.toBe(first.payment.id);
+    expect(second.payment.state).toBe("pending");
+    const paid = await register.completePayment({ paymentId: second.payment.id, outcome: "paid", method: "swish", at: later });
+    expect(paid).toMatchObject({ ok: true, value: { receipt: { method: "swish", paidMinor: 79500 } } });
+  });
+
+  it("closes the register for a visit once a fee decision is made", () => {
+    const booking = createDemoState(day).bookings[0];
+    const decision = { incident: "noshow" as const, outcome: "waive" as const, proposedMinor: 0, chargedMinor: 0, actor: "owner" as const, at: 0, reason: "Ill" };
+    const terms = quote(createDemoState(day).cancellationPolicy, createDemoState(day).services[0], "SEK", false);
+    expect(settleable({ ...booking, status: "booked" })).toBe(true);
+    expect(settleable({ ...booking, status: "booked", protection: { terms, decision } })).toBe(false);
+    expect(settleable({ ...booking, status: "noshow" })).toBe(false);
+    expect(settleable({ ...booking, status: "cancelled" })).toBe(false);
+  });
+
+  it("cancels the payment a closed visit was waiting for", async () => {
+    const target = { workspace: "demo" as const, epoch: "cancel-pending" };
+    const register = registerFor(target);
+    const started = await settle(visit("b-9"), { channel: "in-salon", attempt: "a1", method: "card", pending: true, at }, { payments: simulated(), register });
+    if (!started.ok || started.channel !== "in-salon") throw new Error("expected a pending payment");
+    expect(await cancelPendingPayment(target, "b-9")).toBe(true);
+    const again = await registerFor(target).completePayment({ paymentId: started.payment.id, outcome: "paid", at });
+    expect(again).toMatchObject({ ok: false });
+    expect(registerFor(target).receipts("salong-eko")).toEqual([]);
+    expect(await cancelPendingPayment(target, "b-9")).toBe(true);
   });
 
   it("deducts a paid deposit and gift cards from the visit, but not a refunded deposit", () => {
@@ -116,8 +156,8 @@ describe("cash", () => {
   it("records what was received and the change, and refuses too little", async () => {
     const register = demoRegister();
     const ports = { payments: simulated(), register };
-    expect((await settle(visit(), { channel: "in-salon", method: "cash", tenderedMinor: 79000, at }, ports)).ok).toBe(false);
-    const paid = await settle(visit(), { channel: "in-salon", method: "cash", tenderedMinor: 100000, at }, ports);
+    expect((await settle(visit(), { channel: "in-salon", attempt: "a1", method: "cash", tenderedMinor: 79000, at }, ports)).ok).toBe(false);
+    const paid = await settle(visit(), { channel: "in-salon", attempt: "a1", method: "cash", tenderedMinor: 100000, at }, ports);
     expect(paid).toMatchObject({ ok: true, receipt: { tenderedMinor: 100000, changeMinor: 20500, paidMinor: 79500 } });
   });
 });
@@ -126,10 +166,10 @@ describe("receipts", () => {
   it("numbers receipts per business and day, refunds included", async () => {
     const register = demoRegister();
     const ports = { payments: simulated(), register };
-    await settle(visit("b-1"), { channel: "in-salon", method: "card", at }, ports);
-    await settle(visit("b-2"), { channel: "in-salon", method: "swish", at }, ports);
-    await settle(visit("b-3", { business: "other-salon" }), { channel: "in-salon", method: "card", at }, ports);
-    await settle(visit("b-4", { date: "2026-11-26" }), { channel: "in-salon", method: "card", at }, ports);
+    await settle(visit("b-1"), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
+    await settle(visit("b-2"), { channel: "in-salon", attempt: "a1", method: "swish", at }, ports);
+    await settle(visit("b-3", { business: "other-salon" }), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
+    await settle(visit("b-4", { date: "2026-11-26" }), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
     const [first] = register.receipts("salong-eko");
     const refund = await register.refund({ receiptId: first.id, date: day, at, idempotencyKey: "r-1" });
     expect(register.receipts("salong-eko").map((r) => r.receiptNumber)).toEqual(["DEMO-20261125-0001", "DEMO-20261125-0002", "DEMO-20261126-0001", "DEMO-20261125-0003"]);
@@ -146,9 +186,47 @@ describe("receipts", () => {
     ]);
   });
 
+  it("refunds only what was taken at the counter, never the deposit or gift card", async () => {
+    const register = demoRegister();
+    const ports = { payments: simulated(), register };
+    const result = await settle(visit("b-1", { prepaidMinor: 20000 }), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
+    if (!result.ok || result.channel !== "in-salon" || !result.receipt) throw new Error("expected a receipt");
+    const refund = await register.refund({ receiptId: result.receipt.id, date: day, at, idempotencyKey: "r" });
+    if (!refund.ok) throw new Error("expected a refund");
+    expect(refund.value).toMatchObject({ kind: "refund", totalMinor: -59500, paidMinor: -59500, prepaidMinor: 0, method: "card" });
+    expect(refund.value.lines).toEqual([{ description: "Haircut", grossMinor: -59500, vatRatePercent: 25 }]);
+    expect(refund.value.vat).toEqual(vatLines(refund.value.lines));
+    const report = await register.dailyReport({ business: "salong-eko", date: day });
+    if (!report.ok) throw new Error("expected a report");
+    // The day keeps the prepaid 200 kr; the booking's own flows return it.
+    expect(report.value.totalMinor).toBe(20000);
+    expect(Object.fromEntries(report.value.methods.map((m) => [m.method, m.amountMinor]))).toEqual({ card: 0, prepaid: 20000 });
+    const html = renderToStaticMarkup(createElement(Receipt, { record: refund.value, salon: createDemoState(day).salon }));
+    expect(html).toContain("Refunded at the register");
+    expect(html).not.toContain("Already paid");
+  });
+
+  it("has nothing to refund at the counter for a fully prepaid visit", async () => {
+    const register = demoRegister();
+    const result = await settle(visit("b-1", { prepaidMinor: 79500 }), { channel: "in-salon", attempt: "a1", method: "card", at }, { payments: simulated(), register });
+    if (!result.ok || result.channel !== "in-salon" || !result.receipt) throw new Error("expected a receipt");
+    expect(await register.refund({ receiptId: result.receipt.id, date: day, at, idempotencyKey: "r" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+  });
+
+  it("splits a partial refund over the lines to the exact minor unit", () => {
+    const lines = [
+      { description: "Cut", grossMinor: 50000, vatRatePercent: 25 },
+      { description: "Treatment", grossMinor: 25001, vatRatePercent: 25 },
+      { description: "Product", grossMinor: 10000, vatRatePercent: 12 },
+    ];
+    const refunded = refundLines(lines, 85001, 33333);
+    expect(refunded.reduce((sum, line) => sum + line.grossMinor, 0)).toBe(-33333);
+    expect(refunded.map((line) => line.grossMinor)).toEqual([-19607, -9804, -3922]);
+  });
+
   it("shows the DEMO watermark and number on a demo receipt", async () => {
     const register = demoRegister();
-    const result = await settle(visit(), { channel: "in-salon", method: "card", at }, { payments: simulated(), register });
+    const result = await settle(visit(), { channel: "in-salon", attempt: "a1", method: "card", at }, { payments: simulated(), register });
     if (!result.ok || result.channel !== "in-salon" || !result.receipt) throw new Error("expected a receipt");
     const html = renderToStaticMarkup(createElement(Receipt, { record: result.receipt, salon: createDemoState(day).salon }));
     expect(html).toContain("DEMO-20261125-0001");
@@ -160,9 +238,9 @@ describe("daily report and bookkeeping", () => {
   const takeDay = async () => {
     const register = demoRegister();
     const ports = { payments: simulated(), register };
-    await settle(visit("b-1", { prepaidMinor: 20000 }), { channel: "in-salon", method: "card", at }, ports);
-    await settle(visit("b-2"), { channel: "in-salon", method: "cash", tenderedMinor: 80000, at }, ports);
-    await settle(visit("b-3"), { channel: "in-salon", method: "swish", at }, ports);
+    await settle(visit("b-1", { prepaidMinor: 20000 }), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
+    await settle(visit("b-2"), { channel: "in-salon", attempt: "a1", method: "cash", tenderedMinor: 80000, at }, ports);
+    await settle(visit("b-3"), { channel: "in-salon", attempt: "a1", method: "swish", at }, ports);
     const swish = register.receipts("salong-eko")[2];
     await register.refund({ receiptId: swish.id, date: day, at, idempotencyKey: "r" });
     return register;
@@ -175,6 +253,20 @@ describe("daily report and bookkeeping", () => {
     expect(report.value).toMatchObject({ receipts: 3, refunds: 1, totalMinor: 159000, register: "demo" });
     expect(Object.fromEntries(report.value.methods.map((m) => [m.method, m.amountMinor]))).toEqual({ card: 59500, prepaid: 20000, cash: 79500, swish: 0 });
     expect(report.value.vat).toEqual([{ ratePercent: 25, grossMinor: 159000, netMinor: 127200, vatMinor: 31800 }]);
+  });
+
+  it("reports the VAT the receipts show, not a recalculation of the day", async () => {
+    const register = demoRegister();
+    const ports = { payments: simulated(), register };
+    // 0.03 kr at 25 % rounds to 0.01 kr VAT on each receipt; recalculated on 0.06 kr it would be 0.01 kr for the day.
+    const tiny = { lines: [{ description: "Sample", grossMinor: 3, vatRatePercent: 25 }] };
+    await settle(visit("b-1", tiny), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
+    await settle(visit("b-2", tiny), { channel: "in-salon", attempt: "a1", method: "card", at }, ports);
+    const receipts = register.receipts("salong-eko");
+    expect(receipts.map((r) => r.vat[0].vatMinor)).toEqual([1, 1]);
+    const report = await register.dailyReport({ business: "salong-eko", date: day });
+    if (!report.ok) throw new Error("expected a report");
+    expect(report.value.vat).toEqual([{ ratePercent: 25, grossMinor: 6, netMinor: 4, vatMinor: 2 }]);
   });
 
   it("keeps demo receipts out of the accounting export", async () => {
