@@ -1,4 +1,4 @@
-import { sensitiveKind } from "../../assistant/memory";
+import { contactKind, sensitiveKind } from "../../assistant/memory";
 import type { Reply } from "../../assistant/thread";
 import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
@@ -79,7 +79,9 @@ export function safeSpeech(text: string, state: SpeechState): string | null {
   // leftover wording is checked against the original line, so "She has eczema"
   // is never read just because a treatment is named Eczema.
   const withoutServices = state.services.reduce((out, service) => out.replace(word(service.name), " "), plain);
-  if (!onlyWhenOrWhere(withoutServices) && (sensitiveKind(plain, state) || quotesJournal(plain, state) || quotesJournal(withoutServices, state))) {
+  // Contact details are always kept off the spoken line, even when the rest
+  // looks like a day or a time ("070 123 45 67" is not a schedule).
+  if (contactKind(plain) || (!onlyWhenOrWhere(withoutServices) && (sensitiveKind(plain, state) || quotesJournal(plain, state) || quotesJournal(withoutServices, state)))) {
     return t("assistant.voice.onScreen");
   }
   let named = 0;
