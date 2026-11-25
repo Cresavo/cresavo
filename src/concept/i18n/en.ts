@@ -3433,6 +3433,10 @@ const messages = {
   "addons.consent.prepaid": "Money paid in advance belongs to the customer until the visit is used.",
   "addons.consent.refunds": "You decide how long cards are valid and when you refund. Tell customers before they pay.",
   "addons.consent.demo": "Demo: nothing is sold or charged. Payments here are simulated.",
+  "ui.skipToContent": "Skip to content",
+  "connection.offline.studio": "No connection. What is on screen stays here, but changes cannot be saved until it is back.",
+  "connection.offline.booking": "No connection. You can still read this page, but booking, changing and paying need the connection.",
+  "connection.retry": "Try again",
   "booking.closingSoon": "Closing soon, until {until}",
   "booking.lunchNow": "Closed for lunch until {until}",
   "booking.share": "Share this time",
@@ -3447,6 +3451,9 @@ const messages = {
   "calendar.keys.step": "Previous or next booking",
   "calendar.keys.open": "Open the booking",
   "calendar.keys.help": "Show these shortcuts",
+  "install.title": "Add to Home Screen",
+  "install.text": "Open the studio like an app, straight from your phone or computer.",
+  "install.ios": "In Safari, tap Share, then Add to Home Screen.",
 } as const;
 
 export const en = {

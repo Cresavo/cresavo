@@ -6,6 +6,8 @@ import type { Salon } from "@/concept/data/types";
 import { setLocale } from "@/concept/i18n";
 import { calendarKey, stepThrough } from "@/concept/studio/calendar/keys";
 import { previewPosition } from "@/concept/studio/calendar/preview";
+import { installWay, isAppleTouch } from "@/concept/studio/install/install";
+import { reachServer } from "@/concept/ui/connection";
 
 // A Wednesday with long hours and lunch, and a short Saturday (no lunch: the day is six hours or less).
 const WEDNESDAY = "2026-11-25";
@@ -98,6 +100,31 @@ describe("calendar preview", () => {
   it("stays inside the window at the top and bottom", () => {
     expect(previewPosition({ left: 300, right: 400, top: -40 }, size, viewport).top).toBe(16);
     expect(previewPosition({ left: 300, right: 400, top: 760 }, size, viewport).top).toBe(664);
+  });
+});
+
+describe("add to home screen", () => {
+  it("offers the browser's dialog, Safari's guidance, or nothing", () => {
+    expect(installWay({ standalone: false, prompt: true, ios: false })).toBe("prompt");
+    expect(installWay({ standalone: false, prompt: false, ios: true })).toBe("ios");
+    expect(installWay({ standalone: false, prompt: false, ios: false })).toBeNull();
+    expect(installWay({ standalone: true, prompt: true, ios: true })).toBeNull();
+  });
+
+  it("knows an iPhone and an iPad that presents itself as a Mac", () => {
+    expect(isAppleTouch("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", "iPhone", 5)).toBe(true);
+    expect(isAppleTouch("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "MacIntel", 5)).toBe(true);
+    expect(isAppleTouch("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "MacIntel", 0)).toBe(false);
+    expect(isAppleTouch("Mozilla/5.0 (Linux; Android 15)", "Linux armv8l", 5)).toBe(false);
+  });
+});
+
+describe("connection check", () => {
+  it("counts any answer from the server as online, even an error page, and only a lost request as offline", async () => {
+    const answer = vi.fn(async () => new Response(null, { status: 404 }));
+    expect(await reachServer(answer as unknown as typeof fetch)).toBe(true);
+    expect(answer).toHaveBeenCalledWith(expect.stringMatching(/^\/favicon\.ico\?connection=\d+$/), expect.objectContaining({ method: "HEAD", cache: "no-store" }));
+    expect(await reachServer((async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch)).toBe(false);
   });
 });
 

@@ -17,6 +17,16 @@ type Loaded = { state: "loading" } | { state: "missing" } | { state: "link-neede
 
 const TITLES = { booked: "booking.confirmation.title", completed: "booking.confirmation.completed", cancelled: "booking.confirmation.cancelled", noshow: "booking.confirmation.noshow" } as const;
 
+/** A booking while it loads: the heading and the ticket, as quiet blocks. */
+export function BookingSkeleton() {
+  return (
+    <SkeletonGroup className="mx-auto max-w-lg space-y-5">
+      <Bone className="mx-auto h-8 w-2/3" />
+      <SkeletonCard lines={3} />
+    </SkeletonGroup>
+  );
+}
+
 /**
  * A booking on a salon's own page, for the holder of the link in the
  * confirmation e-mail. The token is in the address fragment, which the browser
@@ -38,14 +48,7 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
   }, [slug, id]);
 
   const back = <ButtonLink href={bookingHome(slug)}>{t("booking.notFound.action")}</ButtonLink>;
-  if (loaded.state === "loading") {
-    return (
-      <SkeletonGroup className="mx-auto max-w-lg space-y-5">
-        <Bone className="mx-auto h-8 w-2/3" />
-        <SkeletonCard lines={3} />
-      </SkeletonGroup>
-    );
-  }
+  if (loaded.state === "loading") return <BookingSkeleton />;
   if (loaded.state !== "ready") {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">

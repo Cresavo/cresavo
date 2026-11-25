@@ -3344,6 +3344,10 @@ const messages = {
   "addons.consent.prepaid": "Pengar som betalats i förväg tillhör kunden tills besöket används.",
   "addons.consent.refunds": "Du bestämmer hur länge korten gäller och när du betalar tillbaka. Berätta det för kunderna innan de betalar.",
   "addons.consent.demo": "Demo: inget säljs eller dras. Betalningarna här är simulerade.",
+  "ui.skipToContent": "Hoppa till innehållet",
+  "connection.offline.studio": "Ingen anslutning. Det som syns finns kvar, men ändringar kan inte sparas förrän den är tillbaka.",
+  "connection.offline.booking": "Ingen anslutning. Sidan går fortfarande att läsa, men att boka, ändra och betala kräver anslutning.",
+  "connection.retry": "Försök igen",
   "booking.closingSoon": "Stänger snart, till {until}",
   "booking.lunchNow": "Lunchstängt till {until}",
   "booking.share": "Dela tiden",
@@ -3358,6 +3362,9 @@ const messages = {
   "calendar.keys.step": "Föregående eller nästa bokning",
   "calendar.keys.open": "Öppna bokningen",
   "calendar.keys.help": "Visa kortkommandona",
+  "install.title": "Lägg till på hemskärmen",
+  "install.text": "Öppna studion som en app, direkt från telefonen eller datorn.",
+  "install.ios": "Tryck på Dela i Safari och sedan på Lägg till på hemskärmen.",
 } satisfies Record<keyof typeof en.messages, string>;
 
 export const sv = {

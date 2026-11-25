@@ -318,8 +318,25 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   to { transform: scale(1); opacity: 0; }
 }
 
-/* A preview that appears in place fades in; nothing travels, so it reads the same with reduced motion. */
-.studio-peek { animation: ui-fade var(--dur-2) var(--ease-out) both; }
+/* A band or a preview that appears in place fades in; nothing travels, so it reads the same with reduced motion. */
+.ui-band, .studio-peek { animation: ui-fade var(--dur-2) var(--ease-out) both; }
+
+/* "Skip to content": off screen until a keyboard reaches it, then in the top corner, clear of the notch. */
+.ui-skip {
+  position: absolute;
+  left: var(--space-3);
+  top: calc(-1 * var(--space-12));
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-weight: 500;
+  box-shadow: var(--elevation-raised);
+}
+.ui-skip:focus { top: calc(env(safe-area-inset-top) + var(--space-3)); }
+/* The content a skip link lands on: no ring of its own, and kept clear of the top edge and a sticky band. */
+.ui-skip-target { outline: none; scroll-margin-top: var(--space-12); }
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-1: .01ms; --dur-2: .01ms; --dur-3: .01ms; }

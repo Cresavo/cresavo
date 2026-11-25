@@ -19,12 +19,16 @@ import { dispatch, markTrialUsed, useDemo, useTrialRemoved } from "../store";
 import { openSignedInSalon } from "../account/sync";
 import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
-import { Bone, SkeletonColumn, SkeletonGroup, SkeletonRow } from "../ui/feedback";
+import { Bone, SkeletonGroup } from "../ui/feedback";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
 import { ThemeToggle } from "../ui/theme-toggle";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
+import { OfflineBanner } from "../ui/offline-banner";
+import { CONTENT_ID, SkipLink } from "../ui/skip-link";
+import { PageSilhouette } from "./page-loading";
+import { watchInstall } from "./install/install";
 import { QuickActions } from "./quick-actions";
 import { SearchButton } from "./search/search-button";
 import { SearchPalette } from "./search/search-palette";
@@ -64,6 +68,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const preview = state && role === "staff" ? staffViewer(state) : null;
   // A signed-in owner works in their salon on the server; everyone else keeps the browser salons.
   useEffect(() => { void openSignedInSalon(); }, []);
+  // The browser's offer to install the studio waits for the row under More instead of popping up.
+  useEffect(watchInstall, []);
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => {
     const pin = () => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme)));
@@ -80,17 +86,19 @@ export function StudioShell({ children }: { children: ReactNode }) {
   if (removed || pathname === WELCOME_PATH || isSetup) {
     return (
       <>
+        <SkipLink />
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
           <Wordmark className="w-28" />
           {(isSetup || removed) && <StudioLanguageSwitch />}
         </header>
-        <main className="studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
+        <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
       </>
     );
   }
   return (
     <>
+      <SkipLink />
       <Sidebar state={state} pathname={pathname} role={role} />
       <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
         <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-target min-w-target items-center px-1 max-[374px]:px-0">
@@ -105,7 +113,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       {/* Keep the last item clear of the tab bar. */}
-      <main className="studio-content lg:pb-12 lg:pl-64">
+      <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target studio-content lg:pb-12 lg:pl-64">
+        <OfflineBanner area="studio" className="lg:px-8" />
         {/* One frame for every page. On a desktop the content starts a fixed gutter from the sidebar and grows to a
             readable maximum; it is never centred in the space that is left, so pages do not float. The assistant
             and Help sit in each page's title row (PageHeader), on the same right edge as the content. */}
@@ -142,21 +151,7 @@ function LoadingScreen({ calendar }: { calendar: boolean }) {
       </header>
       <main aria-hidden className="studio-content lg:pl-64">
         <div className={PAGE_FRAME}>
-          <div className="space-y-3 pb-6 pt-4">
-            <Bone className="h-8 w-48" />
-            <Bone className="h-4 w-64 max-w-full" />
-          </div>
-          {calendar ? (
-            <div className="flex gap-4">
-              <SkeletonColumn />
-              <SkeletonColumn className="max-sm:hidden" />
-              <SkeletonColumn className="max-lg:hidden" />
-            </div>
-          ) : (
-            <div className="rounded-lg bg-surface md:max-w-3xl">
-              {Array.from({ length: 5 }, (_, row) => <SkeletonRow key={row} />)}
-            </div>
-          )}
+          <PageSilhouette calendar={calendar} />
         </div>
       </main>
       <div aria-hidden className="fixed inset-x-0 bottom-0 border-t border-hairline bg-surface studio-safe-bottom lg:hidden">

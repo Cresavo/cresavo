@@ -3,6 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { ADVANCED_NAV, moreMenu, type NavItem } from "@/concept/studio/nav";
+import { InstallRow } from "@/concept/studio/install/install-row";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card, Section } from "@/concept/ui/card";
@@ -36,6 +37,8 @@ export default function MorePage() {
         <MenuGroup title={t("nav.section.business")} items={menu.business} />
         <MenuGroup title={t("nav.section.settings")} items={menu.settings} />
       </div>
+      {/* Add to the home screen: a quiet row where this browser can install the studio, nothing where it cannot. */}
+      <InstallRow className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2" />
       {/* Advanced: one quiet row at the end, for what most salons never need. */}
       <ul aria-label={t("nav.advanced")} className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <li>
