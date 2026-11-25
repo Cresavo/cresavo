@@ -181,6 +181,8 @@
 .standaloneHead p { color: var(--muted); }
 .standaloneHead a { color: var(--ink); text-underline-offset: 4px; }
 .standaloneHead :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.standalone:has([data-showcase-confirmation]) .standaloneHead { display: none; }
+
 @media (min-width: 600px) { .standalone { padding-top: 64px; } }
 @media (min-width: 860px) { .standalone { scroll-margin-top: 76px; } }
 

@@ -7,7 +7,9 @@ import { buildIcs, googleCalendarLink, icsTimestamp } from "../booking/ics";
 import { mapLink } from "../booking/links";
 import { freeUntilText } from "../booking/deadline-text";
 import { changeRule } from "../booking/policy";
-import { PaymentSummary, policyText } from "../booking/policy-summary";
+import { formatMinor, PaymentSummary, policyText } from "../booking/policy-summary";
+import { paymentBalance, toMinor } from "../booking/protection";
+import { paidWithCards } from "../giftcards/cards";
 import { VisitTicket } from "../booking/visit-ticket";
 import { shareVisit } from "../booking/share-visit";
 import type { Booking, DemoState } from "../data/types";
@@ -145,7 +147,7 @@ export function ShowcaseConfirmation({
         }
       >
         {booking.protection ? (
-          <PaymentSummary booking={booking} state={state} active={active} />
+          <ShowcasePayment booking={booking} state={state} active={active} />
         ) : (
           <p className="border-t border-hairline pt-3 text-meta">
             <strong>{formatMoney(booking.price, state.localization.currency)}</strong>
@@ -193,6 +195,31 @@ export function ShowcaseConfirmation({
 }
 
 /** Google Calendar and share targets for a showcase receipt: Swedish copy, never the engine booking page. */
+
+/** Two clear Swedish lines for a prepaid visit. Odd cases stay on the engine summary. */
+function ShowcasePayment({ booking, state, active }: { booking: Booking; state: DemoState; active?: boolean }) {
+  const protection = booking.protection;
+  if (!protection) return null;
+  if (
+    (booking.status === "completed" && state.packages.some((pkg) => pkg.usedBy.includes(booking.id))) ||
+    booking.status === "noshow" ||
+    booking.status === "cancelled" ||
+    protection.decision
+  ) {
+    return <PaymentSummary booking={booking} state={state} active={active} />;
+  }
+  const { currency } = protection.terms;
+  const balance = paymentBalance(protection, false, toMinor(paidWithCards(state, booking.id), currency));
+  const money = (n: number) => formatMinor(n, currency);
+  const paid = balance.paid || balance.deposit;
+  return (
+    <div className="space-y-1 border-t border-hairline pt-3 text-meta">
+      <p>Betalt {money(paid)}</p>
+      <p>{balance.remaining === 0 ? "Inget kvar att betala på salongen." : `Kvar att betala på salongen ${money(balance.remaining)}`}</p>
+    </div>
+  );
+}
+
 export function showcaseCalendarLinks(state: DemoState, booking: Booking, sharePath: string, language = getActiveLocale()) {
   const service = findService(state, booking.serviceId);
   if (!service) return null;
