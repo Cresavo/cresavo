@@ -32,7 +32,7 @@ export interface Brief {
 }
 
 const HOLIDAY_DAYS = 14;
-const MAX_ITEMS = 6;
+const MAX_ITEMS = 8;
 
 const byPriority = (items: BriefItem[]) => [...items].sort((a, b) => b.priority - a.priority).slice(0, MAX_ITEMS);
 
@@ -58,10 +58,10 @@ export function eventReactions(state: DemoState, clock: Clock): BriefItem[] {
 export function morningBrief(state: DemoState, clock: Clock): Brief {
   const items: BriefItem[] = [];
   const bookings = dayBookings(state, clock.today);
-  if (!openingFor(state.salon, clock.today)) items.push({ id: "closed", text: t("brief.closed"), priority: 4 });
+  if (!openingFor(state.salon, clock.today)) items.push({ id: "closed", text: t("brief.closed"), priority: 6 });
   else if (bookings.length) {
     const first = bookings[0];
-    items.push({ id: "bookings", text: tc("brief.bookings", bookings.length, { time: formatTime(first.start), name: findCustomer(state, first.customerId)?.firstName ?? "" }), priority: 4, href: "/studio/calendar" });
+    items.push({ id: "bookings", text: tc("brief.bookings", bookings.length, { time: formatTime(first.start), name: findCustomer(state, first.customerId)?.firstName ?? "" }), priority: 6, href: "/studio/calendar" });
   }
   const moving = needsMoving(state, clock.today, clock.minutes).length;
   if (moving) items.push({ id: "needs-moving", text: tc("brief.needsMoving", moving), priority: 6, href: "/studio" });

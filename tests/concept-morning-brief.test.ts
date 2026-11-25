@@ -114,6 +114,25 @@ describe("morning brief", () => {
     expect(ids).toContain(`cancel-${cancelled.id}`);
     expect(ids).not.toContain("notice-fictional-cancel");
   });
+
+  it("keeps an earlier booking notice when the same visit is later cancelled and the slot is free", () => {
+    const cancelled = base.bookings.find((b) => b.date === today && b.status === "cancelled" && eventReactions(base, clock).some((i) => i.id === `cancel-${b.id}`))!;
+    const reported = event(event(base, "fictional-booked", cancelled.id, "booked"), "fictional-cancel", cancelled.id, "cancelled");
+    const ids = morningBrief(reported, clock).items.map((i) => i.id);
+    expect(ids).toContain("notice-fictional-booked");
+    expect(ids).toContain(`cancel-${cancelled.id}`);
+    expect(ids).not.toContain("notice-fictional-cancel");
+  });
+
+  it("still names today's bookings when several notices and free-slot cancellations are in the list", () => {
+    const cancelled = base.bookings.find((b) => b.date === today && b.status === "cancelled" && eventReactions(base, clock).some((i) => i.id === `cancel-${b.id}`))!;
+    const { state, visit } = bookedOnline();
+    let busy = event(state, "fictional-cancel", cancelled.id, "cancelled");
+    busy = ["a", "b", "c"].reduce((s, id) => event(s, `fictional-${id}`, visit.id, "moved"), busy);
+    const ids = morningBrief(busy, clock).items.map((i) => i.id);
+    expect(ids).toContain("bookings");
+    expect(ids).toContain(`cancel-${cancelled.id}`);
+  });
 });
 
 describe("brief speech", () => {

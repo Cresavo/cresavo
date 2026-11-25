@@ -34,7 +34,8 @@ export interface NoticeItem extends BriefItem {
 export function noticeItems(state: DemoState, clock: Clock, omitBookingIds?: ReadonlySet<string>): NoticeItem[] {
   const notices = state.inbox.flatMap((item): NoticeItem[] => {
     if (!item.event || item.read || !item.bookingId || !inboxItemVisible(state, item)) return [];
-    if (omitBookingIds?.has(item.bookingId)) return [];
+    // Only the cancellation is omitted: an earlier booking or move for the same visit still belongs in the list.
+    if (item.event === "cancelled" && omitBookingIds?.has(item.bookingId)) return [];
     const booking = state.bookings.find((b) => b.id === item.bookingId);
     if (!booking) return [];
     const text = t(SENTENCE[item.event], {
