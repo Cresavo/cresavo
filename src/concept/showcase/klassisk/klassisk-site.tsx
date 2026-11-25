@@ -135,7 +135,7 @@ function Booking({ theme }: { theme: ShowcaseTheme }) {
           <Photo className={k.bookingPhoto} name="klassisk-detail" sizes="(min-width: 960px) 36vw, 0px"
             alt="Hörnet vid fönstret i salongen med en fåtölj, blommor i en vas och en morgonrock på kroken" />
         </div>
-        <ShowcaseBooking className={k.flow} palette={CLASSIC_PALETTE[theme]} corners="soft" />
+        <ShowcaseBooking className={k.flow} palette={CLASSIC_PALETTE[theme]} corners="soft" sharePath="/showcase/salong-klassisk" />
       </div>
     </section>
   );

@@ -81,6 +81,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Showcase confirmation stays on the salon site.** After a booking on `/showcase/salong-klassisk/boka` or `/showcase/salong-vagad/boka` (and on the salon homepages), the receipt keeps the site's colours and type, every action stays on that site (none lead to `/boka/salong-eko`), and calendar text is Swedish.
+
 - **Showcase booking starts from the price list.** On the two salon sites, “Boka tid” without a chosen treatment now takes the visitor to the menu instead of an empty search. The standalone booking page lists the treatments. The classic site’s sticky header no longer covers the booking heading, and each treatment row has a visible “Boka” cue.
 
 - **The Studio no longer fills in the owner's own details for a customer.** When a booking is made from the Studio, the customer's name, phone and e-mail fields no longer offer the browser's saved details, which are the owner's, not the customer's.

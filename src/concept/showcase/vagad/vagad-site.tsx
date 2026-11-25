@@ -127,7 +127,7 @@ function Booking({ theme }: { theme: ShowcaseTheme }) {
           <h2 id="booking-heading" className={v.h2}>Boka en tid</h2>
           <p>Välj behandling, tid och fyll i namn och nummer. Hellre ringa? <a href={telHref()}>{SALON.phone}</a></p>
         </div>
-        <ShowcaseBooking className={v.flow} palette={BOLD_PALETTE[theme]} corners="sharp" />
+        <ShowcaseBooking className={v.flow} palette={BOLD_PALETTE[theme]} corners="sharp" sharePath="/showcase/salong-vagad" />
       </div>
     </section>
   );

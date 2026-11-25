@@ -43,7 +43,7 @@ export function StandaloneBooking({ styles: s, home, themeKey, initialTheme, pal
               <h1 className={s.h2}>Boka tid</h1>
               <p>{ADDRESS.street}, {ADDRESS.area} · <a href={telHref()}>{SALON.phone}</a></p>
             </div>
-            <ShowcaseBooking className={s.flow} palette={palette[theme]} corners={corners} listTreatments />
+            <ShowcaseBooking className={s.flow} palette={palette[theme]} corners={corners} listTreatments sharePath={`${home}/boka`} />
           </div>
         </main>
         <footer className={s.footer}>

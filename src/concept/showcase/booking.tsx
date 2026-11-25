@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Confirmation } from "../booking/confirmation";
+import { ShowcaseConfirmation } from "./confirmation";
 import { themeAttributes } from "../booking/page-root";
 import { BookingWizard } from "../booking/wizard";
 import type { DemoState } from "../data/types";
@@ -15,8 +15,8 @@ import { useSalonNow } from "../use-now";
 import { kronor, menuOf, minutes, PACK_MENU, SALON, SHOWCASE_SLUG, telHref } from "./salon";
 import p from "./picker.module.css";
 
-// The demo salon's own booking engine on a showcase site: the same wizard,
-// deposit checkout and confirmation as /boka/salong-eko, in Swedish, wearing
+// The demo salon's own booking engine on a showcase site: the same wizard and
+// deposit checkout as the demo salon, in Swedish, wearing
 // the site's colours and type. Nothing here decides a booking rule.
 
 /** The demo salon from this browser's demo, or null while it loads or when the visitor's demo holds another business. */
@@ -91,7 +91,7 @@ function TreatmentPicker({ onPick }: { onPick: (serviceId: string) => void }) {
   );
 }
 
-function Flow({ listTreatments }: { listTreatments: boolean }) {
+function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePath: string }) {
   const state = useShowcaseState();
   const now = useSalonNow();
   const { preset, book, menuAnchor } = useContext(BookingContext);
@@ -103,7 +103,19 @@ function Flow({ listTreatments }: { listTreatments: boolean }) {
       </p>
     );
   }
-  if (receipt) return <ConceptLanguage language="sv" currency="SEK"><Confirmation id={receipt} onBack={() => setReceipt(undefined)} /></ConceptLanguage>;
+  if (receipt) {
+    return (
+      <ConceptLanguage language="sv" currency="SEK">
+        <ShowcaseConfirmation
+          id={receipt}
+          sharePath={sharePath}
+          onBack={() => setReceipt(undefined)}
+          onOpen={setReceipt}
+          onBookAgain={(serviceId) => { setReceipt(undefined); book(serviceId); }}
+        />
+      </ConceptLanguage>
+    );
+  }
   const initial = state && state.services.some((service) => service.id === preset.serviceId) ? preset.serviceId : undefined;
   if (!preset.serviceId || (state && !initial)) {
     if (listTreatments) return <TreatmentPicker onPick={book} />;
@@ -128,13 +140,13 @@ function Flow({ listTreatments }: { listTreatments: boolean }) {
  * On a homepage the wizard waits until a treatment is chosen, so the page is not a second empty search.
  * On the standalone booking page, `listTreatments` shows the price list here instead.
  */
-export function ShowcaseBooking({ palette, corners, className, listTreatments = false }: { palette: Palette; corners: CornerStyle; className?: string; listTreatments?: boolean }) {
+export function ShowcaseBooking({ palette, corners, className, listTreatments = false, sharePath }: { palette: Palette; corners: CornerStyle; className?: string; listTreatments?: boolean; sharePath: string }) {
   const { className: themed, style, ...attributes } = themeAttributes({ ...DEFAULT_THEME, colors: palette, corners });
   const fonts = { "--page-font-heading": "var(--display)", "--page-font-body": "var(--body)" } as CSSProperties;
   return (
     <div className={cx("studio-root", themed, className)} {...attributes} style={{ ...style, ...fonts }}>
       <div data-booking-flow>
-        <Flow listTreatments={listTreatments} />
+        <Flow listTreatments={listTreatments} sharePath={sharePath} />
       </div>
       <ConceptLanguage language="sv" currency="SEK">
         <Toaster />
