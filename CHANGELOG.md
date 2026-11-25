@@ -90,6 +90,8 @@ All notable changes to this project are documented here. Format follows
 
 - **The sandbox deployment unit test no longer depends on a clean operator environment.** It used to fail on a machine that already had an AI key or another setting the hosted sandbox refuses, because the proxy then returned 503 instead of the Swedish sandbox redirect. The test now clears those keys before applying the sealed profile, and still checks that such a leftover key is refused.
 
+- **Search opens the same calendar day again on a phone.** After Search had opened a day and the owner moved to another with Previous, searching for that first day again could leave the calendar where it was: the ?date= link was meant to drop after it was used, but a soft replace sometimes left it in the address, and the second search then did nothing. Search now tells the calendar which day to show, and the link is dropped from the address without a second navigation.
+
 - **The Studio no longer fills in the owner's own details for a customer.** When a booking is made from the Studio, the customer's name, phone and e-mail fields no longer offer the browser's saved details, which are the owner's, not the customer's.
 - **One icon on "too late to change online".** The notice under a booking that can no longer be changed online showed a phone icon beside the warning icon; it now has just the warning.
 

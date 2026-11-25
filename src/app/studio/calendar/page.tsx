@@ -4,7 +4,7 @@ import { usePairing } from "@/concept/studio/pairing/session";
 import { PairedCalendar } from "@/concept/studio/pairing/calendar";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, isDateKey, startOfWeek } from "@/concept/data/dates";
 import { openingFor } from "@/concept/data/slots";
@@ -17,6 +17,7 @@ import { CalendarOverflow } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { MonthReveal } from "@/concept/studio/calendar/month-reveal";
 import { CalendarOfflineNote, useCalendarOffline } from "@/concept/studio/calendar/offline-note";
+import { dropCalendarDateLink, useRequestedCalendarDay } from "@/concept/studio/calendar/show-day";
 import { CalendarPreview } from "@/concept/studio/calendar/preview";
 import { CalendarShortcuts } from "@/concept/studio/calendar/shortcuts";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
@@ -41,6 +42,13 @@ export default function CalendarPage() {
   const [local, setLocal] = useState(!!bookingLink || !!(dateLink && isDateKey(dateLink)));
   const [openedLink, setOpenedLink] = useState(bookingLink);
   const [openedDate, setOpenedDate] = useState(dateLink && isDateKey(dateLink) ? dateLink : null);
+  const [requestedDate, setRequestedDate] = useState<string | null>(null);
+  // Search also announces the day directly, so a sticky ?date= still opens the local board.
+  useRequestedCalendarDay((date) => {
+    setRequestedDate(date);
+    setOpenedDate(date);
+    setLocal(true);
+  });
   // A notice must open the local visit even when a paired calendar is the usual view.
   if (bookingLink && bookingLink !== openedLink) {
     setOpenedLink(bookingLink);
@@ -54,18 +62,18 @@ export default function CalendarPage() {
     // The date is dropped from the URL after it is applied, so the same day can be searched again.
     setOpenedDate(null);
   }
-  if (!pairing?.workspace) return <LocalCalendar />;
+  if (!pairing?.workspace) return <LocalCalendar requestedDate={requestedDate} />;
   const switchCalendar = <Button variant="secondary" onClick={() => setLocal(!local)}>
     {t(local ? "pair.calendar" : "pair.localCalendar")}
   </Button>;
-  if (local) return <LocalCalendar switchCalendar={switchCalendar} />;
+  if (local) return <LocalCalendar switchCalendar={switchCalendar} requestedDate={requestedDate} />;
   return <>
     <PageHeader title={t("calendar.title")} actions={switchCalendar} />
     <PairedCalendar />
   </>;
 }
 
-function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode }) {
+function LocalCalendar({ switchCalendar, requestedDate }: { switchCalendar?: React.ReactNode; requestedDate?: string | null }) {
   const { state, today, target } = useStudio();
   // A signed-in salon without a connection: the board as last read, and new bookings wait for the connection.
   const { offline, readAt } = useCalendarOffline(target?.workspace === "account");
@@ -93,7 +101,6 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
   }
   // `?date=<day>` (from Search) shows that day. The param is then dropped so the same day can be
   // searched again after the owner has moved on with the calendar controls.
-  const router = useRouter();
   const dayLink = useSearchParams()?.get("date") ?? null;
   const [shownLink, setShownLink] = useState<string | null>(null);
   if (dayLink !== shownLink) {
@@ -103,14 +110,23 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       setView("day");
     }
   }
+  // A later search for the same day also arrives as an event when the address still has ?date=
+  // (router.replace can leave it there, after which router.push is a no-op).
+  useRequestedCalendarDay((next) => {
+    setDate(next);
+    setView("day");
+  });
+  const [appliedRequest, setAppliedRequest] = useState<string | null>(null);
+  if (requestedDate && isDateKey(requestedDate) && requestedDate !== appliedRequest) {
+    // Opening the local board for a search while a paired calendar was showing.
+    setAppliedRequest(requestedDate);
+    setDate(requestedDate);
+    setView("day");
+  }
   useEffect(() => {
     if (!dayLink || !isDateKey(dayLink)) return;
-    const next = new URLSearchParams(window.location.search);
-    if (!next.has("date")) return;
-    next.delete("date");
-    const qs = next.toString();
-    router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
-  }, [dayLink, router]);
+    dropCalendarDateLink();
+  }, [dayLink]);
   const setSheet = (next: OpenSheet) => {
     // A free spot in the grid opens a new booking too; it waits like the button while offline.
     if (offline && next?.kind === "new") return;

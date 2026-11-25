@@ -7,6 +7,7 @@ import { createDemoState } from "@/concept/data/generate";
 import { setLocale } from "@/concept/i18n";
 import { fullName } from "@/concept/selectors";
 import { swipeDirection } from "@/concept/studio/calendar/month-reveal";
+import { calendarUrlWithoutDate } from "@/concept/studio/calendar/show-day";
 import { fold, matchScore, paletteResults, resolveRecent } from "@/concept/studio/search/palette-items";
 import { monthCells, shiftMonth } from "@/concept/ui/month-grid";
 
@@ -119,5 +120,14 @@ describe("search palette", () => {
     expect(resolveRecent(owner, "day:2026-12-03")?.href).toBe("/studio/calendar?date=2026-12-03");
     expect(resolveRecent(owner, "customer:nobody")).toBeUndefined();
     expect(resolveRecent(owner, "day:not-a-day")).toBeUndefined();
+  });
+});
+
+describe("calendar date link", () => {
+  it("drops only the date from the address", () => {
+    expect(calendarUrlWithoutDate("/studio/calendar?date=2026-11-18")).toBe("/studio/calendar");
+    expect(calendarUrlWithoutDate("/studio/calendar?date=2026-11-18&booking=b1")).toBe("/studio/calendar?booking=b1");
+    expect(calendarUrlWithoutDate("/studio/calendar")).toBeNull();
+    expect(calendarUrlWithoutDate("/studio/calendar?view=week")).toBeNull();
   });
 });
