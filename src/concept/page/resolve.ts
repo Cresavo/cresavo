@@ -61,12 +61,14 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
 export const UNKNOWN_PATH = "/unknown-address";
 export const COMING_SOON_PATH = "/coming-soon";
 
-/** The product site's public pages (home and about, in both languages), which search engines may index. The front door can also arrive at its rewritten path on an internal host. */
+/** The product site's public pages, in both languages, which search engines may index. The front door can also arrive at its rewritten path on an internal host. */
+const PRODUCT_PAGES = new Set(["/", "/sv", "/about", "/sv/about", "/own-domain", "/sv/own-domain", COMING_SOON_PATH]);
+
 export function isProductHome(rawHost: string | null | undefined, pathname: string): boolean {
   const host = normalizeHost(rawHost);
   const resolution = resolveHost(host);
   if (resolution.kind === "site" && resolution.site === "apex") {
-    return pathname === "/" || pathname === "/sv" || pathname === "/about" || pathname === "/sv/about" || pathname === COMING_SOON_PATH;
+    return PRODUCT_PAGES.has(pathname);
   }
   return (pathname === COMING_SOON_PATH || pathname === "/sv") &&
     Boolean(process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN) && (!host || LOCAL_HOSTS.has(host));

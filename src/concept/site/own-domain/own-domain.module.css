@@ -1,0 +1,105 @@
+/* The own-domain page. It sits inside the homepage's .root (home.module.css), so it shares its tokens,
+   type scale and light/dark pairs. Rules: docs/design/SITE_RULES.md. Mobile first. */
+
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- header: wordmark, the other language and the theme ---------- */
+.lang { margin-left: auto; display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; font-size: 15px; color: var(--muted); text-decoration: none; }
+.lang:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.theme { margin-left: 4px; }
+
+/* ---------- hero ---------- */
+.hero { padding: 40px 0 var(--sec); }
+.heroGrid { display: grid; gap: 40px; }
+.heroCopy h1 { margin-bottom: 20px; max-width: 9em; }
+.heroCopy p { max-width: 30em; }
+
+.example { margin: 0; }
+.frames { position: relative; padding-bottom: 48px; padding-right: 22%; }
+.browser { border: 1px solid var(--line-2); border-radius: 10px; overflow: hidden; background: var(--surface); box-shadow: 0 24px 48px -32px var(--sh-2); }
+.browser img, .phone img { width: 100%; height: auto; }
+.bar { display: flex; align-items: center; justify-content: center; gap: 6px; height: 32px; margin: 0; border-bottom: 1px solid var(--line); background: var(--sunk); color: var(--muted); font: 500 12px/1 var(--font-ui); letter-spacing: .01em; }
+.lock { width: 8px; height: 7px; border-radius: 1.5px; background: currentColor; position: relative; top: 1px; }
+.lock::before { content: ""; position: absolute; left: 1.5px; top: -4px; width: 5px; height: 5px; border: 1.3px solid currentColor; border-bottom: 0; border-radius: 3px 3px 0 0; box-sizing: border-box; }
+.phone { position: absolute; right: 0; bottom: 0; width: 36%; max-width: 200px; padding: 6px; border-radius: 26px; background: #1c1819; box-shadow: 0 24px 40px -24px var(--sh-3); }
+.phone img { border-radius: 0 0 20px 20px; }
+.phoneBar { margin: 0; padding: 7px 0 6px; border-radius: 20px 20px 0 0; background: #f6f6f5; color: #4b4b4b; font: 500 9px/1 var(--font-ui); text-align: center; }
+.caption { margin-top: 20px; font-size: 15px; color: var(--muted); max-width: 40em; }
+
+@media (min-width: 600px) {
+  .hero { padding-top: 64px; }
+  .phoneBar { font-size: 11px; }
+}
+@media (min-width: 1000px) {
+  .heroGrid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; gap: 56px; }
+  .frames { padding-right: 14%; }
+}
+
+/* ---------- three ways: columns divided by rules, each with its own kind of artefact ---------- */
+.ways { padding: var(--sec) 0; border-top: 1px solid var(--line); }
+.ways h2 { max-width: 14em; margin-bottom: 40px; }
+.waysGrid { display: grid; gap: 0; }
+.way { display: flex; flex-direction: column; gap: 16px; padding: 32px 0; border-top: 1px solid var(--line); min-width: 0; }
+.way h3 { font-size: 20px; line-height: 1.3; }
+.way > p { color: var(--muted); max-width: 30em; }
+.small { font-size: 14px; color: var(--muted); }
+
+.record { display: grid; margin: 4px 0 0; border-top: 1px solid var(--line); font-size: 15px; }
+.record div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.record dt { color: var(--muted); }
+.record dd { margin: 0; font-family: var(--mono); font-size: 14px; text-align: right; overflow-wrap: anywhere; }
+
+.builder { display: flex; flex-direction: column; gap: 20px; }
+.preview { display: grid; place-items: center; min-height: 112px; padding: 24px 16px; border-radius: 10px; background: var(--sunk); }
+.preview a { max-width: 100%; overflow-wrap: anywhere; text-align: center; }
+.preview a:focus-visible { outline-offset: 4px; }
+.field { display: grid; gap: 8px; font-size: 15px; font-weight: 500; }
+.field input {
+  min-height: 48px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 10px;
+  background: var(--surface); color: var(--text); font: 400 16px/1.2 var(--font-ui);
+}
+.field input:focus-visible { outline: 2px solid var(--plum); outline-offset: 2px; border-radius: 10px; }
+.swatches { margin: 0; padding: 0; border: 0; min-width: 0; }
+.swatches legend { padding: 0; margin-bottom: 8px; font-size: 15px; font-weight: 500; }
+.swatches div { display: flex; flex-wrap: wrap; gap: 4px; }
+.swatch { position: relative; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; }
+.swatch::before { content: ""; width: 28px; height: 28px; border-radius: 50%; background: var(--swatch); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent); transition: transform .16s var(--ease); }
+.swatch:has(input:checked)::before { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--text); }
+.swatch input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.swatch:has(input:focus-visible) { outline: 2px solid var(--plum); outline-offset: 0; border-radius: 50%; }
+
+.code { min-width: 0; }
+.codeHead { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 15px; font-weight: 500; }
+.copy {
+  min-height: 44px; min-width: 44px; padding: 0 4px; border: 0; background: transparent; color: var(--plum); cursor: pointer;
+  font: 500 15px/1 var(--font-ui); text-decoration: underline; text-decoration-color: var(--uline); text-underline-offset: 4px;
+}
+.copy:hover { text-decoration-color: currentColor; }
+.code pre {
+  margin: 4px 0 0; padding: 14px 16px; border-radius: 10px; background: var(--sunk); color: var(--text-2);
+  font: 400 13px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto;
+}
+.copyState { min-height: 20px; margin-top: 6px; font-size: 14px; color: var(--muted); }
+
+@media (min-width: 1000px) {
+  .ways h2 { margin-bottom: 56px; }
+  .waysGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr); border-top: 1px solid var(--line); }
+  .way { padding: 32px 32px 0; border-top: 0; }
+  .way:first-child { padding-left: 0; }
+  .way:last-child { padding-right: 0; }
+  .way + .way { border-left: 1px solid var(--line); }
+}
+
+/* ---------- the address stays yours: the heading beside three plain lines ---------- */
+.owned { padding: var(--sec) 0; border-top: 1px solid var(--line); }
+.ownedGrid { display: grid; gap: 32px; }
+.ownedList { border-top: 1px solid var(--line); }
+.ownedList li { padding: 16px 0; border-bottom: 1px solid var(--line); font-size: 19px; line-height: 1.45; letter-spacing: -.01em; }
+@media (min-width: 900px) {
+  .ownedGrid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: start; }
+  .ownedList li { font-size: 21px; padding: 20px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swatch::before { transition: none; }
+}

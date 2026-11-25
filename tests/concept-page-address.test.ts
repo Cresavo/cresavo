@@ -85,6 +85,24 @@ describe("host resolution", () => {
     expect(route("app.cresavo.com", "/")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
   });
 
+  it("serves the own-domain page and the showcase salon sites as plain paths on the platform's own hosts", () => {
+    const paths = ["/own-domain", "/sv/own-domain", "/showcase/salong-klassisk", "/showcase/salong-vagad", "/showcase/salong-klassisk/boka", "/showcase/salong-vagad/boka", "/boka/salong-eko"];
+    for (const host of ["cresavo.com", "www.cresavo.com", "demo.cresavo.com", "localhost:3000", "cresavo-abc.vercel.app"]) {
+      for (const path of paths) expect(routeHost(host, path, directory, "cresavo.com"), `${host}${path}`).toEqual({ action: "next" });
+    }
+    // A business's own address never serves them: it shows only its own booking.
+    expect(routeHost("salong-eko.cresavo.com", "/own-domain", directory, "cresavo.com")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+    expect(routeHost("salong-eko.cresavo.com", "/showcase/salong-klassisk", directory, "cresavo.com")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
+  });
+
+  it("keeps the new page names from salons", () => {
+    for (const label of ["own-domain", "showcase"]) {
+      expect(RESERVED_SLUGS).toContain(label);
+      expect(checkSlug(label)).toEqual({ ok: false, problem: "reserved" });
+      expect(resolveHost(`${label}.cresavo.com`, directory, "cresavo.com")).toEqual({ kind: "unknown", reason: "reserved" });
+    }
+  });
+
   it("previews the product site at / locally and on preview deployments, unless the legacy home is asked for", () => {
     for (const host of ["localhost:3000", "127.0.0.1:3000", "cresavo-abc.vercel.app"]) {
       expect(routeHost(host, "/", directory, "cresavo.com")).toEqual({ action: "rewrite", path: COMING_SOON_PATH });
