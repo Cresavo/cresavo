@@ -16,7 +16,7 @@ import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
 import { carriesBooking, useBookingDrop } from "./drop";
 import { snapMinutes } from "./gap";
-import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, TimeAxis, useTextScale } from "./time-axis";
 
 const PX_PER_MIN = 1.25;
 const WARNING_BLOCK_HEIGHT = 64;
@@ -32,6 +32,7 @@ function dayHeading(count: number, works: boolean) {
 export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
   const { state, today, minutes } = useStudio();
   const drop = useBookingDrop();
+  const text = useTextScale();
   // While a booking is dragged, the header offers the day before and after, keeping the time.
   const [dragging, setDragging] = useState(false);
   const hours = openingFor(state.salon, date)!;
@@ -48,9 +49,9 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   const entries = columns.flatMap(column => column.entries);
   const { from, to } = calendarRange(open, close, entries.map(({ booking }) => booking));
   const scale = calendarScale(
-    calendarScale(PX_PER_MIN, entries.map(({ booking }) => booking)),
+    calendarScale(PX_PER_MIN * text, entries.map(({ booking }) => booking), 44 * text),
     entries.filter(({ misfit }) => misfit).map(({ booking }) => booking),
-    WARNING_BLOCK_HEIGHT,
+    WARNING_BLOCK_HEIGHT * text,
   );
   const height = (to - from) * scale;
   const minuteAt = (event: { clientY: number; currentTarget: Element }) =>

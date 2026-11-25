@@ -59,6 +59,8 @@
   line-height: 1.05;
   letter-spacing: -0.02em;
   text-wrap: balance;
+  /* A long one-word name breaks instead of running off a phone with large text. */
+  overflow-wrap: break-word;
 }
 
 /* "cover": the name sits on the photo. The shade and its ink are fixed, never
@@ -106,6 +108,11 @@
 @media (min-width: 1024px) {
   .booking-gutters { --booking-gutter: var(--space-8); }
   .booking-page-columns { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+}
+/* The column of practical facts stays in view while the price list scrolls, but only where the window is tall
+   enough to show all of it: zoomed in, it scrolls with the page so nothing at its foot is out of reach. */
+@media (min-width: 1024px) and (min-height: 40rem) {
+  .booking-aside { position: sticky; top: var(--space-6); }
 }
 
 .booking-safe-top { padding-top: env(safe-area-inset-top); }

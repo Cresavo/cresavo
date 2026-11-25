@@ -149,6 +149,9 @@ body:has(.ui-media-dialog[open]) { overflow: hidden; }
 /* A month beside the chosen day's times when the container has room for both, the times under it otherwise. */
 .ui-day-time { container-type: inline-size; }
 .ui-day-time-layout { display: grid; gap: var(--space-6); align-items: start; }
+/* Three times to a row; with large text, two, so a time and its staff name are not cut. */
+.ui-slot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 15rem) { .ui-slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @container (min-width: 36rem) {
   .ui-day-time-layout { grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); gap: var(--space-8); }
 }
@@ -343,7 +346,9 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
 .ui-skip {
   position: absolute;
   left: var(--space-3);
-  top: calc(-1 * var(--space-12));
+  top: 0;
+  /* Its own height and more above the edge, so a link made taller by large text does not peek in. */
+  translate: 0 -200%;
   z-index: var(--z-toast);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
@@ -352,7 +357,7 @@ body:has(.ui-sheet-side[open]) { overflow: hidden; }
   font-weight: 500;
   box-shadow: var(--elevation-raised);
 }
-.ui-skip:focus { top: calc(env(safe-area-inset-top) + var(--space-3)); }
+.ui-skip:focus { top: calc(env(safe-area-inset-top) + var(--space-3)); translate: none; }
 /* The content a skip link lands on: no ring of its own, and kept clear of the top edge and a sticky band. */
 .ui-skip-target { outline: none; scroll-margin-top: var(--space-12); }
 
