@@ -35,6 +35,11 @@ export function formatMonth(month: string, short = false): string {
   return dateText(`${month}-01`, { month: short ? "short" : "long" });
 }
 
+/** "November 2026" */
+export function formatMonthYear(month: string): string {
+  return dateText(`${month}-01`, { month: "long", year: "numeric" });
+}
+
 export function weekdayName(key: DateKey): string {
   return dateText(key, { weekday: "long" });
 }

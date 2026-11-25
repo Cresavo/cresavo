@@ -6,7 +6,7 @@ import { PairedCalendar } from "@/concept/studio/pairing/calendar";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
-import { addDays, startOfWeek } from "@/concept/data/dates";
+import { addDays, isDateKey, startOfWeek } from "@/concept/data/dates";
 import { openingFor } from "@/concept/data/slots";
 import type { StaffId } from "@/concept/data/types";
 import { t, tc } from "@/concept/i18n";
@@ -15,6 +15,7 @@ import { dayBookings, utilisation } from "@/concept/selectors";
 import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-sheets";
 import { CalendarOverflow } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
+import { MonthReveal } from "@/concept/studio/calendar/month-reveal";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
 import { canChangeBooking, staffViewer } from "@/concept/ops/access";
@@ -74,6 +75,16 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       openSheet({ kind: "booking", id: booking.id });
     }
   }
+  // `?date=<day>` (from Search) shows that day, once per link.
+  const dayLink = useSearchParams()?.get("date") ?? null;
+  const [shownLink, setShownLink] = useState<string | null>(null);
+  if (dayLink !== shownLink) {
+    setShownLink(dayLink);
+    if (dayLink && isDateKey(dayLink)) {
+      setDate(dayLink);
+      setView("day");
+    }
+  }
   const setSheet = (next: OpenSheet) => {
     // Closing the visit drops the link, so the same notice can open it again.
     if (!next && focus) window.history.replaceState(window.history.state, "", window.location.pathname);
@@ -127,14 +138,19 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
           </>
         }
       />
-      <div className="mb-4 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <MonthReveal date={date} today={today} onPick={setDate}
+        info={(day) => {
+          const count = dayBookings(state, day, staffId, room).length;
+          return { mark: count > 0, note: count ? tc("calendar.bookingCount", count) : undefined };
+        }}
+        heading={<>
           <h2 className="text-h2 font-semibold">{label}</h2>
           {staffControl && staff.length === 1 && (
             <span className="inline-flex items-center gap-2 text-meta text-text-secondary xl:hidden"><StaffDot staffId={staff[0].id} />{staff[0].firstName}</span>
           )}
           {chosenRoom && <Badge>{chosenRoom.name}</Badge>}
-        </div>
+        </>}
+        toolbar={
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex shrink-0 items-center">
             <IconButton label={t("calendar.previous")} onClick={() => setDate(addDays(date, -step))}>
@@ -161,8 +177,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
               {staffControl}
             </div>}
           </CalendarOverflow>
-        </div>
-      </div>
+        </div>} />
 
       {view === "day" ? (
         openingFor(state.salon, date) ? (

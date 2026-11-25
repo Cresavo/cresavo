@@ -62,6 +62,17 @@
   pointer-events: none;
 }
 .studio-tab-icon { transition: color var(--dur-2) var(--ease-out); }
+/* Calendar: the month drops down from the heading and folds back up into it. A vertical swipe on the heading or
+   the month is the gesture, so it does not scroll the page there. */
+.studio-swipe { touch-action: pan-x pinch-zoom; }
+.studio-month-reveal { animation: studio-month-in var(--dur-3) var(--ease-out) both; }
+.studio-month-reveal[data-closing] { animation: studio-month-out var(--dur-2) var(--ease-in) both; }
+@keyframes studio-month-in { from { opacity: 0; transform: translateY(calc(-1 * var(--space-3))); } }
+@keyframes studio-month-out { to { opacity: 0; transform: translateY(calc(-1 * var(--space-3))); } }
+@media (prefers-reduced-motion: reduce) {
+  .studio-month-reveal { animation-name: ui-fade; animation-duration: 80ms !important; }
+  .studio-month-reveal[data-closing] { animation-name: ui-fade-out; }
+}
 @media (max-width: 299.98px) { .studio-tab-indicator { align-items: center; padding-top: 0; } }
 .studio-nav-link.studio-nav-active { background: var(--studio-nav-selected); color: var(--studio-nav-selected-text); }
 
