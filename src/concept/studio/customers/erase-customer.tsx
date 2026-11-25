@@ -5,6 +5,7 @@ import { eraseAccountCustomer, type ErasureReport } from "../../account/sync";
 import { BRAND } from "../../brand";
 import type { Customer } from "../../data/types";
 import { t, tc } from "../../i18n";
+import { journalAudioStore } from "../../journals/audio-store";
 import { fullName } from "../../selectors";
 import { currentTarget, dispatch } from "../../store";
 import { TRASH_DAYS } from "../../trash/trash";
@@ -39,6 +40,8 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
       showToast(t("customer.erase.failed"));
       return;
     }
+    // Journal recordings live only in this browser; erasure takes them too.
+    void journalAudioStore().removeCustomer(customer.id).catch(() => {});
     const notes = [report.pendingPayments ? tc("customer.erase.pending", report.pendingPayments) : "", report.inFlightMessages ? t("customer.erase.inFlight") : ""];
     showToast([t("customer.erase.done"), ...notes].filter(Boolean).join(" "));
     close();
