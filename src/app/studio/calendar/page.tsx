@@ -16,6 +16,7 @@ import { BookingSheets, type OpenSheet } from "@/concept/studio/booking/booking-
 import { CalendarOverflow } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { MonthReveal } from "@/concept/studio/calendar/month-reveal";
+import { CalendarOfflineNote, useCalendarOffline } from "@/concept/studio/calendar/offline-note";
 import { CalendarPreview } from "@/concept/studio/calendar/preview";
 import { CalendarShortcuts } from "@/concept/studio/calendar/shortcuts";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
@@ -65,7 +66,9 @@ export default function CalendarPage() {
 }
 
 function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode }) {
-  const { state, today } = useStudio();
+  const { state, today, target } = useStudio();
+  // A signed-in salon without a connection: the board as last read, and new bookings wait for the connection.
+  const { offline, readAt } = useCalendarOffline(target?.workspace === "account");
   const [view, setView] = useState<View>("day");
   const [date, setDate] = useState(today);
   const role = useRole();
@@ -109,6 +112,8 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
     router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
   }, [dayLink, router]);
   const setSheet = (next: OpenSheet) => {
+    // A free spot in the grid opens a new booking too; it waits like the button while offline.
+    if (offline && next?.kind === "new") return;
     // Closing the visit drops the link, so the same notice can open it again.
     if (!next && focus) window.history.replaceState(window.history.state, "", window.location.pathname);
     openSheet(next);
@@ -131,7 +136,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       <PageHeader title={t("calendar.title")} actions={switchCalendar} />
       <EmptyState icon={<CalendarPlus size={22} />} title={t("setup.empty.calendar")}
         action={state.services.length
-          ? <Button onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
+          ? <Button disabled={offline} onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
           : <ButtonLink href="/studio/more/services">{t("services.add")}</ButtonLink>} />
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>;
@@ -155,12 +160,13 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
         actions={
           <>
             {switchCalendar}
-            <Button data-help="new-booking" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
+            <Button data-help="new-booking" disabled={offline} icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
               {t("calendar.newBooking")}
             </Button>
           </>
         }
       />
+      <CalendarOfflineNote offline={offline} readAt={readAt} today={today} />
       <MonthReveal date={date} today={today} onPick={setDate}
         info={(day) => {
           const count = dayBookings(state, day, staffId, room).length;
@@ -221,7 +227,7 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
       )}
       {(view === "week" || openingFor(state.salon, date)) && <p className="mt-3 hidden text-sm text-text-secondary lg:block">{t("calendar.dragHint")}</p>}
       <CalendarPreview />
-      <BookingSheets sheet={sheet} onChange={setSheet} />
+      <BookingSheets sheet={sheet} onChange={setSheet} dock />
     </>
   );
 }

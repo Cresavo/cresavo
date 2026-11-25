@@ -15,10 +15,18 @@ interface SheetProps {
   footer?: ReactNode;
   variant?: "default" | "side";
   headerActions?: ReactNode;
+  /**
+   * On a wide screen, open as a quiet panel docked at the window's right edge instead of a modal dialog, so the
+   * page beside it stays visible and usable (the calendar's week while a booking is moved). Phones keep the sheet.
+   */
+  dock?: boolean;
 }
 
+/** Wide enough for a docked panel and the page beside it. */
+const DOCK_QUERY = "(min-width: 1280px)";
+
 /** Bottom sheet on phones, centred dialog on larger screens. Uses native <dialog>. */
-export function Sheet({ open, onClose, title, description, children, footer, variant = "default", headerActions }: SheetProps) {
+export function Sheet({ open, onClose, title, description, children, footer, variant = "default", headerActions, dock = false }: SheetProps) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
@@ -37,7 +45,11 @@ export function Sheet({ open, onClose, title, description, children, footer, var
     if (!closing) {
       if (!dialog.open) {
         opener.current = dialog.ownerDocument.activeElement;
-        dialog.showModal();
+        const docked = dock && !side && !!dialog.ownerDocument.defaultView?.matchMedia(DOCK_QUERY).matches;
+        // Set once at opening: a panel stays a panel (and a dialog a dialog) until it closes.
+        if (dock) dialog.toggleAttribute("data-docked", docked);
+        if (docked) dialog.show();
+        else dialog.showModal();
       }
       return;
     }
@@ -54,7 +66,7 @@ export function Sheet({ open, onClose, title, description, children, footer, var
       }
     });
     return () => { cancelled = true; };
-  }, [closing]);
+  }, [closing, dock, side]);
 
   return (
     <dialog
@@ -63,6 +75,8 @@ export function Sheet({ open, onClose, title, description, children, footer, var
       aria-describedby={description ? titleId + "-description" : undefined}
       data-closing={closing || undefined}
       onCancel={event => { event.preventDefault(); dismiss(); }}
+      // A docked panel is not modal, so the browser gives it no Escape of its own.
+      onKeyDown={event => { if (event.key === "Escape" && event.currentTarget.hasAttribute("data-docked")) { event.preventDefault(); dismiss(); } }}
       onClose={event => {
         if (event.currentTarget.open) return;
         setPresent(false);

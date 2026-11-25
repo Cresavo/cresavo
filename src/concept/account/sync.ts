@@ -9,6 +9,7 @@ import { noteNetworkFailure } from "../ui/connection";
 import { showToast } from "../ui/toast";
 import { UPLOAD_SESSION_HEADER } from "@/lib/media/limits";
 import { ownerHintPresent } from "./hint";
+import { forgetServerCopy, noteServerCopy } from "./server-copy";
 import { onSessionSignal } from "./session-signal";
 
 // Keeps a signed-in owner's salon in step with the server. Changes show at
@@ -76,6 +77,7 @@ function reloadForNewLogin(stale: string | null) {
   }
   bindSession(null);
   if (again || typeof location === "undefined") {
+    forgetServerCopy();
     closeAccountSalon();
     return;
   }
@@ -85,6 +87,7 @@ function reloadForNewLogin(stale: string | null) {
 /** Signed out or switched away: nothing read or queued for the old session is used any more. */
 function closeSalon() {
   bindSession(null);
+  forgetServerCopy();
   closeAccountSalon();
 }
 
@@ -110,6 +113,8 @@ const waiters = new Map<string, (answer: Answer) => void>();
 
 /** The newest salon the server answered with since the queue was last empty, and whether the screen already shows a server copy at least as new. */
 let latestAnswer: DemoState | null = null;
+/** When `latestAnswer` came: shown later, it still only tells how the salon looked then. */
+let latestAnswerAt = 0;
 let reconciled = true;
 
 // The log entry the server made for a change, by request id: the id the change was shown with here is provisional.
@@ -206,10 +211,16 @@ export async function readCustomerJournals(customerId: string): Promise<JournalE
   }
 }
 
+/** Shows the server's copy of the salon, and notes when it was read. */
+function showServerCopy(state: DemoState, readAt = Date.now()) {
+  replaceAccountSalon(state);
+  noteServerCopy(readAt);
+}
+
 /** Shows the server's copy again. When it cannot be read, the change that was not saved is taken off the screen if nothing newer is shown. */
 async function reload(change: AccountChange) {
   const salon = await readSalon().catch(() => null);
-  if (salon) { replaceAccountSalon(salon.state); latestAnswer = salon.state; reconciled = true; }
+  if (salon) { showServerCopy(salon.state); latestAnswer = salon.state; latestAnswerAt = Date.now(); reconciled = true; }
   else restoreAccountSalon(change);
 }
 
@@ -243,9 +254,10 @@ function send(action: DemoAction, change: AccountChange) {
         answer = { ok: true, state: body.state, version: body.version, replayed: !!body.replayed };
         // Later changes are already shown; the last answer brings the salon in step.
         latestAnswer = body.state;
+        latestAnswerAt = Date.now();
         reconciled = false;
         logSettlers.get(idempotencyKey)?.(body.state.log[0]?.id ?? null);
-        if (pending === 1) { replaceAccountSalon(body.state); reconciled = true; }
+        if (pending === 1) { showServerCopy(body.state); reconciled = true; }
         return;
       }
       answer = { ok: false, reason: body?.error === "idempotency-mismatch" ? "idempotency-mismatch" : REFUSALS[response.status] ?? "rejected" };
@@ -262,7 +274,7 @@ function send(action: DemoAction, change: AccountChange) {
       logSettlers.delete(idempotencyKey);
       // A last change that failed leaves the screen on an earlier optimistic state: the newest server copy replaces it.
       // With no server copy at all, the salon as it was confirmed before the queue is the only state that is true.
-      if (pending === 0 && !reconciled && salonSession === session) { if (latestAnswer) replaceAccountSalon(latestAnswer); else restoreAccountBase(); reconciled = true; }
+      if (pending === 0 && !reconciled && salonSession === session) { if (latestAnswer) showServerCopy(latestAnswer, latestAnswerAt); else restoreAccountBase(); reconciled = true; }
       waiters.get(idempotencyKey)?.(answer);
       waiters.delete(idempotencyKey);
     }
@@ -298,7 +310,7 @@ export function eraseAccountCustomer(customerId: string, name: string): Promise<
         return null;
       }
       if (!response.ok || !response.body?.state) return null;
-      replaceAccountSalon(response.body.state);
+      showServerCopy(response.body.state);
       return { pendingPayments: Number(response.body.pendingPayments) || 0, inFlightMessages: Number(response.body.inFlightMessages) || 0 };
     } catch {
       return null;
@@ -312,5 +324,7 @@ export function eraseAccountCustomer(customerId: string, name: string): Promise<
 export async function openSignedInSalon(): Promise<boolean> {
   if (!ownerHintPresent(document.cookie)) return false;
   const salon = await readSalon().catch(() => null);
-  return !!salon && openAccountSalon(salon.state, send);
+  const opened = !!salon && openAccountSalon(salon.state, send);
+  if (opened) noteServerCopy();
+  return opened;
 }

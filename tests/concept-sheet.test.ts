@@ -88,3 +88,26 @@ it.each(["Escape", "close button", "backdrop"])("restores focus before notifying
   closing.props.onClose!({ currentTarget: dialog } as unknown as Parameters<NonNullable<typeof closing.props.onClose>>[0]);
   expect(onClose).toHaveBeenCalledOnce();
 });
+
+it.each([[true, "show"], [false, "showModal"]] as const)("a docked sheet opens beside the page on a wide screen (wide: %s)", (wide, opened) => {
+  const attributes = new Set<string>();
+  const dialog = {
+    ownerDocument: { activeElement: {}, defaultView: { matchMedia: (query: string) => ({ matches: wide && query === "(min-width: 1280px)" }) } },
+    open: false,
+    show: vi.fn(() => { dialog.open = true; }),
+    showModal: vi.fn(() => { dialog.open = true; }),
+    toggleAttribute: (name: string, on: boolean) => { if (on) attributes.add(name); else attributes.delete(name); },
+  };
+  useRef.mockReturnValueOnce({ current: dialog }).mockReturnValueOnce({ current: null });
+  useState.mockReturnValueOnce([true, vi.fn()]).mockReturnValueOnce([false, vi.fn()]);
+  const sheet = Sheet({ open: true, dock: true, title: "Booking", children: null, onClose: vi.fn() }) as ReactElement<ComponentProps<"dialog">>;
+  useEffect.mock.lastCall![0]();
+  expect(dialog[opened]).toHaveBeenCalledOnce();
+  expect(attributes.has("data-docked")).toBe(wide);
+
+  // Escape: the browser gives a docked panel none, so the sheet listens for it itself.
+  const preventDefault = vi.fn();
+  const currentTarget = { hasAttribute: (name: string) => attributes.has(name) };
+  sheet.props.onKeyDown!({ key: "Escape", preventDefault, currentTarget } as unknown as Parameters<NonNullable<typeof sheet.props.onKeyDown>>[0]);
+  expect(preventDefault).toHaveBeenCalledTimes(wide ? 1 : 0);
+});
