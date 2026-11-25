@@ -17,7 +17,7 @@ import { CalendarOverflow } from "@/concept/studio/calendar/filter";
 import { DayGrid } from "@/concept/studio/calendar/day-grid";
 import { WeekAgenda } from "@/concept/studio/calendar/week-agenda";
 import { WeekGrid } from "@/concept/studio/calendar/week-grid";
-import { staffViewer } from "@/concept/ops/access";
+import { canChangeBooking, staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
 import { PageHeader } from "@/concept/studio/page-header";
 import { StaffDot } from "@/concept/studio/staff-dot";
@@ -66,7 +66,8 @@ function LocalCalendar({ switchCalendar }: { switchCalendar?: React.ReactNode })
   if (focus !== focused) {
     setFocused(focus);
     const booking = focus ? state.bookings.find((b) => b.id === focus) : undefined;
-    if (booking) {
+    // Staff view only opens their own visits; a crafted link must not show someone else's sheet.
+    if (booking && canChangeBooking(state, role, booking.id)) {
       setDate(booking.date);
       setView("day");
       if (chosenStaff !== "all") setStaffFilter(booking.staffId);

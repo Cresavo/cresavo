@@ -99,8 +99,11 @@ type PolicyEntry = { patch?: { values?: { cancellationPolicy?: { before: PolicyS
  */
 function withPayment<T extends PolicySnapshot>(policy: T, payAtSalonDefault: boolean): T {
   if (!policy) return policy;
-  const deposits = Object.entries(policy.deposits ?? {}).filter(([, amount]) => amount > 0);
-  return { ...policy, payAtSalonDefault, payAtSalon: payAtSalonDefault ? Object.fromEntries(deposits.map(([id]) => [id, false])) : {} };
+  const entries = Object.entries(policy.deposits ?? {});
+  // A deposit of zero was an explicit "pay at the salon" choice and must survive a later default change.
+  const deposits = Object.fromEntries(entries.filter(([, amount]) => amount > 0));
+  const payAtSalon = Object.fromEntries(entries.map(([id, amount]) => [id, amount <= 0]));
+  return { ...policy, payAtSalonDefault, payAtSalon, deposits };
 }
 
 /**

@@ -246,6 +246,14 @@ describe("migrateState", () => {
       expect(log[0].patch.values.cancellationPolicy.before).toMatchObject({ freeHours: 48, payAtSalonDefault: true, payAtSalon: {} });
     });
 
+    it("keeps an explicit zero deposit as pay at the salon, even if the salon later takes payment online", () => {
+      const state = lift({ cancellationPolicy: { ...v25Policy, deposits: { [service.id]: 0 } } });
+      expect(state.cancellationPolicy).toMatchObject({ payAtSalonDefault: true, payAtSalon: { [service.id]: true }, deposits: {} });
+      expect(quote(state.cancellationPolicy, service, "SEK", true).depositMinor).toBe(0);
+      const flipped = { ...state.cancellationPolicy, payAtSalonDefault: false };
+      expect(quote(flipped, service, "SEK", true).depositMinor).toBe(0);
+    });
+
     it("leaves booked visits on the terms they were booked under", () => {
       expect(lift().bookings).toEqual(fresh.bookings);
     });
