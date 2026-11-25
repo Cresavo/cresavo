@@ -2,7 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { DemoAction } from "./actions";
-import { forgetSalonAudio, retryForgottenAudio } from "./journals/audio-store";
+import { audioScope, forgetCustomerAudio, forgetSalonAudio, retryForgottenAudio } from "./journals/audio-store";
 import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
@@ -85,6 +85,11 @@ function salonRemoved(workspace: Workspace) {
 /** Drops journal recordings of one salon lifetime, or of the whole workspace when it has no successor. */
 function forgetJournalAudio(workspace: Workspace, epoch?: string) {
   void forgetSalonAudio(workspace, epoch).catch(() => {});
+}
+
+function forgetExpiredRecordings(workspace: Workspace, state: DemoState, customerIds: string[]) {
+  const scope = audioScope({ workspace, epoch: epochOf(workspace, state) }, state.salon);
+  for (const id of customerIds) void forgetCustomerAudio(id, scope).catch(() => {});
 }
 
 /** Called when a workspace's salon is deleted (trial expiry, "Delete now", another tab) or replaced (a new sample business). */
@@ -250,16 +255,15 @@ function today() {
   return toKey(new Date());
 }
 
-/** Set by `load` when a customer's 30 days in the trash were over and `purgeExpired` erased them. */
-let erasedOnLoad = false;
+/** Customer ids set by `load` when their 30 days in the trash were over and `purgeExpired` erased them. */
+let erasedOnLoad: string[] = [];
 /** Set by `load` when there was no usable document and it made a new sample business. */
 let createdOnLoad = false;
 
-const customerBundles = (state: DemoState) => state.trash.filter((entry) => entry.kind === "customer").length;
-
 function purge(state: DemoState): DemoState {
+  const before = new Set(state.trash.filter((entry) => entry.kind === "customer").map((entry) => entry.customer.id));
   const next = purgeExpired(state, today());
-  if (customerBundles(next) < customerBundles(state)) erasedOnLoad = true;
+  erasedOnLoad = [...before].filter((id) => !next.trash.some((entry) => entry.kind === "customer" && entry.customer.id === id));
   return next;
 }
 
@@ -308,7 +312,7 @@ function refresh(workspace: Workspace) {
   }
   snapshot.raw = raw;
   snapshot.unsaved = false;
-  erasedOnLoad = false;
+  erasedOnLoad = [];
   createdOnLoad = false;
   let document: unknown = null;
   snapshot.epoch = undefined;
@@ -322,7 +326,10 @@ function refresh(workspace: Workspace) {
   // A sample business made because there was no document is a new salon, never the "legacy" one before it.
   if (createdOnLoad) snapshot.epoch = newEpoch();
   keep(snapshot.state, snapshot.epoch);
-  if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
+  if (erasedOnLoad.length && snapshot.state) {
+    persistErasure(workspace, raw, snapshot.state);
+    forgetExpiredRecordings(workspace, snapshot.state, erasedOnLoad);
+  }
   // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
   if (had && (!snapshot.state || epochOf(workspace, snapshot.state) !== before)) {
     salonRemoved(workspace);

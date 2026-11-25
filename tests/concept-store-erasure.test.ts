@@ -59,6 +59,29 @@ it("does not overwrite another tab's newer write with the erasure", async () => 
   expect(localStorage.setItem.mock.calls.filter(([key]) => key === KEY)).toEqual([]);
 });
 
+it("removes journal recordings of a customer whose trash period has expired", async () => {
+  const today = toKey(new Date());
+  const scope = `demo:legacy:${today}`;
+  let raw = savedWithExpiredCustomer();
+  const localStorage = {
+    getItem: (key: string) => (key === KEY ? raw : null),
+    setItem: (key: string, value: string) => { if (key === KEY) raw = value; },
+    removeItem: () => {},
+  };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } }));
+  const { journalAudioStore } = await import("@/concept/journals/audio-store");
+  const audio = journalAudioStore();
+  const bytes = new Uint8Array([1]).buffer;
+  await audio.add({ id: "r-expired", customerId: "k-expired", scope, createdAt: 1, source: "recorded", mime: "audio/webm", seconds: 5, bytes });
+  await audio.add({ id: "r-kept", customerId: "other", scope, createdAt: 2, source: "recorded", mime: "audio/webm", seconds: 5, bytes });
+  const { currentState } = await import("@/concept/store");
+  currentState();
+  await vi.waitFor(async () => {
+    expect((await audio.list("k-expired", scope)).map((row) => row.id)).toEqual([]);
+  });
+  expect((await audio.list("other", scope)).map((row) => row.id)).toEqual(["r-kept"]);
+});
+
 describe("redactReplay", () => {
   it("redacts every personal field of the stored action of the erased customer's entry, and leaves another customer's alone", () => {
     const identifiers = ["Lena Exportsson", "0700001111"];

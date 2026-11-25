@@ -4,7 +4,7 @@ import { runTask } from "@/concept/ai/run-task";
 import { clipTranscript } from "@/concept/journals/clip-transcript";
 import { structureJournalTask } from "@/concept/ai/tasks/structure-journal";
 import { MAX_AUDIO_BYTES, checkAudioFile, recorderMime, sniffAudio, type DurationProbe } from "@/concept/journals/audio-file";
-import { audioScope, beyondLimit, clearForgottenAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
+import { audioScope, beyondLimit, clearForgottenAudio, forgetCustomerAudio, forgetSalonAudio, forgottenAudioJobs, indexedDbAudioStore, isAudioStoreUnavailable, memoryAudioStore, retryForgottenAudio, type JournalAudioStore, type JournalRecording } from "@/concept/journals/audio-store";
 
 // Journal audio in the concept demo: what a file is by its bytes, the size and
 // length limits, the last five per customer, and that structuring sees text only.
@@ -253,6 +253,7 @@ describe("journal audio cleanup retries", () => {
     };
     return {
       ...inner,
+      removeCustomer: (customerId, scope) => once(() => inner.removeCustomer(customerId, scope)),
       removeScope: (scope) => once(() => inner.removeScope(scope)),
       removeWorkspace: (workspace) => once(() => inner.removeWorkspace(workspace)),
     };
@@ -269,6 +270,20 @@ describe("journal audio cleanup retries", () => {
     await retryForgottenAudio(store);
     expect(await inner.list("k001", "demo:old")).toEqual([]);
     expect((await inner.list("k001", "demo:new")).map((row) => row.id)).toEqual(["a2"]);
+    expect(forgottenAudioJobs()).toEqual([]);
+  });
+
+  it("remembers a blocked customer cleanup and finishes it when storage works again", async () => {
+    const inner = memoryAudioStore();
+    await inner.add(recording("a1", "k-expired", 1, { scope: "demo:one" }));
+    await inner.add(recording("a2", "bo", 2, { scope: "demo:one" }));
+    const store = failing(inner);
+    await forgetCustomerAudio("k-expired", "demo:one", store);
+    expect((await inner.list("k-expired", "demo:one")).map((row) => row.id)).toEqual(["a1"]);
+    expect(forgottenAudioJobs()).toEqual([{ customerId: "k-expired", scope: "demo:one" }]);
+    await retryForgottenAudio(store);
+    expect(await inner.list("k-expired", "demo:one")).toEqual([]);
+    expect((await inner.list("bo", "demo:one")).map((row) => row.id)).toEqual(["a2"]);
     expect(forgottenAudioJobs()).toEqual([]);
   });
 });

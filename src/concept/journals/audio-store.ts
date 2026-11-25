@@ -197,15 +197,17 @@ export function journalAudioStore(): JournalAudioStore {
 
 const FORGET_KEY = "concept-journal-audio-forget";
 
-export type AudioForgetJob = { scope: string } | { workspace: string };
+export type AudioForgetJob = { customerId: string; scope: string } | { scope: string } | { workspace: string };
 
-const jobKey = (job: AudioForgetJob) => ("scope" in job ? `scope:${job.scope}` : `workspace:${job.workspace}`);
+const jobKey = (job: AudioForgetJob) =>
+  "customerId" in job ? `customer:${job.scope}:${job.customerId}` : "scope" in job ? `scope:${job.scope}` : `workspace:${job.workspace}`;
 
-const isForgetJob = (value: unknown): value is AudioForgetJob =>
-  !!value && typeof value === "object" && (
-    ("scope" in value && typeof value.scope === "string") ||
-    ("workspace" in value && typeof value.workspace === "string")
-  );
+const isForgetJob = (value: unknown): value is AudioForgetJob => {
+  if (!value || typeof value !== "object") return false;
+  if ("customerId" in value) return typeof value.customerId === "string" && "scope" in value && typeof value.scope === "string";
+  if ("scope" in value) return typeof value.scope === "string";
+  return "workspace" in value && typeof value.workspace === "string";
+};
 
 let forgetQueue: AudioForgetJob[] = [];
 let forgetQueueLoaded = false;
@@ -242,7 +244,8 @@ function saveForgetQueue(jobs: AudioForgetJob[]) {
 }
 
 async function applyForget(store: JournalAudioStore, job: AudioForgetJob) {
-  if ("scope" in job) await store.removeScope(job.scope);
+  if ("customerId" in job) await store.removeCustomer(job.customerId, job.scope);
+  else if ("scope" in job) await store.removeScope(job.scope);
   else await store.removeWorkspace(job.workspace);
 }
 
@@ -266,6 +269,18 @@ export async function retryForgottenAudio(store: JournalAudioStore = journalAudi
     } catch {
       // Stay queued until storage works again.
     }
+  }
+}
+
+/** Removes one customer's recordings in a salon lifetime; remembers the job if storage is blocked so it can be retried. */
+export async function forgetCustomerAudio(customerId: string, scope: string, store: JournalAudioStore = journalAudioStore()): Promise<void> {
+  const job: AudioForgetJob = { customerId, scope };
+  await retryForgottenAudio(store);
+  try {
+    await applyForget(store, job);
+    saveForgetQueue(loadForgetQueue().filter((item) => jobKey(item) !== jobKey(job)));
+  } catch {
+    saveForgetQueue([...loadForgetQueue(), job]);
   }
 }
 
