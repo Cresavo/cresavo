@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Eraser } from "lucide-react";
 import { eraseAccountCustomer, type ErasureReport } from "../../account/sync";
 import { BRAND } from "../../brand";
 import type { Customer } from "../../data/types";
@@ -73,16 +72,5 @@ export function EraseCustomerSheet({ customer, open, onClose, onErased }: { cust
         </Field>
       </div>
     </Sheet>
-  );
-}
-
-/** A button that opens the erase sheet; after an erasure the customer's page no longer exists, so `onErased` leaves it. */
-export function EraseCustomer({ customer, onErased }: { customer: Customer; onErased: () => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="ghost" width="responsive" className="text-danger" icon={<Eraser size={18} />} onClick={() => setOpen(true)}>{t("customer.erase")}</Button>
-      <EraseCustomerSheet customer={customer} open={open} onClose={() => setOpen(false)} onErased={onErased} />
-    </>
   );
 }

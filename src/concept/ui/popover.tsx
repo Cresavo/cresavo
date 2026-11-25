@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { IconButton } from "./button";
 import { cx } from "./cx";
 import { Sheet } from "./sheet";
@@ -59,6 +59,12 @@ export function popoverStack(
   return { placement, top, height: used };
 }
 
+/**
+ * Set inside the phone's bottom sheet, where a menu's actions are ordinary buttons in the tab order. It holds a chosen
+ * action until the sheet has closed, so a sheet the action opens starts from the trigger, not from the closing menu.
+ */
+const InSheet = createContext<((run: () => void) => void) | null>(null);
+
 function watchPhone(listener: () => void) {
   const query = window.matchMedia(PHONE);
   query.addEventListener("change", listener);
@@ -83,6 +89,7 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
   const [side, setSide] = useState(align);
   const [stack, setStack] = useState<"below" | "above">("below");
   const phone = usePhone(sheetOnPhone);
+  const pending = useRef<(() => void) | null>(null);
   if (open && !present && !phone) setPresent(true);
   if (phone && present) setPresent(false);
 
@@ -163,8 +170,11 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
   if (phone) {
     return <>
       {button}
-      <Sheet open={open} onClose={() => setOpen(false)} title={title}>
-        <div onClick={event => chosen(event, () => setOpen(false))}>{children}</div>
+      <Sheet open={open} onClose={() => setOpen(false)} title={title}
+        onExited={() => { const run = pending.current; pending.current = null; run?.(); }}>
+        <InSheet.Provider value={run => { pending.current = run; }}>
+          <div onClick={event => chosen(event, () => setOpen(false))}>{children}</div>
+        </InSheet.Provider>
       </Sheet>
     </>;
   }
@@ -222,25 +232,53 @@ export interface ActionMenuItem {
   label: string;
   icon?: ReactNode;
   run: () => void;
+  /** A destructive action, set in the danger colour. */
+  tone?: "danger";
 }
 
-/** A short list of actions that grows from its trigger. Arrow keys, Home and End move between the actions. */
-export function ActionMenu({ title, icon, items, align }: {
+/**
+ * A short list of actions that grows from its trigger. Arrow keys, Home and End move between the actions. Pass
+ * `groups` to set related actions apart with a hairline; `sheetOnPhone` lists them in the bottom sheet below `sm`.
+ */
+export function ActionMenu({ title, icon, items, groups, align, variant, sheetOnPhone }: {
   title: string;
   icon: ReactNode;
-  items: readonly ActionMenuItem[];
+  items?: readonly ActionMenuItem[];
+  groups?: readonly (readonly ActionMenuItem[])[];
   align?: PopoverProps["align"];
+  variant?: PopoverProps["variant"];
+  sheetOnPhone?: boolean;
 }) {
+  const sets = (groups ?? [items ?? []]).filter(group => group.length);
   return (
-    <Popover title={title} icon={icon} align={align} kind="menu">
-      {items.map(item => (
-        <button key={item.label} type="button" role="menuitem" tabIndex={-1}
-          className="flex min-h-target w-full items-center gap-3 px-4 py-2 text-left text-body font-medium hover:bg-surface-2 focus-visible:bg-surface-2"
-          onClick={item.run}>
-          {item.icon}
-          <span className="min-w-0 flex-1 break-words">{item.label}</span>
-        </button>
-      ))}
+    <Popover title={title} icon={icon} align={align} variant={variant} sheetOnPhone={sheetOnPhone} kind="menu">
+      <MenuItems groups={sets} />
     </Popover>
+  );
+}
+
+function MenuItems({ groups }: { groups: readonly (readonly ActionMenuItem[])[] }) {
+  const later = useContext(InSheet);
+  const inSheet = later !== null;
+  return (
+    <div className={inSheet ? "-mx-4" : "sm:min-w-72"}>
+      {groups.map((group, index) => (
+        <Fragment key={index}>
+          {index > 0 && <div role="separator" className="my-1 border-t border-hairline" />}
+          <div role={inSheet ? undefined : "group"}>
+            {group.map(item => (
+              <button key={item.label} type="button" role={inSheet ? undefined : "menuitem"} tabIndex={inSheet ? undefined : -1}
+                data-popover-close
+                className={cx("flex min-h-target w-full items-center gap-3 px-4 py-2 text-left text-body font-medium hover:bg-surface-2 focus-visible:bg-surface-2",
+                  item.tone === "danger" && "text-danger")}
+                onClick={() => (later ? later(item.run) : item.run())}>
+                {item.icon}
+                <span className="min-w-0 flex-1 break-words">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </Fragment>
+      ))}
+    </div>
   );
 }

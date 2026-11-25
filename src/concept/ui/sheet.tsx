@@ -20,13 +20,15 @@ interface SheetProps {
    * page beside it stays visible and usable (the calendar's week while a booking is moved). Phones keep the sheet.
    */
   dock?: boolean;
+  /** Called once the sheet has finished closing and focus is back where it was, however it was closed. */
+  onExited?: () => void;
 }
 
 /** Wide enough for a docked panel and the page beside it. */
 const DOCK_QUERY = "(min-width: 1280px)";
 
 /** Bottom sheet on phones, centred dialog on larger screens. Uses native <dialog>. */
-export function Sheet({ open, onClose, title, description, children, footer, variant = "default", headerActions, dock = false }: SheetProps) {
+export function Sheet({ open, onClose, title, description, children, footer, variant = "default", headerActions, dock = false, onExited }: SheetProps) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
@@ -104,6 +106,7 @@ export function Sheet({ open, onClose, title, description, children, footer, var
         setPresent(false);
         setDismissing(false);
         if (open) onClose();
+        onExited?.();
       }}
       onClick={event => { if (!side && event.target === event.currentTarget) dismiss(); }}
       className={cx(

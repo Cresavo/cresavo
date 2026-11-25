@@ -49,6 +49,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **A calmer customer card.** On a customer's page in the Studio, the downloads, Edit details, Delete customer and Erase permanently now sit behind one settings button at the top of the customer card instead of in a card of their own. It opens a short menu that grows from the button on a desktop and a sheet on a phone: Edit details first, then the two downloads, then Delete customer and Erase permanently set apart in the danger colour. Each action does what it did before, with the same confirmations. English and Swedish.
+
 - **Large text and 200 % zoom.** The Studio's base text follows the browser and phone text size; the phone tab bar shows icons only (the label stays the accessible name) when its labels would run into each other; the masthead and the booking page header wrap instead of squeezing the name or running off the screen; the calendar's hours grow with the text so a booking keeps room for its name; free times fall to two a row; a long salon name breaks in the hero; the booking page's side column only stays put where the window is tall enough to show all of it; and "Skip to content" no longer peeks in with large text.
 - **No white flash between whole-page loads.** Loading a Studio or booking page as a new document (a reload, a sign-in, a link from an e-mail) now crossfades briefly instead of flashing white, except for readers who have asked for reduced motion. Switching Studio tabs already keeps the page frame. The theme wave is unchanged.
 
