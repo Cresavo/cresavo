@@ -37,7 +37,8 @@ export function ShowMeField({ value, onChange, onSubmit, busy }: {
           <TextInput value={value} onChange={(event) => onChange(event.target.value)} placeholder={t("showMe.placeholder")} maxLength={300} enterKeyHint="search" />
         </Field>
       </div>
-      <Button type="submit" icon={<Eye size={18} aria-hidden />} disabled={!value.trim() || busy}>{t("showMe.submit")}</Button>
+      {/* Local lookup does not wait for the article request, so a follow-up question stays available while that loads. */}
+      <Button type="submit" icon={<Eye size={18} aria-hidden />} disabled={!value.trim()} aria-busy={busy || undefined}>{t("showMe.submit")}</Button>
     </form>
   );
 }
