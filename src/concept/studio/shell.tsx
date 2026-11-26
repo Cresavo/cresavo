@@ -34,6 +34,7 @@ import { SearchButton } from "./search/search-button";
 import { SearchPalette } from "./search/search-palette";
 import { NoticesButton } from "./notices/notices-button";
 import { NoticeToasts } from "./notices/notice-toasts";
+import { ShowMePointer } from "./help/show-me-pointer";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
@@ -126,6 +127,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       <BottomTabs state={state} pathname={pathname} role={role} />
       {state.modules.assistant && <AssistantLauncher />}
       <SearchPalette />
+      <ShowMePointer />
       <NoticeToasts />
       <Toaster />
     </>
@@ -175,6 +177,7 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
     <Link
       href={item.href}
       data-help={item.href}
+      data-help-id={item.helpId}
       aria-current={active ? "page" : undefined}
       className={cx(
         "studio-nav-link flex min-h-target items-center gap-3 rounded-sm px-3 text-body transition-colors",
@@ -233,7 +236,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
       </Link>
       <p className="mt-2 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
       {/* The page customers see is one click away from anywhere in the studio. */}
-      <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
+      <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" data-help-id="shell.view-page" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
         {t("quick.viewPage")}
         <ExternalLink size={14} aria-hidden />
       </a>
@@ -288,6 +291,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
   return (
     <nav
       aria-label={t("shell.navigation")}
+      data-tab-bar
       className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface studio-safe-bottom lg:hidden"
     >
       <div className="relative mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
@@ -306,6 +310,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               key={item.href}
               href={item.href}
               data-help={item.href}
+              data-help-id={item.helpId}
               aria-current={active ? "page" : undefined}
               className={cx("studio-tab relative flex min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >

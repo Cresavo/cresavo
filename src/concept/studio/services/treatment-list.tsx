@@ -99,6 +99,7 @@ function TreatmentRow({ service, staff, onEdit }: { service: Service; staff: str
 
   return (
     <ListRow
+      helpId="services.treatment"
       className="flex-1"
       onClick={onEdit}
       aria-label={onEdit ? t("services.edit", { name: service.name }) : undefined}

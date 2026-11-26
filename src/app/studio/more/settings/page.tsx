@@ -25,6 +25,7 @@ export default function SettingsPage() {
       <li key={section.id}>
         <ListRow
           href={section.href}
+          helpId={section.helpId}
           title={t(section.label)}
           meta={meta[section.id] ?? (section.description && t(section.description))}
           leading={<Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}
@@ -43,7 +44,7 @@ export default function SettingsPage() {
         <Card className="overflow-hidden p-1">
           <ul className="divide-y divide-hairline">{pages.map(row)}</ul>
         </Card>
-        <div id="appearance" className="scroll-mt-4 md:max-w-form">
+        <div id="appearance" data-help-id="settings.appearance" className="scroll-mt-4 md:max-w-form">
           <Section title={t("settings.section.appearance")}>
             <Card className="space-y-3 p-4">
               <StudioLanguageSetting />

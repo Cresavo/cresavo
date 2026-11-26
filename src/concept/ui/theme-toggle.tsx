@@ -36,7 +36,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     waveTheme(() => flushSync(() => setTheme(dark ? "light" : "dark")), { x: box.left + box.width / 2, y: box.top + box.height / 2 });
   };
   return (
-    <button type="button" role="switch" aria-checked={dark} aria-label={t("theme.darkSwitch")} onClick={toggle}
+    <button type="button" role="switch" aria-checked={dark} aria-label={t("theme.darkSwitch")} onClick={toggle} data-help-id="shell.theme"
       className={cx("group inline-flex min-h-target shrink-0 cursor-pointer items-center justify-center rounded-full", className)}
     >
       <span className="ui-button-tint relative flex h-8 items-center rounded-full px-1 text-text-secondary group-hover:text-text">

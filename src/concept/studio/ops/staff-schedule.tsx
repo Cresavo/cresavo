@@ -26,7 +26,7 @@ export function StaffSchedule({ person }: { person: Staff }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-text-secondary">{t("schedule.week")}</p>
-        <Button size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setOpen("week")}>{t("schedule.editWeek")}</Button>
+        <Button data-help-id="staff.edit-week" size="sm" variant="ghost" icon={<Pencil size={16} />} onClick={() => setOpen("week")}>{t("schedule.editWeek")}</Button>
       </div>
       <dl className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-x-3 gap-y-2">
         {WEEK_ORDER.map((d) => {
@@ -61,8 +61,8 @@ export function StaffSchedule({ person }: { person: Staff }) {
         </ul>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" icon={<CalendarMinus size={16} />} onClick={() => setOpen("off")}>{t("schedule.markOff")}</Button>
-        <Button size="sm" variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setOpen("shift")}>{t("schedule.addShift")}</Button>
+        <Button data-help-id="staff.time-off" size="sm" variant="secondary" icon={<CalendarMinus size={16} />} onClick={() => setOpen("off")}>{t("schedule.markOff")}</Button>
+        <Button data-help-id="staff.add-shift" size="sm" variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setOpen("shift")}>{t("schedule.addShift")}</Button>
       </div>
       {open === "week" && <WeekSheet person={person} onClose={close} />}
       {open === "off" && <OffSheet person={person} onClose={close} />}

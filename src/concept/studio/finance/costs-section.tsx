@@ -85,7 +85,7 @@ export function AddCost({ primary = false }: { primary?: boolean }) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3 border-t border-hairline pt-4 md:max-w-form">
+    <form onSubmit={submit} data-help-id="finance.add-cost" className="space-y-3 border-t border-hairline pt-4 md:max-w-form">
       <p className="text-sm font-medium">{t("finance.addCost")}</p>
       <div className="grid gap-3 min-[360px]:flex">
         <Field width="short" label={t("finance.costType")}>

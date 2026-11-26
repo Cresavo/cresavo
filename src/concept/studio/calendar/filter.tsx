@@ -20,7 +20,7 @@ interface FilterProps {
 /** Secondary calendar controls: a panel that grows from the button, or the bottom sheet on a phone. */
 export function CalendarOverflow({ rooms, roomId, onRoom, onToday, atToday, children }: FilterProps) {
   return (
-    <Popover title={t("calendar.options")} sheetOnPhone variant="secondary" icon={<Ellipsis size={20} aria-hidden />}>
+    <Popover title={t("calendar.options")} helpId="calendar.options" sheetOnPhone variant="secondary" icon={<Ellipsis size={20} aria-hidden />}>
       <div className="space-y-4 sm:w-80">
         <Button variant="secondary" size="sm" disabled={atToday} data-popover-close onClick={onToday}>{t("date.today")}</Button>
         {children}

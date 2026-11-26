@@ -17,7 +17,7 @@ export function RoleSwitch() {
   return (
     <Card className="space-y-3 p-4">
       <p className="text-body text-text-secondary">{t("role.previewText", { name: viewer.firstName })}</p>
-      <Button variant="secondary" data-help="role-switch" onClick={() => {
+      <Button variant="secondary" data-help="role-switch" data-help-id="advanced.staff-preview" onClick={() => {
         setRole("staff");
         router.push("/studio");
       }}>

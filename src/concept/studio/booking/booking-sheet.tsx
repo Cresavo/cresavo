@@ -29,8 +29,9 @@ import { FeeDecisionPanel } from "./fee-decision";
 import { SlotPicker, slotOnDate, type Slot } from "./slot-picker";
 import { waitlistCount, waitlistNotice } from "./waitlist-notice";
 import { isStub } from "../../journals/sealed";
-import { registerFor, useRegisterReceipts } from "../../register/ledger";
+import { useRegisterReceipts } from "../../register/ledger";
 import { RegisterSheet } from "../register/register-sheet";
+import { useVisitActions } from "./use-visit-actions";
 
 type Mode = "details" | "move" | "cancel" | "giftcard" | "register";
 
@@ -50,6 +51,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
   const [offer, setOffer] = useState(false);
   const [failure, setFailure] = useState<ActionFailureInfo>();
   const receipts = useRegisterReceipts(target);
+  const actionsOf = useVisitActions();
   if (!booking) return null;
   const go = (next: Mode) => { setFailure(undefined); setMode(next); };
   const report = (reason: MessageKey) => setFailure({ reason, requestId: newActionRequestId() });
@@ -63,8 +65,8 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
   const staff = state.staff.find((s) => s.id === booking.staffId)!;
   const name = visitorName(booking, customer);
   const firstName = booking.visitFor?.split(" ")[0] ?? customer?.firstName ?? "";
-  const upcoming = booking.status === "booked" && (booking.date > today || (booking.date === today && booking.start + booking.duration > minutes));
-  const finished = booking.status === "booked" && !upcoming;
+  // The same rule tags the calendar's visits for "Show me".
+  const { upcoming, finished, takesPayment } = actionsOf(booking);
   const when = `${formatDayLong(booking.date)} · ${formatTime(booking.start)}–${formatTime(booking.start + booking.duration)}`;
   // A visit booked for someone else: the note, the advice and the journal are the booker's, not the visitor's.
   // An entry whose text the server keeps has none here; its advice is read on the customer's page.
@@ -77,8 +79,6 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
   const salonCancellation = salonCancellationOnly(booking, clock.instant ?? 0);
   const paidByCard = paidWithCards(state, booking.id);
   const receipt = receipts.some((r) => r.reference === booking.id);
-  // The register takes payment for a visit of today or earlier; a package visit is already paid for.
-  const takesPayment = !receipt && !pkg && booking.status === "booked" && booking.date <= today && registerFor(target).info.kind !== "unavailable";
 
   const markDone = () => run(async () => {
     const usesStock = state.modules.stock && !!service?.consumption?.length;
@@ -212,7 +212,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
         <>
           {failureNotice}
           {customer && (
-            <ButtonLink href={`/studio/customers/${customer.id}`} variant="ghost" icon={<UserRound size={18} />}>
+            <ButtonLink href={`/studio/customers/${customer.id}`} helpId="booking.customer-card" variant="ghost" icon={<UserRound size={18} />}>
               {t("booking.customerCard")}
             </ButtonLink>
           )}
@@ -220,15 +220,15 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
             <Button variant="secondary" icon={<ReceiptText size={18} />} onClick={() => go("register")}>{t("register.viewReceipt")}</Button>
           )}
           {finished && (
-            <Button variant={takesPayment ? "secondary" : "primary"} icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
+            <Button data-help-id="booking.mark-done" variant={takesPayment ? "secondary" : "primary"} icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
           )}
           {takesPayment && (
-            <Button icon={<CreditCard size={18} />} onClick={() => go("register")}>{t("register.take")}</Button>
+            <Button data-help-id="booking.take-payment" icon={<CreditCard size={18} />} onClick={() => go("register")}>{t("register.take")}</Button>
           )}
           {upcoming && (
             <>
-              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
-              <Button icon={<CalendarClock size={18} />} onClick={() => go("move")}>{t("booking.move")}</Button>
+              <Button data-help-id="booking.cancel" variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
+              <Button data-help-id="booking.move" icon={<CalendarClock size={18} />} onClick={() => go("move")}>{t("booking.move")}</Button>
             </>
           )}
         </>

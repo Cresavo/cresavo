@@ -50,7 +50,7 @@ export default function CustomersPage() {
       <PageHeader title={t("customers.title")} />
       <EmptyState icon={<UserSearch size={22} />} title={t("setup.empty.customers")} action={viewer
         ? <ButtonLink href="/studio/calendar">{t("nav.calendar")}</ButtonLink>
-        : <ButtonLink href="/studio/customers/import">{t("customers.import")}</ButtonLink>} />
+        : <ButtonLink href="/studio/customers/import" helpId="customers.import">{t("customers.import")}</ButtonLink>} />
     </>;
   }
 
@@ -60,11 +60,11 @@ export default function CustomersPage() {
         title={t("customers.title")}
         actions={viewer ? undefined : <>
           {reviewCount > 0 && <ButtonLink href="/studio/customers/review" variant="secondary" icon={<ClipboardCheck size={18} />}>{t("customers.reviewLink", { count: reviewCount })}</ButtonLink>}
-          <ButtonLink href="/studio/customers/import" help="import-customers" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>
+          <ButtonLink href="/studio/customers/import" help="import-customers" helpId="customers.import" icon={<Upload size={18} />}>{t("customers.import")}</ButtonLink>
         </>}
       />
       <div className="mb-4 space-y-3">
-        <SearchInput className="md:max-w-form" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
+        <SearchInput data-help-id="customers.search" className="md:max-w-form" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("customers.search")} aria-label={t("customers.search")} />
         <SegmentedControl<CustomerFilter>
           label={t("customers.filter")}
           fit

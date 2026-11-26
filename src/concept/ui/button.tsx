@@ -59,6 +59,8 @@ interface ButtonLinkProps {
   href: string;
   /** Name for the Help button's "Show me". */
   help?: string;
+  /** Help-map id ("Show me" points here), see `src/concept/help/map`. */
+  helpId?: string;
   variant?: Variant;
   size?: Size;
   icon?: ReactNode;
@@ -67,9 +69,9 @@ interface ButtonLinkProps {
   children: ReactNode;
 }
 
-export function ButtonLink({ href, help, variant, size, icon, className, children, width }: ButtonLinkProps) {
+export function ButtonLink({ href, help, helpId, variant, size, icon, className, children, width }: ButtonLinkProps) {
   return (
-    <Link href={href} data-help={help} className={buttonClass(variant, size, cx(width && responsiveWidth, className))}>
+    <Link href={href} data-help={help} data-help-id={helpId} className={buttonClass(variant, size, cx(width && responsiveWidth, className))}>
       {icon}
       {children}
     </Link>

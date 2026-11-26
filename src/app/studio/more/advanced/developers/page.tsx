@@ -21,7 +21,7 @@ export default function DevelopersPage() {
       <ConnectCard />
       <div className="space-y-8 lg:max-w-4xl">
         {/* The public demo's server only reads: no outside assistant can connect, so the setup steps would lead nowhere. */}
-        {(state.industry || !pairing || !PUBLIC_DEMO) && <div id="connect"><Section title={t("data.connect")}>
+        {(state.industry || !pairing || !PUBLIC_DEMO) && <div id="connect" data-help-id="developers.connect"><Section title={t("data.connect")}>
           {state.industry ? <Card className="p-5 text-body text-text-secondary">{t("setup.assistantHint")}</Card>
             : PUBLIC_DEMO ? <Card className="p-5 text-body text-text-secondary">{t("data.publicDemo")}</Card>
             : <ConnectSection info={info} failed={failed} />}

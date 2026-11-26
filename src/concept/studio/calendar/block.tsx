@@ -12,6 +12,7 @@ import { cx } from "../../ui/cx";
 import { minuteInGap } from "./gap";
 import { accountRecordSettled } from "../../store";
 import { useStudio } from "../use-studio";
+import { useVisitActions } from "../booking/use-visit-actions";
 import { hidePreview, PREVIEW_ID, previewBooking, usePreviewedId } from "./preview";
 
 export const DRAG_TYPE = "application/x-eko-booking";
@@ -36,6 +37,8 @@ interface BookingBlockProps {
 export function BookingBlock({ booking, top, height, scale, compact, staffName, misfit, onOpen, onGapOpen }: BookingBlockProps) {
   const { state } = useStudio();
   const customer = findCustomer(state, booking.customerId);
+  // What this visit's sheet offers, so "Show me" opens one that has the button it is heading for.
+  const actions = useVisitActions()(booking).actions.join(" ");
   const service = findService(state, booking.serviceId);
   const gap = processingGap(booking, booking.start, booking.duration);
   const buffers = [
@@ -65,6 +68,8 @@ export function BookingBlock({ booking, top, height, scale, compact, staffName, 
         onDragStart={onDragStart}
         onClick={settled ? () => { hidePreview(); onOpen(); } : undefined}
         data-calendar-booking={booking.id}
+        data-help-id="calendar.booking"
+        data-help-state={actions}
         data-date={booking.date}
         data-start={booking.start}
         aria-describedby={previewed ? PREVIEW_ID : undefined}

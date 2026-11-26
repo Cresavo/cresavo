@@ -12,7 +12,7 @@ export default function ReminderSettingsPage() {
     <SettingsSubPage title={t("settings.section.reminders")} subtitle={t("settings.section.reminders.description")}>
       <div className="space-y-6 md:max-w-form">
         <ReminderSettings state={state} />
-        <BookingRules key={state.cancellationPolicy.version} state={state} />
+        <div data-help-id="reminders.rules"><BookingRules key={state.cancellationPolicy.version} state={state} /></div>
       </div>
     </SettingsSubPage>
   );

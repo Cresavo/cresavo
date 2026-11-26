@@ -10,13 +10,15 @@ interface Tab {
   panel: ReactNode;
 }
 
-export function Tabs({ tabs, value, onChange, label }: {
+export function Tabs({ tabs, value, onChange, label, helpId }: {
   tabs: readonly Tab[]; value: string; onChange: (id: string) => void; label: string;
+  /** Help-map id of the tab list. */
+  helpId?: string;
 }) {
   const groupId = useId();
   return (
     <div>
-      <div role="tablist" aria-label={label} className="flex w-fit max-w-full overflow-x-auto">
+      <div role="tablist" aria-label={label} data-help-id={helpId} className="flex w-fit max-w-full overflow-x-auto">
         {tabs.map((tab, index) => (
           <button key={tab.id} id={groupId + tab.id} type="button" role="tab" aria-selected={value === tab.id}
             aria-controls={groupId + "-panel-" + tab.id} tabIndex={value === tab.id ? 0 : -1}

@@ -63,7 +63,7 @@ export default function TodayPage() {
         title={greeting(minutes, ownerName)}
         subtitle={`${formatDayLong(today)} · ${!open ? t("today.closed") : off ? t("today.dayOff") : tc("today.bookingCount", count)}`}
         actions={
-          !empty && <Button icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
+          !empty && <Button data-help-id="today.phone-mode" icon={<Phone size={18} />} onClick={() => setSheet({ kind: "phone" })}>
             {t("today.phoneMode")}
           </Button>
         }

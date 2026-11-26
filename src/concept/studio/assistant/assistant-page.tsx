@@ -19,6 +19,7 @@ export function AssistantPage({ tab: initial = "memory" }: { tab?: AssistantTab 
     <MorePage title={t("nav.assistant")} subtitle={t("nav.assistant.description")} module="assistant">
       <Tabs
         label={t("nav.assistant")}
+        helpId="assistant.tabs"
         value={tab}
         onChange={(id) => setTab(id as AssistantTab)}
         tabs={[

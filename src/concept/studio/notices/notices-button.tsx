@@ -68,7 +68,7 @@ export function NoticesButton() {
   const people = faces(notices);
   return (
     <>
-      <Button variant="tertiary" size="sm" aria-label={label} title={label} onClick={() => setOpen(true)} data-testid="notices-button"
+      <Button variant="tertiary" size="sm" aria-label={label} title={label} onClick={() => setOpen(true)} data-testid="notices-button" data-help-id="shell.notices"
         className="shrink-0 px-1 text-text-secondary hover:text-text">
         {count > 0 ? (
           <span key="new" aria-hidden className="ui-arrive flex items-center gap-1 rounded-full bg-surface py-1 pl-1 pr-1 ring-1 ring-inset ring-hairline">

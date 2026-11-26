@@ -69,15 +69,15 @@ export function CustomerRights({ customer }: { customer: Customer }) {
 
   return (
     <>
-      <ActionMenu title={t("customer.rights.title")} icon={<Settings2 size={20} aria-hidden />} variant="secondary" sheetOnPhone
+      <ActionMenu title={t("customer.rights.title")} helpId="customer.actions" icon={<Settings2 size={20} aria-hidden />} variant="secondary" sheetOnPhone
         groups={[
-          [{ label: t("customer.edit"), icon: <Pencil {...ICON} />, run: () => setAction("edit") }],
+          [{ label: t("customer.edit"), icon: <Pencil {...ICON} />, run: () => setAction("edit"), helpId: "customer.edit" }],
           [
             { label: t("customer.export.json"), icon: <FileJson {...ICON} />, run: () => void save("json") },
             { label: t("customer.export.csv"), icon: <FileSpreadsheet {...ICON} />, run: () => void save("csv") },
           ],
           [
-            { label: t("customer.delete"), icon: <Trash2 {...ICON} />, tone: "danger", run: () => setAction("delete") },
+            { label: t("customer.delete"), icon: <Trash2 {...ICON} />, tone: "danger", run: () => setAction("delete"), helpId: "customer.delete" },
             { label: t("customer.erase"), icon: <Eraser {...ICON} />, tone: "danger", run: () => setAction("erase") },
           ],
         ]} />
