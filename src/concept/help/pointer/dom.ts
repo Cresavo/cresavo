@@ -12,10 +12,31 @@ export class ShowMeRefusal extends Error {
 
 export const mayClickFor = (entry: Pick<HelpEntry, "safety">) => entry.safety === "navigate";
 
+/** What a click can open: a link, a button, a tab, a form control or a label. */
+export const INTERACTIVE = "a[href], button, [role=button], [role=tab], [role=link], [role=menuitem], input, select, summary, label";
+
+type Clickable = Pick<HTMLElement, "click">;
+interface Anchor extends Clickable {
+  matches?(selector: string): boolean;
+  querySelectorAll?(selector: string): ArrayLike<Clickable>;
+}
+
+/**
+ * The element a click should land on: the anchor itself when it is a control, else the one control inside it.
+ * `element.click()` on a wrapper never reaches the button in it, so a wrapper with none or several is refused.
+ */
+export function clickTarget(element: Anchor): Clickable | null {
+  if (!element.matches || element.matches(INTERACTIVE)) return element;
+  const inside = element.querySelectorAll?.(INTERACTIVE);
+  return inside?.length === 1 ? inside[0] : null;
+}
+
 /** Presses a navigation step for the owner ("Take me there"). Refuses anything that books, moves, pays, sends, deletes or resets. */
-export function clickFor(entry: Pick<HelpEntry, "id" | "safety">, element: Pick<HTMLElement, "click">): void {
+export function clickFor(entry: Pick<HelpEntry, "id" | "safety">, element: Anchor): void {
   if (!mayClickFor(entry)) throw new ShowMeRefusal(entry.id);
-  element.click();
+  const target = clickTarget(element);
+  if (!target) throw new Error(`Show me cannot press "${entry.id}": its anchor is not one control.`);
+  target.click();
 }
 
 /** Behind an open modal dialog, or in a part of the page that is switched off: there, but not reachable now. */

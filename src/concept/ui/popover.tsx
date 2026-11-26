@@ -18,6 +18,8 @@ interface PopoverProps {
   /** Below `sm` the panel becomes the bottom sheet, which has room for controls and is in reach of a thumb. */
   sheetOnPhone?: boolean;
   kind?: "menu" | "dialog";
+  /** Help-map id of the trigger ("Show me" points here and may press it). */
+  helpId?: string;
 }
 
 const PHONE = "(max-width: 639.98px)";
@@ -79,7 +81,7 @@ function usePhone(enabled: boolean): boolean {
  * A short panel that grows out of the button that opened it and folds back into it. Escape, a click outside or
  * moving focus away closes it; Escape and a choice return focus to the trigger.
  */
-export function Popover({ title, icon, variant = "tertiary", children, align = "end", sheetOnPhone = false, kind = "dialog" }: PopoverProps) {
+export function Popover({ title, icon, variant = "tertiary", children, align = "end", sheetOnPhone = false, kind = "dialog", helpId }: PopoverProps) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -161,7 +163,7 @@ export function Popover({ title, icon, variant = "tertiary", children, align = "
     if ((event.target as Element).closest("[role=menuitem], [data-popover-close]")) done();
   };
   const button = (
-    <IconButton ref={triggerRef} label={title} variant={variant} aria-haspopup={kind} aria-expanded={open}
+    <IconButton ref={triggerRef} label={title} variant={variant} data-help-id={helpId} aria-haspopup={kind} aria-expanded={open}
       aria-controls={present ? id : undefined} onClick={() => (open ? close() : setOpen(true))}>
       {icon}
     </IconButton>
@@ -242,7 +244,7 @@ export interface ActionMenuItem {
  * A short list of actions that grows from its trigger. Arrow keys, Home and End move between the actions. Pass
  * `groups` to set related actions apart with a hairline; `sheetOnPhone` lists them in the bottom sheet below `sm`.
  */
-export function ActionMenu({ title, icon, items, groups, align, variant, sheetOnPhone }: {
+export function ActionMenu({ title, icon, items, groups, align, variant, sheetOnPhone, helpId }: {
   title: string;
   icon: ReactNode;
   items?: readonly ActionMenuItem[];
@@ -250,10 +252,11 @@ export function ActionMenu({ title, icon, items, groups, align, variant, sheetOn
   align?: PopoverProps["align"];
   variant?: PopoverProps["variant"];
   sheetOnPhone?: boolean;
+  helpId?: string;
 }) {
   const sets = (groups ?? [items ?? []]).filter(group => group.length);
   return (
-    <Popover title={title} icon={icon} align={align} variant={variant} sheetOnPhone={sheetOnPhone} kind="menu">
+    <Popover title={title} icon={icon} align={align} variant={variant} sheetOnPhone={sheetOnPhone} kind="menu" helpId={helpId}>
       <MenuItems groups={sets} />
     </Popover>
   );

@@ -1,12 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
 import { HELP_MAP, helpEntry } from "../../src/concept/help/map/entries";
 import type { HelpEntry } from "../../src/concept/help/map/types";
+import { INTERACTIVE } from "../../src/concept/help/pointer/dom";
 
 // Every place in the "Show me" help map renders its `data-help-id` anchor in the real studio. An entry that needs a
 // click on its own page first (a booking's buttons need the booking open) follows those steps of its path, so the
 // paths are checked too. The source-level check is tests/concept-help-map.test.ts.
 
 const NOW = new Date("2026-11-17T11:00:00+01:00");
+/** Entries the guide presses on the way to another: their anchor must be the control itself, not a wrapper. */
+const STEPS = new Set(HELP_MAP.flatMap((entry) => entry.path));
 
 /** The page to open and the steps to click there before the entry's element shows. */
 function plan(entry: HelpEntry): { start: string; openers: HelpEntry[] } {
@@ -47,6 +50,11 @@ for (const entry of HELP_MAP) {
       await expect(target, `${entry.id}: step ${step.id}`).toBeVisible({ timeout: 15000 });
       await target.click();
     }
-    await expect(anchor(page, entry).all.first(), entry.id).toBeVisible({ timeout: 15000 });
+    const shown = anchor(page, entry).all;
+    await expect(shown.first(), entry.id).toBeVisible({ timeout: 15000 });
+    if (STEPS.has(entry.id)) {
+      const controls = await shown.evaluateAll((elements, selector) => elements.map((element) => element.matches(selector)), INTERACTIVE);
+      expect(controls, `${entry.id} is a step the guide presses: anchor the control itself`).not.toContain(false);
+    }
   });
 }

@@ -69,8 +69,7 @@ export function CustomerRights({ customer }: { customer: Customer }) {
 
   return (
     <>
-      <span data-help-id="customer.actions" className="inline-flex rounded-md">
-      <ActionMenu title={t("customer.rights.title")} icon={<Settings2 size={20} aria-hidden />} variant="secondary" sheetOnPhone
+      <ActionMenu title={t("customer.rights.title")} helpId="customer.actions" icon={<Settings2 size={20} aria-hidden />} variant="secondary" sheetOnPhone
         groups={[
           [{ label: t("customer.edit"), icon: <Pencil {...ICON} />, run: () => setAction("edit"), helpId: "customer.edit" }],
           [
@@ -82,7 +81,6 @@ export function CustomerRights({ customer }: { customer: Customer }) {
             { label: t("customer.erase"), icon: <Eraser {...ICON} />, tone: "danger", run: () => setAction("erase") },
           ],
         ]} />
-      </span>
       <EditCustomerSheet customer={customer} open={action === "edit"} onClose={close} />
       <DeleteCustomerSheet customer={customer} open={action === "delete"} onClose={close} />
       <EraseCustomerSheet customer={customer} open={action === "erase"} onClose={close} onErased={() => router.push("/studio/customers")} />

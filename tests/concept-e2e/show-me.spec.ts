@@ -49,3 +49,25 @@ test("a question Show me does not know gets common places instead", async ({ pag
   await page.getByRole("button", { name: "Change opening hours" }).click();
   await expect(page.locator(".studio-show-me-card")).toBeVisible();
 });
+
+test("a guide through Help opens History and its Trash even after an earlier answer", async ({ page }) => {
+  await page.goto("/studio");
+  await page.locator('[data-help-id="shell.help"]:visible').first().click();
+  const question = page.getByLabel("What do you want to do?");
+  await question.fill("get back a deleted customer");
+  await question.press("Enter");
+  // The articles' answer replaces Help's landing view, where History lives.
+  await expect(page.getByText("Looking it up…")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Show me: Trash/ }).click();
+
+  const card = page.locator(".studio-show-me-card");
+  await expect(card.getByRole("heading", { name: "Help" })).toBeFocused();
+  await card.getByRole("button", { name: "Take me there" }).click();
+  // Help opened again on its landing view, so the History row is there to point at and press.
+  await expect(card.getByRole("heading", { name: "History and undo" })).toBeFocused();
+  await expect(page.locator('button[data-help-id="help.history"][data-tour-active]')).toBeVisible();
+  await card.getByRole("button", { name: "Take me there" }).click();
+  await expect(page).toHaveURL(/\/studio\/more\/log$/);
+  await expect(card.getByRole("heading", { name: "Trash" })).toBeVisible();
+  await expect(page.locator('[data-help-id="log.trash"][data-tour-active]')).toBeVisible();
+});

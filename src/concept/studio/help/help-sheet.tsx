@@ -41,6 +41,19 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
   const router = useRouter();
   const role = useRole();
 
+  // Help opens on its landing view: History, What's new and the examples live only there, and a guide that
+  // points at them (or a question asked last time) must not find a stale answer instead.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setView({ kind: "ask" });
+      setQuestion("");
+      setTicketing(false);
+      search.clear();
+    }
+  }
+
   const ask = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -107,8 +120,9 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
         )}
 
         {view.kind === "ask" && (
-          <div data-help="whats-new" data-help-id="help.whats-new" className="border-t border-hairline pt-2">
+          <div data-help="whats-new" className="border-t border-hairline pt-2">
             <ListRow
+              helpId="help.whats-new"
               onClick={onWhatsNew}
               title={t("whatsNew.title")}
               meta={unseen ? t("whatsNew.dot") : t("whatsNew.row")}
@@ -120,8 +134,9 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
 
         {/* History and undo lives here, under Help, rather than in More. */}
         {view.kind === "ask" && canOpen(role, HISTORY_PAGE) && (
-          <div data-help="history" data-help-id="help.history" className="border-t border-hairline pt-2">
+          <div data-help="history" className="border-t border-hairline pt-2">
             <ListRow
+              helpId="help.history"
               onClick={() => { close(); router.push(HISTORY_PAGE); }}
               title={t("nav.log")}
               meta={t("nav.log.description")}

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { HELP_MAP, helpEntry, helpSteps } from "@/concept/help/map/entries";
-import { clickFor, mayClickFor, onRoute, ShowMeRefusal } from "@/concept/help/pointer/dom";
+import { clickFor, clickTarget, INTERACTIVE, mayClickFor, onRoute, ShowMeRefusal } from "@/concept/help/pointer/dom";
 import { moveShowMe, startShowMe, stopShowMe } from "@/concept/help/pointer/store";
 import { setupGaps } from "@/concept/help/setup-gaps";
 import { showMeTool } from "@/concept/help/show-me-tool";
@@ -23,6 +23,18 @@ describe("Show me never presses what changes data", () => {
     clickFor(helpEntry("nav.more")!, element);
     clickFor(helpEntry("calendar.booking")!, element);
     expect(element.click).toHaveBeenCalledTimes(2);
+  });
+
+  it("presses the control, not a wrapper around it", () => {
+    const button = { click: vi.fn(), matches: (selector: string) => selector === INTERACTIVE };
+    const wrapper = { click: vi.fn(), matches: () => false, querySelectorAll: () => [button] };
+    clickFor(helpEntry("help.history")!, wrapper);
+    expect(button.click).toHaveBeenCalledTimes(1);
+    expect(wrapper.click).not.toHaveBeenCalled();
+    expect(clickTarget(button)).toBe(button);
+    expect(clickTarget({ click: vi.fn(), matches: () => false, querySelectorAll: () => [] })).toBeNull();
+    expect(clickTarget({ click: vi.fn(), matches: () => false, querySelectorAll: () => [button, button] })).toBeNull();
+    expect(() => clickFor(helpEntry("help.history")!, { click: vi.fn(), matches: () => false, querySelectorAll: () => [] })).toThrow(/not one control/);
   });
 
   it("refuses every changes-data entry in the map", () => {

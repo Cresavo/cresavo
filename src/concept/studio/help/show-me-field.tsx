@@ -23,7 +23,7 @@ const SUGGESTIONS: { label: MessageKey; entry: string }[] = [
 /** The local "Show me" search: no network, so the answer is there as soon as the question is asked. */
 export function useShowMeSearch() {
   const [match, setMatch] = useState<HelpMatch | null>(null);
-  return { match, find: (question: string) => setMatch(findHelp(question)) };
+  return { match, find: (question: string) => setMatch(findHelp(question)), clear: () => setMatch(null) };
 }
 
 /** The question field at the top of Help. */
