@@ -30,7 +30,7 @@ function mockRecord(bookingId: string | undefined, outcome: CallRecord["outcome"
 
 function RingPreviewBody() {
   const params = useSearchParams();
-  const shot = params.get("shot") ?? "idle";
+  const shot = params?.get("shot") ?? "idle";
   const { state } = useStudio();
   const speaker = useRef<HTMLAudioElement>(null);
   const salonName = state.salon.name;
