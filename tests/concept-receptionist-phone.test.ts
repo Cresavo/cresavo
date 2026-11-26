@@ -30,6 +30,10 @@ describe("caller phone numbers", () => {
     expect(usesTrunkZero("08-123 45 67")).toBe(true);
     expect(usesTrunkZero("+46 8 123 45 67")).toBe(true);
     expect(usesTrunkZero("+1 212 555 0100")).toBe(false);
+    expect(usesTrunkZero("001 212 555 0100")).toBe(false);
+    expect(usesTrunkZero("0046 8 123 45 67")).toBe(true);
+    expect(callerPhone("123456789012", false)).toEqual({ ok: true, phone: "123456789012" });
+    expect(callerPhone("012345678901", true)).toEqual({ ok: false, reason: "unclear" });
   });
 
   it("reads a number back smoothly in groups, always starting with noll", () => {

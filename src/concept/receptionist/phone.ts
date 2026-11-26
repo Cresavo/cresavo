@@ -15,7 +15,10 @@ const INPUT = /^\+?[\d\s().-]+$/;
 
 /** True for a salon with a Swedish number (0… or +46…): its callers' national numbers start with 0. */
 export function usesTrunkZero(salonPhone: string): boolean {
-  return /^\s*(?:\+\s*46|0046|0)/.test(salonPhone);
+  const said = salonPhone.trim();
+  if (said.startsWith("+")) return said.replace(/\D/g, "").startsWith("46");
+  const digits = said.replace(/\D/g, "");
+  return digits.startsWith("00") ? digits.startsWith("0046") : digits.startsWith("0");
 }
 
 /**
@@ -39,7 +42,7 @@ export function callerPhone(raw: string, trunkZero = true): CallerPhone {
   else if (digits.startsWith("0") || !trunkZero) phone = digits;
   else return { ok: false, reason: digits.length >= 6 ? "missing_zero" : "unclear" };
   const count = phone.replace(/\D/g, "").length;
-  const wanted = phone.startsWith("+") ? count >= 7 && count <= 15 : count >= 7 && count <= 11;
+  const wanted = phone.startsWith("+") || !trunkZero ? count >= 7 && count <= 15 : count >= 7 && count <= 11;
   if (!wanted || /^\+?(\d)\1+$/.test(phone)) return { ok: false, reason: "unclear" };
   return { ok: true, phone };
 }
