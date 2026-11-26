@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { helpSteps } from "../../help/map/entries";
 import type { HelpEntry } from "../../help/map/types";
-import { clickFor, clickTarget, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
+import { ANOTHER_DAY, clickFor, clickTarget, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
 import { moveShowMe, stopShowMe, useShowMe } from "../../help/pointer/store";
 import { t, type MessageKey } from "../../i18n";
 import { moduleEnabled } from "../../modules/registry";
@@ -44,6 +44,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const last = index === steps.length - 1;
   const [found, setFound] = useState<Found | null>(null);
   const [missing, setMissing] = useState<number | null>(null);
+  /** A step with no visit of the kind asked for on screen: the guide points at another day instead. */
+  const [unmatched, setUnmatched] = useState<number | null>(null);
   /** A step whose press did not go through: from then on the guide only points at it. */
   const [unpressable, setUnpressable] = useState<number | null>(null);
   // Going back past a step this layout does not have (the phone's tab bar on a desktop) skips it the same way.
@@ -51,10 +53,12 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const blocker: "module" | "owner" | null = step.module && !moduleEnabled(state.modules, step.module) ? "module"
     : !canOpen(role, step.route) ? "owner" : null;
   const target = found?.index === index ? found.element : null;
+  const steering = unmatched === index;
 
   const go = (next: number) => {
     direction.current = next < index ? -1 : 1;
     setMissing(null);
+    setUnmatched(null);
     moveShowMe(next);
   };
 
@@ -65,11 +69,29 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
     let opened = false;
     // Counted rather than read from the clock, which a page (or a test) may hold still.
     let waited = 0;
+    let steered = false;
     const look = () => {
       const result = findAnchor(step.id, entry.prefer);
       if (typeof result === "object") {
         setMissing(null);
+        setUnmatched(null);
         return setFound({ index, element: result.element });
+      }
+      if (entry.prefer && (result === "unmatched" || steered)) {
+        // No visit of the kind asked for here: never open another kind. Point at the next or previous day, and go on
+        // by ourselves when one shows up or the owner opens a fitting visit.
+        steered = true;
+        setUnmatched(index);
+        const ahead = steps[index + 1];
+        if (ahead && typeof findAnchor(ahead.id) === "object") {
+          direction.current = 1;
+          return moveShowMe(index + 1);
+        }
+        const day = findAnchor(ANOTHER_DAY[entry.prefer]);
+        const element = typeof day === "object" ? day.element : null;
+        setFound((current) => (current?.index === index && current.element === element ? current : element && { index, element }));
+        timer = window.setTimeout(look, POLL_MS * 2);
+        return;
       }
       if (result === "hidden") {
         // This layout does not have it (the phone's tab bar on a desktop): the next step shows the way instead.
@@ -90,7 +112,7 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
     };
     look();
     return () => window.clearTimeout(timer);
-  }, [blocker, entry.prefer, index, pathname, router, step, steps.length]);
+  }, [blocker, entry.prefer, index, pathname, router, step, steps]);
 
   const heading = useRef<HTMLHeadingElement>(null);
   const hintId = useId();
@@ -108,6 +130,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
     target.setAttribute("aria-describedby", [described, hintId].filter(Boolean).join(" "));
     heading.current?.focus({ preventScroll: true });
     const followed = () => {
+      // The other day's arrow only changes the day; the guide goes on once a fitting visit is there.
+      if (steering) return;
       if (last) stopShowMe();
       else if (mayClickFor(step)) {
         direction.current = 1;
@@ -121,7 +145,7 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
       if (described) target.setAttribute("aria-describedby", described);
       else target.removeAttribute("aria-describedby");
     };
-  }, [hintId, index, last, step, target]);
+  }, [hintId, index, last, step, steering, target]);
 
   // Closing leaves keyboard focus on the element the guide pointed at, ready to press.
   const finish = () => {
@@ -148,8 +172,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
 
   const changes = !mayClickFor(step);
   // "Take me there" only when the element is one control now; a group, or a press that failed, is only pointed at.
-  const control = target && !changes && !step.pointOnly && unpressable !== index ? clickTarget(target) : null;
-  const pointing = !!target && !changes && !control;
+  const control = target && !steering && !changes && !step.pointOnly && unpressable !== index ? clickTarget(target) : null;
+  const pointing = !!target && !steering && !changes && !control;
   const takeMe = () => {
     if (!target || !control) return;
     try {
@@ -176,7 +200,9 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
       </div>
       <h2 id={headingId} ref={heading} tabIndex={-1} style={{ outline: "none" }} className="text-h3 font-semibold">{label}</h2>
       <div aria-live="polite" className="space-y-2">
-        {blocker || missing === index ? (
+        {steering && entry.prefer ? (
+          <FriendlyNotice message={friendlyMessage({ what: `showMe.unmatched.${entry.prefer}.what`, next: `showMe.unmatched.${entry.prefer}.next` }, { label: t(entry.label) })} />
+        ) : blocker || missing === index ? (
           <Blocked step={step} reason={blocker ?? "missing"} />
         ) : (
           <>
@@ -190,7 +216,7 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
         {index > 0 && <Button variant="secondary" size="sm" onClick={() => go(index - 1)}>{t("showMe.back")}</Button>}
         {control && <Button size="sm" onClick={takeMe}>{t("showMe.takeMe")}</Button>}
         {pointing && !last && <Button size="sm" onClick={() => go(index + 1)}>{t("showMe.next")}</Button>}
-        {last && !control && <Button size="sm" variant={target ? "primary" : "secondary"} onClick={finish}>{t("showMe.done")}</Button>}
+        {last && !control && !steering && <Button size="sm" variant={target ? "primary" : "secondary"} onClick={finish}>{t("showMe.done")}</Button>}
       </div>
     </section>
   </>, place.host);

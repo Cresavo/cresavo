@@ -92,3 +92,32 @@ test("a row of filters is pointed at and explained, never pressed", async ({ pag
   // Nothing was chosen for the owner.
   await expect(page).toHaveURL(/\/studio\/inbox$/);
 });
+
+test("with only visits still to come, Take payment points at an earlier day instead of opening one", async ({ page }) => {
+  // 08:00: today's first visit is at 09:00, so nothing on screen has finished.
+  await page.clock.setFixedTime(new Date("2026-11-17T08:00:00+01:00"));
+  await page.goto("/studio/calendar");
+  await expect(page.locator('[data-help-id="calendar.booking"]:visible').first()).toBeVisible();
+  await expect(page.locator('[data-help-id="calendar.booking"][data-help-state="past"]:visible')).toHaveCount(0);
+  await page.locator('[data-help-id="shell.help"]:visible').first().click();
+  const question = page.getByLabel("What do you want to do?");
+  await question.fill("take payment");
+  await question.press("Enter");
+  await page.getByRole("button", { name: /^Show me: Take payment/ }).click();
+
+  const card = page.locator(".studio-show-me-card");
+  await expect(card.getByRole("heading", { name: "Calendar" })).toBeFocused();
+  await card.getByRole("button", { name: "Take me there" }).click();
+  await expect(card.getByText("Take payment is on a visit that has finished.")).toBeVisible();
+  await expect(card.getByText("Open a visit that is over, or go to an earlier day.")).toBeVisible();
+  await expect(page.locator('[data-help-id="calendar.previous"][data-tour-active]:visible')).toHaveCount(1);
+  await expect(card.getByRole("button", { name: "Take me there" })).toHaveCount(0);
+  // No visit was opened for the owner.
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+
+  // The owner goes to the day before; the guide carries on by itself and points at a finished visit there.
+  await page.locator('[data-help-id="calendar.previous"]:visible').click();
+  await expect(page.locator('[data-help-id="calendar.booking"][data-help-state="past"][data-tour-active]').first()).toBeVisible();
+  await expect(card.getByRole("heading", { name: "A booking" })).toBeVisible();
+  await expect(card.getByText("Take payment is on a visit that has finished.")).toHaveCount(0);
+});

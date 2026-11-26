@@ -40,24 +40,31 @@ export function clickFor(entry: Pick<HelpEntry, "id" | "safety">, element: Ancho
 }
 
 /** Behind an open modal dialog, or in a part of the page that is switched off: there, but not reachable now. */
-function blocked(element: Element, doc: Document): boolean {
+function blocked(element: Element, doc: Pick<Document, "querySelectorAll">): boolean {
   if (element.closest("[inert]")) return true;
   const modal = [...doc.querySelectorAll("dialog[open]")].some((dialog) => dialog.matches(":modal"));
   return modal && !element.closest("dialog[open]");
 }
 
-export type AnchorLookup = { element: HTMLElement } | "hidden" | "absent";
+export type AnchorLookup = { element: HTMLElement } | "hidden" | "absent" | "unmatched";
+
+/** Where to find another visit of the kind asked for: finished visits lie on earlier days, coming ones on later. */
+export const ANOTHER_DAY: Record<NonNullable<HelpEntry["prefer"]>, string> = { past: "calendar.previous", upcoming: "calendar.next" };
 
 /**
  * The element for an entry that the owner can see now. "hidden" when the page has it but not in this layout (the
- * tab bar on a desktop), "absent" when it is not on the page (yet). Of several, `prefer` picks by `data-help-state`.
+ * tab bar on a desktop), "absent" when it is not on the page (yet). Of elements that carry a `data-help-state`
+ * (visits), only one in the `prefer` state will do: "unmatched" when none on screen is, so the guide never opens a
+ * visit that cannot offer what was asked (an upcoming visit has no Take payment).
  */
-export function findAnchor(id: string, prefer?: string, doc: Document = document): AnchorLookup {
-  const all = [...doc.querySelectorAll<HTMLElement>(`[data-help-id="${CSS.escape(id)}"]`)];
+export function findAnchor(id: string, prefer?: string, doc: Pick<Document, "querySelectorAll"> = document): AnchorLookup {
+  const all = [...doc.querySelectorAll<HTMLElement>(`[data-help-id="${id.replace(/["\\]/g, "\\$&")}"]`)];
   if (!all.length) return "absent";
   const shown = all.filter((element) => element.getClientRects().length > 0 && !blocked(element, doc));
   if (!shown.length) return all.some((element) => element.getClientRects().length > 0) ? "absent" : "hidden";
-  return { element: (prefer && shown.find((element) => element.dataset.helpState === prefer)) || shown[0] };
+  if (!prefer || !shown.some((element) => element.dataset.helpState)) return { element: shown[0] };
+  const match = shown.find((element) => element.dataset.helpState === prefer);
+  return match ? { element: match } : "unmatched";
 }
 
 /** Whether a page address shows an entry's route; a `[id]` segment matches any one segment. */
