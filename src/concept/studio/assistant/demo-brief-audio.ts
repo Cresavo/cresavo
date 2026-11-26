@@ -54,8 +54,9 @@ function isStandardSwedishDemo(today: string, generatedFor: string) {
 }
 
 function matchesRecordedMorning(brief: Brief) {
-  if (brief.items.length !== RECORDED_MORNING_ITEMS.length) return false;
-  return brief.items.every((item, i) => {
+  const items = brief.items.filter((item) => !item.id.startsWith("holiday-"));
+  if (items.length !== RECORDED_MORNING_ITEMS.length) return false;
+  return items.every((item, i) => {
     const [id, text] = RECORDED_MORNING_ITEMS[i];
     if (item.text !== text) return false;
     return id.endsWith("-") ? item.id.startsWith(id) : item.id === id;

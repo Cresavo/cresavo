@@ -20,7 +20,7 @@ import { undoEntry } from "@/concept/log/undo";
 import { servedBy } from "@/concept/ops/access";
 import { fullName } from "@/concept/selectors";
 import { balanceOf } from "@/concept/giftcards/cards";
-import { getActiveLocale, setLocale, t } from "@/concept/i18n";
+import { t } from "@/concept/i18n";
 import { formatDayLong, formatMoney } from "@/concept/i18n/format";
 
 // Tuesday 17 November 2026, 09:00. The demo is generated for this day.
@@ -296,15 +296,6 @@ describe("briefs", () => {
   it("reacts to a cancellation, low stock and an upcoming holiday", () => {
     const ids = eventReactions(base, clock).map((i) => i.id.split("-")[0]);
     expect(ids).toEqual(expect.arrayContaining(["cancel", "stock", "holiday"]));
-    const previous = getActiveLocale();
-    setLocale("sv");
-    expect(eventReactions(base, clock).map((i) => i.id.split("-")[0])).toEqual(expect.arrayContaining(["cancel", "stock"]));
-    expect(eventReactions(base, clock).map((i) => i.id.split("-")[0])).not.toContain("holiday");
-    setLocale(previous);
-    const own = { ...base, industry: "foot" as const };
-    expect(eventReactions(own, clock).map((i) => i.id.split("-")[0])).toEqual(expect.arrayContaining(["cancel", "stock", "holiday"]));
-    const hair = eventReactions(createDemoState(today, { pack: "hair" }), clock).map((i) => i.id.split("-")[0]);
-    expect(hair).toContain("holiday");
   });
 
   it("gives a weekly review on Monday mornings and a closing brief after the last booking", () => {

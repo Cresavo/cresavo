@@ -47,7 +47,7 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
           person.week[day]?.start === state.salon.hours[day]?.open && person.week[day]?.end === state.salon.hours[day]?.close);
         return followsSalon ? { ...person, week: weekFromHours(action.hours) } : person;
       }) : state.staff;
-      return { ...state, staff, salon: { ...state.salon, hours: action.hours, lunch: action.lunch } };
+      return { ...state, staff, salon: { ...state.salon, hours: action.hours, lunch: action.lunch, openings: undefined } };
     }
     case "salon/close": {
       const name = action.name.trim();

@@ -6,7 +6,7 @@ import { dueBackList } from "../customers/return-visits";
 import { figuresFor } from "../finance/figures";
 import { changeShare } from "../finance/overview";
 import type { Clock } from "../finance/types";
-import { getActiveLocale, t, tc } from "../i18n";
+import { t, tc } from "../i18n";
 import { formatMoney, formatNumber, formatTime } from "../i18n/format";
 import { needsMoving } from "../ops/needs-moving";
 import { dayFacts, daySummaryText, summaryDue } from "../summary/day";
@@ -48,10 +48,7 @@ export function eventReactions(state: DemoState, clock: Clock): BriefItem[] {
     for (const item of lowStock(state).slice(0, 2)) items.push({ id: `stock-${item.id}`, text: t("brief.lowStock", { name: item.name }), priority: 3, href: "/studio/more/stock" });
   }
   const holiday = [...state.holidays].sort((a, b) => a.date.localeCompare(b.date)).find((h) => h.date >= clock.today && diffDays(h.date, clock.today) <= HOLIDAY_DAYS);
-  // The standard two-person Salong Eko demo keeps holidays in state for the campaigns page, but leaves them
-  // out of the morning brief so the recorded Swedish reading stays the same on every date.
-  const standardSwedishDemo = state.industry === null && state.pack === "foot-massage" && state.staff.length > 1 && getActiveLocale() === "sv";
-  if (holiday && state.modules.campaigns && !standardSwedishDemo) {
+  if (holiday && state.modules.campaigns) {
     items.push({ id: `holiday-${holiday.id}`, text: tc("brief.holiday", diffDays(holiday.date, clock.today), { name: holiday.name }), priority: 2, href: "/studio/more/campaigns" });
   }
   return items;

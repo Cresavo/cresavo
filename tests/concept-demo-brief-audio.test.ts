@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { reduce } from "@/concept/actions";
 import { morningBrief } from "@/concept/assistant/briefs";
 import { createDemoState } from "@/concept/data/generate";
 import {
@@ -59,7 +60,7 @@ describe("recorded demo brief clips", () => {
   it("still matches the standard Swedish Salong Eko demo, on any day", () => {
     swedishDemo();
     const brief = morningBrief(base, morningClock);
-    expect(brief.items.map((item) => item.text)).toEqual(
+    expect(brief.items.filter((item) => !item.id.startsWith("holiday-")).map((item) => item.text)).toEqual(
       RECORDED_MORNING_ITEMS.map(([, text]) => text),
     );
     expect(brief.items[1].id).toMatch(/^cancel-/);
@@ -103,6 +104,9 @@ describe("recorded demo brief clips", () => {
     const friday = createDemoState("2026-11-20");
     expect(openingFor(friday.salon, "2026-11-21")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(friday.salon, "2026-11-28")).toEqual({ open: 10 * 60, close: 15 * 60 });
+    const edited = reduce(friday, { type: "salon/hours", hours: friday.salon.hours, lunch: friday.salon.lunch });
+    expect(edited.salon.openings).toBeUndefined();
+    expect(openingFor(edited.salon, "2026-11-21")).toEqual({ open: 10 * 60, close: 15 * 60 });
   });
 
   it("offers the morning clip only for that Swedish morning brief", () => {
