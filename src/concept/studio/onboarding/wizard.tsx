@@ -54,6 +54,7 @@ export function SalonWizard() {
     title.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [step, live, restored]);
+  useEffect(() => () => { createTicket.current += 1; }, []);
   useEffect(() => {
     if (draft.language !== language) setDraft(relabel(draft, language));
   }, [draft, language, setDraft]);

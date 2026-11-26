@@ -28,6 +28,19 @@ const snapshot = () => (current ??= read());
 // The server has no storage: it renders nothing for the questions until the browser has read them.
 const serverSnapshot = () => undefined;
 
+/** Re-reads this browser's saved answers, for example after another tab changed them. */
+function refreshFromStorage() {
+  current = read();
+  for (const listener of listeners) listener();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", event => {
+    if (event.key !== SETUP_DRAFT_KEY && event.key !== null) return;
+    refreshFromStorage();
+  });
+}
+
 function save(next: Saved) {
   current = next;
   const untouched = next.step === 0 && JSON.stringify(next.draft) === JSON.stringify(salonDraft(next.draft.language));
