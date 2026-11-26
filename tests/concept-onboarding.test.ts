@@ -121,8 +121,17 @@ describe("the guided setup's answers", () => {
     expect(restoreDraft(JSON.parse(JSON.stringify(saved)), "en")).toEqual(saved);
     expect(restoreDraft(null, "sv")).toEqual(salonDraft("sv"));
     expect(restoreDraft("nonsense", "en")).toEqual(salonDraft("en"));
-    const broken = restoreDraft({ industry: "rockets", hours: { 1: { open: 900, close: 100 } }, people: [42], accent: "peony", logo: "http://x/y.png", name: 7 }, "en");
+    const broken = restoreDraft({ industry: "rockets", hours: { 1: { open: "nine", close: 100 } }, people: [42], accent: "peony", logo: "http://x/y.png", name: 7 }, "en");
     expect(broken).toEqual(salonDraft("en"));
+  });
+
+  it("keeps answers that are still being edited invalid, so the step asks for them again", () => {
+    const halfway = { ...salonDraft("en"), hours: sameHours([1, 2], 1020, 540), treatments: [{ name: "Haircut", price: NaN, duration: 45 }] };
+    const restored = restoreDraft(JSON.parse(JSON.stringify(halfway)), "en");
+    expect(restored.hours).toEqual(halfway.hours);
+    expect(hoursValid(restored.hours)).toBe(false);
+    expect(Number.isNaN(restored.treatments[0].price)).toBe(true);
+    expect(treatmentsValid(restored.treatments)).toBe(false);
   });
 });
 

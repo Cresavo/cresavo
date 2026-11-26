@@ -111,6 +111,15 @@ export function salonDraft(language: Locale = DEFAULT_BOOKING_LANGUAGE): SalonDr
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
+/** A cleared number input is saved as `null` (JSON has no NaN); it comes back as still missing, not as zero. */
+const savedNumber = (value: unknown) => typeof value === "number" ? value : NaN;
+
+/** Every day is closed or has whole-minute times within the day, in either order. */
+const editableHours = (hours: Salon["hours"]) => WEEK_ORDER.every(day => {
+  const span = hours[day];
+  return span === null || (Number.isInteger(span.open) && Number.isInteger(span.close) && span.open >= 0 && span.close <= DAY && span.open <= DAY && span.close >= 0);
+});
+
 /**
  * A draft read back from the browser: anything missing or malformed takes the default, so a draft saved by an
  * earlier setup (name, type and treatments only) or by another version still opens.
@@ -125,7 +134,7 @@ export function restoreDraft(input: unknown, language: Locale): SalonDraft {
     return [day, isObject(span) ? { open: span.open, close: span.close } : null];
   })) as Salon["hours"] : base.hours;
   const treatments = Array.isArray(input.treatments) && input.treatments.every(item => isObject(item) && typeof item.name === "string")
-    ? (input.treatments as Record<string, unknown>[]).map(item => ({ name: String(item.name), price: Number(item.price), duration: Number(item.duration) }))
+    ? (input.treatments as Record<string, unknown>[]).map(item => ({ name: String(item.name), price: savedNumber(item.price), duration: savedNumber(item.duration) }))
     : suggestedTreatments(industry, saved);
   const people = Array.isArray(input.people) && input.people.length && input.people.every(name => typeof name === "string")
     ? (input.people as string[]).slice(0, MAX_PEOPLE).map(name => name.slice(0, MAX_PERSON_NAME)) : base.people;
@@ -135,7 +144,9 @@ export function restoreDraft(input: unknown, language: Locale): SalonDraft {
     name: typeof input.name === "string" ? input.name.slice(0, 80) : base.name,
     industry,
     language: saved,
-    hours: hoursValid(hours) ? hours : base.hours,
+    // A day still being edited (closing before opening) is kept so the hours step asks for a fix; only a
+    // malformed shape falls back to the default week.
+    hours: editableHours(hours) ? hours : base.hours,
     treatments, people, logo,
     accent: SETUP_ACCENTS.includes(input.accent as SetupAccent) ? input.accent as SetupAccent : null,
   };
