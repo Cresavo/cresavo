@@ -5,6 +5,7 @@ import { webCallLimits, webCallModel, webCallQuota } from "./config";
 import type { CallLedger } from "./ledger";
 import { webCallInstructions, type WebCallSalon } from "./persona";
 import { estimateResponseCost, ratesFor, type CallLimits, type RealtimeUsage } from "../limits";
+import { salonWith, teamWith } from "../../packs/base";
 
 // The server half of the public web call. The browser sends its WebRTC offer
 // here; this server adds the session (model, rules, tools) and exchanges the
@@ -30,6 +31,13 @@ export const webCallInput = z.object({
 }).strict();
 
 export type WebCallInput = z.infer<typeof webCallInput>;
+
+/** The public demo's salon, from the demo data on the server: its name and its owner. */
+export function demoWebCallSalon(language: "sv" | "en"): WebCallSalon {
+  const person = { title: "", bio: "" };
+  const owner = teamWith(person, person).find((member) => /owner|ägare/i.test(member.role));
+  return { salonName: salonWith("").name, language, ownerName: owner?.firstName ?? "" };
+}
 
 /** The Realtime session of a web call: the receptionist's session, with the web-call voice, model and turn-taking. */
 export function webCallSession(salon: WebCallSalon, model: string) {
@@ -109,7 +117,9 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
   const giveBack = async () => { await Promise.all([ip.giveBack(), page.giveBack(), day.giveBack()]).catch(() => undefined); };
   const model = webCallModel(env);
   const limits = webCallLimits(env);
-  const session = webCallSession(input.salon, model);
+  // The page's salon names are display only: the rules are built from the demo salon's own data on the server,
+  // so a crafted name cannot write into Maja's instructions or make her another business.
+  const session = webCallSession(demoWebCallSalon(input.salon.language), model);
   const form = new FormData();
   form.set("sdp", input.sdp);
   form.set("session", JSON.stringify(session));
