@@ -34,6 +34,7 @@ import { SearchButton } from "./search/search-button";
 import { SearchPalette } from "./search/search-palette";
 import { NoticesButton } from "./notices/notices-button";
 import { NoticeToasts } from "./notices/notice-toasts";
+import { ShowMePointer } from "./help/show-me-pointer";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
@@ -126,6 +127,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
       <BottomTabs state={state} pathname={pathname} role={role} />
       {state.modules.assistant && <AssistantLauncher />}
       <SearchPalette />
+      <ShowMePointer />
       <NoticeToasts />
       <Toaster />
     </>
@@ -289,6 +291,7 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
   return (
     <nav
       aria-label={t("shell.navigation")}
+      data-tab-bar
       className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface studio-safe-bottom lg:hidden"
     >
       <div className="relative mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>

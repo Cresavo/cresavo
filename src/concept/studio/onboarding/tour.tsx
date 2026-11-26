@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { t } from "../../i18n";
 import { useWorkspaceSlug } from "../../store";
 import { Button, ButtonLink } from "../../ui/button";
+import { highlight } from "../../ui/highlight";
 
 const seenKey = "studio-tour-seen-v1";
 let seenInSession = false;
@@ -27,10 +28,9 @@ export function DemoTour({ close }: { close: () => void }) {
     try { localStorage.setItem(seenKey, "1"); } catch { /* Session fallback. */ }
   }, []);
   useEffect(() => {
-    const targets = Array.from(document.querySelectorAll<HTMLElement>(current.target));
-    for (const target of targets) target.setAttribute("data-tour-active", "");
+    const clear = highlight(document.querySelectorAll(current.target));
     heading.current?.focus({ preventScroll: true });
-    return () => { for (const target of targets) target.removeAttribute("data-tour-active"); };
+    return clear;
   }, [current]);
   const last = step === steps.length - 1;
   // The last step points at the way into setup at the end of the page, so the link is here as well.

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { ChevronRight, Eye, History, LifeBuoy, Send, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, Eye, History, LifeBuoy, Sparkles } from "lucide-react";
 import { askHelp, type HelpReply } from "../../help/client";
-import { showMe } from "../../help/show-me";
+import { startShowMe } from "../../help/pointer/store";
 import { t } from "../../i18n";
 import { canOpen } from "../../ops/access";
 import { useRole } from "../../ops/role";
@@ -12,11 +12,12 @@ import { ListRow } from "../../ui/list-row";
 import { HISTORY_PAGE } from "../nav";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { TextInput } from "../../ui/controls";
 import { StatusDot } from "../../ui/feedback";
+import { friendlyMessage, FriendlyNotice, logForSupport } from "../../ui/friendly-message";
 import { Sheet } from "../../ui/sheet";
-import { showToast } from "../../ui/toast";
 import { useStudio } from "../use-studio";
+import { SetupGaps } from "./setup-gaps";
+import { ShowMeField, ShowMeResult, useShowMeSearch } from "./show-me-field";
 import { TicketForm } from "./ticket-form";
 import { useHasUnseenUpdates } from "./whats-new-seen";
 
@@ -24,7 +25,10 @@ const EXAMPLES = ["help.example.book", "help.example.undo", "help.example.restor
 
 type View = { kind: "ask" } | { kind: "loading" } | { kind: "answer"; reply: HelpReply } | { kind: "failed" };
 
-/** Ask a question, get the answer from the help articles, be shown where to click, or create a ticket. */
+/**
+ * One question, two answers: "Show me" points at the place in the studio straight away (on the device), and the
+ * help articles explain it below. Then a ticket when that is not enough.
+ */
 export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClose: () => void; onWhatsNew: () => void }) {
   const { state } = useStudio();
   const unseen = useHasUnseenUpdates();
@@ -33,8 +37,8 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
   const [view, setView] = useState<View>({ kind: "ask" });
   const [ticketing, setTicketing] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
+  const search = useShowMeSearch();
   const router = useRouter();
-  const pathname = usePathname() ?? "";
   const role = useRole();
 
   const ask = async (text: string) => {
@@ -42,12 +46,14 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
     if (!trimmed) return;
     setQuestion(trimmed);
     setAsked(trimmed);
+    search.find(trimmed);
     setView({ kind: "loading" });
     try {
       const reply = await askHelp(trimmed, !!state.industry);
       setRequestId(reply.requestId);
       setView({ kind: "answer", reply });
-    } catch {
+    } catch (error) {
+      logForSupport("HELP_ARTICLES_UNAVAILABLE", error);
       setView({ kind: "failed" });
     }
   };
@@ -57,15 +63,15 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
     void ask(question);
   };
 
-  const show = async (reply: HelpReply) => {
-    onClose();
-    const found = await showMe(reply.articles[0], pathname, (path) => router.push(path));
-    if (!found) showToast(t("help.showMeFailed"));
-  };
-
   const close = () => {
     setTicketing(false);
     onClose();
+  };
+
+  /** The sheet closes first, so the guide can point at the studio behind it. */
+  const show = (entryId: string) => {
+    close();
+    startShowMe(entryId);
   };
 
   if (ticketing) {
@@ -77,15 +83,15 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
   }
 
   const reply = view.kind === "answer" ? view.reply : null;
+  const entry = reply?.articles[0]?.entry;
   return (
     <Sheet open={open} onClose={close} title={t("help.title")} description={t("help.description")}>
       <div className="space-y-4 pt-2">
-        <form onSubmit={submit} className="flex gap-2" role="search">
-          <TextInput value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t("help.placeholder")} aria-label={t("help.label")} maxLength={300} />
-          <Button type="submit" icon={<Send size={16} />} disabled={!question.trim() || view.kind === "loading"}>
-            {t("help.ask")}
-          </Button>
-        </form>
+        <ShowMeField value={question} onChange={setQuestion} onSubmit={submit} busy={view.kind === "loading"} />
+
+        {search.match && <ShowMeResult match={search.match} onShow={show} />}
+
+        {view.kind === "ask" && role === "owner" && state.industry && <SetupGaps onShow={close} />}
 
         {view.kind === "ask" && (
           <div className="space-y-2">
@@ -127,7 +133,10 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
 
         {view.kind === "loading" && <p role="status" className="flex items-center gap-2 text-sm text-text-secondary"><StatusDot />{t("help.looking")}</p>}
 
-        {view.kind === "failed" && <p className="rounded-md bg-warning-bg p-3 text-sm text-text">{t("help.failed")}</p>}
+        {view.kind === "failed" && (
+          <FriendlyNotice message={friendlyMessage({ what: "help.failed", why: "help.failedWhy", next: "help.failedNext" })}
+            action={<Button size="sm" variant="secondary" onClick={() => void ask(asked)}>{t("help.retry")}</Button>} />
+        )}
 
         {reply && (
           <div className="space-y-3" aria-live="polite">
@@ -142,8 +151,8 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
             ) : (
               <p className="rounded-lg bg-surface-2 p-4 text-body">{t("help.noAnswer")}</p>
             )}
-            {reply.articles[0]?.show && (
-              <Button variant="secondary" icon={<Eye size={18} />} onClick={() => void show(reply)}>
+            {entry && entry !== search.match?.best?.id && (
+              <Button variant="secondary" icon={<Eye size={18} />} onClick={() => show(entry)}>
                 {t("help.showMe")}
               </Button>
             )}

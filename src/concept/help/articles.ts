@@ -3,9 +3,7 @@ export interface HelpArticle {
   id: string;
   title: string;
   keywords: string[];
-  /** Page that shows the highlighted element; "Show me" goes there when it is not on the current page. */
-  path?: string;
-  /** `data-help` name of the button or menu item to highlight. */
-  show?: string;
+  /** The help-map entry "Show me" points at (`src/concept/help/map`). */
+  entry?: string;
   body: string;
 }

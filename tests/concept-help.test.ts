@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runTask } from "@/concept/ai/run-task";
 import { summarizeScreen } from "@/concept/help/dom-summary";
 import { loadHelpArticles } from "@/concept/help/load";
+import { helpEntry } from "@/concept/help/map/entries";
 import { ruleAnswer, stems } from "@/concept/help/match";
 
 const articles = loadHelpArticles();
@@ -17,15 +18,14 @@ describe("help knowledge base", () => {
       expect(article.title.length).toBeGreaterThan(5);
       expect(article.keywords.length).toBeGreaterThanOrEqual(3);
       expect(article.body.length).toBeLessThan(900);
-      expect(article.show, article.id).toBeTruthy();
-      expect(article.path, article.id).toMatch(/^\/studio/);
+      expect(helpEntry(article.entry ?? ""), article.id).toBeDefined();
       expect(article.body, article.id).not.toMatch(/Booking Lab/);
     }
   });
 
   it("retains article IDs and Show me targets in Swedish", () => {
     const swedish = loadHelpArticles("sv");
-    expect(swedish.map(({ id, path, show }) => ({ id, path, show }))).toEqual(articles.map(({ id, path, show }) => ({ id, path, show })));
+    expect(swedish.map(({ id, entry }) => ({ id, entry }))).toEqual(articles.map(({ id, entry }) => ({ id, entry })));
     for (const article of swedish) {
       expect(article.body, article.id).not.toMatch(/\{\w+\}/);
       expect(article.body, article.id).not.toBe(articles.find(({ id }) => id === article.id)?.body);

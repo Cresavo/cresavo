@@ -46,6 +46,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
   go("shell.view-page", STUDIO, [], "quick.viewPage", { ...shell, viewport: "desktop" }),
 
   // Help, in the sheet the Help button opens.
+  go("help.show-me", STUDIO, ["shell.help"], "showMe.help.show-me.label", shell),
   go("help.whats-new", STUDIO, ["shell.help"], "whatsNew.title", shell),
   go("help.history", STUDIO, ["shell.help"], "nav.log", shell),
   go("log.trash", "/studio/more/log", ["shell.help", "help.history"], "log.tab.trash"),

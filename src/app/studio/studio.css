@@ -173,25 +173,51 @@ body:has(.studio-root) .demo-banner {
   display: none;
 }
 
-/* "Show me" from the Help button: a pulsing ring around the element. Drawn
-   inside the element so a scrolling parent such as the sidebar cannot clip it. */
-.studio-root .help-highlight {
-  outline: 3px solid var(--ui-focus);
-  outline-offset: -3px;
-  background-color: var(--ui-action-bg);
-  border-radius: var(--radius-md);
-  animation: help-pulse 1.1s ease-in-out 4;
-}
-
-@keyframes help-pulse {
-  50% {
-    outline-color: color-mix(in srgb, var(--ui-focus) 30%, transparent);
-  }
-}
-
+/* The first-visit tour and "Show me" mark their target with the same clean ring (ui/highlight.ts). */
 .studio-root [data-tour-active] {
   outline: 2px solid var(--ui-action);
   outline-offset: 2px;
+}
+
+/* "Show me": a solid dot beside the target and a plain caption card, like the tour's. Both are fixed to the
+   viewport; the dot travels to the next target, and jumps there with reduced motion. */
+.studio-show-me-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-toast);
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--ui-action);
+  box-shadow: 0 0 0 2px var(--ui-surface);
+  pointer-events: none;
+  transition: transform var(--dur-3) var(--ease-out);
+}
+
+.studio-show-me-origin {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.studio-show-me-card {
+  position: fixed;
+  z-index: var(--z-toast);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius-lg);
+  border-left: 2px solid var(--ui-action);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: var(--elevation-sheet);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-show-me-dot { transition: none; }
 }
 
 /* Rows that share one surface are separated by a straight line; only the surface is rounded. */
