@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
 import { morningBrief } from "@/concept/assistant/briefs";
 import { createDemoState } from "@/concept/data/generate";
+import { studioSalonCopy } from "@/concept/i18n/salon-eko-copy";
 import {
   getActiveLocale,
   getVocabulary,
@@ -31,6 +32,7 @@ import {
   eveningBriefClipUrl,
   morningBriefClipUrl,
   standardDemoMorningBrief,
+  standardDemoRecordingClips,
 } from "@/concept/studio/assistant/demo-brief-audio";
 import {
   canPlaySpeech,
@@ -155,6 +157,34 @@ describe("recorded demo brief clips", () => {
         eveningBriefClipUrl(evening, { today: day }, state.generatedFor),
       ).toBe(EVENING_BRIEF_CLIP_EN);
     }
+  });
+
+  it("offers both recorded readings when the Studio shows translated product names", () => {
+    swedishDemo();
+    const swedish = studioSalonCopy(base, "sv");
+    expect(swedish.stock.find((item) => item.id === "urea-cream")?.name).toBe(
+      "Fotkräm med 10 % karbamid",
+    );
+    expect(swedish.stock.find((item) => item.id === "massage-oil-neutral")?.name).toBe(
+      "Oparfymerad massageolja",
+    );
+    const brief = morningBrief(swedish, morningClock);
+    expect(brief.items.some((item) => item.text.includes("Fotkräm med 10 % karbamid"))).toBe(true);
+    expect(morningBriefClipUrl(brief, morningClock, swedish.generatedFor)).toBeNull();
+    expect(standardDemoMorningBrief(swedish, today, swedish.generatedFor, 9 * 60)).toBeNull();
+    expect(standardDemoRecordingClips(swedish, today, swedish.generatedFor)).toEqual({
+      morningUrl: MORNING_BRIEF_CLIP,
+      eveningUrl: EVENING_BRIEF_CLIP,
+    });
+    englishDemo();
+    const english = studioSalonCopy(base, "en");
+    expect(standardDemoRecordingClips(english, today, english.generatedFor)).toEqual({
+      morningUrl: MORNING_BRIEF_CLIP_EN,
+      eveningUrl: EVENING_BRIEF_CLIP_EN,
+    });
+    expect(standardDemoRecordingClips(base, "2026-11-26", base.generatedFor)).toBeNull();
+    const edited = { ...base, bookings: base.bookings.filter((booking) => booking.date !== today) };
+    expect(standardDemoRecordingClips(edited, today, edited.generatedFor)).toBeNull();
   });
 
   it("opens only the demo's tomorrow when that weekday is normally closed or shorter", () => {

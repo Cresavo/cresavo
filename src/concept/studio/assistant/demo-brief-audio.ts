@@ -1,4 +1,5 @@
 import { morningBrief, type Brief } from "../../assistant/briefs";
+import { matchesStandardDemoDay } from "../../data/generate";
 import type { DateKey, DemoState } from "../../data/types";
 import { getActiveLocale } from "../../i18n";
 
@@ -117,6 +118,21 @@ function matchesRecordedMorning(brief: Brief, items: MorningItems) {
     if (item.text !== text) return false;
     return id.endsWith("-") ? item.id.startsWith(id) : item.id === id;
   });
+}
+
+
+/** Morning and evening Elin clips for the Recorded readings card. Offered when this is still the pinned Salong Eko demo day, in the Studio language, without requiring the live wording to match the recorded script (product names are translated in the view). */
+export function standardDemoRecordingClips(
+  state: DemoState,
+  today: string,
+  generatedFor: string,
+): { morningUrl: string; eveningUrl: string } | null {
+  if (generatedFor !== today) return null;
+  if (state.pack !== "foot-massage" || state.industry) return null;
+  if (!matchesStandardDemoDay(state.bookings, today)) return null;
+  const clips = clipsForLocale();
+  if (!clips) return null;
+  return { morningUrl: clips.morningUrl, eveningUrl: clips.eveningUrl };
 }
 
 /** Live morning readings stop at noon: the clip greets with “God morgon” / “Good morning”, while the live card then uses the daytime title. The recorded-readings card still passes 09:00 so it can play later. */
