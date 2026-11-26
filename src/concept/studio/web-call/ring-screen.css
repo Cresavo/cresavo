@@ -1,0 +1,27 @@
+@keyframes maja-ring {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+.maja-ring {
+  animation: maja-ring 1.6s var(--ease-out) infinite;
+}
+
+@keyframes maja-slide {
+  from { opacity: 0; transform: translateY(var(--space-3)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.maja-slide {
+  animation: maja-slide var(--dur-3) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maja-ring,
+  .maja-slide { animation: none; }
+}
+
+/* Wins over the shared button's rounded-md, so mute and hang up stay circular. */
+button.maja-round {
+  border-radius: var(--radius-pill);
+}

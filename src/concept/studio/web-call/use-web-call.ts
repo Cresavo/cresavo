@@ -5,7 +5,7 @@ import { t } from "../../i18n";
 import { ReceptionistCall, type ServerEvent } from "../../receptionist/call-session";
 import { studioStoreHost } from "../../receptionist/host";
 import { ratesFor } from "../../receptionist/limits";
-import type { CallEnd, CallRecord, TranscriptLine } from "../../receptionist/types";
+import type { CallEnd, CallOutcome, CallRecord, TranscriptLine } from "../../receptionist/types";
 import { connectWebCall, reportEnded, unlockSpeaker, WebCallError, type WebCall, type WebCallFailure } from "../../receptionist/web-call/browser";
 import { UNHEARD_NOTE, webCallOpening, type WebCallSalon } from "../../receptionist/web-call/persona";
 import { BrowserStudioStore } from "../../store/browser-studio-store";
@@ -20,7 +20,7 @@ import { logForSupport } from "../../ui/friendly-copy";
 export type WebCallState =
   | { phase: "idle" }
   | { phase: "starting" }
-  | { phase: "live"; seconds: number; maxSeconds: number; lines: readonly TranscriptLine[] }
+  | { phase: "live"; seconds: number; maxSeconds: number; lines: readonly TranscriptLine[]; bookingId?: string; customerId?: string; outcome: CallOutcome; handoverReason?: string }
   | { phase: "ended"; record: CallRecord; saved: boolean }
   | { phase: "failed"; reason: WebCallFailure; retryAfter?: number };
 
@@ -41,13 +41,26 @@ interface Live {
 
 export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObject<HTMLAudioElement | null>) {
   const [state, setState] = useState<WebCallState>({ phase: "idle" });
+  const [muted, setMutedState] = useState(false);
+  const [microphone, setMicrophone] = useState<MediaStream | null>(null);
   const live = useRef<Live | null>(null);
   const starting = useRef<AbortController | null>(null);
   const ending = useRef<WebCall | null>(null);
 
   const show = useCallback(() => {
     const call = live.current;
-    if (call) setState({ phase: "live", seconds: call.session.seconds, maxSeconds: call.maxSeconds, lines: [...call.session.lines] });
+    if (!call) return;
+    const snapshot = call.session.record();
+    setState({
+      phase: "live",
+      seconds: call.session.seconds,
+      maxSeconds: call.maxSeconds,
+      lines: [...call.session.lines],
+      bookingId: snapshot.bookingId,
+      customerId: snapshot.customerId,
+      outcome: snapshot.outcome,
+      handoverReason: snapshot.handoverReason,
+    });
   }, []);
 
   const finish = useCallback(async (reason: CallEnd, waitForGoodbye = false) => {
@@ -66,6 +79,8 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
     const record = call.session.record();
     const host = studioStoreHost(new BrowserStudioStore(), TENANT, Date.now);
     const saved = await host.commit({ type: "receptionist/call", call: record }).then((result) => result.ok, () => false);
+    setMicrophone(null);
+    setMutedState(false);
     setState({ phase: "ended", record, saved });
   }, [token]);
 
@@ -190,6 +205,8 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
       else show();
     }, 1000);
     live.current = { session: call, transport: line, timer, maxSeconds: transport.accepted.limits.maxSeconds, pending };
+    setMicrophone(line.microphone);
+    setMutedState(false);
     show();
   }, [salon, speaker, finish, show, token]);
 
@@ -197,10 +214,23 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
     starting.current?.abort();
     starting.current = null;
     if (live.current) void finish("caller");
-    else setState({ phase: "idle" });
+    else {
+      setMicrophone(null);
+      setMutedState(false);
+      setState({ phase: "idle" });
+    }
   }, [finish]);
 
-  const reset = useCallback(() => setState({ phase: "idle" }), []);
+  const reset = useCallback(() => {
+    setMicrophone(null);
+    setMutedState(false);
+    setState({ phase: "idle" });
+  }, []);
+
+  const setMuted = useCallback((value: boolean) => {
+    setMutedState(value);
+    live.current?.transport.setMuted(value);
+  }, []);
 
   // Leaving the page hangs up: the microphone never stays open behind another page.
   useEffect(() => () => {
@@ -209,5 +239,5 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
     void finish("caller");
   }, [finish]);
 
-  return { state, start, hangUp, reset };
+  return { state, start, hangUp, reset, muted, setMuted, microphone };
 }

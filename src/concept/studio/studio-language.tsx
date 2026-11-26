@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { LanguageSwitch, useLocale } from "@/app/components/locale-provider";
 import { t, translate } from "../i18n";
 import { DEFAULT_CURRENCY } from "../i18n/business";
@@ -21,12 +22,16 @@ export function StudioLanguageSwitch() {
 export function StudioLanguage({ children }: { children: ReactNode }) {
   const language = useLocale();
   const state = useDemo();
+  const pathname = usePathname() ?? "";
+  const isWebCall = pathname === "/studio/ring" || pathname.startsWith("/studio/ring/");
   return (
     <>
-      <aside className="demo-banner" aria-label={translate(language, "language.demoTitle")}>
-        <span>{translate(language, "language.demoNotice")}</span>
-        <StudioLanguageSwitch />
-      </aside>
+      {!isWebCall && (
+        <aside className="demo-banner" aria-label={translate(language, "language.demoTitle")}>
+          <span>{translate(language, "language.demoNotice")}</span>
+          <StudioLanguageSwitch />
+        </aside>
+      )}
       <SetupProgressProvider>
         <ConceptLanguage key={state?.industry ? "own" : "demo"} language={language} currency={state?.localization.currency ?? DEFAULT_CURRENCY}>
           {children}
