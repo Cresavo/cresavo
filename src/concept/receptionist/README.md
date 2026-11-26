@@ -50,6 +50,10 @@ client changes the session's rules, tools or voice, or when that connection
 fails. If that instance is gone, the next web-call request on any instance
 sweeps overdue calls. Only the page that started a call can end it early.
 
+Key: `PHONE_RECEPTIONIST_OPENAI_API_KEY` if set (a separate OpenAI project
+with its own budget cap), else the sample salon's saved key, else
+`OPENAI_API_KEY`. It never leaves the server.
+
 Kill switch: set `PHONE_RECEPTIONIST_WEB_CALL` to anything but `1` (or remove
 it) and redeploy. The button closes, the start route answers 404, and the first
 request to `/studio/ring` or the start route hangs up every call still running.

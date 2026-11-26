@@ -7,6 +7,7 @@ import { WEB_CALL_DEFAULT_MODEL, webCallEnabled, webCallLimits, webCallModel, we
 import { memoryLedger, pairBudgetLedger, type SqlClient } from "@/concept/receptionist/web-call/ledger";
 import { issuePageToken, PAGE_TOKEN_SECONDS, tokenSecret, verifyPageToken } from "@/concept/receptionist/web-call/page-token";
 import { webCallGreeting, webCallInstructions } from "@/concept/receptionist/web-call/persona";
+import { realtimeKey } from "@/concept/receptionist/server/config";
 import { callIdFrom, endWebCall, enforceDeadline, hangUpAll, startWebCall, superviseCall, sweepOverdue, webCallSession, type SidebandSocket, type WebCallInput } from "@/concept/receptionist/web-call/server";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -404,6 +405,7 @@ describe("web call routes", () => {
     vi.stubEnv("BOOKING_RUNTIME", "local");
     vi.stubEnv("CONCEPT_AI_STORE_DIR", "/nonexistent/web-call-test");
     vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("PHONE_RECEPTIONIST_OPENAI_API_KEY", "");
     vi.stubEnv("PUBLIC_READONLY", "");
     vi.stubEnv("ASSISTANT_PAIRING", "");
     for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value);
@@ -433,6 +435,14 @@ describe("web call routes", () => {
     const expired = await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET, Date.now() - (PAGE_TOKEN_SECONDS + 5) * 1000).token)));
     expect(await expired.json()).toEqual({ error: "page_expired" });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("bills the call to the receptionist's own key when it is set", async () => {
+    const { start, fetcher } = await load({ ...ON, OPENAI_API_KEY: "sk-platform-fictional", PHONE_RECEPTIONIST_OPENAI_API_KEY: KEY, SESSION_SECRET: SECRET });
+    expect((await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET).token)))).status).toBe(200);
+    expect(new Headers(fetcher.mock.calls[0][1]!.headers).get("authorization")).toBe(`Bearer ${KEY}`);
+    expect(realtimeKey({ OPENAI_API_KEY: "sk-platform-fictional" })).toBe("sk-platform-fictional");
+    expect(realtimeKey({ OPENAI_API_KEY: "sk-platform-fictional", PHONE_RECEPTIONIST_OPENAI_API_KEY: " sk-own " })).toBe("sk-own");
   });
 
   it("refuses another site, a missing key and a missing secret", async () => {
