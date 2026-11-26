@@ -16,7 +16,7 @@ import { buildOrders, purchaseQuantity } from "../stock/purchase";
 import { sellable } from "../stock/sales";
 import { waitlistCount, waitlistNotice } from "../studio/booking/waitlist-notice";
 import { parseCampaignRequest, studioHref, type CampaignPrefill } from "../campaigns/prefill";
-import { canChangeBooking, canCommand, type Role } from "../ops/access";
+import { canChangeBooking, canCommand, staffViewer, type Role } from "../ops/access";
 import type { PageConfig } from "../page/config";
 import { questionText } from "./questions";
 import { clarifyChoices, type Retry } from "./clarify";
@@ -140,26 +140,35 @@ function bookingLine(state: DemoState, booking: Booking) {
   return `${whenText(booking.date, booking.start)} · ${service?.name ?? ""}`;
 }
 
-function moveProposal(state: DemoState, params: IntentParams, clock: Clock): Proposal {
+function moveProposal(state: DemoState, params: IntentParams, clock: Clock, role: Role): Proposal {
   const booking = state.bookings.find((b) => b.id === params.bookingId && b.status === "booked");
   const customer = findCustomer(state, booking?.customerId);
   const date = params.date;
   if (!booking || !customer || !date || !params.time) return message(t("command.notUnderstood"));
   if (!recordSettled("bookings", booking.id)) return message(t("command.saving"));
   if (date < clock.today) return message(t("command.dayPassed", { day: formatDayLong(date) }));
+  const service = findService(state, booking.serviceId);
+  // Moving to another person: someone who does the treatment, and for a staff member only to themselves.
+  const staffId = state.staff.find((s) => s.id === params.staffId)?.id ?? booking.staffId;
+  const changesPerson = staffId !== booking.staffId;
+  if (changesPerson && role !== "owner" && staffId !== staffViewer(state)?.id) return message(t("command.ownerOnly"));
+  if (changesPerson && !service?.staffIds.includes(staffId)) return message(t("command.move.notOffered", { name: staffName(state, staffId), service: service?.name ?? "" }));
   const wanted = minutesOf(params.time);
-  const build = ({ start }: Candidate): Proposal => ({
+  const build = ({ staffId: to, start }: Candidate): Proposal => ({
     kind: "change",
     title: t("command.move.title", { name: fullName(customer) }),
-    subtitle: `${findService(state, booking.serviceId)?.name} · ${staffName(state, booking.staffId)}`,
-    rows: [{ label: t("command.row.when"), before: whenText(booking.date, booking.start), after: whenText(date, start) }],
-    action: { type: "booking/move", id: booking.id, date, start },
-    toast: t("booking.movedToast", { name: customer.firstName, when: whenText(date, start) }),
+    subtitle: `${service?.name} · ${staffName(state, booking.staffId)}`,
+    rows: [
+      { label: t("command.row.when"), before: whenText(booking.date, booking.start), after: whenText(date, start) },
+      ...(to !== booking.staffId ? [{ label: t("command.row.with"), before: staffName(state, booking.staffId), after: staffName(state, to) }] : []),
+    ],
+    action: { type: "booking/move", id: booking.id, date, start, ...(to !== booking.staffId ? { staffId: to } : {}) },
+    toast: t("booking.movedToast", { name: customer.firstName, when: to !== booking.staffId ? t("command.slotWith", { time: whenText(date, start), name: staffName(state, to) }) : whenText(date, start) }),
   });
-  if (date === booking.date && wanted === booking.start) return message(t("command.alreadyThere"));
+  if (date === booking.date && wanted === booking.start && !changesPerson) return message(t("command.alreadyThere"));
   const upcoming = date > clock.today || wanted >= clock.minutes;
-  if (upcoming && isFree(state, booking.staffId, date, wanted, booking, booking.id)) return build({ staffId: booking.staffId, start: wanted });
-  const candidates = pickCandidates(state, [booking.staffId], booking, date, clock, { near: wanted, ignoreId: booking.id });
+  if (upcoming && isFree(state, staffId, date, wanted, booking, booking.id)) return build({ staffId, start: wanted });
+  const candidates = pickCandidates(state, [staffId], booking, date, clock, { near: wanted, ignoreId: booking.id });
   return chooseSlot(state, candidates, t("command.pickAnother"), date, build);
 }
 
@@ -370,7 +379,7 @@ export function proposalFor(state: DemoState, intent: IntentResult, text: string
     case "book":
       return bookProposal(state, params, clock);
     case "move":
-      return moveProposal(state, params, clock);
+      return moveProposal(state, params, clock, role);
     case "cancel":
       return cancelProposal(state, params, clock);
     case "campaign":

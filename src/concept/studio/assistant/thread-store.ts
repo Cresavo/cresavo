@@ -99,6 +99,13 @@ export function closeAssistant() {
   update({ open: false, listen: false });
 }
 
+/** Whether the panel was asked to start the microphone; clears the flag so a later press can ask again. */
+export function takeListen(): boolean {
+  const on = snapshot().listen;
+  if (on) update({ listen: false });
+  return on;
+}
+
 export function takePendingQuestion(): string | null {
   const role = currentRole();
   const question = pendingQuestions[role];

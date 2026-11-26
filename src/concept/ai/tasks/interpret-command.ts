@@ -38,8 +38,8 @@ export const intentOutputSchema = z.union([
   z.object({ ...common, action: z.literal("question"), question: textField }).strict(),
 ]);
 export const interpretCommandTask = defineTask({
-  id: "interpret-command", version: 1, tier: "fast",
-  prompt: "Interpret an English salon command as a proposal. Use only IDs in context. Never execute changes. Someone being off, the salon closing or an extra shift is a proposal too. A product sale needs a customer from the context; a stock question names the product. Ask a question when a customer, appointment or required parameter is unclear. Dates use the salon timezone; end dates are exclusive. Return JSON matching the schema.",
+  id: "interpret-command", version: 2, tier: "fast",
+  prompt: "Interpret an English salon command as a proposal. Use only IDs in context. Never execute changes. Someone being off, the salon closing or an extra shift is a proposal too. A move sets staffId only when the appointment moves to another person. A product sale needs a customer from the context; a stock question names the product. Ask a question when a customer, appointment or required parameter is unclear. Dates use the salon timezone; end dates are exclusive. Return JSON matching the schema.",
   input: z.object({ text: textField, context: intentContextSchema }).strict(), output: intentOutputSchema,
   fallback: ({ text, context }) => intentOutputSchema.parse(interpretCommand(text, context)),
 });
