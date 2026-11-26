@@ -71,6 +71,7 @@ export function BookingResult({
         </dl>
         {previews && message && (
           <div className="space-y-5">
+            <p className="text-body text-text-secondary">{t("webCall.preview.unsent")}</p>
             <MessagePreview title={t("webCall.preview.sms")} body={message.body} />
             <MessagePreview title={t("webCall.preview.email")} subject={message.subject} body={message.body} />
           </div>

@@ -125,11 +125,16 @@ export function RingScreen({
           <p className="text-body text-text-secondary">{t("webCall.role", { salon: salon.salonName })}</p>
         </div>
         {waveActive && <CallVisualizer levels={levels} active={waveActive} muted={muted} />}
-        {status && (
-          <p role="status" className="text-body tabular-nums" aria-label={live ? t("webCall.clockLabel", { elapsed: callClock(call.seconds), limit: callClock(call.maxSeconds) }) : undefined}>
-            {status}
+        {live && (
+          <p className="text-body tabular-nums">
+            <span role="status">{t("webCall.status.inCall")}</span>
+            {" "}
+            <span aria-label={t("webCall.clockLabel", { elapsed: callClock(call.seconds), limit: callClock(call.maxSeconds) })}>
+              {callClock(call.seconds)}
+            </span>
           </p>
         )}
+        {status && !live && <p role="status" className="text-body">{status}</p>}
         {(call.phase === "idle" || call.phase === "failed") && (
           <p className="max-w-reading text-body text-text-secondary">{t("webCall.intro", { minutes: Math.round(maxSeconds / 60) })}</p>
         )}
