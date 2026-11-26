@@ -43,9 +43,14 @@ function useProgress() {
   const fallback = saved ?? { draft: salonDraft(), step: 0 };
   const setDraft = useCallback((draft: SalonDraft) => save({ ...snapshot(), draft }), []);
   const setStep = useCallback((step: number) => save({ ...snapshot(), step }), []);
+  /** Applies a late answer (such as a decoded logo) to the latest draft, not the one it started from. */
+  const patchDraft = useCallback((patch: Partial<SalonDraft>) => {
+    const latest = snapshot();
+    save({ ...latest, draft: { ...latest.draft, ...patch } });
+  }, []);
   /** After the salon is made: a fresh draft, and nothing left in storage. */
   const clear = useCallback((language: SalonDraft["language"]) => save({ draft: salonDraft(language), step: 0 }), []);
-  return { draft: fallback.draft, step: fallback.step, setDraft, setStep, clear, restored: saved !== undefined };
+  return { draft: fallback.draft, step: fallback.step, setDraft, setStep, patchDraft, clear, restored: saved !== undefined };
 }
 
 const Progress = createContext<ReturnType<typeof useProgress> | null>(null);
