@@ -832,7 +832,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
   }));
 
   const hours = usesStandardDemoDay(setup, pack) ? pinStandardDemoHours(salon, team, today) : { salon, staff: team, exceptions: [] as StaffException[] };
-  const state = {
+  const state: DemoState = {
     cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [],
     version: DEMO_VERSION,
     industry: null,
