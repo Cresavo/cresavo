@@ -51,6 +51,7 @@ export function callRecorder(rates: Rates, now: () => number = Date.now) {
     tokens: { textIn: 0, cachedIn: 0, audioIn: 0, textOut: 0, audioOut: 0 }, turns: [],
   };
   const byItem = new Map<string, CallTurn>();
+  const speechStart = new Map<string, number>();
   /** Maja's answers to each caller turn, so a transcription that arrives after the answer still counts. */
   const answers = new Map<CallTurn, CallTurn[]>();
   let lastCaller: CallTurn | undefined;
@@ -66,9 +67,15 @@ export function callRecorder(rates: Rates, now: () => number = Date.now) {
   return {
     observe(event: Event) {
       switch (event.type) {
+        case "input_audio_buffer.speech_started": {
+          // The start of the speech comes with this event; the end comes with speech_stopped.
+          if (event.item_id) speechStart.set(event.item_id, n(event.audio_start_ms));
+          break;
+        }
         case "input_audio_buffer.speech_stopped": {
           report.callerTurns += 1;
-          const speechMs = Math.max(0, n(event.audio_end_ms) - n(event.audio_start_ms));
+          const begun = event.item_id ? speechStart.get(event.item_id) : undefined;
+          const speechMs = begun === undefined ? 0 : Math.max(0, n(event.audio_end_ms) - begun);
           const turn = push({ at: at(), who: "caller", words: 0, speechMs: speechMs || undefined, heard: "pending" });
           if (event.item_id) byItem.set(event.item_id, turn);
           lastCaller = turn;

@@ -348,7 +348,11 @@ export async function superviseCall(callId: string, deadline: number, options: S
   let why: SupervisorEnd = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
   settled = true;
   // The connection also drops when the caller or Maja simply hung up (the end route already ended the call).
-  if ((why === "closed" || why === "unwatched") && !(await options.ledger.isRunning(callId).catch(() => true))) why = "hung_up";
+  // The lookup is only for the log line, so it gets a moment and never holds up the hang-up below.
+  if (why === "closed" || why === "unwatched") {
+    const unsure = new Promise<boolean>((resolve) => { setTimeout(() => resolve(true), 1_500).unref?.(); });
+    if (!(await Promise.race([options.ledger.isRunning(callId).catch(() => true), unsure]))) why = "hung_up";
+  }
   // Whatever ended the watch, the call is hung up: a call that already ended answers 404, which counts as done.
   // The sideband closing early fails closed: the call ends rather than running unwatched.
   await endWithRetries(callId, options, sleep);

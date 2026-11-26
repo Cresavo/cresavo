@@ -350,12 +350,14 @@ describe("web call server-side hang-up", () => {
       });
       const say = (text: string, usage = { output_token_details: { audio_tokens: 200 } }) => ({ type: "response.done", response: { status: "completed", usage, output: [{ type: "message", content: [{ transcript: text }] }] } });
       clock += 9_000;
-      socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_1", audio_start_ms: 8_000, audio_end_ms: 11_500 });
+      socket.emit("message", { type: "input_audio_buffer.speech_started", item_id: "item_1", audio_start_ms: 8_000 });
+      socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_1", audio_end_ms: 11_500 });
       socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_1", transcript: "Mitt nummer är 070-123 45 67, mejla sara@example.test" });
       socket.emit("message", say("Tack, jag har 070 123 45 67."));
       clock += 5_000;
       // Maja answers before the transcription of this turn arrives, and it comes back blank: still counted.
-      socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_2", audio_start_ms: 20_000, audio_end_ms: 20_400 });
+      socket.emit("message", { type: "input_audio_buffer.speech_started", item_id: "item_2", audio_start_ms: 20_000 });
+      socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_2", audio_end_ms: 20_400 });
       socket.emit("message", say("Okej, då bokar jag."));
       socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_2", transcript: "  " });
       socket.emit("message", { type: "response.done", response: { status: "cancelled", output: [{ type: "message", content: [{ transcript: "Vi har" }] }] } });
