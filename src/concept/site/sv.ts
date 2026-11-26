@@ -45,6 +45,7 @@ export const sv = {
   "home.reception.text": `Lyssna på ett demosamtal: Maja kollar lediga tider, föreslår två, tar namn och nummer och bokar direkt i kalendern. Kommer till ${BRAND.name}.`,
   "home.reception.label": "Demosamtal: en AI-receptionist bokar klippning och föning hos Salong Eko",
   "home.reception.note": "Demo · påhittad salong och data",
+  "home.reception.captions": "Svenska",
   "home.own.eyebrow": "Ditt system. Dina kunder.",
   "home.own.heading": "Därför ska du äga ditt bokningssystem",
   "home.own.items": "Ingen provision på dina egna kunder|Ta med dig dina uppgifter|En assistent som frågar först",

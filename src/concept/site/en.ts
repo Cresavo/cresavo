@@ -46,6 +46,7 @@ export const site = {
   "home.reception.text": `Listen to a demo call: Maja checks the free times, offers two, takes a name and number and books it straight into the calendar. Coming to ${BRAND.name}.`,
   "home.reception.label": "Demo call: an AI receptionist books a cut and blow-dry at Salong Eko",
   "home.reception.note": "Demo · invented salon and data",
+  "home.reception.captions": "English",
   "home.own.eyebrow": "Your system. Your clients.",
   "home.own.heading": "Why own your booking system",
   "home.own.items": "No commission on your own clients|Take your data with you|An assistant that asks first",
