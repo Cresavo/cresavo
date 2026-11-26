@@ -66,7 +66,7 @@ export function callIdFrom(location: string | null): string | null {
 export type Refusal = "rate_limited" | "session_limited" | "daily_limit" | "provider_unavailable";
 
 export type StartResult =
-  | { ok: true; callId: string; sdp: string; limits: CallLimits; model: string; deadline: number; instructions: string }
+  | { ok: true; callId: string; sdp: string; limits: CallLimits; model: string; deadline: number; instructions: string; toolNames: string[] }
   | { ok: false; error: Refusal; retryAfter?: number };
 
 export interface StartOptions {
@@ -91,9 +91,9 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
   const now = options.now ?? Date.now;
   const quota = webCallQuota(env);
   const { ledger, secret } = options;
-  const ip = await ledger.take(ledgerKey(secret, "ip", options.client), quota.perIpPerHour, HOUR, now());
+  const ip = await ledger.takeRolling(ledgerKey(secret, "ip", options.client), quota.perIpPerHour, HOUR, now());
   if (!ip.ok) return { ok: false, error: "rate_limited", retryAfter: ip.retryAfter };
-  const page = await ledger.take(ledgerKey(secret, "sid", options.session), quota.perSessionPerHour, HOUR, now());
+  const page = await ledger.takeRolling(ledgerKey(secret, "sid", options.session), quota.perSessionPerHour, HOUR, now());
   if (!page.ok) return { ok: false, error: "session_limited", retryAfter: page.retryAfter };
   const day = await ledger.take("day", quota.perDay, DAY, now());
   if (!day.ok) return { ok: false, error: "daily_limit", retryAfter: day.retryAfter };
@@ -135,7 +135,7 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
     await hangUp(callId, options.apiKey, options.fetch);
     throw error;
   }
-  return { ok: true, callId, sdp, limits, model, deadline, instructions: session.instructions };
+  return { ok: true, callId, sdp, limits, model, deadline, instructions: session.instructions, toolNames: session.tools.map((tool) => tool.name) };
 }
 
 /** Ends a call at OpenAI. True when OpenAI took it, or the call was already over. */
@@ -205,7 +205,18 @@ export function openSideband(callId: string, apiKey: string): SidebandSocket {
   return new Socket(url, { headers: { Authorization: `Bearer ${apiKey}` } });
 }
 
-export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed";
+export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed" | "unwatched";
+
+type ReportedSession = {
+  instructions?: unknown; tools?: { name?: unknown }[]; tool_choice?: unknown; output_modalities?: unknown; max_output_tokens?: unknown;
+  model?: unknown; audio?: { input?: { turn_detection?: unknown }; output?: { voice?: unknown } };
+};
+
+/** The parts of a session a caller must not change: rules, tools, voice, turn-taking, output size. */
+const sessionControls = (session: ReportedSession) => JSON.stringify([
+  session.instructions, (session.tools ?? []).map((tool) => tool?.name).sort(), session.tool_choice, session.output_modalities,
+  session.max_output_tokens, session.model, session.audio?.input?.turn_detection, session.audio?.output?.voice,
+]);
 
 export interface SuperviseOptions {
   apiKey: string;
@@ -214,6 +225,8 @@ export interface SuperviseOptions {
   model: string;
   /** The instructions this server gave the call; a session that reports others was changed by the client. */
   instructions: string;
+  /** The tools this server gave the call, by name; a session that reports others was changed by the client. */
+  toolNames?: readonly string[];
   fetch?: typeof fetch;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -224,8 +237,9 @@ export interface SuperviseOptions {
  * Watches a running call from the server until it is over, and ends it when
  * it reaches its deadline, when the estimated cost reaches the ceiling (from
  * the usage OpenAI reports to the server, not the browser), or when the
- * session's instructions are changed by the client. If the server's own
- * connection cannot be opened, the deadline still holds. Scheduled with
+ * session's rules, tools, voice or turn-taking are changed by the client. If
+ * the server's own connection fails or closes, the call is ended rather than
+ * left running unwatched. Scheduled with
  * `after()` by the route that started the call.
  */
 export async function superviseCall(callId: string, deadline: number, options: SuperviseOptions): Promise<SupervisorEnd> {
@@ -238,8 +252,9 @@ export async function superviseCall(callId: string, deadline: number, options: S
   let socket: SidebandSocket | undefined;
   try {
     socket = (options.connect ?? openSideband)(callId, options.apiKey);
+    let baseline: string | undefined;
     socket.addEventListener("message", (message) => {
-      let event: { type?: string; response?: { usage?: RealtimeUsage }; session?: { instructions?: unknown } };
+      let event: { type?: string; response?: { usage?: RealtimeUsage }; session?: ReportedSession };
       try {
         event = JSON.parse(String(message.data));
       } catch {
@@ -249,12 +264,23 @@ export async function superviseCall(callId: string, deadline: number, options: S
         cost += estimateResponseCost(event.response?.usage, rates);
         if (cost >= options.limits.maxCostUsd) resolveEnd("cost");
       }
-      if (event.type === "session.updated" && typeof event.session?.instructions === "string" && event.session.instructions !== options.instructions) resolveEnd("tampered");
+      if ((event.type === "session.created" || event.type === "session.updated") && event.session) {
+        // The client never changes the session (it only asks for answers), so the first session reported is the
+        // one this server created: it must carry our rules and tools, and nothing it controls may change after.
+        const session = event.session;
+        const names = (session.tools ?? []).map((tool) => tool?.name).sort();
+        const ours = session.instructions === options.instructions && (!options.toolNames || JSON.stringify(names) === JSON.stringify([...options.toolNames].sort()));
+        const controls = sessionControls(session);
+        if (!ours || (baseline !== undefined && controls !== baseline)) resolveEnd("tampered");
+        baseline ??= controls;
+      }
     });
     socket.addEventListener("close", () => resolveEnd("closed"));
-    socket.addEventListener("error", () => undefined);
+    // A connection that fails (refused key, handshake) leaves the call unwatched: it ends rather than run on.
+    socket.addEventListener("error", () => resolveEnd("unwatched"));
   } catch {
     socket = undefined;
+    resolveEnd("unwatched");
   }
   const why = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
   // Whatever ended the watch, the call is hung up: a call that already ended answers 404, which counts as done.
