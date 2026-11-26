@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { after } from "next/server";
+import { getLocale } from "@/lib/locale-server";
+import { translate } from "@/concept/i18n";
 import { issuePageToken } from "@/concept/receptionist/web-call/page-token";
 import { cleanupRuntime, webCallRuntime, webCallStatus } from "@/concept/receptionist/web-call/runtime";
 import { hangUpAll } from "@/concept/receptionist/web-call/server";
@@ -6,6 +9,20 @@ import { RingPage } from "@/concept/studio/web-call/ring-page";
 
 // Rendered on every request: each visit gets its own signed page token.
 export const dynamic = "force-dynamic";
+
+const SALON = "Salong Eko";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const language = await getLocale();
+  const title = translate(language, "webCall.ogTitle", { salon: SALON });
+  const description = translate(language, "webCall.ogDescription");
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default function Page() {
   const status = webCallStatus();

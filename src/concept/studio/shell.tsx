@@ -64,6 +64,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const role = useRole();
   const pathname = usePathname() ?? "";
   const isSetup = pathname === "/studio/setup" && role === "owner";
+  const isWebCall = pathname === "/studio/ring" || pathname.startsWith("/studio/ring/");
   const removed = useTrialRemoved();
   const own = !!state?.industry;
   const preview = state && role === "staff" ? staffViewer(state) : null;
@@ -84,15 +85,18 @@ export function StudioShell({ children }: { children: ReactNode }) {
   // Opening a page counts as using the trial salon; it is removed after a day without use.
   useEffect(() => { if (own) markTrialUsed(); }, [own, pathname]);
   if (!state) return <LoadingScreen calendar={pathname.startsWith("/studio/calendar")} />;
-  if (removed || pathname === WELCOME_PATH || isSetup) {
+  if (removed || pathname === WELCOME_PATH || isSetup || isWebCall) {
     return (
-      <div className={isSetup ? "setup-guide" : undefined}>
+      <div className={isWebCall ? "flex h-dvh flex-col overflow-hidden" : isSetup ? "setup-guide" : undefined}>
         <SkipLink />
-        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
           <Wordmark className="w-28" />
-          {(isSetup || removed) && <StudioLanguageSwitch />}
+          <div className="ml-auto flex items-center gap-1">
+            {(isSetup || removed || isWebCall) && <StudioLanguageSwitch />}
+            {isWebCall && <ThemeToggle />}
+          </div>
         </header>
-        <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
+        <main id={CONTENT_ID} tabIndex={-1} className={isWebCall ? "ui-skip-target studio-content flex min-h-0 flex-1 flex-col" : "ui-skip-target studio-content px-4 pt-4 lg:px-8"}>{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
       </div>
     );

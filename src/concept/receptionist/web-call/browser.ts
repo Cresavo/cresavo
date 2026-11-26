@@ -42,8 +42,12 @@ export interface AcceptedCall {
 
 export interface WebCall extends ReceptionistTransport {
   readonly accepted: AcceptedCall;
+  /** The local microphone stream, for the call visualizer and mute control. */
+  readonly microphone: MediaStream;
   /** Stops the microphone at once while the line stays open for the goodbye to play. */
   stopMicrophone(): void;
+  /** Silences the microphone without ending the call. */
+  setMuted(muted: boolean): void;
   /** Resolves when the queued audio has played, or after `timeoutMs`. */
   drained(timeoutMs: number): Promise<void>;
 }
@@ -167,12 +171,16 @@ export async function connectWebCall(options: ConnectOptions): Promise<WebCall> 
   return {
     channel: "browser-test",
     accepted,
+    microphone,
     send(event: ClientEvent) {
       if (!closed && events.readyState === "open") events.send(JSON.stringify(event));
     },
     close,
     stopMicrophone() {
       for (const track of microphone.getTracks()) track.stop();
+    },
+    setMuted(muted: boolean) {
+      for (const track of microphone.getAudioTracks()) track.enabled = !muted;
     },
     drained(timeoutMs) {
       if (closed || !playing) return new Promise((resolve) => window.setTimeout(resolve, Math.min(timeoutMs, 600)));
