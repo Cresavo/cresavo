@@ -147,6 +147,8 @@ export class ReceptionistCall {
 
   /** One server event in, the client events to send out. */
   async handle(event: ServerEvent): Promise<Step> {
+    if (this.ended) return { send: [] };
+    // Events that came before the end are still handled (their transcript and usage belong to the call).
     // One event at a time, in order, so replies go out in the order the events came (and after the facts note).
     const step = this.queue.then(() => this.handleInOrder(event));
     this.queue = step.catch(() => undefined);
@@ -154,8 +156,7 @@ export class ReceptionistCall {
   }
 
   private async handleInOrder(event: ServerEvent): Promise<Step> {
-    if (this.ended) return { send: [] };
-    const facts = await this.factsOnce();
+    const facts = this.ended ? undefined : await this.factsOnce();
     const step = await this.handleEvent(event);
     return facts ? { ...step, send: [facts, ...step.send] } : step;
   }

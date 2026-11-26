@@ -270,9 +270,20 @@ describe("receptionist call session", () => {
     const note = JSON.stringify(first.send[0]);
     expect(note).toContain("use these directly, without get_salon_info");
     expect(note).toContain(today);
+    expect(note).toContain(`(${addDays(today, 6)}):`);
     expect(note).toMatch(/basic-foot-care: [^;]+, \d+ min, \d+/);
     expect(note).toMatch(/anna = Anna[^,]* \(owner\)/);
     expect((await session.handle({ type: "session.updated" })).send).toEqual([]);
+  });
+
+  it("still records what arrived before the caller hung up", async () => {
+    const { session } = call();
+    const pending = [session.handle(toolCall("get_salon_info", {})), session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "Tack, hej då" })];
+    session.end("caller");
+    await Promise.all(pending);
+    expect(session.record().transcript.map((line) => line.text)).toEqual(["Tack, hej då"]);
+    expect((await session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "efteråt" })).send).toEqual([]);
+    expect(session.record().transcript).toHaveLength(1);
   });
 
   it("runs a tool call and asks for the next reply", async () => {

@@ -13,7 +13,7 @@ export function salonFactsNote(view: SalonView): string {
   return [
     "The salon right now (current; use these directly, without get_salon_info):",
     `- Now: ${facts.now.day} (${facts.now.date}), ${facts.now.time}.`,
-    `- Opening hours: ${facts.openingHours.map((day) => `${day.day}: ${day.open}`).join("; ")}.`,
+    `- Opening hours: ${facts.openingHours.map((day) => `${day.day} (${day.date}): ${day.open}`).join("; ")}. For a later date, find_free_times says whether the salon is open.`,
     `- Treatments (id: name, minutes, price in ${currency}, staff ids): ${facts.treatments.map((t) => `${t.id}: ${t.name}, ${t.minutes} min, ${t.price}, ${t.staffIds.join("/")}`).join("; ")}.`,
     `- Staff: ${facts.staff.map((member) => `${member.id} = ${member.name}${"owner" in member && member.owner ? " (owner)" : ""}`).join(", ")}.`,
     `- Bookings can be made up to ${facts.bookableDaysAhead} days ahead.`,
