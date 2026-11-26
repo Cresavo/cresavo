@@ -47,6 +47,7 @@ export function SalonWizard() {
   const [saving, setSaving] = useState(false);
   const [back, setBack] = useState(false);
   const title = useRef<HTMLHeadingElement>(null);
+  const createTicket = useRef(0);
   const live = !!state.industry;
   const language = getActiveLocale();
   useEffect(() => {
@@ -65,15 +66,22 @@ export function SalonWizard() {
   const question = STEPS[step];
   const valid = question === "hours" ? !hoursIssue(draft.hours) : question === "treatments" ? treatmentsValid(draft.treatments) : true;
   const name = draft.name.trim() || t("setup.defaultName");
-  const go = (next: number) => { setBack(next < step); setStep(next); };
+  const go = (next: number) => {
+    createTicket.current += 1;
+    setSaving(false);
+    setBack(next < step);
+    setStep(next);
+  };
   const create = async () => {
+    const ticket = ++createTicket.current;
     setSaving(true);
     try {
       await waitForLogo();
+      if (ticket !== createTicket.current) return;
       const ready = { ...latestDraft(), language };
       if (await switchSalon("own", { ...ready, slug: suggestedSlug(ready, state.salon.slug) })) clear(language);
       else showToast(t("setup.switchFailed"));
-    } finally { setSaving(false); }
+    } finally { if (ticket === createTicket.current) setSaving(false); }
   };
   const next = () => {
     if (saving || !valid) return;
@@ -101,7 +109,7 @@ export function SalonWizard() {
     </div>
     <div className="flex flex-wrap items-center gap-2 border-t border-hairline pt-4">
       {step > 0
-        ? <Button variant="tertiary" icon={<ArrowLeft size={18} />} onClick={() => go(step - 1)}>{t("welcome.back")}</Button>
+        ? <Button variant="tertiary" icon={<ArrowLeft size={18} />} disabled={saving} onClick={() => go(step - 1)}>{t("welcome.back")}</Button>
         : <ButtonLink href="/studio" variant="ghost" className="text-text-secondary max-sm:order-last max-sm:w-full max-sm:justify-start">{t("setup.demo")}</ButtonLink>}
       <Button type="submit" size="lg" className="ml-auto max-sm:flex-1" loading={saving} disabled={!valid}>
         {t(step === STEPS.length - 1 ? "setup.create" : "welcome.next")}<ArrowRight size={16} aria-hidden />
