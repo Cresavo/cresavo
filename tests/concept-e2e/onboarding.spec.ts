@@ -202,7 +202,7 @@ test("setup from Settings can be finished with defaults alone", async ({ page })
   await expect(page.getByRole("button", { name: "Neutral" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Create my salon" }).click();
   await expect(page.getByRole("link", { name: "See your booking page" })).toHaveAttribute("href", "/boka/my-salon");
-  await expect(page.getByText("Book a visit yourself to see what your customers will see.")).toBeVisible();
+  await expect(page.getByText(/^This is your booking page. Book a visit yourself/)).toBeVisible();
   await audit(page);
   const own = (await salonState(page, "own"))!;
   expect(own.staff).toHaveLength(1);
