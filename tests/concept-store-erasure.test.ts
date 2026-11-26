@@ -83,6 +83,30 @@ it("removes journal recordings of a customer whose trash period has expired", as
 });
 
 
+it("keeps journal recordings when another tab restored the customer before the erasure was written back", async () => {
+  const today = toKey(new Date());
+  const scope = `demo:legacy:${today}`;
+  const raw = savedWithExpiredCustomer();
+  // Another tab restores the customer between this tab's read and its write-back check.
+  const parsed = JSON.parse(raw) as DemoState;
+  const restored = JSON.stringify(applyAction(parsed, { type: "trash/restore", id: parsed.trash.find((entry) => entry.kind === "customer")!.id }, { actor: "owner", source: "button", at: 0 }));
+  expect(restored).toContain(NAME);
+  const localStorage = {
+    getItem: (key: string) => (key !== KEY ? null : new Error().stack?.includes("persistErasure") ? restored : raw),
+    setItem: vi.fn(),
+    removeItem: () => {},
+  };
+  vi.stubGlobal("window", Object.assign(new EventTarget(), { localStorage, sessionStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } }));
+  const { journalAudioStore } = await import("@/concept/journals/audio-store");
+  const audio = journalAudioStore();
+  await audio.add({ id: "r-restored", customerId: "k-expired", scope, createdAt: 1, source: "recorded", mime: "audio/webm", seconds: 5, bytes: new Uint8Array([1]).buffer });
+  const { currentState } = await import("@/concept/store");
+  currentState();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect((await audio.list("k-expired", scope)).map((row) => row.id)).toEqual(["r-restored"]);
+});
+
+
 it("drops yesterday's demo recordings when a fresh tab opens on a new day", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-25T10:00:00+01:00"));
