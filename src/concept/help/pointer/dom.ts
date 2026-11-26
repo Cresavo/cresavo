@@ -68,6 +68,15 @@ export function findAnchor(id: string, prefer?: string, doc: Pick<Document, "que
   return match ? { element: match } : "unmatched";
 }
 
+/**
+ * The element to press now: the step's element as the page has it at this moment, and only if it is still the one
+ * the guide outlined. A day change or a filter can replace or remove it; then nothing is pressed.
+ */
+export function currentAnchor(id: string, prefer: string | undefined, shown: HTMLElement | null, doc: Pick<Document, "querySelectorAll"> = document): HTMLElement | null {
+  const now = findAnchor(id, prefer, doc);
+  return typeof now === "object" && now.element === shown && now.element.isConnected ? now.element : null;
+}
+
 /** Whether a page address shows an entry's route; a `[id]` segment matches any one segment. */
 export function onRoute(pathname: string, route: string): boolean {
   const asked = pathname.replace(/\/$/, "").split("/");

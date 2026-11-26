@@ -148,3 +148,23 @@ test("on a day without bookings the guide points at another day and carries on w
   await expect(card.getByText("Tap a booking to open its details.")).toBeVisible();
   await expect(card.getByText("There are no bookings on this day.")).toHaveCount(0);
 });
+
+test("the outline follows the day the owner moves to, and Take me there opens a booking there", async ({ page }) => {
+  await page.goto("/studio");
+  await page.locator('[data-help-id="shell.help"]:visible').first().click();
+  const question = page.getByLabel("What do you want to do?");
+  await question.fill("open a booking");
+  await question.press("Enter");
+  await page.getByRole("button", { name: /^Show me: A booking/ }).click();
+  const card = page.locator(".studio-show-me-card");
+  await card.getByRole("button", { name: "Take me there" }).click();
+  const outlined = page.locator('[data-help-id="calendar.booking"][data-tour-active]');
+  await expect(outlined).toHaveAttribute("data-date", "2026-11-17");
+
+  // The owner goes to the next day before pressing: the old booking is gone, the guide outlines one of that day.
+  await page.locator('[data-help-id="calendar.next"]:visible').click();
+  await expect(outlined).toHaveCount(1);
+  await expect(outlined).toHaveAttribute("data-date", "2026-11-18");
+  await card.getByRole("button", { name: "Take me there" }).click();
+  await expect(page.locator("dialog[open]").getByText("Wednesday 18 November")).toBeVisible();
+});

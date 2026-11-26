@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { HELP_MAP, helpEntry, helpSteps } from "@/concept/help/map/entries";
-import { ANOTHER_DAY, clickFor, clickTarget, findAnchor, INTERACTIVE, mayClickFor, onRoute, ShowMeRefusal } from "@/concept/help/pointer/dom";
+import { ANOTHER_DAY, clickFor, clickTarget, currentAnchor, findAnchor, INTERACTIVE, mayClickFor, onRoute, ShowMeRefusal } from "@/concept/help/pointer/dom";
 import { steerFor } from "@/concept/help/pointer/steer";
 import { moveShowMe, startShowMe, stopShowMe } from "@/concept/help/pointer/store";
 import { en } from "@/concept/i18n/en";
@@ -74,6 +74,18 @@ describe("finding the element to point at", () => {
     // On screen, but behind an open sheet: not an empty list.
     const covered = { ...visit(), closest: (selector: string) => (selector === "[inert]" ? {} : null) };
     expect(findAnchor("calendar.booking", undefined, page(covered))).toBe("blocked");
+  });
+
+  it("presses only the outlined element while it is still the page's current one", () => {
+    const outlined = { ...visit("upcoming"), isConnected: true } as unknown as HTMLElement;
+    expect(currentAnchor("calendar.booking", "upcoming", outlined, page(outlined))).toBe(outlined);
+    // The day changed: another visit is there now, or none, or the old one is detached.
+    const other = { ...visit("upcoming"), isConnected: true };
+    expect(currentAnchor("calendar.booking", "upcoming", outlined, page(other))).toBeNull();
+    expect(currentAnchor("calendar.booking", "upcoming", outlined, page())).toBeNull();
+    const detached = { ...visit("upcoming"), isConnected: false } as unknown as HTMLElement;
+    expect(currentAnchor("calendar.booking", "upcoming", detached, page(detached))).toBeNull();
+    expect(currentAnchor("calendar.booking", "upcoming", null, page(other))).toBeNull();
   });
 
   it("points at the day before for a finished visit and the day after for one to come", () => {

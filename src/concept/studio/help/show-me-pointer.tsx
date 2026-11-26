@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { helpEntry, helpSteps } from "../../help/map/entries";
 import type { HelpEntry } from "../../help/map/types";
-import { clickFor, clickTarget, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
+import { clickFor, clickTarget, currentAnchor, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
 import { steerFor, type Steer } from "../../help/pointer/steer";
 import { moveShowMe, stopShowMe, useShowMe } from "../../help/pointer/store";
 import { t, type MessageKey } from "../../i18n";
@@ -25,6 +25,8 @@ const GIVE_UP_MS = 4500;
 /** How long a page with nothing to point at is given to draw its list before the guide calls it empty. */
 const EMPTY_AFTER_MS = 1500;
 const GAP = 12;
+/** How often a shown step checks that its element is still the current one (a day change replaces bookings). */
+const WATCH_MS = 400;
 
 /** The "Show me" guide: a dot and an outline on the element, and a caption card with the steps. Mounted once by the shell. */
 export function ShowMePointer() {
@@ -83,10 +85,19 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
     const look = () => {
       const result = findAnchor(step.id, entry.prefer);
       if (typeof result === "object") {
+        // Found, but keep watching: a day change or a filter can replace or remove it before the owner presses it.
+        const element = result.element;
         setMissing(null);
         setSteer(null);
-        return setFound({ index, element: result.element });
+        setFound((current) => (current?.index === index && current.element === element ? current : { index, element }));
+        steered = null;
+        steeredStep.current = null;
+        waited = 0;
+        timer = window.setTimeout(look, WATCH_MS);
+        return;
       }
+      // Gone or covered: drop the old outline and search (or steer) again.
+      setFound((current) => (current?.index === index && !steered ? null : current));
       const onPage = onRoute(pathname, step.route);
       steered ??= steerFor(step, entry, result, { onPage, settled: waited >= EMPTY_AFTER_MS || !!visible(step.empty?.pointAt ?? []) });
       if (steered) {
@@ -195,8 +206,11 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const pointing = !!target && !steering && !changes && !control;
   const takeMe = () => {
     if (!target || !control) return;
+    // Pressed only if the outlined element is still the page's current one; a replaced one is found again first.
+    const now = currentAnchor(step.id, entry.prefer, target);
+    if (!now) return setFound(null);
     try {
-      clickFor(step, target);
+      clickFor(step, now);
     } catch (error) {
       logForSupport("SHOW_ME_PRESS_FAILED", error);
       setUnpressable(index);
