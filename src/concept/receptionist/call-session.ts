@@ -179,7 +179,7 @@ export class ReceptionistCall {
     if (this.factsSent || this.options.channel !== "browser-test") return [];
     this.factsSent = true;
     const view = await this.options.host.read().catch(() => null);
-    const note = view ? [systemNote(salonFactsNote(view))] : [];
+    const note = view ? [systemNote(salonFactsNote(view, this.options.salon.language))] : [];
     return this.greetWithFacts ? [...note, this.greeting()] : note;
   }
 
@@ -216,7 +216,7 @@ export class ReceptionistCall {
     const send: ClientEvent[] = [];
     for (const call of calls) {
       if (this.ended) break;
-      const output = await runReceptionistTool({ host: this.options.host, memory: this.memory, handover: this.options.handover }, call.name!, call.arguments ?? "{}");
+      const output = await runReceptionistTool({ host: this.options.host, memory: this.memory, handover: this.options.handover, language: this.options.salon.language }, call.name!, call.arguments ?? "{}");
       send.push({ type: "conversation.item.create", item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify(output) } });
     }
     if (this.ended) return { send: [] };

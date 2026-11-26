@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { addressProof } from "../scripts/client-address.mjs";
 import { createDemoState } from "@/concept/data/generate";
 import { studioStoreHost } from "@/concept/receptionist/host";
-import { newCallMemory, runReceptionistTool } from "@/concept/receptionist/tools";
+import { newCallMemory, receptionistToolSchemas, runReceptionistTool } from "@/concept/receptionist/tools";
 import { WEB_CALL_DEFAULT_MODEL, webCallEnabled, webCallLimits, webCallModel, webCallQuota } from "@/concept/receptionist/web-call/config";
 import { memoryLedger, pairBudgetLedger, type SqlClient } from "@/concept/receptionist/web-call/ledger";
 import { issuePageToken, PAGE_TOKEN_SECONDS, tokenSecret, verifyPageToken } from "@/concept/receptionist/web-call/page-token";
@@ -555,10 +555,26 @@ describe("web call persona", () => {
 
   it("sounds like a person: one filler at most, plain words, numbers in groups", () => {
     const rules = webCallInstructions(salon);
-    expect(rules).toMatch(/Never more than one such phrase per turn/);
-    expect(rules).toMatch(/never one after a tool has answered/);
+    expect(rules).toMatch(/Never the same one twice in a row in a call, never more than one per turn/);
+    expect(rules).toMatch(/Mm, låt mig titta/);
+    expect(rules).toMatch(/Vary short acknowledgements/);
+    expect(rules).toMatch(/none after a tool has answered/);
     expect(rules).toMatch(/Only call get_salon_info if something you need is not there \(or there is no such note\), and never announce it/);
-    expect(rules).toMatch(/noll sju noll, nio åtta sju, sextiofem fyrtiotre/);
+    expect(rules).toMatch(/noll sjuttio, tre fyrtiofem, sextisju åttio/);
+    expect(rules).toMatch(/Read it back once, in the final read-back/);
+    expect(rules).toMatch(/never dropping a leading 0, a country code or a digit/);
+    expect(rules).toMatch(/native Swedish receptionist/);
+    expect(rules).toMatch(/say treatment names in Swedish/);
+    expect(rules).toMatch(/A call back needs a phone number, nothing else/);
+    expect(rules).not.toMatch(/callerEmail/);
+    expect(rules).toMatch(/do not promise a call back: suggest they call again during opening hours/);
+    expect(rules).toMatch(/Only once hand_over_to_staff has answered note_left/);
+    expect(rules).toMatch(/first say plainly that the salon does not offer it/);
+    expect(rules).toMatch(/Vill du höra vad vi erbjuder istället/);
+    expect(rules).toMatch(/Never assess symptoms or health/);
+    expect(rules).toMatch(/never write them into a tool call or a note/);
+    expect(rules).toMatch(/do not pick one. List the relevant treatments neutrally/);
+    expect(rules).toMatch(/Är det någon av dem som skulle passa dig/);
     expect(rules).toMatch(/never "din fullständiga namnuppgift"/);
   });
 
@@ -587,24 +603,22 @@ describe("web call persona", () => {
     expect(rules).toMatch(/A pause does not mean the caller is done/);
   });
 
-  it("leaves a call-back note with an e-mail address when the caller has no number to give", async () => {
+  it("takes a call back with a phone number only, keeping its leading 0", async () => {
     let now = Date.parse("2026-11-16T08:00:00Z");
     const store = new MemoryStudioStore({ tenants: { demo: createDemoState("2026-11-16") }, now: () => now });
     const host = studioStoreHost(store, "demo", () => now);
     const handover = { title: "Call back", body: ({ reason, phone, email }: { reason: string; phone?: string; email?: string }) => [reason, phone, email].filter(Boolean).join(" | ") };
-    const memory = newCallMemory("call-email");
-    const none = await runReceptionistTool({ host, memory, handover }, "hand_over_to_staff", JSON.stringify({ reason: "Wants a colour consultation" }));
-    expect(none).toMatchObject({ ok: false, error: "needs_phone" });
-    const bad = await runReceptionistTool({ host, memory, handover }, "hand_over_to_staff", JSON.stringify({ reason: "Wants a colour consultation", callerEmail: "not an address" }));
-    expect(bad).toMatchObject({ ok: false });
-    const left = await runReceptionistTool({ host, memory, handover }, "hand_over_to_staff", JSON.stringify({ reason: "Wants a colour consultation", callerEmail: "Kim@Example.test" }));
-    expect(left).toMatchObject({ ok: true, status: "note_left" });
-    const inbox = (await store.load("demo"))!.state.inbox;
-    expect(inbox.some((item) => item.title === "Call back" && item.body.includes("kim@example.test"))).toBe(true);
-    // A formatter that only knows phone numbers still gets the address into the note.
-    const old = { title: "Old", body: ({ reason, phone }: { reason: string; phone?: string }) => [reason, phone].filter(Boolean).join(" | ") };
-    await runReceptionistTool({ host, memory, handover: old }, "hand_over_to_staff", JSON.stringify({ reason: "Gift card question", callerEmail: "sam@example.test" }));
-    expect((await store.load("demo"))!.state.inbox.some((item) => item.title === "Old" && item.body.includes("sam@example.test"))).toBe(true);
+    const memory = newCallMemory("call-back");
+    const call = (args: object) => runReceptionistTool({ host, memory, handover }, "hand_over_to_staff", JSON.stringify(args));
+    // No number, or an e-mail address instead of one: no note, and the schema has no e-mail field at all.
+    expect(await call({ reason: "Wants a colour consultation" })).toMatchObject({ ok: false, error: "invalid_arguments" });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "070-123 45 67", callerEmail: "kim@example.test", confirmed: false })).toMatchObject({ ok: false, error: "invalid_arguments" });
+    expect(JSON.stringify(receptionistToolSchemas().find((tool) => tool.name === "hand_over_to_staff"))).not.toMatch(/callerEmail/);
+    // A number heard without its 0 is asked again, not saved.
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "123456789", confirmed: true })).toMatchObject({ ok: false, error: "phone_missing_zero" });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "0123456789", confirmed: false })).toMatchObject({ status: "needs_confirmation", readBack: { phone: "0123456789" } });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "0123456789", confirmed: true })).toMatchObject({ ok: true, status: "note_left" });
+    expect((await store.load("demo"))!.state.inbox.some((item) => item.title === "Call back" && item.body.includes("0123456789"))).toBe(true);
     now += 1;
   });
 });
