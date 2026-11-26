@@ -366,9 +366,9 @@ function changeOnline(state: DemoState, action: Extract<DemoAction, { type: "onl
     return cancelled === state ? state : mail(cancelled, "cancellation");
   }
   const { staffId, date, start } = action;
-  const bookable = bookableServices(state).find((s) => s.id === booking.serviceId);
   const same = staffId === booking.staffId && date === booking.date && start === booking.start;
-  if (same || !bookable?.staffIds.includes(staffId) || date < at.date || date > addDays(at.date, PUBLIC_WINDOW_DAYS) || visitTime({ date, start }).toMillis() < action.instant + LEAD_MINUTES * 60_000) return state;
+  // A visit keeps its treatment when the owner hides or deletes it since; the move only needs someone who does it.
+  if (same || !service?.staffIds.includes(staffId) || date < at.date || date > addDays(at.date, PUBLIC_WINDOW_DAYS) || visitTime({ date, start }).toMillis() < action.instant + LEAD_MINUTES * 60_000) return state;
   const moved = moveBooking(state, id, date, start, staffId);
   if (moved === state) return state;
   const noted = reduce(moved, { type: "inbox/add", item: notice("reschedule", t("booking.move.inboxTitle"), t("booking.move.inboxBody", { name, service: service?.name ?? "", from: when(booking), to: when({ date, start }) }), { date, start }) });

@@ -11,6 +11,8 @@ const NOT_FOUND = () => new Response("Not found", { status: 404 });
  * `/api/concept/calendar/<staff>.ics?token=...`: one person's bookings as a
  * calendar subscription. The token is the only credential, so a wrong token and
  * an unknown person look the same. Nothing from the URL reaches the log.
+ * The studio keeps its edits in the owner's browser, so this feed is the
+ * server's sample business; the studio says so beside the link.
  */
 export const GET = withRequestLog("/api/concept/calendar/[staff]", async (request: Request, context: { params: Promise<{ staff: string }> }) => {
   if (feedSecretSource() === "missing") return new Response("Calendar feeds are switched off", { status: 503 });

@@ -343,8 +343,8 @@ function refresh(workspace: Workspace) {
   if (createdOnLoad) snapshot.epoch = newEpoch();
   keep(snapshot.state, snapshot.epoch);
   if (erasedOnLoad.length && snapshot.state) {
-    persistErasure(workspace, raw, snapshot.state);
-    forgetExpiredRecordings(workspace, snapshot.state, erasedOnLoad);
+    // A newer save from another tab may have restored the customer: their recordings wait for the next read.
+    if (persistErasure(workspace, raw, snapshot.state)) forgetExpiredRecordings(workspace, snapshot.state, erasedOnLoad);
   }
   // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
   if (previous && (!snapshot.state || epochOf(workspace, snapshot.state) !== previous)) {
@@ -359,18 +359,20 @@ function refresh(workspace: Workspace) {
  * Writes back a load that erased an expired customer, so the saved text no
  * longer holds them either. Only over the text just read: if another tab wrote
  * meanwhile, its snapshot wins and is purged when this tab reads it.
+ * Returns false only when that newer write won, so the erasure is not final.
  */
-function persistErasure(workspace: Workspace, raw: string | null, state: DemoState) {
+function persistErasure(workspace: Workspace, raw: string | null, state: DemoState): boolean {
   const snapshot = snapshots[workspace];
   try {
-    if (window.localStorage.getItem(storageKey(workspace)) !== raw) return;
+    if (window.localStorage.getItem(storageKey(workspace)) !== raw) return false;
     const text = savedText(state, snapshot.epoch);
     window.localStorage.setItem(storageKey(workspace), text);
     snapshot.raw = text;
     dropEpochKey(workspace);
   } catch {
-    // Storage unavailable: the next load erases again.
+    // Storage unavailable: the next load erases again. The customer's trash period is still over.
   }
+  return true;
 }
 
 function notify() {

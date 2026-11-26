@@ -3003,6 +3003,7 @@ const messages = {
 
   "feed.title": "Calendar subscription",
   "feed.text": "Add {name}'s work calendar to Google or Apple Calendar. It is read-only and shows treatments and first names, no contact details. Keep the link private.",
+  "feed.sample": "In the demo the link shows the sample schedule kept on the server. Bookings and changes you make here, in this browser, do not appear in it.",
   "feed.copy": "Copy calendar link",
   "feed.copied": "Calendar link copied",
   "feed.how": "In Google Calendar choose Other calendars, then From URL. In Apple Calendar choose File, then New Calendar Subscription.",
@@ -3305,6 +3306,7 @@ const messages = {
   "domain.status.secure": "Secure and live",
   "domain.status.secure.text": "Your booking page answers on your address over HTTPS.",
   "domain.live": "Your booking page is live at https://{host}.",
+  "domain.simulatedNote": "Simulated in the demo: nothing is checked at your domain provider, and this address does not open your booking page.",
   "domain.check": "Check again",
   "domain.remove": "Remove domain",
   "domain.removed": "Domain removed",

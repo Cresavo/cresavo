@@ -126,6 +126,16 @@ describe("online/move", () => {
     expect(next.inbox.filter((i) => i.delivery?.kind === "moved")).toHaveLength(1);
   });
 
+  it("moves a visit whose treatment was hidden or deleted since, still only to its staff (#8)", () => {
+    const hidden = { ...booked, services: booked.services.map((s) => (s.id === service.id ? { ...s, hidden: true } : s)) };
+    const retired = reduce(booked, { type: "service/delete", id: service.id });
+    for (const state of [hidden, retired]) {
+      expect(state.bookings.find((b) => b.id === visit.id)).toMatchObject({ date, start });
+      expect(reduce(state, move()).bookings.find((b) => b.id === visit.id)).toMatchObject({ date: "2026-11-25", start: target });
+      expect(reduce(state, move({ staffId: "nobody" as StaffId }))).toBe(state);
+    }
+  });
+
   it("tells the customer of every move, also one back to a time the visit had before (A to B to A to B is three messages)", () => {
     const there = move();
     const back = move({ date, start, expected: { date: "2026-11-25", start: target, staffId: "anna" } });

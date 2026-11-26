@@ -98,7 +98,8 @@ function Connected({ connection, live }: { connection: DomainConnection; live: b
         </div>
       )}
       <Steps status={connection.status} />
-      {connection.status === "secure" && <p className="text-sm text-text-secondary">{t("domain.live", { host: connection.host })}</p>}
+      {!live && <p className="text-sm text-text-secondary">{t("domain.simulatedNote")}</p>}
+      {live && connection.status === "secure" && <p className="text-sm text-text-secondary">{t("domain.live", { host: connection.host })}</p>}
       <div className="flex flex-wrap gap-2">
         {connection.status !== "secure" && <Button variant="secondary" disabled={busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : undefined} onClick={recheck}>{t("domain.check")}</Button>}
         <Button variant="ghost" disabled={busy} onClick={remove}>{t("domain.remove")}</Button>

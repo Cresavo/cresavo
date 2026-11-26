@@ -1,6 +1,7 @@
 import { addDays } from "../data/dates";
 import { freeStarts, moveNeed, needOf } from "../data/slots";
 import type { DateKey, DemoState, StaffId } from "../data/types";
+import { findService } from "../selectors";
 import { earliestBookingStart } from "./policy";
 
 export type Period = "morning" | "afternoon" | "evening";
@@ -39,7 +40,11 @@ export function inPeriod(start: number, period: Period | undefined): boolean {
   return start >= 16 * 60;
 }
 
-/** Every bookable start on one day, merged over the staff who can do the treatment. */
+/**
+ * Every bookable start on one day, merged over the staff who can do the treatment. With `ignoreId` naming a
+ * booking of this treatment, the move keeps that booking's own length and timing, and the treatment is found
+ * even when it is hidden or retired; new bookings only ever see the current price list.
+ */
 export function openSlots(
   state: DemoState,
   serviceId: string,
@@ -47,7 +52,8 @@ export function openSlots(
   clock: Clock,
   opts: { staffId?: StaffId; ignoreId?: string; instant?: number } = {},
 ): OpenSlot[] {
-  const service = state.services.find((s) => s.id === serviceId);
+  const moving = opts.ignoreId ? state.bookings.find((b) => b.id === opts.ignoreId && b.serviceId === serviceId) : undefined;
+  const service = moving ? findService(state, serviceId) : state.services.find((s) => s.id === serviceId);
   if (!service || date < clock.today) return [];
   const after = earliestBookingStart(date, clock.today, clock.minutes, opts.instant ?? clock.instant);
   const byStart = new Map<number, OpenSlot>();

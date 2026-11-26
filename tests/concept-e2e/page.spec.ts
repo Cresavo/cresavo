@@ -97,7 +97,8 @@ test("pick a booking link, resolve it by host and start an own domain", async ({
   await expect(page.getByText("Verifying", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByText("Secure and live", { exact: true })).toBeVisible();
-  await expect(page.getByText("Your booking page is live at https://boka.salongeko.se.")).toBeVisible();
+  await expect(page.getByText("Simulated in the demo: nothing is checked at your domain provider, and this address does not open your booking page.")).toBeVisible();
+  await expect(page.getByText("Your booking page is live at https://boka.salongeko.se.")).toHaveCount(0);
   expect((await state(page)).domain).toEqual({ host: "boka.salongeko.se", status: "secure" });
 });
 
