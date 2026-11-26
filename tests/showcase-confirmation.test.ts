@@ -45,8 +45,7 @@ it("builds a Swedish Google Calendar link that never points at the engine bookin
   const title = new URL(links!.googleHref).searchParams.get("text") ?? "";
   expect(title).toMatch(/hos Salong Eko/i);
   expect(title).not.toMatch(/ at /);
-  expect(links!.sharePath).toBe(`${sharePath}?bokning=${state.bookings[0].id}`);
-  expect(links!.sharePath).toContain("showcase");
+  expect(links!.sharePath).toBe(sharePath);
   expect(links!.googleHref).not.toContain("/boka/");
 });
 

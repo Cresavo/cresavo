@@ -119,11 +119,7 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
   const now = useSalonNow();
   const { preset, book, close, menuAnchor } = useContext(BookingContext);
   const leaveFlow = useCallback((inFlow: boolean) => { if (!inFlow) close(); }, [close]);
-  const [receipt, setReceipt] = useState<{ id: string; at: number } | undefined>(() => {
-    if (typeof window === "undefined") return undefined;
-    const id = new URLSearchParams(window.location.search).get("bokning");
-    return id ? { id, at: 0 } : undefined;
-  });
+  const [receipt, setReceipt] = useState<{ id: string; at: number }>();
   const shown = receipt && receipt.at === preset.count ? receipt.id : undefined;
   if (state === null) {
     return (

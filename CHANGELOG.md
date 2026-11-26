@@ -102,7 +102,6 @@ All notable changes to this project are documented here. Format follows
 
 - **Showcase confirmation stays on the salon site.** After a booking on `/showcase/salong-klassisk/boka` or `/showcase/salong-vagad/boka` (and on the salon homepages), the receipt keeps the site's colours and type, every action stays on that site (none lead to `/boka/salong-eko`), and calendar text is Swedish.
 
-- **A shared confirmation opens that visit on the salon site.** The share link keeps the booking on `/showcase/…` and names the visit, so the person who opens it sees the receipt rather than an empty booking page, and never the engine’s `/boka/salong-eko` page.
 - **Back in the booking steps returns to the treatment list.** On the standalone booking page, the first Back after choosing a treatment shows the list again, not the engine’s empty search.
 - **Closing a receipt returns to the salon, not a new booking.** After a visit is booked, Tillbaka and “Back to the salon” clear the chosen treatment, so the homepage or the standalone list is shown again instead of the booking steps for the same treatment.
 - **A new treatment can be booked after a receipt is still on the page.** On the salon homepages, choosing a treatment in the price list after a finished booking now starts that booking instead of leaving the previous receipt on screen.
