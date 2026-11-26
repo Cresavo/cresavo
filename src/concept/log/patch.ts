@@ -13,7 +13,7 @@ const COLLECTIONS = [
 ] as const satisfies readonly (keyof DemoState)[];
 
 /** Whole values compared as a unit. */
-const VALUES = ["cancellationPolicy", "accounting", "modules", "dismissedCards", "salon", "page", "domain", "localization", "reminderSettings", "privacy"] as const satisfies readonly (keyof DemoState)[];
+const VALUES = ["cancellationPolicy", "accounting", "modules", "dismissedCards", "salon", "page", "domain", "localization", "reminderSettings", "privacy", "receptionist"] as const satisfies readonly (keyof DemoState)[];
 
 const same = jsonEqual;
 const list = (state: DemoState, key: string) => (state as unknown as Record<string, Item[]>)[key] ?? [];

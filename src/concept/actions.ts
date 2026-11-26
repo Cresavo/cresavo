@@ -12,6 +12,7 @@ import { sendBookingMessage, type BookingMessageAction } from "./booking/message
 import { MAX_SMS_PRICE_ORE, type ReminderSettings } from "./booking/reminders";
 import { applyCustomerReview, type CustomerReviewAction } from "./booking/review-actions";
 import { applyAssistant, type AssistantAction } from "./assistant/actions";
+import { applyReceptionist, type ReceptionistAction } from "./receptionist/actions";
 import { findCustomerByPhone, isContactPhone, isMobilePhone, normalizePhone } from "./booking/lookup";
 import { cleanImportedCustomer, MAX_IMPORT_ROWS, normalizeEmail } from "./customers/csv";
 import { earliestBookingStart, freeChangeOpen, LEAD_MINUTES, visitTime } from "./booking/policy";
@@ -81,6 +82,7 @@ export type DemoAction =
   | OpsAction
   | ServiceAction
   | AssistantAction
+  | ReceptionistAction
   | PageAction
   | { type: "booking/move"; id: string; date: DateKey; start: number; staffId?: StaffId; notice?: Omit<InboxItem, "id"> }
   | { type: "booking/cancel"; id: string; reason?: string; notice?: Omit<InboxItem, "id"> }
@@ -608,6 +610,9 @@ export function reduce(state: DemoState, action: DemoAction, now = Date.now(), p
     case "routine/ran":
     case "customers/message":
       return applyAssistant(state, action, now);
+    case "receptionist/settings":
+    case "receptionist/call":
+      return applyReceptionist(state, action);
     case "page/set":
     case "salon/slug":
     case "domain/connect":

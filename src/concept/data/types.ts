@@ -3,6 +3,7 @@ import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
 import type { Backdrop } from "../campaigns/poster-engine/backdrops";
 import type { ReminderSettings } from "../booking/reminders";
+import type { CallRecord, ReceptionistSettings } from "../receptionist/types";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
@@ -568,4 +569,8 @@ export interface DemoState {
   journalAccess?: JournalAccess[];
   /** Optional: salons that never set it keep journal entries until the owner decides. */
   privacy?: PrivacySettings;
+  /** The phone receptionist's settings. Optional: off until the owner sets it up. */
+  receptionist?: ReceptionistSettings;
+  /** Calls the phone receptionist took, newest first. */
+  receptionistCalls?: CallRecord[];
 }

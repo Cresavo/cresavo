@@ -10,11 +10,11 @@ import { findCustomer, findService, fullName } from "../selectors";
 import { moduleById, moduleEnabled } from "../modules/registry";
 
 /** Reading a message or dismissing a card is not a change worth logging. */
-export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" | "journal/view" }>;
+export type LoggedAction = Exclude<DemoAction, { type: "inbox/read" | "inbox/read-all" | "card/dismiss" | "routine/ran" | "journal/view" | "receptionist/call" }>;
 
 /** A read of a journal has its own log (`journalAccess`) that shows who read what; the activity log is for changes. */
 export function isLogged(action: DemoAction): action is LoggedAction {
-  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran" && action.type !== "journal/view";
+  return action.type !== "inbox/read" && action.type !== "inbox/read-all" && action.type !== "card/dismiss" && action.type !== "routine/ran" && action.type !== "journal/view" && action.type !== "receptionist/call";
 }
 
 export interface Description {
@@ -58,6 +58,8 @@ export function describeAction(action: LoggedAction, prev: DemoState, next: Demo
     }
     case "reminder/settings":
       return { summary: t("log.reminderSettings") };
+    case "receptionist/settings":
+      return { summary: t(next.receptionist?.enabled === prev.receptionist?.enabled ? "log.receptionistSettings" : next.receptionist?.enabled ? "log.receptionistOn" : "log.receptionistOff") };
     case "memory/add":
       return { summary: t("log.memoryAdd") };
     case "memory/edit":

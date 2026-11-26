@@ -17,4 +17,6 @@ export const CORE_API: readonly ApiResource[] = [
   { resource: "inbox", read: "available", write: "propose", mcp: "available", events: "planned" },
   /** Photos and the logo: /api/owner/media for the signed-in owner, and the active logo at its public address. */
   { resource: "media-library", read: "available", write: "available", mcp: "planned", events: "planned" },
+  /** The phone receptionist's settings and call log: in the salon document only, behind a deployment flag; no API yet. */
+  { resource: "phone-receptionist", read: "planned", write: "planned", mcp: "planned", events: "planned" },
 ];
