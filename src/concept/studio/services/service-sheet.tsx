@@ -118,7 +118,7 @@ export function ServiceSheet({ state, service, category, onClose, onDelete }: Se
           </Field>
         </div>
         {(problem("duration") || problem("price")) && (
-          <Notice tone="danger" role="alert">{[hint("duration"), hint("price")].filter(Boolean).join(" ")}</Notice>
+          <Notice tone="warning" role="alert">{[hint("duration"), hint("price")].filter(Boolean).join(" ")}</Notice>
         )}
         {service && <p className="text-xs text-text-secondary">{t("services.priceHint")}</p>}
 

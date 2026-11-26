@@ -45,7 +45,7 @@ export function GiftCardBalance({ state, compact }: { state: DemoState; compact?
               <p className="text-meta text-text-secondary">{t("giftcards.checkOf", { amount: formatMoney(card.amount) })}</p>
             </div>
           ) : (
-            <Notice tone="danger" role="alert">{t("giftcards.checkNotFound")}</Notice>
+            <Notice tone="warning" role="alert">{t("giftcards.checkNotFound")}</Notice>
           )}
         </div>
       )}
