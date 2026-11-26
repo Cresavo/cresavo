@@ -12,7 +12,7 @@ import { openBookingWorkspace, usePublicDemo } from "../store";
 import { cx } from "../ui/cx";
 import { Toaster } from "../ui/toast";
 import { useSalonNow } from "../use-now";
-import { kronor, menuOf, minutes, PACK_MENU, SALON, SHOWCASE_SLUG, telHref } from "./salon";
+import { hoursThisWeek, kronor, lunchLine, menuOf, minutes, openingHours, PACK_MENU, SALON, SHOWCASE_SLUG, telHref } from "./salon";
 import p from "./picker.module.css";
 
 // The demo salon's own booking engine on a showcase site: the same wizard and
@@ -31,6 +31,19 @@ function useShowcaseState(): DemoState | null | undefined {
 export function useShowcaseMenu() {
   const state = useShowcaseState();
   return useMemo(() => (state ? menuOf(state.services) : PACK_MENU), [state]);
+}
+
+/**
+ * This week's opening hours and the lunch break from the live demo, so a one-off opening or a closed day the
+ * booking knows about is on the site too. Before the demo is read, the salon's usual week.
+ */
+export function useShowcaseHours() {
+  const state = useShowcaseState();
+  const { today } = useSalonNow();
+  return useMemo(
+    () => (state ? { lines: openingHours(hoursThisWeek(state.salon, today)), lunch: lunchLine(state.salon) } : { lines: openingHours(), lunch: lunchLine() }),
+    [state, today],
+  );
 }
 
 interface Preset { serviceId?: string; count: number }
@@ -135,6 +148,19 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
 }
 
 /**
+ * Keeps what the booking focuses clear of a site header that stays on screen: a step's heading takes focus when
+ * the step opens, and without this it can sit under the header.
+ */
+function clearStickyHeader(target: Element) {
+  requestAnimationFrame(() => {
+    const header = document.querySelector("header");
+    if (!header || getComputedStyle(header).position !== "sticky") return;
+    const covered = header.getBoundingClientRect().bottom + 16 - target.getBoundingClientRect().top;
+    if (covered > 0) window.scrollBy({ top: -covered, behavior: "auto" });
+  });
+}
+
+/**
  * The booking flow in the site's colours. The palette becomes the booking page's tokens through the same
  * theme code the salon's own booking page uses; the site's two typefaces replace the booking page's.
  * On a homepage the wizard waits until a treatment is chosen, so the page is not a second empty search.
@@ -145,7 +171,7 @@ export function ShowcaseBooking({ palette, corners, className, listTreatments = 
   const fonts = { "--page-font-heading": "var(--display)", "--page-font-body": "var(--body)" } as CSSProperties;
   return (
     <div className={cx("studio-root", themed, className)} {...attributes} style={{ ...style, ...fonts }}>
-      <div data-booking-flow>
+      <div data-booking-flow onFocus={(event) => clearStickyHeader(event.target)}>
         <Flow listTreatments={listTreatments} sharePath={sharePath} />
       </div>
       <ConceptLanguage language="sv" currency="SEK">

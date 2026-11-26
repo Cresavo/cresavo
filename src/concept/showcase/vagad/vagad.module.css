@@ -141,7 +141,7 @@
 .bookingSide a { color: var(--ink); font-weight: 600; text-underline-offset: 4px; white-space: nowrap; }
 .flow { min-height: 0; min-width: 0; background: transparent; }
 /* Schibsted's tabular colon sits wide ("13 : 30"); its own figures read better in times and prices. */
-.root .flow { font-variant-numeric: normal; }
+.root .flow, .root .flow :global(.tabular-nums) { font-variant-numeric: normal; }
 .booking[data-empty] { padding-block: 56px; }
 @media (min-width: 960px) {
   .booking[data-empty] { padding-block: 72px; }

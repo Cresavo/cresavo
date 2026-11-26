@@ -1,10 +1,10 @@
 "use client";
 
-import { ShowcaseBooking, ShowcaseBookingProvider, useBook, useBookingPreset, useShowcaseMenu } from "../booking";
+import { ShowcaseBooking, ShowcaseBookingProvider, useBook, useBookingPreset, useShowcaseHours, useShowcaseMenu } from "../booking";
 import { BookBar, useShowcaseTheme, type ShowcaseTheme } from "../chrome";
 import { ABOUT, ADDRESS, CANCEL_NOTE, MAP_URL, PEOPLE } from "../content";
 import { Photo } from "../photo";
-import { kronor, lunchLine, minutes, openingHours, SALON, telHref } from "../salon";
+import { kronor, minutes, SALON, telHref } from "../salon";
 import { ThemeIcon } from "../theme-icon";
 import { BOLD_PALETTE, BOLD_THEME_KEY } from "./palette";
 import v from "./vagad.module.css";
@@ -134,7 +134,7 @@ function Booking({ theme }: { theme: ShowcaseTheme }) {
 }
 
 function Visit() {
-  const lunch = lunchLine();
+  const { lines, lunch } = useShowcaseHours();
   return (
     <section className={v.visit} id="hitta-hit" aria-labelledby="visit-heading">
       <div className={v.wrap}>
@@ -146,7 +146,7 @@ function Visit() {
             <a className={v.link} href={MAP_URL} rel="noopener">Visa på karta</a>
           </div>
           <dl className={v.hours} aria-label="Öppettider">
-            {openingHours().map((line) => <div key={line.days}><dt>{line.days}</dt><dd>{line.hours ?? "Stängt"}</dd></div>)}
+            {lines.map((line) => <div key={line.days}><dt>{line.days}</dt><dd>{line.hours ?? "Stängt"}</dd></div>)}
             {lunch && <div><dt>Lunch</dt><dd>{lunch}</dd></div>}
           </dl>
           <div>

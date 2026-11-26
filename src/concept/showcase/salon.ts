@@ -1,4 +1,6 @@
-import type { Salon, Service } from "../data/types";
+import { dateInWeek } from "../data/dates";
+import { openingFor } from "../data/slots";
+import type { DateKey, Salon, Service } from "../data/types";
 import { serviceCopy } from "../i18n/salon-eko-copy";
 import { DEFAULT_PACK, getPack } from "../packs";
 
@@ -69,7 +71,15 @@ export function openingHours(hours: Salon["hours"] = SALON.hours): HoursLine[] {
 
 const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-export const lunchLine = () => (SALON.lunch ? `${hour(SALON.lunch.start)}–${hour(SALON.lunch.end)}` : null);
+/**
+ * The hours the salon keeps in the week that contains `today`: its usual week with a closed day or a one-off
+ * opening applied, read through the booking engine's own rule so the site and the bookable times agree.
+ */
+export function hoursThisWeek(salon: Salon, today: DateKey): Salon["hours"] {
+  return Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((day) => [day, openingFor(salon, dateInWeek(today, day))]));
+}
+
+export const lunchLine = (salon: Salon = SALON) => (salon.lunch ? `${hour(salon.lunch.start)}–${hour(salon.lunch.end)}` : null);
 
 /** The phone number as a tel: link. */
 export const telHref = (phone: string = SALON.phone) => `tel:${phone.replace(/[^\d+]/g, "").replace(/^0/, "+46")}`;

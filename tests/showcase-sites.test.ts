@@ -7,7 +7,7 @@ import { BRAND } from "@/concept/brand";
 import { conceptRoute } from "@/concept/page/language";
 import { CLASSIC_PALETTE } from "@/concept/showcase/klassisk/palette";
 import { KlassiskSite } from "@/concept/showcase/klassisk/klassisk-site";
-import { kronor, menuOf, openingHours, PACK_MENU, SALON, SHOWCASE_SLUG, telHref } from "@/concept/showcase/salon";
+import { hoursThisWeek, kronor, menuOf, openingHours, PACK_MENU, SALON, SHOWCASE_SLUG, telHref } from "@/concept/showcase/salon";
 import { StandaloneBooking } from "@/concept/showcase/standalone";
 import { BOLD_PALETTE } from "@/concept/showcase/vagad/palette";
 import { VagadSite } from "@/concept/showcase/vagad/vagad-site";
@@ -91,6 +91,29 @@ describe("the showcase salon sites", () => {
       { days: "Söndag", hours: null },
     ]);
     expect(telHref("070-174 06 50")).toBe("tel:+46701740650");
+  });
+
+  it("show the week the booking keeps: a one-off opening and a closed day replace the usual hours", () => {
+    // Thursday 26 November 2026. The demo opens the next day nine to six whatever the weekday usually keeps.
+    const salon = {
+      ...SALON,
+      openings: [{ date: "2026-11-27", open: 9 * 60, close: 18 * 60 }],
+      closures: [{ id: "c1", date: "2026-11-28", name: "" }],
+    };
+    expect(openingHours(hoursThisWeek(salon, "2026-11-26"))).toEqual([
+      { days: "Måndag–onsdag", hours: "9–18" },
+      { days: "Torsdag", hours: "9–19" },
+      { days: "Fredag", hours: "9–18" },
+      { days: "Lördag–söndag", hours: null },
+    ]);
+    expect(openingHours(hoursThisWeek(SALON, "2026-11-26"))).toEqual(openingHours());
+  });
+
+  it("keep the platform's install metadata out of every layout that sets its own", () => {
+    const app = path.join(__dirname, "..", "src", "app", "showcase");
+    const layouts = sourceFiles(app).filter((file) => file.endsWith("layout.tsx"));
+    expect(layouts.length).toBe(3);
+    for (const file of layouts) expect(readFileSync(file, "utf8"), file).toMatch(/export const metadata: Metadata = \{\n(\s*\/\/.*\n)*\s*\.\.\.TENANT_METADATA,/);
   });
 
   it("are treated like a business's own pages: no platform banner", () => {
