@@ -32,6 +32,8 @@ describe("caller phone numbers", () => {
     expect(callerPhone("+46 70 987 65 43", us)).toEqual({ ok: true, phone: "+46709876543" });
     expect(salonDialing("001 212 555 0100", "USD")).toEqual({ trunkZero: false, swedish: false });
     expect(salonDialing("+47 22 12 34 56", "NOK")).toEqual({ trunkZero: false, swedish: false });
+    expect(salonDialing("+44 20 7946 0958", "GBP")).toEqual({ trunkZero: true, swedish: false });
+    expect(callerPhone("+45 01 23 45 67")).toEqual({ ok: true, phone: "+4501234567" });
     expect(callerPhone("22123456", salonDialing("+47 22 12 34 56", "NOK"))).toEqual({ ok: true, phone: "22123456" });
     // A UK salon written the national way: trunk zero, but not Sweden.
     const uk = salonDialing("020 7946 0958", "GBP");

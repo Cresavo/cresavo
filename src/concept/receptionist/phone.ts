@@ -1,8 +1,8 @@
 import type { Locale } from "@/lib/locale";
-import { TRUNK_ZERO_CODES } from "../booking/lookup";
 
-// Italy keeps its 0 after the country code (+39 02 …): it is part of the number there, not a trunk prefix.
-const DROP_ZERO = TRUNK_ZERO_CODES.filter((code) => code !== "39");
+// Country codes whose national numbers start with a trunk 0 that is dropped after the country code
+// ("+44 (0)20 …"). Not Denmark or Norway (no trunk 0) and not Italy (its 0 is part of the number).
+const TRUNK_ZERO = ["46", "44", "49", "358", "31", "32", "33", "41", "43", "353"];
 
 // Phone numbers as a caller says them. A number is always a string: Swedish
 // numbers start with 0 (or +46), and a number without its leading 0 is not the
@@ -24,7 +24,7 @@ const SWEDEN: Dialing = { trunkZero: true, swedish: true };
 /**
  * Read from the salon's own number (and currency, for a number written the national way): +46 or 0046 is Sweden;
  * a national 0… number is Sweden only for a salon that charges in SEK, and otherwise a country whose numbers
- * start with 0 like the salon's own. Any other international number: nothing is assumed.
+ * start with 0 like the salon's own. Written internationally, the country code says whether numbers there start with 0.
  */
 export function salonDialing(salonPhone: string, currency: string): Dialing {
   const said = salonPhone.trim();
@@ -33,8 +33,7 @@ export function salonDialing(salonPhone: string, currency: string): Dialing {
   if (international) {
     const code = digits.replace(/^00/, "");
     if (code.startsWith("46")) return SWEDEN;
-    // Abroad, whether local numbers carry a 0 depends on the country (Denmark and Norway have none): not enforced.
-    return { trunkZero: false, swedish: false };
+    return { trunkZero: TRUNK_ZERO.some((candidate) => code.startsWith(candidate)), swedish: false };
   }
   if (digits.startsWith("0")) return { trunkZero: true, swedish: currency === "SEK" };
   return { trunkZero: false, swedish: false };
@@ -57,7 +56,7 @@ export function callerPhone(raw: string, dialing: Dialing = SWEDEN): CallerPhone
   if (international && digits.startsWith("46") && swedish) phone = `0${digits.slice(2).replace(/^0/, "")}`;
   else if (international) {
     // "+44 (0)20 7946 0958": the 0 after the country code is not dialled from abroad.
-    const code = [...DROP_ZERO, "46"].find((candidate) => digits.startsWith(candidate));
+    const code = TRUNK_ZERO.find((candidate) => digits.startsWith(candidate));
     phone = `+${code && digits[code.length] === "0" ? code + digits.slice(code.length + 1) : digits}`;
   } else if (digits.startsWith("0") || !trunkZero) phone = digits;
   else return { ok: false, reason: digits.length >= 6 ? "missing_zero" : "unclear" };
