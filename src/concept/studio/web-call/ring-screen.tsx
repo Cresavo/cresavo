@@ -201,7 +201,7 @@ export function RingScreen({
         )}
         {outcome === "handover" && <HandoverResult reason={handover} instant={instant} />}
         {showText && lines.length > 0 && <Transcript lines={lines} />}
-        {ended && !showBooking && outcome !== "handover" && (
+        {ended && !showBooking && (
           <p className="text-body">{t(`webCall.ended.${call.record.outcome}` as MessageKey)}</p>
         )}
         {ended && (call.record.endedBy === "time-limit" || call.record.endedBy === "cost-limit" || call.record.endedBy === "error") && (
