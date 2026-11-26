@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **The receptionist demo call plays on iPhone.** iPhone Safari showed a black box with a crossed-out play icon instead of the poster and the video. The first encodes carried a colour profile embedded inside the video track and uneven frame timing, both left over from how the film was put together. Both videos are now encoded again in the plain form iPhones expect: H.264 High 4.0, yuv420p, a steady 30 frames a second, standard colour tags, AAC audio, and the index at the front. A test checks the files so a new encode can't bring the problem back.
+
 ### Added
 
 - **A guided setup for your own salon.** "Start with your own salon" is now a short conversation in five questions and a finished screen: the salon's name and type, when it is open (the open days and one set of hours, or different hours on some days), the treatments with prices and lengths, who works there (just me, or me and a few colleagues), and how the booking page looks (one calm colour or the neutral look, and a logo, with the top of the page shown as it changes). Every question already has an answer, so Next always works; Back works on every question, and the answers are kept in this browser if the owner leaves half-way. The new salon really opens on those days and hours, gives each person a calendar and every treatment, and wears the chosen colour and logo. The finished screen shows the real booking page to try with a test booking, Go to my day, and two things that can wait: import customers and fine-tune the booking page. It does not offer the address for customers, since the salon lives in this browser; the link stays in Settings. The fine print about the browser and fictional details is gone from setup. English and Swedish.
