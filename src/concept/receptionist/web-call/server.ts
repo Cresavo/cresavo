@@ -187,10 +187,15 @@ export async function hangUp(callId: string, apiKey: string, call: typeof fetch 
  * sweep try again. Returns true when the call is over.
  */
 export async function endWebCall(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }): Promise<boolean> {
-  if (!(await options.ledger.isRunning(callId))) return true;
-  if (!(await hangUp(callId, options.apiKey, options.fetch))) return false;
+  return (await endCall(callId, options)) !== "failed";
+}
+
+/** Ends a call and says how: it had already ended, this hung it up, or the hang-up failed. */
+async function endCall(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }): Promise<"already" | "hung_up" | "failed"> {
+  if (!(await options.ledger.isRunning(callId))) return "already";
+  if (!(await hangUp(callId, options.apiKey, options.fetch))) return "failed";
   await options.ledger.finish(callId);
-  return true;
+  return "hung_up";
 }
 
 /**
@@ -348,14 +353,11 @@ export async function superviseCall(callId: string, deadline: number, options: S
   let why: SupervisorEnd = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
   settled = true;
   // The connection also drops when the caller or Maja simply hung up (the end route already ended the call).
-  // The lookup is only for the log line, so it gets a moment and never holds up the hang-up below.
-  if (why === "closed" || why === "unwatched") {
-    const unsure = new Promise<boolean>((resolve) => { setTimeout(() => resolve(true), 1_500).unref?.(); });
-    if (!(await Promise.race([options.ledger.isRunning(callId).catch(() => true), unsure]))) why = "hung_up";
-  }
   // Whatever ended the watch, the call is hung up: a call that already ended answers 404, which counts as done.
   // The sideband closing early fails closed: the call ends rather than running unwatched.
-  await endWithRetries(callId, options, sleep);
+  const outcome = await endWithRetries(callId, options, sleep);
+  // The connection also drops when the caller or Maja simply hung up: the end route had already ended the call.
+  if ((why === "closed" || why === "unwatched") && outcome === "already") why = "hung_up";
   try {
     socket?.close();
   } catch {
@@ -373,6 +375,8 @@ async function endWithRetries(callId: string, options: { apiKey: string; ledger:
   // A failed hang-up is tried again a few times here; after that the sweeps keep trying.
   for (const pause of [0, 2_000, 5_000, 10_000]) {
     if (pause) await sleep(pause);
-    if (await endWebCall(callId, options).catch(() => false)) return;
+    const outcome = await endCall(callId, options).catch(() => "failed" as const);
+    if (outcome !== "failed") return outcome;
   }
+  return "failed" as const;
 }
