@@ -55,10 +55,11 @@ reduction, so a caller in a car or pausing mid-sentence is not cut off and
 answered half-heard; Maja's rules tell her to ask again rather than guess.
 
 One log line per call (`web_call_ended`): how it ended, seconds, estimated
-cost, tokens, responses and interruptions, and each turn as heard (caller
-transcription and Maja's words, digits and e-mail addresses masked, lines cut
-short). `answeredUnheard` counts answers to a caller turn that could not be
-written down.
+cost, tokens, responses and interruptions, and the shape of each turn (who,
+when, speech length, word count, whether the caller was heard). No words of
+either side are logged; the transcript stays in the salon's call log.
+`answeredUnheard` counts answers to a caller turn that could not be written
+down.
 
 Key: `PHONE_RECEPTIONIST_OPENAI_API_KEY` if set (a separate OpenAI project
 with its own budget cap), else the sample salon's saved key, else

@@ -8,7 +8,7 @@ import { memoryLedger, pairBudgetLedger, type SqlClient } from "@/concept/recept
 import { issuePageToken, PAGE_TOKEN_SECONDS, tokenSecret, verifyPageToken } from "@/concept/receptionist/web-call/page-token";
 import { webCallGreeting, webCallInstructions } from "@/concept/receptionist/web-call/persona";
 import { realtimeKey } from "@/concept/receptionist/server/config";
-import { maskedLine, type CallReport } from "@/concept/receptionist/web-call/report";
+import type { CallReport } from "@/concept/receptionist/web-call/report";
 import { callIdFrom, endWebCall, enforceDeadline, hangUpAll, startWebCall, superviseCall, sweepOverdue, webCallSession, type SidebandSocket, type WebCallInput } from "@/concept/receptionist/web-call/server";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -336,7 +336,7 @@ describe("web call server-side hang-up", () => {
       expect(why).toBe("deadline");
     });
 
-    it("reports how the call went in one masked line, and calls a plain hang-up by its name", async () => {
+    it("reports the shape of the call in one line, without its words, and calls a plain hang-up by its name", async () => {
       const ledger = memoryLedger();
       await ledger.register("rtc_report001", NOW + 240_000);
       const socket = new FakeSideband();
@@ -354,9 +354,10 @@ describe("web call server-side hang-up", () => {
       socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_1", transcript: "Mitt nummer är 070-123 45 67, mejla sara@example.test" });
       socket.emit("message", say("Tack, jag har 070 123 45 67."));
       clock += 5_000;
+      // Maja answers before the transcription of this turn arrives, and it comes back blank: still counted.
       socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_2", audio_start_ms: 20_000, audio_end_ms: 20_400 });
-      socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_2", transcript: "  " });
       socket.emit("message", say("Okej, då bokar jag."));
+      socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_2", transcript: "  " });
       socket.emit("message", { type: "response.done", response: { status: "cancelled", output: [{ type: "message", content: [{ transcript: "Vi har" }] }] } });
       // The caller hung up: the end route has already ended the call when the connection drops.
       await ledger.finish("rtc_report001");
@@ -366,19 +367,10 @@ describe("web call server-side hang-up", () => {
       expect(why).toBe("hung_up");
       expect(report).toMatchObject({ seconds: 14, responses: 3, interrupted: 1, callerTurns: 2, unheardTurns: 1, answeredUnheard: 1 });
       expect(report.costUsd).toBeGreaterThan(0);
-      expect(report.turns[0]).toMatchObject({ who: "caller", speechMs: 3_500, heard: "ok" });
-      expect(report.turns.find((turn) => turn.unheard)).toMatchObject({ who: "maja", text: "Okej, då bokar jag." });
-      // No phone number or address reaches the log.
-      const line = report.turns.map((turn) => turn.text).join(" ");
-      expect(line).not.toMatch(/\d/);
-      expect(line).not.toContain("sara@example.test");
-      expect(line).toContain("<e-mail>");
-    });
-
-    it("masks digits and addresses, and cuts long lines", () => {
-      expect(maskedLine("Ring 070-123 45 67 eller a.b@c.se")).toBe("Ring ###-### ## ## eller <e-mail>");
-      expect(maskedLine("ord ".repeat(60)).length).toBeLessThanOrEqual(90);
-      expect(maskedLine(undefined)).toBe("");
+      expect(report.turns[0]).toMatchObject({ who: "caller", speechMs: 3_500, heard: "ok", words: 8 });
+      expect(report.turns.find((turn) => turn.unheard)).toMatchObject({ who: "maja", words: 4 });
+      // No words of either side reach the log.
+      expect(JSON.stringify(report)).not.toMatch(/nummer|sara|example|bokar|Tack/);
     });
 
     it("ends the call when the kill switch turns off while it runs", async () => {

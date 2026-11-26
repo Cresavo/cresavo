@@ -267,7 +267,7 @@ export interface SuperviseOptions {
   toolNames?: readonly string[];
   /** The kill switch, read again while the call runs; when it turns off, the call ends. */
   enabled?: () => boolean;
-  /** Called once when the call is over, with what the server saw of it (masked; see report.ts). */
+  /** Called once when the call is over, with the shape of what the server saw (no words; see report.ts). */
   onReport?: (report: CallReport, why: SupervisorEnd) => void;
   fetch?: typeof fetch;
   now?: () => number;

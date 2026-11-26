@@ -1,31 +1,24 @@
 import { estimateResponseCost, type Rates, type RealtimeUsage } from "../limits";
 
 // What the server's own connection saw of a call, for one log line when it
-// ends: how long it ran, what it cost, how each caller turn was heard, and
-// what Maja said back. Enough to see a turn she answered without hearing it;
-// no more of the caller than that. Digits and e-mail addresses are masked and
-// every line is cut short, so phone numbers and addresses never reach a log.
+// ends: how long it ran, what it cost, and the shape of each turn (who spoke,
+// for how long, how many words, whether the caller's words could be written
+// down, whether Maja was cut off). Enough to see a turn she answered without
+// hearing it. No words of either side are kept: callers say names, numbers
+// and health details, and none of that belongs in a log.
 
 const MAX_TURNS = 40;
-const MAX_TEXT = 90;
-
-/** Masks digits and e-mail addresses and cuts the line short. */
-export function maskedLine(text: unknown): string {
-  if (typeof text !== "string") return "";
-  const clean = text.replace(/\s+/g, " ").trim().replace(/[^\s@]+@[^\s@]+/g, "<e-mail>").replace(/\d/g, "#");
-  return clean.length > MAX_TEXT ? `${clean.slice(0, MAX_TEXT - 1)}…` : clean;
-}
 
 export interface CallTurn {
   /** Seconds into the call. */
   at: number;
   who: "caller" | "maja";
-  /** Masked words. Empty when the caller made a sound that could not be written down. */
-  text: string;
+  /** How many words were written down (caller) or spoken (Maja). */
+  words: number;
   /** Caller turns: how long the speech lasted, and whether the transcription failed or came back blank. */
   speechMs?: number;
   heard?: "ok" | "blank" | "failed" | "pending";
-  /** Maja turns: whether she was cut off, and whether she answered a caller turn that was not heard. */
+  /** Maja turns: how the answer ended, and whether it answered a caller turn that was not heard. */
   status?: string;
   unheard?: boolean;
 }
@@ -44,10 +37,11 @@ export interface CallReport {
 
 type Event = {
   type?: string; item_id?: string; transcript?: unknown; audio_start_ms?: number; audio_end_ms?: number;
-  response?: { id?: string; status?: string; usage?: RealtimeUsage; output?: { type?: string; content?: { transcript?: unknown }[] }[] };
+  response?: { status?: string; usage?: RealtimeUsage; output?: { type?: string; content?: { transcript?: unknown }[] }[] };
 };
 
 const n = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
+const wordCount = (text: unknown) => (typeof text === "string" ? text.split(/\s+/).filter(Boolean).length : 0);
 
 export function callRecorder(rates: Rates, now: () => number = Date.now) {
   const started = now();
@@ -57,28 +51,38 @@ export function callRecorder(rates: Rates, now: () => number = Date.now) {
     tokens: { textIn: 0, cachedIn: 0, audioIn: 0, textOut: 0, audioOut: 0 }, turns: [],
   };
   const byItem = new Map<string, CallTurn>();
+  /** Maja's answers to each caller turn, so a transcription that arrives after the answer still counts. */
+  const answers = new Map<CallTurn, CallTurn[]>();
   let lastCaller: CallTurn | undefined;
   const push = (turn: CallTurn) => {
     if (report.turns.length < MAX_TURNS) report.turns.push(turn);
     return turn;
+  };
+  const markUnheard = (caller: CallTurn) => {
+    const replies = answers.get(caller) ?? [];
+    if (replies.length && !replies.some((reply) => reply.unheard)) report.answeredUnheard += 1;
+    for (const reply of replies) reply.unheard = true;
   };
   return {
     observe(event: Event) {
       switch (event.type) {
         case "input_audio_buffer.speech_stopped": {
           report.callerTurns += 1;
-          const turn = push({ at: at(), who: "caller", text: "", speechMs: Math.max(0, n(event.audio_end_ms) - n(event.audio_start_ms)) || undefined, heard: "pending" });
+          const speechMs = Math.max(0, n(event.audio_end_ms) - n(event.audio_start_ms));
+          const turn = push({ at: at(), who: "caller", words: 0, speechMs: speechMs || undefined, heard: "pending" });
           if (event.item_id) byItem.set(event.item_id, turn);
           lastCaller = turn;
           break;
         }
         case "conversation.item.input_audio_transcription.completed":
         case "conversation.item.input_audio_transcription.failed": {
-          const turn = (event.item_id && byItem.get(event.item_id)) || push({ at: at(), who: "caller", text: "" });
-          const text = event.type.endsWith("failed") ? "" : maskedLine(event.transcript);
-          turn.text = text;
-          turn.heard = event.type.endsWith("failed") ? "failed" : text ? "ok" : "blank";
-          if (turn.heard !== "ok") report.unheardTurns += 1;
+          const turn = (event.item_id && byItem.get(event.item_id)) || push({ at: at(), who: "caller", words: 0 });
+          turn.words = event.type.endsWith("failed") ? 0 : wordCount(event.transcript);
+          turn.heard = event.type.endsWith("failed") ? "failed" : turn.words ? "ok" : "blank";
+          if (turn.heard !== "ok") {
+            report.unheardTurns += 1;
+            markUnheard(turn);
+          }
           break;
         }
         case "response.done": {
@@ -96,10 +100,12 @@ export function callRecorder(rates: Rates, now: () => number = Date.now) {
           const said = (response.output ?? []).flatMap((item) => (item.content ?? []).map((part) => part.transcript)).filter((part) => typeof part === "string").join(" ");
           const tools = (response.output ?? []).filter((item) => item.type === "function_call").length;
           if (!said && tools) break;
-          // An answer right after a caller turn that could not be written down: she may have guessed.
-          const unheard = lastCaller !== undefined && lastCaller.heard !== "ok" && lastCaller.heard !== "pending";
-          if (unheard) report.answeredUnheard += 1;
-          push({ at: at(), who: "maja", text: maskedLine(said), status: response.status, unheard: unheard || undefined });
+          const reply = push({ at: at(), who: "maja", words: wordCount(said), status: response.status });
+          if (lastCaller) {
+            answers.set(lastCaller, [...(answers.get(lastCaller) ?? []), reply]);
+            // An answer to a caller turn that could not be written down: she may have guessed.
+            if (lastCaller.heard === "blank" || lastCaller.heard === "failed") markUnheard(lastCaller);
+          }
           lastCaller = undefined;
           break;
         }
