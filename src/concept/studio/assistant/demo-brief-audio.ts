@@ -119,13 +119,17 @@ function matchesRecordedMorning(brief: Brief, items: MorningItems) {
   });
 }
 
-/** The morning Elin clip in the Studio language, or null when the live brief no longer matches the recording. */
+/** Live morning readings stop at noon: the clip greets with “God morgon” / “Good morning”, while the live card then uses the daytime title. The recorded-readings card still passes 09:00 so it can play later. */
+const MORNING_UNTIL = 12 * 60;
+
+/** The morning Elin clip in the Studio language, or null when the live brief no longer matches the recording or it is past noon. */
 export function morningBriefClipUrl(
   brief: Brief,
   clock: { today: string; minutes: number },
   generatedFor: string,
 ): string | null {
   if (!isStandardDemo(clock.today, generatedFor)) return null;
+  if (clock.minutes >= MORNING_UNTIL) return null;
   const clips = clipsForLocale();
   if (!clips) return null;
   return matchesRecordedMorning(brief, clips.morningItems) ? clips.morningUrl : null;

@@ -137,6 +137,13 @@ describe("recorded demo brief clips", () => {
           { today: day, minutes: 15 * 60 },
           state.generatedFor,
         ),
+      ).toBeNull();
+      expect(
+        morningBriefClipUrl(
+          standardDemoMorningBrief(state, day, state.generatedFor, 15 * 60)!,
+          { today: day, minutes: 9 * 60 },
+          state.generatedFor,
+        ),
       ).toBe(MORNING_BRIEF_CLIP_EN);
       const end = Math.max(
         ...dayBookings(state, day).map(
@@ -183,7 +190,7 @@ describe("recorded demo brief clips", () => {
     expect(morningBriefClipUrl(edited, morningClock, base.generatedFor)).toBeNull();
   });
 
-  it("offers the morning clip for the matching Studio language, including after noon", () => {
+  it("offers the morning clip for the matching Studio language before noon", () => {
     swedishDemo();
     const brief = morningBrief(base, morningClock);
     expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBe(
@@ -198,6 +205,13 @@ describe("recorded demo brief clips", () => {
       morningBriefClipUrl(
         brief,
         { today, minutes: 15 * 60 },
+        base.generatedFor,
+      ),
+    ).toBeNull();
+    expect(
+      morningBriefClipUrl(
+        standardDemoMorningBrief(base, today, base.generatedFor, 15 * 60)!,
+        { today, minutes: 9 * 60 },
         base.generatedFor,
       ),
     ).toBe(MORNING_BRIEF_CLIP);
@@ -225,14 +239,14 @@ describe("recorded demo brief clips", () => {
     expect(morningBriefClipUrl(later, { today, minutes: 15 * 60 }, base.generatedFor)).toBeNull();
     const recorded = standardDemoMorningBrief(base, today, base.generatedFor, 18 * 60);
     expect(recorded).not.toBeNull();
-    expect(morningBriefClipUrl(recorded!, { today, minutes: 18 * 60 }, base.generatedFor)).toBe(
+    expect(morningBriefClipUrl(recorded!, { today, minutes: 9 * 60 }, base.generatedFor)).toBe(
       MORNING_BRIEF_CLIP,
     );
     englishDemo();
     expect(
       morningBriefClipUrl(
         standardDemoMorningBrief(base, today, base.generatedFor, 18 * 60)!,
-        { today, minutes: 18 * 60 },
+        { today, minutes: 9 * 60 },
         base.generatedFor,
       ),
     ).toBe(MORNING_BRIEF_CLIP_EN);
