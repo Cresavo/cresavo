@@ -116,11 +116,20 @@ describe("the guided setup's answers", () => {
     expect(state.page.theme.heroPhoto).toBe("exampleNails");
     expect(state.page.sections[0]).toEqual({ kind: "hero", variant: "photo" });
     const images = state.services.map(service => service.image);
-    expect(images).toHaveLength(state.services.length);
-    expect(images.every(image => !!image && PHOTO_IDS.includes(image as typeof PHOTO_IDS[number]))).toBe(true);
-    expect(new Set(images).size).toBe(images.length);
     expect(images[0]).toBe("exampleNails");
-    expect(setupTreatmentPhotos("massage", 4)[0]).toBe("exampleMassage");
+    expect(images.slice(1).every(image => image === undefined)).toBe(true);
+    const massage = setupTreatmentPhotos("massage", 4);
+    expect(massage[0]).toBe("exampleMassage");
+    expect(massage[1]).toBe("exampleFeet");
+    expect(massage.slice(2).every(image => image === undefined)).toBe(true);
+  });
+
+  it("keeps a saved rose or sky accent when restoring a draft, even though setup no longer offers them", () => {
+    const rose = restoreDraft({ ...salonDraft("en"), accent: "rose" }, "en");
+    expect(rose.accent).toBe("rose");
+    expect(createSalon(monday, rose).page.theme.colors).toEqual(PALETTES.rose);
+    const sky = restoreDraft({ ...salonDraft("sv"), accent: "sky" }, "sv");
+    expect(sky.accent).toBe("sky");
   });
 
   it("restores a draft saved by the two-question setup with defaults for everything it did not ask", () => {

@@ -28,7 +28,9 @@ const packs: Record<Industry, PackId> = {
 
 /** The calm booking-page colours setup offers; null keeps the neutral look that follows light and dark. */
 export const SETUP_ACCENTS = ["forest", "sand", "linen"] as const satisfies readonly (keyof typeof PALETTES)[];
-export type SetupAccent = typeof SETUP_ACCENTS[number];
+/** Accents setup used to offer; still accepted when a saved draft is restored. */
+const SETUP_ACCENTS_SAVED = ["forest", "sand", "linen", "rose", "sky"] as const satisfies readonly (keyof typeof PALETTES)[];
+export type SetupAccent = typeof SETUP_ACCENTS_SAVED[number];
 
 /** One example cover per setup type, plus a foot-care photo used as a treatment thumb. */
 export const SETUP_COVERS = {
@@ -38,14 +40,22 @@ export const SETUP_COVERS = {
 
 export const setupCover = (industry: Industry): PhotoId => SETUP_COVERS[industry];
 
-/** Distinct example photos for a new salon's treatments, starting with the type's own cover. */
-export function setupTreatmentPhotos(industry: Industry, count: number): PhotoId[] {
-  const primary = setupCover(industry);
-  const rest = (Object.keys(SETUP_COVERS) as Industry[])
-    .map(id => SETUP_COVERS[id])
-    .filter((id, index, all) => id !== primary && all.indexOf(id) === index);
-  const pool = [primary, ...rest];
-  return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+/** Relevant example thumbs for a type, starting with its cover. Only as many as we have; the rest stay unset. */
+const SETUP_TREATMENT_PHOTOS: Record<Industry, PhotoId[]> = {
+  hair: ["exampleHair"],
+  beauty: ["exampleBeauty", "exampleSkin"],
+  nails: ["exampleNails"],
+  lashes: ["exampleLashes"],
+  massage: ["exampleMassage", "exampleFeet"],
+  skin: ["exampleSkin", "exampleBeauty"],
+  foot: ["exampleFeet", "exampleMassage"],
+  clinic: ["exampleSkin"],
+  other: ["exampleBeauty"],
+};
+
+export function setupTreatmentPhotos(industry: Industry, count: number): Array<PhotoId | undefined> {
+  const pool = SETUP_TREATMENT_PHOTOS[industry];
+  return Array.from({ length: count }, (_, i) => pool[i]);
 }
 
 
@@ -167,7 +177,7 @@ export function restoreDraft(input: unknown, language: Locale): SalonDraft {
     // malformed shape falls back to the default week.
     hours: editableHours(hours) ? hours : base.hours,
     treatments, people, logo,
-    accent: SETUP_ACCENTS.includes(input.accent as SetupAccent) ? input.accent as SetupAccent : null,
+    accent: (SETUP_ACCENTS_SAVED as readonly string[]).includes(input.accent as string) ? input.accent as SetupAccent : null,
   };
 }
 
@@ -223,7 +233,7 @@ export function createSalon(today: string, draft: SalonDraft, options: CreateOpt
   };
   const thumbs = setupTreatmentPhotos(draft.industry, draft.treatments.length);
   const withMenu = draft.treatments.reduce((next, item, index) => applyServiceAction(next, { type: "service/add",
-    service: { ...item, category: "menu", description: "", image: thumbs[index], staffIds: staff.map(person => person.id) } }), state);
+    service: { ...item, category: "menu", description: "", ...(thumbs[index] ? { image: thumbs[index] } : {}), staffIds: staff.map(person => person.id) } }), state);
   return options.examplesAfter === undefined ? withMenu : addExampleBookings(withMenu, today, options.examplesAfter);
 }
 
