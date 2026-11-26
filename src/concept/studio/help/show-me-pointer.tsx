@@ -6,14 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { helpSteps } from "../../help/map/entries";
 import type { HelpEntry } from "../../help/map/types";
-import { clickFor, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
+import { clickFor, clickTarget, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
 import { moveShowMe, stopShowMe, useShowMe } from "../../help/pointer/store";
 import { t, type MessageKey } from "../../i18n";
 import { moduleEnabled } from "../../modules/registry";
 import { canOpen } from "../../ops/access";
 import { useRole } from "../../ops/role";
 import { Button, IconButton } from "../../ui/button";
-import { friendlyMessage, FriendlyNotice } from "../../ui/friendly-message";
+import { friendlyMessage, FriendlyNotice, logForSupport } from "../../ui/friendly-message";
 import { highlight } from "../../ui/highlight";
 import { useStudio } from "../use-studio";
 
@@ -44,6 +44,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const last = index === steps.length - 1;
   const [found, setFound] = useState<Found | null>(null);
   const [missing, setMissing] = useState<number | null>(null);
+  /** A step whose press did not go through: from then on the guide only points at it. */
+  const [unpressable, setUnpressable] = useState<number | null>(null);
   // Going back past a step this layout does not have (the phone's tab bar on a desktop) skips it the same way.
   const direction = useRef<1 | -1>(1);
   const blocker: "module" | "owner" | null = step.module && !moduleEnabled(state.modules, step.module) ? "module"
@@ -144,13 +146,22 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const place = usePlacement(target, card, origin);
   if (!place.host) return null;
 
+  const changes = !mayClickFor(step);
+  // "Take me there" only when the element is one control now; a group, or a press that failed, is only pointed at.
+  const control = target && !changes && !step.pointOnly && unpressable !== index ? clickTarget(target) : null;
+  const pointing = !!target && !changes && !control;
   const takeMe = () => {
-    if (!target) return;
-    clickFor(step, target);
+    if (!target || !control) return;
+    try {
+      clickFor(step, target);
+    } catch (error) {
+      logForSupport("SHOW_ME_PRESS_FAILED", error);
+      setUnpressable(index);
+      return;
+    }
     if (last) stopShowMe();
     else go(index + 1);
   };
-  const changes = !mayClickFor(step);
   const label = t(step.label);
 
   return createPortal(<>
@@ -171,13 +182,15 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
           <>
             <p id={hintId} className="text-body text-text-secondary">{target ? t(`showMe.${step.id}.hint` as MessageKey) : t("showMe.looking", { label })}</p>
             {target && last && changes && <p className="text-body font-medium">{t("showMe.yourTurn")}</p>}
+            {pointing && <p className="text-body font-medium">{t("showMe.pointHint")}</p>}
           </>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {index > 0 && <Button variant="secondary" size="sm" onClick={() => go(index - 1)}>{t("showMe.back")}</Button>}
-        {target && !changes && <Button size="sm" onClick={takeMe}>{t("showMe.takeMe")}</Button>}
-        {last && (changes || !target) && <Button size="sm" variant={target ? "primary" : "secondary"} onClick={finish}>{t("showMe.done")}</Button>}
+        {control && <Button size="sm" onClick={takeMe}>{t("showMe.takeMe")}</Button>}
+        {pointing && !last && <Button size="sm" onClick={() => go(index + 1)}>{t("showMe.next")}</Button>}
+        {last && !control && <Button size="sm" variant={target ? "primary" : "secondary"} onClick={finish}>{t("showMe.done")}</Button>}
       </div>
     </section>
   </>, place.host);

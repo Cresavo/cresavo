@@ -52,6 +52,12 @@ for (const entry of HELP_MAP) {
     }
     const shown = anchor(page, entry).all;
     await expect(shown.first(), entry.id).toBeVisible({ timeout: 15000 });
+    if (entry.safety === "navigate" && !entry.pointOnly) {
+      // "Take me there" presses it: the anchor is one control, or holds exactly one.
+      const pressable = await shown.first().evaluate((element, selector) =>
+        element.matches(selector) || element.querySelectorAll(selector).length === 1, INTERACTIVE);
+      expect(pressable, `${entry.id}: anchor one control or flag it pointOnly`).toBe(true);
+    }
     if (STEPS.has(entry.id)) {
       const controls = await shown.evaluateAll((elements, selector) => elements.map((element) => element.matches(selector)), INTERACTIVE);
       expect(controls, `${entry.id} is a step the guide presses: anchor the control itself`).not.toContain(false);

@@ -27,4 +27,9 @@ export interface HelpEntry {
   viewport?: "phone" | "desktop";
   /** Of several matching elements, prefer the one with this `data-help-state` (a visit that has finished, say). */
   prefer?: "upcoming" | "past";
+  /**
+   * The element is a group of controls (a row of filters, tab list, a section): the guide shows and explains it,
+   * and the owner picks within it. "Show me" never presses it, and it is never a step on the way to another entry.
+   */
+  pointOnly?: true;
 }

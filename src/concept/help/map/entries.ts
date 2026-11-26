@@ -5,7 +5,7 @@ import type { HelpEntry } from "./types";
 // (tests/concept-e2e/help-map.spec.ts). Add an entry and its anchor together, with its caption and search words in
 // both dictionaries (`src/concept/i18n/show-me-*.ts`).
 
-type Extra = Pick<HelpEntry, "global" | "module" | "viewport" | "prefer">;
+type Extra = Pick<HelpEntry, "global" | "module" | "viewport" | "prefer" | "pointOnly">;
 
 const go = (id: string, route: string, path: readonly string[], label: HelpEntry["label"], extra: Extra = {}): HelpEntry =>
   ({ id, route, path, safety: "navigate", label, ...extra });
@@ -46,7 +46,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
   go("shell.view-page", STUDIO, [], "quick.viewPage", { ...shell, viewport: "desktop" }),
 
   // Help, in the sheet the Help button opens.
-  go("help.show-me", STUDIO, ["shell.help"], "showMe.help.show-me.label", shell),
+  go("help.show-me", STUDIO, ["shell.help"], "showMe.help.show-me.label", { ...shell, pointOnly: true }),
   go("help.whats-new", STUDIO, ["shell.help"], "whatsNew.title", shell),
   go("help.history", STUDIO, ["shell.help"], "nav.log", shell),
   go("log.trash", "/studio/more/log", ["shell.help", "help.history"], "log.tab.trash"),
@@ -54,7 +54,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
 
   // Today.
   go("today.phone-mode", STUDIO, ["nav.today"], "today.phoneMode"),
-  go("today.morning-brief", STUDIO, ["nav.today"], "showMe.today.morning-brief.label"),
+  go("today.morning-brief", STUDIO, ["nav.today"], "showMe.today.morning-brief.label", { pointOnly: true }),
 
   // Calendar and a booking's details.
   change("calendar.new-booking", CALENDAR, ["nav.calendar"], "calendar.newBooking"),
@@ -85,7 +85,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
   change("import.file", IMPORT, ["nav.customers", "customers.import"], "showMe.import.file.label"),
 
   // Inbox.
-  go("inbox.filters", INBOX, ["nav.inbox"], "inbox.filter"),
+  go("inbox.filters", INBOX, ["nav.inbox"], "inbox.filter", { pointOnly: true }),
   go("inbox.message", INBOX, ["nav.inbox"], "showMe.inbox.message.label"),
   change("inbox.reply", INBOX, ["nav.inbox", "inbox.message"], "showMe.inbox.reply.label"),
   change("inbox.mark-all-read", INBOX, ["nav.inbox"], "inbox.markAllRead"),
@@ -120,7 +120,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
   go("campaigns.new", "/studio/more/campaigns", ["nav.more", "more.campaigns"], "campaigns.new", { module: "campaigns" }),
   go("campaigns.photos", "/studio/more/campaigns", ["nav.more", "more.campaigns"], "photos.title", { module: "campaigns" }),
   change("finance.add-cost", "/studio/more/finance", ["nav.more", "more.finance"], "finance.addCost", { module: "finance" }),
-  go("assistant.tabs", "/studio/more/assistant", ["nav.more", "more.assistant"], "showMe.assistant.tabs.label", { module: "assistant" }),
+  go("assistant.tabs", "/studio/more/assistant", ["nav.more", "more.assistant"], "showMe.assistant.tabs.label", { module: "assistant", pointOnly: true }),
   change("features.switches", "/studio/more/features", ["nav.more", "more.features"], "showMe.features.switches.label"),
 
   // Your data & AI, privacy and connecting an assistant.

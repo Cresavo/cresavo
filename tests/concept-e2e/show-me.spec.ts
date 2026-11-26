@@ -71,3 +71,24 @@ test("a guide through Help opens History and its Trash even after an earlier ans
   await expect(card.getByRole("heading", { name: "Trash" })).toBeVisible();
   await expect(page.locator('[data-help-id="log.trash"][data-tour-active]')).toBeVisible();
 });
+
+test("a row of filters is pointed at and explained, never pressed", async ({ page }) => {
+  await page.goto("/studio");
+  await page.locator('[data-help-id="shell.help"]:visible').first().click();
+  const question = page.getByLabel("What do you want to do?");
+  await question.fill("filter messages to only reviews");
+  await question.press("Enter");
+  await page.getByRole("button", { name: /^Show me: Filter messages/ }).click();
+
+  const card = page.locator(".studio-show-me-card");
+  await card.getByRole("button", { name: "Take me there" }).click();
+  await expect(page).toHaveURL(/\/studio\/inbox$/);
+  await expect(card.getByRole("heading", { name: "Filter messages" })).toBeFocused();
+  await expect(page.locator('[data-help-id="inbox.filters"][data-tour-active]')).toBeVisible();
+  await expect(card.getByText("Choose the one you want here yourself.")).toBeVisible();
+  await expect(card.getByRole("button", { name: "Take me there" })).toHaveCount(0);
+  await card.getByRole("button", { name: "Done" }).click();
+  await expect(card).toHaveCount(0);
+  // Nothing was chosen for the owner.
+  await expect(page).toHaveURL(/\/studio\/inbox$/);
+});

@@ -19,6 +19,7 @@ export const showMeEn = {
   "showMe.done": "Done",
   "showMe.takeMe": "Take me there",
   "showMe.yourTurn": "Press it yourself when you are ready.",
+  "showMe.pointHint": "Choose the one you want here yourself.",
   "showMe.looking": "Finding {label}…",
   "showMe.missing.what": "{label} is not on this screen right now.",
   "showMe.missing.next": "It can depend on what is open. Go back a step, or close the guide and try again from the page.",

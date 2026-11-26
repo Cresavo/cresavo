@@ -19,6 +19,7 @@ export const showMeSv = {
   "showMe.done": "Klar",
   "showMe.takeMe": "Gå dit åt mig",
   "showMe.yourTurn": "Tryck själv när du är redo.",
+  "showMe.pointHint": "Välj själv det du vill ha här.",
   "showMe.looking": "Letar efter {label}…",
   "showMe.missing.what": "{label} syns inte på skärmen just nu.",
   "showMe.missing.next": "Det kan bero på vad som är öppet. Gå tillbaka ett steg, eller stäng guiden och försök igen från sidan.",
