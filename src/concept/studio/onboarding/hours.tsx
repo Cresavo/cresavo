@@ -48,9 +48,9 @@ export function SetupHours({ hours, change }: { hours: Hours; change: (hours: Ho
       <div className="space-y-2">
         <p id={daysId} className="text-body font-medium">{t("setup.openDays")}</p>
         <div role="group" aria-labelledby={daysId} className="flex gap-1.5 md:max-w-field-short">
-          {WEEK_ORDER.map(day => <Chip key={day} className="flex-1 justify-center px-0" active={!!hours[day]}
+          {WEEK_ORDER.map(day => <Chip key={day} className="flex-1 justify-center !px-0" active={!!hours[day]}
             onClick={() => change({ ...hours, [day]: hours[day] ? null : { ...first } })}>
-            <span aria-hidden>{words.weekdaysShort[day]}</span><span className="sr-only">{words.weekdays[day]}</span>
+            <span aria-hidden className="whitespace-nowrap">{words.weekdaysShort[day]}</span><span className="sr-only">{words.weekdays[day]}</span>
           </Chip>)}
         </div>
       </div>
