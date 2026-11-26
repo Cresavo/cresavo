@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useSyncExternalStore } from "react";
 import { ImagePlus, Leaf } from "lucide-react";
 import { themeAttributes } from "../../booking/page-root";
 import { t } from "../../i18n";
@@ -12,6 +12,7 @@ import { Chip, Input } from "../../ui/controls";
 import { cx } from "../../ui/cx";
 import { showToast } from "../../ui/toast";
 import { readLogo } from "../page/read-logo";
+import { beginLogo, cancelLogo, finishLogo, isLatestLogo, logoBusy, subscribeLogo } from "./logo-queue";
 import { useSetupProgress } from "./progress";
 
 type Look = Partial<Pick<SalonDraft, "accent" | "logo">>;
@@ -27,19 +28,21 @@ export function SetupLook({ draft, name, change }: Props) {
   const file = useRef<HTMLInputElement>(null);
   const coloursId = useId();
   const { patchDraft } = useSetupProgress();
+  const preparing = useSyncExternalStore(subscribeLogo, logoBusy, () => false);
   // A logo still decoding when the owner leaves this step, or picks another one, is dropped.
-  const latestPick = useRef(0);
-  useEffect(() => {
-    latestPick.current = 0;
-    return () => { latestPick.current = -1; };
-  }, []);
+  // Creating the salon waits for the current decode first, so this cleanup runs after that.
+  useEffect(() => () => { cancelLogo(); }, []);
   const pick = async (picked: File | undefined) => {
-    if (!picked || latestPick.current < 0) return;
-    const ticket = ++latestPick.current;
-    const small = await readLogo(picked);
-    if (ticket !== latestPick.current) return;
-    if (!small) return showToast(t("pageEditor.logo.failed"));
-    patchDraft({ logo: small.logo });
+    if (!picked) return;
+    const ticket = beginLogo();
+    try {
+      const small = await readLogo(picked);
+      if (!isLatestLogo(ticket)) return;
+      if (!small) return showToast(t("pageEditor.logo.failed"));
+      patchDraft({ logo: small.logo });
+    } finally {
+      finishLogo(ticket);
+    }
   };
   return <div className="space-y-6">
     <LookPreview draft={draft} name={name} />
@@ -58,10 +61,10 @@ export function SetupLook({ draft, name, change }: Props) {
     <div className="space-y-2">
       <p className="text-body font-medium">{t("setup.logo")}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" icon={<ImagePlus size={18} />} onClick={() => file.current?.click()}>
+        <Button variant="secondary" icon={<ImagePlus size={18} />} loading={preparing} onClick={() => file.current?.click()}>
           {t(draft.logo ? "pageEditor.logo.change" : "pageEditor.logo.add")}
         </Button>
-        {draft.logo && <Button variant="ghost" onClick={() => { latestPick.current += 1; change({ logo: null }); }}>{t("pageEditor.logo.remove")}</Button>}
+        {draft.logo && <Button variant="ghost" onClick={() => { cancelLogo(); change({ logo: null }); }}>{t("pageEditor.logo.remove")}</Button>}
         <Input ref={file} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label={t("pageEditor.logo.add")}
           onChange={event => { void pick(event.target.files?.[0]); event.target.value = ""; }} />
       </div>

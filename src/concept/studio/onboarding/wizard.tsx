@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getActiveLocale, t } from "../../i18n";
 import { SETUP_TYPES, suggestedSlug, suggestedTreatments, treatmentsValid, type SalonDraft, type SetupType } from "../../onboarding/salon";
+import { waitForLogo } from "./logo-queue";
 import { useSetupProgress } from "./progress";
 import { switchSalon, useWorkspaceSlug } from "../../store";
 import { showToast } from "../../ui/toast";
@@ -40,7 +41,7 @@ function relabel(draft: SalonDraft, language: SalonDraft["language"]): SalonDraf
 
 export function SalonWizard() {
   const { state } = useStudio();
-  const { draft, setDraft, step: saved, setStep, clear, restored } = useSetupProgress();
+  const { draft, setDraft, step: saved, setStep, latestDraft, clear, restored } = useSetupProgress();
   const step = Math.min(saved, STEPS.length - 1);
   const savedSalon = useWorkspaceSlug("own");
   const [saving, setSaving] = useState(false);
@@ -68,7 +69,8 @@ export function SalonWizard() {
   const create = async () => {
     setSaving(true);
     try {
-      const ready = { ...draft, language };
+      await waitForLogo();
+      const ready = { ...latestDraft(), language };
       if (await switchSalon("own", { ...ready, slug: suggestedSlug(ready, state.salon.slug) })) clear(language);
       else showToast(t("setup.switchFailed"));
     } finally { setSaving(false); }

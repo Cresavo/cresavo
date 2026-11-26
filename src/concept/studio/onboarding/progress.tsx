@@ -50,7 +50,9 @@ function useProgress() {
   }, []);
   /** After the salon is made: a fresh draft, and nothing left in storage. */
   const clear = useCallback((language: SalonDraft["language"]) => save({ draft: salonDraft(language), step: 0 }), []);
-  return { draft: fallback.draft, step: fallback.step, setDraft, setStep, patchDraft, clear, restored: saved !== undefined };
+  /** The draft as it is now, for example after waiting for a logo that was still decoding. */
+  const latestDraft = useCallback(() => snapshot().draft, []);
+  return { draft: fallback.draft, step: fallback.step, setDraft, setStep, patchDraft, latestDraft, clear, restored: saved !== undefined };
 }
 
 const Progress = createContext<ReturnType<typeof useProgress> | null>(null);
