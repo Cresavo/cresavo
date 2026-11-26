@@ -222,6 +222,8 @@ describe("receptionist tools", () => {
     expect(await run(host, memory, "hand_over_to_staff", { ...note, confirmed: false })).toMatchObject({ status: "needs_confirmation", readBack: { phone: "0701740642", phoneSpoken: { sv: "noll sjuttio, ett sjuttiofyra, noll sex fyrtiotvå" } } });
     expect((await state()).inbox).toHaveLength(before);
     expect(await run(host, memory, "hand_over_to_staff", { ...note, confirmed: true })).toMatchObject({ status: "note_left" });
+    // A repeated call does not leave a second note without a new read-back.
+    expect(await run(host, memory, "hand_over_to_staff", { ...note, confirmed: true })).toMatchObject({ status: "needs_confirmation" });
     const inbox = (await state()).inbox;
     expect(inbox).toHaveLength(before + 1);
     expect(inbox[0]).toMatchObject({ kind: "message", title: "Call back", fromName: "Robin Vale", read: false });

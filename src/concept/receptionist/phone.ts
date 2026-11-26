@@ -23,8 +23,8 @@ const SWEDEN: Dialing = { trunkZero: true, swedish: true };
 
 /**
  * Read from the salon's own number (and currency, for a number written the national way): +46 or 0046 is Sweden;
- * a national 0… number is Sweden only for a salon that charges in SEK, and otherwise a country whose numbers
- * start with 0 like the salon's own. Written internationally, the country code says whether numbers there start with 0.
+ * a national 0… number is Sweden only for a salon that charges in SEK, and otherwise nothing is assumed.
+ * Written internationally, the country code says whether numbers there start with 0.
  */
 export function salonDialing(salonPhone: string, currency: string): Dialing {
   const said = salonPhone.trim();
@@ -35,7 +35,9 @@ export function salonDialing(salonPhone: string, currency: string): Dialing {
     if (code.startsWith("46")) return SWEDEN;
     return { trunkZero: TRUNK_ZERO.some((candidate) => code.startsWith(candidate)), swedish: false };
   }
-  if (digits.startsWith("0")) return { trunkZero: true, swedish: currency === "SEK" };
+  // Written nationally, only a Swedish salon (SEK) says for sure that its callers' numbers start with 0
+  // (an Italian landline starts with 0, Italian mobiles with 3).
+  if (digits.startsWith("0")) return currency === "SEK" ? SWEDEN : { trunkZero: false, swedish: false };
   return { trunkZero: false, swedish: false };
 }
 

@@ -35,11 +35,12 @@ describe("caller phone numbers", () => {
     expect(salonDialing("+44 20 7946 0958", "GBP")).toEqual({ trunkZero: true, swedish: false });
     expect(callerPhone("+45 01 23 45 67")).toEqual({ ok: true, phone: "+4501234567" });
     expect(callerPhone("22123456", salonDialing("+47 22 12 34 56", "NOK"))).toEqual({ ok: true, phone: "22123456" });
-    // A UK salon written the national way: trunk zero, but not Sweden.
-    const uk = salonDialing("020 7946 0958", "GBP");
-    expect(uk).toEqual({ trunkZero: true, swedish: false });
-    expect(callerPhone("+46 (0)70 987 65 43", uk)).toEqual({ ok: true, phone: "+46709876543" });
-    expect(callerPhone("7946 0958", uk)).toEqual({ ok: false, reason: "missing_zero" });
+    // A salon abroad written the national way: nothing is assumed (an Italian mobile starts with 3).
+    const it = salonDialing("02 1234 5678", "EUR");
+    expect(it).toEqual({ trunkZero: false, swedish: false });
+    expect(callerPhone("+46 (0)70 987 65 43", it)).toEqual({ ok: true, phone: "+46709876543" });
+    expect(callerPhone("3123456789", it)).toEqual({ ok: true, phone: "3123456789" });
+    expect(callerPhone("7946 0958", salonDialing("+44 20 7946 0958", "GBP"))).toEqual({ ok: false, reason: "missing_zero" });
     expect(salonDialing("08-123 45 67", "SEK")).toEqual({ trunkZero: true, swedish: true });
     expect(salonDialing("+46 8 123 45 67", "EUR")).toEqual({ trunkZero: true, swedish: true });
     expect(salonDialing("0046 8 123 45 67", "SEK")).toEqual({ trunkZero: true, swedish: true });

@@ -324,6 +324,7 @@ async function handOver(host: ReceptionistHost, view: SalonView, memory: CallMem
   );
   if (!committed.ok) return refuse("note_failed", "The note could not be saved. Ask the caller to call again during opening hours.");
   // A booking made earlier in the call stays the call's outcome.
+  memory.readBack = undefined;
   if (memory.outcome === "none") memory.outcome = "handover";
   memory.handoverReason = reason;
   return { ok: true, status: "note_left", next: "Tell the caller the staff will call back. Do not promise a time." };
