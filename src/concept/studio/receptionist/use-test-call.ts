@@ -46,8 +46,10 @@ async function mint(input: { salonName: string; language: Locale; greeting: stri
 
 export function useTestCall(salon: { salonName: string; language: Locale; greeting: string }, speaker: RefObject<HTMLAudioElement | null>) {
   const [state, setState] = useState<TestCallState>({ phase: "idle" });
-  const live = useRef<{ session: ReceptionistCall; transport: BrowserCall; timer: number; maxSeconds: number } | null>(null);
+  const live = useRef<{ session: ReceptionistCall; transport: BrowserCall; timer: number; maxSeconds: number; pending: Set<Promise<unknown>> } | null>(null);
   const starting = useRef<AbortController | null>(null);
+  /** The line of a call that is ending, kept so leaving the page can still close it while the goodbye plays. */
+  const ending = useRef<BrowserCall | null>(null);
 
   const show = useCallback(() => {
     const call = live.current;
@@ -59,10 +61,15 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
     const call = live.current;
     if (!call) return;
     live.current = null;
+    ending.current = call.transport;
     window.clearInterval(call.timer);
+    call.transport.stopMicrophone();
+    // A booking the receptionist is committing right now belongs in this call's record.
+    await Promise.allSettled([...call.pending]);
     call.session.end(reason);
     if (waitForGoodbye) await call.transport.drained(GOODBYE_MS);
     call.transport.close();
+    if (ending.current === call.transport) ending.current = null;
     const record = call.session.record();
     const host = studioStoreHost(new BrowserStudioStore(), TENANT, Date.now);
     const saved = await host.commit({ type: "receptionist/call", call: record }).then((result) => result.ok, () => false);
@@ -74,8 +81,12 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
     const abort = new AbortController();
     starting.current = abort;
     setState({ phase: "starting" });
+    /** Clears the attempt only if it is still this one: a cancelled attempt must not drop a newer one. */
+    const settle = () => {
+      if (starting.current === abort) starting.current = null;
+    };
     const fail = (reason: TestCallFailure) => {
-      starting.current = null;
+      settle();
       if (!abort.signal.aborted) setState({ phase: "failed", reason });
     };
 
@@ -97,6 +108,7 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
       },
     });
 
+    const pending = new Set<Promise<unknown>>();
     let transport: BrowserCall;
     try {
       transport = await connectBrowserCall({
@@ -107,11 +119,13 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
           onOpen: () => session.open().forEach((event) => transport.send(event)),
           onClose: (reason) => void finish(reason),
           onEvent: (event) => {
-            void session.handle(event).then((step) => {
+            const handled = session.handle(event).then((step) => {
               step.send.forEach((sent) => transport.send(sent));
               if (step.hangUp) void finish(step.hangUp, step.hangUp === "receptionist");
               else show();
             });
+            pending.add(handled);
+            void handled.finally(() => pending.delete(handled));
           },
         },
       });
@@ -119,7 +133,7 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
       logForSupport("RECEPTIONIST_CONNECT", error instanceof BrowserCallError ? error.reason : "unknown");
       return fail(error instanceof BrowserCallError ? error.reason : "connection");
     }
-    starting.current = null;
+    settle();
     if (abort.signal.aborted) return transport.close();
 
     const timer = window.setInterval(() => {
@@ -128,7 +142,7 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
       if (step.hangUp) void finish(step.hangUp);
       else show();
     }, 1000);
-    live.current = { session, transport, timer, maxSeconds: minted.limits.maxSeconds };
+    live.current = { session, transport, timer, maxSeconds: minted.limits.maxSeconds, pending };
     show();
   }, [salon, speaker, finish, show]);
 
@@ -145,6 +159,7 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
   // Leaving the page hangs up: the microphone never stays open behind another page.
   useEffect(() => () => {
     starting.current?.abort();
+    ending.current?.close();
     void finish("caller");
   }, [finish]);
 

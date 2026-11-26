@@ -22,6 +22,8 @@ function microphoneFailure(error: unknown): ConnectFailure {
 }
 
 export interface BrowserCall extends ReceptionistTransport {
+  /** Stops the microphone at once while the line stays open for the goodbye to play. */
+  stopMicrophone(): void;
   /** Resolves when the audio that was queued when it was called has been played, or after `timeoutMs`. */
   drained(timeoutMs: number): Promise<void>;
 }
@@ -111,6 +113,9 @@ export async function connectBrowserCall(options: { clientSecret: string; speake
       if (!closed && events.readyState === "open") events.send(JSON.stringify(event));
     },
     close,
+    stopMicrophone() {
+      for (const track of microphone.getTracks()) track.stop();
+    },
     drained(timeoutMs) {
       if (closed || !playing) return new Promise((resolve) => window.setTimeout(resolve, Math.min(timeoutMs, 600)));
       return new Promise((resolve) => {
