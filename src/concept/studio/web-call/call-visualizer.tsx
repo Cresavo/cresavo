@@ -6,7 +6,7 @@ import { cx } from "../../ui/cx";
 
 // A calm, token-coloured bar wave for the call with Maja.
 // The approach (canvas bars driven by live WebAudio levels and frequency
-// bins) follows open-source voice visualizers, adapted to Cresavo's rules:
+// bins) follows open-source voice visualizers, adapted to the product's design rules:
 // no glow, no gradient, no glass, one solid ink, and a still mark when the
 // caller prefers reduced motion.
 // References (inspiration and approach only; this file is original):

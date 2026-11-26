@@ -9,7 +9,7 @@ export const alt = "Ring Maja";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// A calm, light share card: Maja's initial, the salon, and Cresavo's ink.
+// A calm, light share card: Maja's initial, the salon, and the product's ink.
 // Colours are the light brand tokens, written out because this image does not
 // load the site stylesheet.
 export default async function Image() {

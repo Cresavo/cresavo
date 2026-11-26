@@ -22,7 +22,7 @@ import type { WebCallState } from "./use-web-call";
 // The public call window with Maja: a calm, shareable phone-like screen.
 // Inspired by Fable's voice-first layout (named agent at the centre, the
 // transcript off until you ask for it, a clear end-of-call card) but drawn
-// with Cresavo tokens only.
+// with the product tokens only.
 
 export type RingPhase = WebCallState["phase"];
 
@@ -56,7 +56,7 @@ function MajaMark({ ringing }: { ringing: boolean }) {
   return (
     <div
       className={cx(
-        "flex size-24 items-center justify-center rounded-full bg-action-bg text-h1 font-medium text-action",
+        "flex size-24 items-center justify-center rounded-full bg-action-bg text-h1 font-medium text-text",
         ringing && "maja-ring",
       )}
       aria-hidden
