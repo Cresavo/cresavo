@@ -197,12 +197,16 @@ export class ReceptionistCall {
       this.reported = true;
       this.cost += estimateResponseCost(event.response.usage, this.options.rates);
     }
+    // Once the call is over (hung up, or a limit hit), only its usage still counts: no tool runs any more.
+    if (this.ended) return { send: [] };
     const calls = (event.response?.output ?? []).filter((item) => item.type === "function_call" && item.call_id && item.name);
     const send: ClientEvent[] = [];
     for (const call of calls) {
+      if (this.ended) break;
       const output = await runReceptionistTool({ host: this.options.host, memory: this.memory, handover: this.options.handover }, call.name!, call.arguments ?? "{}");
       send.push({ type: "conversation.item.create", item: { type: "function_call_output", call_id: call.call_id, output: JSON.stringify(output) } });
     }
+    if (this.ended) return { send: [] };
     // She has said goodbye and asked to hang up: no further reply is requested.
     if (this.memory.ended) return this.finish("receptionist", send);
     if (this.cost >= this.options.limits.maxCostUsd) return this.finish("cost-limit", send);

@@ -277,11 +277,20 @@ describe("receptionist call session", () => {
   });
 
   it("still records what arrived before the caller hung up", async () => {
-    const { session } = call();
-    const pending = [session.handle(toolCall("get_salon_info", {})), session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "Tack, hej då" })];
+    const { session, state } = call();
+    const slot = await freeSlot(await state());
+    const details = { serviceId: slot.service.id, staffId: slot.staffId, date: slot.date, time: slot.time, callerName: "Robin Vale", callerPhone: "070-174 06 42" };
+    await session.handle(toolCall("book_appointment", { ...details, confirmed: false }));
+    const pending = [
+      session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "Tack, hej då" }),
+      session.handle(toolCall("book_appointment", { ...details, confirmed: true }, { output_token_details: { audio_tokens: 1000 } })),
+    ];
     session.end("caller");
-    await Promise.all(pending);
+    const [, booking] = await Promise.all(pending);
     expect(session.record().transcript.map((line) => line.text)).toEqual(["Tack, hej då"]);
+    // The usage still counts, but nothing is booked after the hang-up.
+    expect(booking.send).toEqual([]);
+    expect(session.record()).toMatchObject({ outcome: "none", costUsd: 0.02 });
     expect((await session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "efteråt" })).send).toEqual([]);
     expect(session.record().transcript).toHaveLength(1);
   });
