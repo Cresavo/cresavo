@@ -69,6 +69,7 @@ export class ReceptionistCall {
   private reported = false;
   private wrappingUp = false;
   private factsSent = false;
+  private greetWithFacts = false;
   private queue: Promise<unknown> = Promise.resolve();
   private ended: CallEnd | undefined;
   private endedAt: number | undefined;
@@ -78,9 +79,20 @@ export class ReceptionistCall {
     this.started = options.now();
   }
 
-  /** What the transport sends when the audio is connected: the greeting. */
+  /**
+   * What the transport sends when the audio is connected: the greeting. In the browser the greeting goes
+   * out with the first server event instead, right after the salon's facts, so she has them from the start.
+   */
   open(): ClientEvent[] {
-    return [{ type: "response.create", response: { instructions: this.options.opening ?? openingInstruction(this.options.salon) } }];
+    if (this.options.channel === "browser-test" && !this.factsSent) {
+      this.greetWithFacts = true;
+      return [];
+    }
+    return [this.greeting()];
+  }
+
+  private greeting(): ClientEvent {
+    return { type: "response.create", response: { instructions: this.options.opening ?? openingInstruction(this.options.salon) } };
   }
 
   get seconds(): number {
@@ -156,18 +168,19 @@ export class ReceptionistCall {
   }
 
   private async handleInOrder(event: ServerEvent): Promise<Step> {
-    const facts = this.ended ? undefined : await this.factsOnce();
+    const first = this.ended ? [] : await this.factsOnce();
     const step = await this.handleEvent(event);
-    return facts ? { ...step, send: [facts, ...step.send] } : step;
+    return first.length > 0 ? { ...step, send: [...first, ...step.send] } : step;
   }
 
   // In the browser the tools run on the studio's own data. Its facts go in once, with the first event
   // (while she greets), so she can answer from them instead of looking them up mid-call.
-  private async factsOnce(): Promise<ClientEvent | undefined> {
-    if (this.factsSent || this.options.channel !== "browser-test") return undefined;
+  private async factsOnce(): Promise<ClientEvent[]> {
+    if (this.factsSent || this.options.channel !== "browser-test") return [];
     this.factsSent = true;
     const view = await this.options.host.read().catch(() => null);
-    return view ? systemNote(salonFactsNote(view)) : undefined;
+    const note = view ? [systemNote(salonFactsNote(view))] : [];
+    return this.greetWithFacts ? [...note, this.greeting()] : note;
   }
 
   private async handleEvent(event: ServerEvent): Promise<Step> {

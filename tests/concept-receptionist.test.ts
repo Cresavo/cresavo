@@ -251,9 +251,17 @@ describe("receptionist call session", () => {
 
   const toolCall = (name: string, args: unknown, usage?: object): ServerEvent => ({ type: "response.done", response: { usage, output: [{ type: "function_call", name, call_id: `c-${name}`, arguments: JSON.stringify(args) }] } });
 
-  it("greets with the salon's greeting", () => {
+  it("greets with the salon's greeting, in the browser right after the salon's facts", async () => {
+    const greeting = { type: "response.create", response: { instructions: expect.stringContaining("Hej och välkommen till Salong Eko, det är Maja") } };
+    const world = salon();
+    const phone = new ReceptionistCall({ id: "call-phone", channel: "phone", host: world.host, salon: input, limits: DEFAULT_LIMITS, handover, startedAt: { today, minutes: 540 }, now: world.now });
+    expect(phone.open()).toEqual([greeting]);
+    expect((await phone.handle({ type: "session.created" })).send).toEqual([]);
     const { session } = call();
-    expect(session.open()).toEqual([{ type: "response.create", response: { instructions: expect.stringContaining("Hej och välkommen till Salong Eko, det är Maja") } }]);
+    expect(session.open()).toEqual([]);
+    const first = await session.handle({ type: "session.created" });
+    expect(first.send).toEqual([{ type: "conversation.item.create", item: expect.objectContaining({ role: "system" }) }, greeting]);
+    expect((await session.handle({ type: "session.updated" })).send).toEqual([]);
   });
 
   it("gives her the salon's own facts once, with the first event, so she need not look them up", async () => {
