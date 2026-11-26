@@ -144,7 +144,7 @@ describe("web call limits", () => {
       return [{ expiresAt: new Date(NOW + 600_000) }];
     }) as SqlClient["$queryRaw"] };
     const ledger = pairBudgetLedger(() => db);
-    expect(await ledger.takeRolling("ip:x", 3, 3_600_000, NOW)).toEqual({ ok: true });
+    expect(await ledger.takeRolling("ip:x", 3, 3_600_000, NOW)).toMatchObject({ ok: true });
     expect(queries[0].sql).toContain('WHERE "PairBudget"."expiresAt" <=');
     queries.length = 0;
     expect(await ledger.takeRolling("ip:x", 3, 3_600_000, NOW)).toEqual({ ok: false, retryAfter: 600 });
@@ -155,6 +155,9 @@ describe("web call limits", () => {
     const ledger = memoryLedger();
     for (let i = 0; i < 3; i++) expect(await start(ledger, `198.51.100.${i}`, "one-page")).toMatchObject({ ok: true });
     expect(await start(ledger, "198.51.100.9", "one-page")).toMatchObject({ ok: false, error: "session_limited" });
+    // Those refusals took nothing from the address: a neighbour on it can still call three times.
+    for (let i = 0; i < 5; i++) await start(ledger, "198.51.100.50", "one-page");
+    for (let i = 0; i < 3; i++) expect(await start(ledger, "198.51.100.50", `neighbour-${i}`)).toMatchObject({ ok: true });
   });
 
   it("stops every call for the day at the daily cap", async () => {

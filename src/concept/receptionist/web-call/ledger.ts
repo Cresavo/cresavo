@@ -16,6 +16,8 @@
 import { pairingDatabaseUrl } from "../../../../scripts/pairing-config.mjs";
 
 export type Take = { ok: true } | { ok: false; retryAfter: number };
+/** A rolling use can be given back when a later limit refuses the same call. */
+export type RollingTake = { ok: true; giveBack(): Promise<void> } | { ok: false; retryAfter: number };
 
 export interface CallLedger {
   readonly kind: "pairing-db" | "memory";
@@ -26,7 +28,7 @@ export interface CallLedger {
    * limits, so three calls just before the hour and three just after are still six in an hour, and refused.
    * Kept as `limit` slots that each hold the moment their use expires; a use claims a free or expired slot.
    */
-  takeRolling(bucket: string, limit: number, periodMs: number, now: number): Promise<Take>;
+  takeRolling(bucket: string, limit: number, periodMs: number, now: number): Promise<RollingTake>;
   /** Records a running call, the moment it must end, and (hashed) the page session that started it. */
   register(callId: string, deadline: number, owner?: string): Promise<void>;
   /** Whether `owner` is the page session that started the call. */
@@ -69,8 +71,13 @@ export function memoryLedger(): CallLedger {
         uses.set(bucket, live);
         return { ok: false, retryAfter: Math.max(1, Math.ceil((Math.min(...live) - now) / 1000)) };
       }
-      uses.set(bucket, [...live, now + periodMs]);
-      return { ok: true };
+      const until = now + periodMs;
+      uses.set(bucket, [...live, until]);
+      return { ok: true, giveBack: async () => {
+        const list = uses.get(bucket) ?? [];
+        const at = list.indexOf(until);
+        if (at >= 0) uses.set(bucket, [...list.slice(0, at), ...list.slice(at + 1)]);
+      } };
     },
     async register(callId, deadline, owner) {
       calls.set(callId, { deadline, running: true, owner });
@@ -121,7 +128,9 @@ export function pairBudgetLedger(db: () => SqlClient): CallLedger {
           INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${new Date(now + periodMs)})
           ON CONFLICT ("key") DO UPDATE SET "count" = 1, "expiresAt" = EXCLUDED."expiresAt"
           WHERE "PairBudget"."expiresAt" <= ${new Date(now)} RETURNING "key"`;
-        if (rows.length > 0) return { ok: true };
+        if (rows.length > 0) return { ok: true, giveBack: async () => {
+          await db().$queryRaw`UPDATE "PairBudget" SET "expiresAt" = ${new Date(now)} WHERE "key" = ${key} AND "expiresAt" = ${new Date(now + periodMs)} RETURNING "key"`;
+        } };
       }
       const rows = await db().$queryRaw<{ expiresAt: Date }[]>`
         SELECT "expiresAt" FROM "PairBudget" WHERE "key" = ANY(${slots}) ORDER BY "expiresAt" LIMIT 1`;

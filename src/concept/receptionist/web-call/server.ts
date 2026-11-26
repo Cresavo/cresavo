@@ -94,9 +94,16 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
   const ip = await ledger.takeRolling(ledgerKey(secret, "ip", options.client), quota.perIpPerHour, HOUR, now());
   if (!ip.ok) return { ok: false, error: "rate_limited", retryAfter: ip.retryAfter };
   const page = await ledger.takeRolling(ledgerKey(secret, "sid", options.session), quota.perSessionPerHour, HOUR, now());
-  if (!page.ok) return { ok: false, error: "session_limited", retryAfter: page.retryAfter };
+  if (!page.ok) {
+    // A refused call takes nothing from the address: retries from one page do not lock out its neighbours.
+    await ip.giveBack();
+    return { ok: false, error: "session_limited", retryAfter: page.retryAfter };
+  }
   const day = await ledger.take("day", quota.perDay, DAY, now());
-  if (!day.ok) return { ok: false, error: "daily_limit", retryAfter: day.retryAfter };
+  if (!day.ok) {
+    await Promise.all([ip.giveBack(), page.giveBack()]);
+    return { ok: false, error: "daily_limit", retryAfter: day.retryAfter };
+  }
 
   const model = webCallModel(env);
   const limits = webCallLimits(env);
