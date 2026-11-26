@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Eye, History, LifeBuoy, Sparkles } from "lucide-react";
 import { askHelp, type HelpReply } from "../../help/client";
@@ -43,6 +43,8 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
 
   // Help opens on its landing view: History, What's new and the examples live only there, and a guide that
   // points at them (or a question asked last time) must not find a stale answer instead.
+  // Each question gets a token; a reply only lands if its token is still the latest and the sheet session is the same.
+  const latest = useRef(0);
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -57,16 +59,19 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
   const ask = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
+    const token = ++latest.current;
     setQuestion(trimmed);
     setAsked(trimmed);
     search.find(trimmed);
     setView({ kind: "loading" });
     try {
       const reply = await askHelp(trimmed, !!state.industry);
+      if (token !== latest.current) return;
       setRequestId(reply.requestId);
       setView({ kind: "answer", reply });
     } catch (error) {
       logForSupport("HELP_ARTICLES_UNAVAILABLE", error);
+      if (token !== latest.current) return;
       setView({ kind: "failed" });
     }
   };
@@ -77,6 +82,7 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
   };
 
   const close = () => {
+    latest.current++;
     setTicketing(false);
     onClose();
   };
