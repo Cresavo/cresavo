@@ -571,6 +571,8 @@ describe("web call persona", () => {
     expect(rules).toMatch(/Vill du höra vad vi erbjuder istället/);
     expect(rules).toMatch(/Never assess symptoms or health/);
     expect(rules).toMatch(/never write them into a tool call or a note/);
+    expect(rules).toMatch(/do not pick one. List the relevant treatments neutrally/);
+    expect(rules).toMatch(/Är det någon av dem som skulle passa dig/);
     expect(rules).toMatch(/never "din fullständiga namnuppgift"/);
   });
 

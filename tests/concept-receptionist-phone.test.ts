@@ -82,6 +82,8 @@ describe("the salon as Maja says it", () => {
     // The demo's data is stored in English; a Swedish call hears the Swedish names, an English call the English ones.
     expect(salonFactsNote(view, "sv")).toContain("basic-foot-care: Enkel fotvård");
     expect(salonFactsNote(view, "sv")).toMatch(/måndag/);
+    // A short factual description per treatment, so she can list them neutrally instead of recommending one.
+    expect(salonFactsNote(view, "sv")).toMatch(/classic-60: Klassisk massage 60 min, 60 min, \d+, [^,]+, "Helkroppsmassage för rygg, nacke, axlar och ben\."/);
     expect(salonFactsNote(view, "en")).toContain("basic-foot-care: Basic foot care");
     const handover = { title: "Call back", body: ({ reason }: { reason: string }) => reason };
     const memory = newCallMemory("call-sv");

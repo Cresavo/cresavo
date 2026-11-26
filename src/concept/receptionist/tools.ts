@@ -158,7 +158,7 @@ function salonInfo(view: SalonView) {
     now: { date: clock.today, day: dayText(state, clock.today), time: formatTime(clock.minutes) },
     salon: { name: state.salon.name, address: state.salon.address, area: state.salon.area, phone: state.salon.phone },
     openingHours: hours,
-    treatments: bookableServices(state).map((s) => ({ id: s.id, name: s.name, minutes: s.duration, price: s.price, currency: state.localization.currency, staffIds: s.staffIds })),
+    treatments: bookableServices(state).map((s) => ({ id: s.id, name: s.name, description: plainText(s.description, 160), minutes: s.duration, price: s.price, currency: state.localization.currency, staffIds: s.staffIds })),
     staff: state.staff.map((s) => ({ id: s.id, name: s.firstName, ...(s.role === "Owner" ? { owner: true } : {}) })),
     bookableDaysAhead: PUBLIC_WINDOW_DAYS,
   };
