@@ -139,7 +139,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
 function LoadingScreen({ calendar }: { calendar: boolean }) {
   return (
     <SkeletonGroup>
-      <aside aria-hidden className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col gap-3 bg-surface px-4 pb-3 pt-5 lg:flex">
+      <aside aria-hidden className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col gap-3 bg-surface px-4 pb-3 pt-4 lg:flex">
         <span className="flex min-h-target items-center px-3"><Wordmark label="" className="w-32" /></span>
         <Bone className="mx-3 h-4 w-32" />
         <div className="mt-6 space-y-5 px-3">
@@ -227,19 +227,20 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   const tall = useTallScreen();
   const open = choice?.pathname === pathname ? choice.open : groupOf(pathname, tall);
   return (
-    <aside className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col bg-surface px-4 pb-3 pt-5 text-text lg:flex">
+    <aside className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col bg-surface px-4 pb-3 pt-4 text-text lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="flex min-h-target items-center px-3">
         <Wordmark label="" className="w-32" />
       </Link>
-      <p className="mt-3 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
+      <p className="mt-2 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
       {/* The page customers see is one click away from anywhere in the studio. */}
       <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
         {t("quick.viewPage")}
         <ExternalLink size={14} aria-hidden />
       </a>
       <SearchButton />
-      <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-        <div className="space-y-1">
+      {/* The bar is hidden so a short window can still scroll with the wheel or keyboard, without the old grey gutter. */}
+      <nav aria-label={t("shell.navigation")} className="no-scrollbar mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+        <div>
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
           ))}
@@ -247,7 +248,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         {groups.map((group) => {
           const expanded = open === group.id;
           return (
-            <div key={group.id} className="pt-3">
+            <div key={group.id} className="pt-2">
               <Button variant="tertiary" size="sm" align="between"
                 type="button"
                 aria-expanded={expanded}
@@ -259,7 +260,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
                 <ChevronDown size={16} aria-hidden className={cx("transition-transform", expanded && "rotate-180")} />
               </Button>
               {expanded && (
-                <div id={`nav-${group.id}`} className="space-y-1 pt-1">
+                <div id={`nav-${group.id}`} className="pt-1">
                   {group.items.map((item) => (
                     <SidebarLink key={item.href} item={item} pathname={pathname} />
                   ))}
@@ -269,7 +270,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           );
         })}
       </nav>
-      <div className="mt-4 flex items-center gap-3 px-1">
+      <div className="mt-3 flex items-center gap-3 px-1">
         <StaffAvatar person={person} size="md" />
         <span className="min-w-0 flex-1 text-sm leading-tight">
           <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
