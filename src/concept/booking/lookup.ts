@@ -3,7 +3,8 @@ import { hasSettlement } from "./protection";
 import { changeRule } from "./policy";
 
 /** Country codes whose numbers are written with a national trunk zero that international dialling drops: "+44 (0)7700 900123" is "+44 7700 900123". */
-const TRUNK_ZERO_CODES = ["44", "49", "45", "47", "358", "31", "32", "33", "39", "41", "43", "353"];
+/** Country codes whose numbers are often written with the national trunk 0, as in "+44 (0)20". */
+export const TRUNK_ZERO_CODES = ["44", "49", "45", "47", "358", "31", "32", "33", "39", "41", "43", "353"];
 
 /**
  * One identity for a number, whatever its format: digits only, without the "00" or "+" international

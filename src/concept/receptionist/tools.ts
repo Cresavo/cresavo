@@ -209,7 +209,7 @@ async function book(host: ReceptionistHost, view: SalonView, memory: CallMemory,
   if (start < earliest(view, input.date) || !isFree(state, staffId, input.date, start, needOf(wanted))) {
     return refuse("time_taken", "That time is not free. Call find_free_times again and offer two other times.");
   }
-  const details = { treatment: wanted.name, day: dayText(state, input.date), date: input.date, time: input.time, staff: staffName(state, staffId), name: callerName, phone, phoneSpoken: spokenPhone(phone, language(state)), price: wanted.price };
+  const details = { treatment: wanted.name, day: dayText(state, input.date), date: input.date, time: input.time, staff: staffName(state, staffId), name: callerName, phone, phoneSpoken: { sv: spokenPhone(phone, "sv"), en: spokenPhone(phone, "en") }, price: wanted.price };
   if (!confirmedBy(memory, "book_appointment", input)) return needsConfirmation(details);
 
   const known = findCustomerByPhone(state, phone);

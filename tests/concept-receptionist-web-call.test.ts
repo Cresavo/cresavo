@@ -565,6 +565,12 @@ describe("web call persona", () => {
     expect(rules).toMatch(/say treatment names in Swedish/);
     expect(rules).toMatch(/A call back needs a phone number, nothing else/);
     expect(rules).not.toMatch(/callerEmail/);
+    expect(rules).toMatch(/do not promise a call back: suggest they call again during opening hours/);
+    expect(rules).toMatch(/Only once hand_over_to_staff has answered note_left/);
+    expect(rules).toMatch(/first say plainly that the salon does not offer it/);
+    expect(rules).toMatch(/Vill du höra vad vi erbjuder istället/);
+    expect(rules).toMatch(/Never assess symptoms or health/);
+    expect(rules).toMatch(/never write them into a tool call or a note/);
     expect(rules).toMatch(/never "din fullständiga namnuppgift"/);
   });
 

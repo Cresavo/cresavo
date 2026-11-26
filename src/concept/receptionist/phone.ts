@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/locale";
+import { TRUNK_ZERO_CODES } from "../booking/lookup";
 
 // Phone numbers as a caller says them. A number is always a string: Swedish
 // numbers start with 0 (or +46), and a number without its leading 0 is not the
@@ -18,7 +19,11 @@ export function callerPhone(raw: string): CallerPhone {
   if (/^(\d)\1*$/.test(digits)) return { ok: false, reason: "unclear" };
   let phone: string;
   if (international && digits.startsWith("46")) phone = `0${digits.slice(2).replace(/^0/, "")}`;
-  else if (international) phone = `+${digits}`;
+  else if (international) {
+    // "+44 (0)20 7946 0958": the 0 after the country code is not dialled from abroad.
+    const code = TRUNK_ZERO_CODES.find((candidate) => digits.startsWith(candidate));
+    phone = `+${code && digits[code.length] === "0" ? code + digits.slice(code.length + 1) : digits}`;
+  }
   else if (digits.startsWith("0")) phone = digits;
   else return { ok: false, reason: digits.length >= 6 ? "missing_zero" : "unclear" };
   const count = phone.replace(/\D/g, "").length;
