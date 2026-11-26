@@ -105,7 +105,7 @@ describe("recorded demo brief clips", () => {
     expect(openingFor(publicSaturday.salon, "2026-11-22")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(publicSaturday.salon, "2026-11-29")).toBeNull();
     expect(openingFor(publicSaturday.salon, dateInWeek("2026-11-21", 0))).toEqual({ open: 9 * 60, close: 18 * 60 });
-    const hours = getBusiness.run({ state: saturday, clock: { today: "2026-11-21", minutes: 9 * 60 } }, {}).openingHours;
+    const hours = (getBusiness.run({ state: saturday, clock: { today: "2026-11-21", minutes: 9 * 60 } }, {}) as { openingHours: { day: string; open: string | null; close: string | null }[] }).openingHours;
     expect(hours.find((row) => row.day === "Sunday")).toEqual({ day: "Sunday", open: "09:00", close: "18:00" });
     const friday = createDemoState("2026-11-20");
     expect(openingFor(friday.salon, "2026-11-21")).toEqual({ open: 9 * 60, close: 18 * 60 });
