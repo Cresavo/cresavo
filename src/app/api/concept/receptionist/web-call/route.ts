@@ -55,8 +55,10 @@ export const POST = withRequestLog("/api/concept/receptionist/web-call", async (
     const started = await startWebCall(input.data, { ...runtime, client, session: token.session });
     if (!started.ok) return refuse(started.error, started.error === "provider_unavailable" ? 502 : 429, started.retryAfter);
     // The server watches the call itself: deadline, cost ceiling from OpenAI's own usage reports, tampering.
-    later(() => superviseCall(started.callId, started.deadline, { ...runtime, limits: started.limits, model: started.model, instructions: started.instructions, toolNames: started.toolNames, enabled: () => webCallEnabled(process.env) })
-      .then((why) => console.log(JSON.stringify({ level: "info", msg: "web_call_ended", why })), () => undefined));
+    later(() => superviseCall(started.callId, started.deadline, { ...runtime, limits: started.limits, model: started.model, instructions: started.instructions, toolNames: started.toolNames, enabled: () => webCallEnabled(process.env),
+      // One line per call: how it ended, what it cost, and the shape of each turn. No words of the call.
+      onReport: (report, why) => console.log(JSON.stringify({ level: "info", msg: "web_call_ended", why, model: started.model, ...report })) })
+      .catch(() => undefined));
     return Response.json({ callId: started.callId, sdp: started.sdp, limits: started.limits, model: started.model }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     // The ledger could not be reached: no call starts without its limits.

@@ -50,6 +50,17 @@ client changes the session's rules, tools or voice, or when that connection
 fails. If that instance is gone, the next web-call request on any instance
 sweeps overdue calls. Only the page that started a call can end it early.
 
+Listening: semantic turn detection with low eagerness and far-field noise
+reduction, so a caller in a car or pausing mid-sentence is not cut off and
+answered half-heard; Maja's rules tell her to ask again rather than guess.
+
+One log line per call (`web_call_ended`): how it ended, seconds, estimated
+cost, tokens, responses and interruptions, and the shape of each turn (who,
+when, speech length, word count, whether the caller was heard). No words of
+either side are logged; the transcript stays in the salon's call log.
+`answeredUnheard` counts answers to a caller turn that could not be written
+down.
+
 Key: `PHONE_RECEPTIONIST_OPENAI_API_KEY` if set (a separate OpenAI project
 with its own budget cap), else the sample salon's saved key, else
 `OPENAI_API_KEY`. It never leaves the server.

@@ -8,6 +8,7 @@ import { memoryLedger, pairBudgetLedger, type SqlClient } from "@/concept/recept
 import { issuePageToken, PAGE_TOKEN_SECONDS, tokenSecret, verifyPageToken } from "@/concept/receptionist/web-call/page-token";
 import { webCallGreeting, webCallInstructions } from "@/concept/receptionist/web-call/persona";
 import { realtimeKey } from "@/concept/receptionist/server/config";
+import type { CallReport } from "@/concept/receptionist/web-call/report";
 import { callIdFrom, endWebCall, enforceDeadline, hangUpAll, startWebCall, superviseCall, sweepOverdue, webCallSession, type SidebandSocket, type WebCallInput } from "@/concept/receptionist/web-call/server";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
@@ -233,7 +234,10 @@ describe("web call server-side hang-up", () => {
     expect(form.get("sdp")).toBe(SDP);
     const session = JSON.parse(String(form.get("session")));
     expect(session.model).toBe("gpt-realtime-2.1");
-    expect(session.audio.input.turn_detection).toMatchObject({ type: "server_vad", interrupt_response: true });
+    // Waits for the end of what the caller means: a pause or a dropout mid-sentence does not split the turn.
+    expect(session.audio.input.turn_detection).toEqual({ type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true });
+    expect(session.audio.input.noise_reduction).toEqual({ type: "far_field" });
+    expect(session.audio.input.transcription).toMatchObject({ language: "sv" });
     expect(session.tools.map((tool: { name: string }) => tool.name)).toContain("hand_over_to_staff");
   });
 
@@ -330,6 +334,45 @@ describe("web call server-side hang-up", () => {
     it("leaves a call alone while its session is the one the server made", async () => {
       const { why } = await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: created }); s.emit("message", { type: "response.created", response: { output_modalities: ["audio"] } }); });
       expect(why).toBe("deadline");
+    });
+
+    it("reports the shape of the call in one line, without its words, and calls a plain hang-up by its name", async () => {
+      const ledger = memoryLedger();
+      await ledger.register("rtc_report001", NOW + 240_000);
+      const socket = new FakeSideband();
+      let clock = NOW;
+      const reports: { report: CallReport; why: string }[] = [];
+      const done = superviseCall("rtc_report001", NOW + 240_000, {
+        apiKey: KEY, ledger, fetch: provider(), now: () => clock, connect: () => socket,
+        sleep: (ms) => (ms > 60_000 ? new Promise<void>(() => undefined) : Promise.resolve()),
+        limits: { maxSeconds: 240, maxCostUsd: 0.5 }, model: "gpt-realtime-2.1", instructions: "ours",
+        onReport: (report, why) => reports.push({ report, why }),
+      });
+      const say = (text: string, usage = { output_token_details: { audio_tokens: 200 } }) => ({ type: "response.done", response: { status: "completed", usage, output: [{ type: "message", content: [{ transcript: text }] }] } });
+      clock += 9_000;
+      socket.emit("message", { type: "input_audio_buffer.speech_started", item_id: "item_1", audio_start_ms: 8_000 });
+      socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_1", audio_end_ms: 11_500 });
+      socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_1", transcript: "Mitt nummer är 070-123 45 67, mejla sara@example.test" });
+      socket.emit("message", say("Tack, jag har 070 123 45 67."));
+      clock += 5_000;
+      // Maja answers before the transcription of this turn arrives, and it comes back blank: still counted.
+      socket.emit("message", { type: "input_audio_buffer.speech_started", item_id: "item_2", audio_start_ms: 20_000 });
+      socket.emit("message", { type: "input_audio_buffer.speech_stopped", item_id: "item_2", audio_end_ms: 20_400 });
+      socket.emit("message", say("Okej, då bokar jag."));
+      socket.emit("message", { type: "conversation.item.input_audio_transcription.completed", item_id: "item_2", transcript: "  " });
+      socket.emit("message", { type: "response.done", response: { status: "cancelled", output: [{ type: "message", content: [{ transcript: "Vi har" }] }] } });
+      // The caller hung up: the end route has already ended the call when the connection drops.
+      await ledger.finish("rtc_report001");
+      socket.emit("close");
+      expect(await done).toBe("hung_up");
+      const [{ report, why }] = reports;
+      expect(why).toBe("hung_up");
+      expect(report).toMatchObject({ seconds: 14, responses: 3, interrupted: 1, callerTurns: 2, unheardTurns: 1, answeredUnheard: 1 });
+      expect(report.costUsd).toBeGreaterThan(0);
+      expect(report.turns[0]).toMatchObject({ who: "caller", speechMs: 3_500, heard: "ok", words: 8 });
+      expect(report.turns.find((turn) => turn.unheard)).toMatchObject({ who: "maja", words: 4 });
+      // No words of either side reach the log.
+      expect(JSON.stringify(report)).not.toMatch(/nummer|sara|example|bokar|Tack/);
     });
 
     it("ends the call when the kill switch turns off while it runs", async () => {
@@ -508,6 +551,15 @@ describe("web call persona", () => {
     expect(rules).toMatch(/Once per call/);
     expect(rules).toMatch(/changes their mind/);
     expect(webCallSession(salon, "gpt-realtime-2.1").reasoning).toEqual({ effort: "low" });
+  });
+
+  it("asks again rather than guess when a caller in a car or on a bad line is unclear", () => {
+    const rules = webCallInstructions(salon);
+    expect(rules).toMatch(/Never guess, and never fill in a detail the caller did not say/);
+    expect(rules).toMatch(/Never turn an unclear answer into a day, a time, a treatment or a yes/);
+    expect(rules).toMatch(/needs a clear spoken yes/);
+    expect(rules).toMatch(/use the next one from today/);
+    expect(rules).toMatch(/A pause does not mean the caller is done/);
   });
 
   it("leaves a call-back note with an e-mail address when the caller has no number to give", async () => {

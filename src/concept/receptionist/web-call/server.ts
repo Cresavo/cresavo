@@ -6,6 +6,7 @@ import type { CallLedger } from "./ledger";
 import { webCallInstructions, type WebCallSalon } from "./persona";
 import { estimateResponseCost, ratesFor, type CallLimits, type RealtimeUsage } from "../limits";
 import { salonWith, teamWith } from "../../packs/base";
+import { callRecorder, type CallReport } from "./report";
 
 // The server half of the public web call. The browser sends its WebRTC offer
 // here; this server adds the session (model, rules, tools) and exchanges the
@@ -50,9 +51,12 @@ export function webCallSession(salon: WebCallSalon, model: string) {
     audio: {
       input: {
         ...base.audio.input,
-        // Server VAD with a slightly raised threshold and a calm pause: a short "mm" or "okej" while Maja
-        // speaks is less likely to cut her off, and she waits for the caller to finish before answering.
-        turn_detection: { type: "server_vad", threshold: 0.6, prefix_padding_ms: 300, silence_duration_ms: 600, create_response: true, interrupt_response: true },
+        // Callers ring from cars, on speaker, on patchy mobile lines. Semantic turn detection with low eagerness
+        // waits for the end of what they mean, so a pause mid-sentence or a short dropout does not split the
+        // turn and get the first half answered on its own (server VAD with 600 ms of silence did exactly that).
+        // Far-field noise reduction suits a phone on speaker or in a holder rather than at the ear.
+        noise_reduction: { type: "far_field" },
+        turn_detection: { type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true },
       },
       output: { ...base.audio.output, voice: "marin" },
     },
@@ -183,10 +187,15 @@ export async function hangUp(callId: string, apiKey: string, call: typeof fetch 
  * sweep try again. Returns true when the call is over.
  */
 export async function endWebCall(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }): Promise<boolean> {
-  if (!(await options.ledger.isRunning(callId))) return true;
-  if (!(await hangUp(callId, options.apiKey, options.fetch))) return false;
+  return (await endCall(callId, options)) !== "failed";
+}
+
+/** Ends a call and says how: it had already ended, this hung it up, or the hang-up failed. */
+async function endCall(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }): Promise<"already" | "hung_up" | "failed"> {
+  if (!(await options.ledger.isRunning(callId))) return "already";
+  if (!(await hangUp(callId, options.apiKey, options.fetch))) return "failed";
   await options.ledger.finish(callId);
-  return true;
+  return "hung_up";
 }
 
 /**
@@ -229,7 +238,7 @@ export function openSideband(callId: string, apiKey: string): SidebandSocket {
   return new Socket(url, { headers: { Authorization: `Bearer ${apiKey}` } });
 }
 
-export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed" | "unwatched" | "switched_off";
+export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed" | "unwatched" | "switched_off" | "hung_up";
 
 /** How often a running call looks at the kill switch. */
 const SWITCH_CHECK_MS = 10_000;
@@ -263,6 +272,8 @@ export interface SuperviseOptions {
   toolNames?: readonly string[];
   /** The kill switch, read again while the call runs; when it turns off, the call ends. */
   enabled?: () => boolean;
+  /** Called once when the call is over, with the shape of what the server saw (no words; see report.ts). */
+  onReport?: (report: CallReport, why: SupervisorEnd) => void;
   fetch?: typeof fetch;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -283,6 +294,7 @@ export async function superviseCall(callId: string, deadline: number, options: S
   const now = options.now ?? Date.now;
   const rates = ratesFor(options.model);
   let cost = 0;
+  const recorder = callRecorder(rates, now);
   let resolveEnd: (why: SupervisorEnd) => void = () => undefined;
   const ended = new Promise<SupervisorEnd>((resolve) => { resolveEnd = resolve; });
   let socket: SidebandSocket | undefined;
@@ -295,6 +307,11 @@ export async function superviseCall(callId: string, deadline: number, options: S
         event = JSON.parse(String(message.data));
       } catch {
         return;
+      }
+      try {
+        recorder.observe(event as Parameters<typeof recorder.observe>[0]);
+      } catch {
+        // The report is a side note; it never stops the watch.
       }
       if (event.type === "response.done") {
         cost += estimateResponseCost(event.response?.usage, rates);
@@ -333,15 +350,23 @@ export async function superviseCall(callId: string, deadline: number, options: S
       }
     })();
   }
-  const why = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
+  let why: SupervisorEnd = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
   settled = true;
+  // The connection also drops when the caller or Maja simply hung up (the end route already ended the call).
   // Whatever ended the watch, the call is hung up: a call that already ended answers 404, which counts as done.
   // The sideband closing early fails closed: the call ends rather than running unwatched.
-  await endWithRetries(callId, options, sleep);
+  const outcome = await endWithRetries(callId, options, sleep);
+  // The connection also drops when the caller or Maja simply hung up: the end route had already ended the call.
+  if ((why === "closed" || why === "unwatched") && outcome === "already") why = "hung_up";
   try {
     socket?.close();
   } catch {
     // Already closed.
+  }
+  try {
+    options.onReport?.(recorder.finish(), why);
+  } catch {
+    // Logging never changes how the call ended.
   }
   return why;
 }
@@ -350,6 +375,8 @@ async function endWithRetries(callId: string, options: { apiKey: string; ledger:
   // A failed hang-up is tried again a few times here; after that the sweeps keep trying.
   for (const pause of [0, 2_000, 5_000, 10_000]) {
     if (pause) await sleep(pause);
-    if (await endWebCall(callId, options).catch(() => false)) return;
+    const outcome = await endCall(callId, options).catch(() => "failed" as const);
+    if (outcome !== "failed") return outcome;
   }
+  return "failed" as const;
 }

@@ -64,6 +64,16 @@ export function webCallInstructions(salon: WebCallSalon): string {
     "- Short sounds like \"mm\", \"okej\", \"ja\" or \"aha\" while you speak mean they are listening. Keep going unless they say more.",
     "- If you were interrupted and did not catch what they said, ask them kindly to repeat, and continue from the last thing you both agreed on.",
     "- If you did not understand twice, offer the call back from the owner instead of guessing.",
+    "",
+    "# Hearing the caller",
+    "- The caller may be in a car, on speaker or on a bad line. Only act on what you clearly heard.",
+    "- If a word, a day, a time, a name or a number was unclear, cut off, drowned in noise or missing, ask a short question about just that part. Never guess, and never fill in a detail the caller did not say.",
+    "- If all you heard was noise, a cut-off fragment, words that make no sense, or something that does not fit what you just asked, do not interpret it. Say briefly that you did not catch that and ask them to say it again. Never turn an unclear answer into a day, a time, a treatment or a yes.",
+    "- Booking, moving or cancelling needs a clear spoken yes. Silence, noise, \"mm\" or an unclear answer is not a yes: ask again.",
+    "- If the caller has not chosen between versions of a treatment, name the one you are checking so they can correct you, or ask which one.",
+    "- When the caller names a weekday, use the next one from today. Do not ask for the date.",
+    "- Read a phone number back in small groups of digits and wait for a yes. If any digit was unclear, ask for the number again.",
+    "- A pause does not mean the caller is done. Give them time.",
   ].join("\n");
 }
 
