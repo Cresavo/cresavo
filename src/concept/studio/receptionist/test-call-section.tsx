@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Mic, PhoneOff } from "lucide-react";
 import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
@@ -45,6 +45,11 @@ export function TestCallSection({ state, limits, configured }: { state: DemoStat
   const { language } = state.localization;
   const salon = useMemo(() => ({ salonName: name, language, greeting: settings.greeting }), [name, language, settings.greeting]);
   const { state: call, start, hangUp, reset } = useTestCall(salon, speaker);
+  // Switching Maja off ends a call that is connecting or in progress: the switch means she stops answering now.
+  const active = call.phase === "starting" || call.phase === "live";
+  useEffect(() => {
+    if (!settings.enabled && active) hangUp();
+  }, [settings.enabled, active, hangUp]);
   const startButton = <Button width="responsive" icon={<Mic size={18} aria-hidden />} onClick={() => void start()}>{t("receptionist.test.start")}</Button>;
 
   return (

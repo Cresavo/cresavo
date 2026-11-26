@@ -109,6 +109,8 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
     });
 
     const pending = new Set<Promise<unknown>>();
+    /** Set when the line drops while it is still connecting, before the call is registered. */
+    let droppedEarly = false;
     let transport: BrowserCall;
     try {
       transport = await connectBrowserCall({
@@ -117,7 +119,10 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
         signal: abort.signal,
         handlers: {
           onOpen: () => session.open().forEach((event) => transport.send(event)),
-          onClose: (reason) => void finish(reason),
+          onClose: (reason) => {
+            if (live.current?.session === session) void finish(reason);
+            else droppedEarly = true;
+          },
           onEvent: (event) => {
             const handled = session.handle(event).then((step) => {
               step.send.forEach((sent) => transport.send(sent));
@@ -135,6 +140,10 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
     }
     settle();
     if (abort.signal.aborted) return transport.close();
+    if (droppedEarly) {
+      transport.close();
+      return fail("connection");
+    }
 
     const timer = window.setInterval(() => {
       const step = session.tick();
