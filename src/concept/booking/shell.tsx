@@ -121,20 +121,22 @@ function Frame({ children, slug, widget, switchLanguage }: {
             )}
             <span className="min-w-0">{state?.salon.name}</span>
           </Link>
+          {/* A full-width select with a larger max at `sm` used to be measured at 6rem and then laid out at 7rem, which wrapped My bookings from 640px. A fixed 6rem field keeps the row together at normal sizes; the group can still wrap when text is enlarged. */}
           <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
             {switchLanguage && (
-              <Select
-                className="max-w-24 sm:max-w-28"
-                aria-label={t("language.label")}
-                value={switchLanguage.language}
-                onChange={(event) => {
-                  const language = parseLocale(event.currentTarget.value);
-                  if (language) switchLanguage.change(language);
-                }}
-              >
-                <option value="en" lang="en">{t("language.en")}</option>
-                <option value="sv" lang="sv">{t("language.sv")}</option>
-              </Select>
+              <div className="w-24 max-w-full shrink-0">
+                <Select
+                  aria-label={t("language.label")}
+                  value={switchLanguage.language}
+                  onChange={(event) => {
+                    const language = parseLocale(event.currentTarget.value);
+                    if (language) switchLanguage.change(language);
+                  }}
+                >
+                  <option value="en" lang="en">{t("language.en")}</option>
+                  <option value="sv" lang="sv">{t("language.sv")}</option>
+                </Select>
+              </div>
             )}
             {!fromServer && (
               <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary" className="min-[360px]:whitespace-nowrap">

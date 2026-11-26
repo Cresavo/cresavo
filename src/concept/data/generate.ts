@@ -491,7 +491,8 @@ function usesStandardDemoDay(setup: BusinessSetup, pack: Pack): boolean {
   return !setup.solo && pack.id === "foot-massage";
 }
 
-function matchesStandardDemoDay(bookings: Booking[], today: DateKey): boolean {
+/** True when today and tomorrow still have the pinned Salong Eko visits the recorded brief describes. */
+export function matchesStandardDemoDay(bookings: Booking[], today: DateKey): boolean {
   const tomorrow = addDays(today, 1);
   const day = bookings.filter((b) => b.date === today || b.date === tomorrow);
   if (day.length !== STANDARD_DEMO_DAY.length) return false;
