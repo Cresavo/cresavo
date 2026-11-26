@@ -297,8 +297,12 @@ describe("web call server-side hang-up", () => {
       expect((await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: { ...created, audio: { output: { voice: "cedar" } } } }); })).why).toBe("tampered");
     });
 
+    it("hangs up when someone asks the line for text instead of speech", async () => {
+      expect((await watch((s) => s.emit("message", { type: "response.created", response: { output_modalities: ["text"] } }))).why).toBe("tampered");
+    });
+
     it("leaves a call alone while its session is the one the server made", async () => {
-      const { why } = await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: created }); });
+      const { why } = await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: created }); s.emit("message", { type: "response.created", response: { output_modalities: ["audio"] } }); });
       expect(why).toBe("deadline");
     });
 

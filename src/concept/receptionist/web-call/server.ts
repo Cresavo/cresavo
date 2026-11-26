@@ -259,7 +259,7 @@ export async function superviseCall(callId: string, deadline: number, options: S
     socket = (options.connect ?? openSideband)(callId, options.apiKey);
     let baseline: string | undefined;
     socket.addEventListener("message", (message) => {
-      let event: { type?: string; response?: { usage?: RealtimeUsage }; session?: ReportedSession };
+      let event: { type?: string; response?: { usage?: RealtimeUsage; output_modalities?: unknown }; session?: ReportedSession };
       try {
         event = JSON.parse(String(message.data));
       } catch {
@@ -269,6 +269,11 @@ export async function superviseCall(callId: string, deadline: number, options: S
         cost += estimateResponseCost(event.response?.usage, rates);
         if (cost >= options.limits.maxCostUsd) resolveEnd("cost");
       }
+      // Maja only ever speaks. A text-only answer was asked for by someone using the line as a general model.
+      // (A caller can still word a spoken answer's instructions per response, which OpenAI does not report;
+      // the 4-minute call, the cost ceiling and the hourly and daily limits bound what that can cost.)
+      const modalities = event.response?.output_modalities;
+      if ((event.type === "response.created" || event.type === "response.done") && Array.isArray(modalities) && !modalities.includes("audio")) resolveEnd("tampered");
       if ((event.type === "session.created" || event.type === "session.updated") && event.session) {
         // The client never changes the session (it only asks for answers), so the first session reported is the
         // one this server created: it must carry our rules and tools, and nothing it controls may change after.
