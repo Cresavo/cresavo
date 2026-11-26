@@ -16,7 +16,13 @@ const today = "2026-11-16";
 const clock = { today, minutes: 9 * 60 };
 const fresh = (): ToolContext => ({ state: createDemoState(today), clock });
 
-const upcoming = (context: ToolContext) => context.state.bookings.find((b) => b.status === "booked" && b.date > today)!;
+const upcoming = (context: ToolContext) =>
+  context.state.bookings.find((b) => {
+    if (b.status !== "booked" || b.date <= today) return false;
+    const peer = context.state.bookings.some((o) => o.staffId === b.staffId && o.date === b.date && o.id !== b.id && o.status === "booked");
+    if (!peer) return false;
+    return freeStarts(context.state, b.staffId, b.date, b, { ignoreId: b.id }).some((start) => start !== b.start);
+  })!;
 
 function freeTarget(context: ToolContext, booking = upcoming(context)) {
   for (let i = 1; i < 30; i++) {

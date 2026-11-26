@@ -9,7 +9,8 @@ import { summaryDue } from "../../summary/day";
 import { Button } from "../../ui/button";
 import { Section } from "../../ui/card";
 import { BriefList } from "../assistant/brief-list";
-import { canSpeak, speak, stopSpeaking } from "../assistant/speak";
+import { morningBriefClipUrl } from "../assistant/demo-brief-audio";
+import { canPlaySpeech, speak, stopSpeaking } from "../assistant/speak";
 import { useStudio } from "../use-studio";
 
 const noSubscribe = () => () => undefined;
@@ -41,7 +42,7 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 
 /**
  * The day at a glance for the owner: rules pick and phrase the items from the salon's own data (no model, no cost),
- * and a button reads them aloud with the browser's speech synthesis. It only ever speaks when that button is pressed.
+ * and a button reads them aloud. On the standard Swedish Salong Eko demo, when the on-screen facts still match the recording, it plays a static clip; otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
  * Once the day's last booking is over the evening summary takes over and the brief steps aside.
  */
 export function MorningBrief({ className }: { className?: string }) {
@@ -50,7 +51,8 @@ export function MorningBrief({ className }: { className?: string }) {
     const rules = morningBrief(state, { today, minutes });
     return { ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") };
   }, [state, today, minutes]);
-  const speakable = useSyncExternalStore(noSubscribe, canSpeak, () => false);
+  const clip = morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
+  const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);
   const [speaking, setSpeaking] = useState(false);
   // The utterance this card started, so a stale end from an earlier one does not reset the button.
   const turn = useRef(0);
@@ -64,9 +66,9 @@ export function MorningBrief({ className }: { className?: string }) {
     }
     const started = speak(briefSpeech(brief), () => {
       if (turn.current === mine) setSpeaking(false);
-    });
+    }, clip);
     setSpeaking(started);
-  }, [brief, speaking]);
+  }, [brief, clip, speaking]);
 
   // Leaving Today, or the evening summary taking over, stops this card's reading; it never starts one.
   const speakingNow = useRef(false);

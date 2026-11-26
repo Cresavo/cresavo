@@ -30,7 +30,7 @@ const owner = state.customers.find((c) => c.id === single.customerId)!;
 function freeDay(staffId: typeof single.staffId, need: Need) {
   for (let i = 1; i < 30; i++) {
     const date = addDays(today, i);
-    const starts = freeStarts(state, staffId, date, need, { ignoreId: single.id });
+    const starts = freeStarts(state, staffId, date, need, { ignoreId: single.id }).filter((start) => date !== single.date || start !== single.start);
     if (starts.length) return { date, starts };
   }
   throw new Error("no free day in the demo data");
@@ -94,7 +94,7 @@ describe("proposals", () => {
     const freeWith = (staffId: typeof single.staffId) => {
       for (let i = 1; i < 30; i++) {
         const date = addDays(today, i);
-        const starts = freeStarts(shared, staffId, date, booking, { ignoreId: booking.id });
+        const starts = freeStarts(shared, staffId, date, booking, { ignoreId: booking.id }).filter((start) => date !== booking.date || start !== booking.start);
         if (starts.length) return { date, starts };
       }
       throw new Error("no free day in the demo data");
@@ -144,7 +144,7 @@ describe("proposals", () => {
 
   it("offers nearby free times when the wanted time is taken", () => {
     const service = state.services.find((s) => s.id === single.serviceId)!;
-    const other = state.bookings.find((b) => b.status === "booked" && b.date > today && b.staffId === single.staffId && b.id !== single.id)!;
+    const other = state.bookings.find((b) => b.status === "booked" && b.date > addDays(today, 1) && b.staffId === single.staffId && b.id !== single.id)!;
     const proposal = propose(`Move ${fullName(owner)} to ${other.date} at ${formatTime(other.start)}`);
     expect(["choose", "message"]).toContain(proposal.kind);
     if (proposal.kind === "choose") {

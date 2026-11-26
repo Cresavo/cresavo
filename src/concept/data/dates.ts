@@ -43,6 +43,11 @@ export function startOfWeek(key: DateKey): DateKey {
   return addDays(key, wd === 0 ? -6 : 1 - wd);
 }
 
+/** The calendar date of weekday `day` (0 = Sunday) in the week that contains `today`. */
+export function dateInWeek(today: DateKey, day: number): DateKey {
+  return addDays(startOfWeek(today), day === 0 ? 6 : day - 1);
+}
+
 export function monthKey(key: DateKey): string {
   return key.slice(0, 7);
 }
