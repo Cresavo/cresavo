@@ -16,11 +16,13 @@ import { noticeHref } from "../notices/booking-notices";
 import { BookingResult, HandoverResult } from "./booking-result";
 import { callClock } from "./call-levels";
 import { CallVisualizer } from "./call-visualizer";
+import { MajaPortrait } from "./maja-portrait";
 import type { CallLevels } from "./use-call-audio";
 import type { WebCallState } from "./use-web-call";
 import { RingWave, RibbonWave, SpringWave, type WaveKind } from "./waves";
 
 // The public call window with Maja: a calm, shareable phone-like screen.
+// The chosen defaults are her portrait and the flowing ribbon wave.
 // Inspired by Fable's voice-first layout (named agent at the centre, the
 // transcript off until you ask for it, a clear end-of-call card) but drawn
 // with the product tokens only.
@@ -53,7 +55,7 @@ function Transcript({ lines }: { lines: readonly TranscriptLine[] }) {
   );
 }
 
-function MajaMark({ ringing, compact, portraitSrc }: { ringing: boolean; compact?: boolean; portraitSrc?: string }) {
+function MajaMark({ ringing, compact, portrait = true }: { ringing: boolean; compact?: boolean; portrait?: boolean }) {
   return (
     <div
       className={cx(
@@ -61,15 +63,9 @@ function MajaMark({ ringing, compact, portraitSrc }: { ringing: boolean; compact
         compact ? "size-16 text-h2" : "size-24 text-h1",
         ringing && "maja-ring",
       )}
-      aria-hidden
+      aria-hidden={!portrait}
     >
-      {portraitSrc ? (
-        // Preview photograph of the fictional receptionist.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={portraitSrc} alt="" className="size-full object-cover" />
-      ) : (
-        t("webCall.monogram")
-      )}
+      {portrait ? <MajaPortrait /> : t("webCall.monogram")}
     </div>
   );
 }
@@ -108,8 +104,8 @@ export function RingScreen({
   onAgain,
   onMuted,
   onShowText,
-  wave = "bars",
-  portraitSrc,
+  wave = "ribbon",
+  portrait = true,
 }: {
   salon: WebCallSalon;
   ownerName: string;
@@ -127,7 +123,7 @@ export function RingScreen({
   onMuted: (muted: boolean) => void;
   onShowText: (show: boolean) => void;
   wave?: WaveKind;
-  portraitSrc?: string;
+  portrait?: boolean;
 }) {
   const status = statusText(call);
   const ringing = call.phase === "starting";
@@ -158,11 +154,11 @@ export function RingScreen({
             active={waveActive}
             muted={muted}
             ringing={ringing}
-            portraitSrc={portraitSrc}
+            portrait={portrait}
             compact={compact}
           />
         ) : (
-          <MajaMark ringing={ringing} compact={compact} portraitSrc={portraitSrc} />
+          <MajaMark ringing={ringing} compact={compact} portrait={portrait} />
         )}
         <div className="space-y-1">
           <h1 className="text-h2 font-medium">{t("webCall.maja")}</h1>

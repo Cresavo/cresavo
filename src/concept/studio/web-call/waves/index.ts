@@ -1,3 +1,5 @@
+// The production call screen uses the ribbon. bars, springs and ring
+// stay available on the development preview (?wave=).
 export type WaveKind = "bars" | "ribbon" | "springs" | "ring";
 
 export const WAVE_KINDS: readonly WaveKind[] = ["bars", "ribbon", "springs", "ring"];

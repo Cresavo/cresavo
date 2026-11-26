@@ -3,6 +3,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { t } from "../../../i18n";
 import { cx } from "../../../ui/cx";
+import { MajaPortrait } from "../maja-portrait";
 import type { CallLevels } from "../use-call-audio";
 import { inkOf, prefersReducedMotion, resizeCanvas } from "./canvas";
 
@@ -18,7 +19,7 @@ export function RingWave({
   active,
   muted,
   ringing,
-  portraitSrc,
+  portrait = true,
   compact,
   className,
 }: {
@@ -26,7 +27,7 @@ export function RingWave({
   active: boolean;
   muted?: boolean;
   ringing?: boolean;
-  portraitSrc?: string;
+  portrait?: boolean;
   compact?: boolean;
   className?: string;
 }) {
@@ -119,10 +120,8 @@ export function RingWave({
     >
       <canvas ref={canvas} className="absolute inset-0 size-full" />
       <div className={cx("absolute left-1/2 top-1/2 overflow-hidden rounded-full bg-action-bg", compact ? "size-16 -translate-x-1/2 -translate-y-1/2" : "size-24 -translate-x-1/2 -translate-y-1/2")}>
-        {portraitSrc ? (
-          // Preview-only photograph of the fictional receptionist.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={portraitSrc} alt="" className="size-full object-cover" />
+        {portrait ? (
+          <MajaPortrait />
         ) : (
           <div className="flex size-full items-center justify-center font-medium text-h2 text-text">
             {t("webCall.monogram")}

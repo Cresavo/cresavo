@@ -33,8 +33,8 @@ function mockRecord(bookingId: string | undefined, outcome: CallRecord["outcome"
 function RingPreviewBody() {
   const params = useSearchParams();
   const shot = params?.get("shot") ?? "idle";
-  const wave: WaveKind = isWaveKind(params?.get("wave")) ? params!.get("wave") as WaveKind : "bars";
-  const portraitSrc = params?.get("portrait") === "1" ? "/preview/maja.png" : undefined;
+  const wave: WaveKind = isWaveKind(params?.get("wave")) ? params!.get("wave") as WaveKind : "ribbon";
+  const portrait = params?.get("portrait") !== "0";
   const drive = params?.get("drive") === "1";
   const { state } = useStudio();
   const speaker = useRef<HTMLAudioElement>(null);
@@ -167,7 +167,7 @@ function RingPreviewBody() {
         instant
         speaker={speaker}
         wave={wave}
-        portraitSrc={portraitSrc}
+        portrait={portrait}
         onStart={() => undefined}
         onHangUp={() => undefined}
         onAgain={() => undefined}
