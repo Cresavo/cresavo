@@ -23,6 +23,42 @@ connected: the only way in today is "Try in the browser".
 Bookings a call makes are ordinary `booking/create` actions with source
 `phone`; nothing in this folder holds a booking rule of its own.
 
+## Public web call ("Ring Salong Eko")
+
+`/studio/ring` on the demo has one button that calls Maja from the browser
+(`web-call/`). Unlike the studio's test call, the browser never gets a
+credential: it sends its WebRTC offer to `POST /api/concept/receptionist/web-call`,
+and the server creates the call with OpenAI (`POST /v1/realtime/calls`, the
+"unified interface") using the API key. OpenAI answers with the call's id, so
+the server can end the call itself (`POST /v1/realtime/calls/{id}/hangup`).
+
+| File | What it does |
+| --- | --- |
+| `web-call/config.ts` | The kill switch (`PHONE_RECEPTIONIST_WEB_CALL=1`), the model (`gpt-realtime-2.1`, or `PHONE_RECEPTIONIST_WEB_MODEL`), the 4-minute ceiling and the quotas. |
+| `web-call/page-token.ts` | The signed page token (20 minutes) the page is rendered with; the route refuses requests without one. It also names the page session for the per-session limit. |
+| `web-call/ledger.ts` | Counters and running calls in the pairing database's `PairBudget` table (keys `voice:*`, hashed, no addresses). Process memory only outside production. |
+| `web-call/server.ts` | Limits, call creation, the server's watch of each call (deadline, cost, tampering, kill switch; scheduled with `after()`), retry of failed hang-ups, and the sweep of overdue calls on every request. |
+| `web-call/persona.ts` | Maja's web-call voice: soft AI disclosure, calm pace, honest suggestions, owner call-back, strict salon-only role. |
+| `web-call/browser.ts` | The browser side: microphone, WebRTC, iPhone audio unlock, and the end report. |
+
+Limits, all on the server: 3 calls in any rolling hour per address, 3 per page
+session, 30 a day in all (`PHONE_RECEPTIONIST_WEB_DAILY`), 4 minutes per call.
+The request that started a call keeps its own connection to it (OpenAI's
+sideband, with the key) and hangs it up at the deadline, when OpenAI's usage
+reports reach the cost ceiling (`PHONE_RECEPTIONIST_MAX_COST_USD`), when the
+client changes the session's rules, tools or voice, or when that connection
+fails. If that instance is gone, the next web-call request on any instance
+sweeps overdue calls. Only the page that started a call can end it early.
+
+Key: `PHONE_RECEPTIONIST_OPENAI_API_KEY` if set (a separate OpenAI project
+with its own budget cap), else the sample salon's saved key, else
+`OPENAI_API_KEY`. It never leaves the server.
+
+Kill switch: set `PHONE_RECEPTIONIST_WEB_CALL` to anything but `1` (or remove
+it) and redeploy. The button closes, the start route answers 404, and the first
+request to `/studio/ring` or the start route hangs up every call still running.
+A call the old deployment is still watching ends within 4 minutes regardless.
+
 ## Keys and limits
 
 - `OPENAI_API_KEY` (or the sample salon's saved OpenAI key) stays on the

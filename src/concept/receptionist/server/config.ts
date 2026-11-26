@@ -12,8 +12,14 @@ type Env = Record<string, string | undefined>;
 
 export { receptionistEnabled };
 
-/** The OpenAI key a call is billed to: the sample salon's own saved key, else the platform's. Never leaves the server. */
+/**
+ * The OpenAI key a call is billed to. Never leaves the server. First the receptionist's own key
+ * (PHONE_RECEPTIONIST_OPENAI_API_KEY, e.g. a separate OpenAI project with its own budget cap), then the
+ * sample salon's saved key, then the platform's OPENAI_API_KEY.
+ */
 export function realtimeKey(env: Env = process.env): string | null {
+  const dedicated = env.PHONE_RECEPTIONIST_OPENAI_API_KEY?.trim();
+  if (dedicated) return dedicated;
   const own = businessKey(DEMO_BUSINESS, env);
   if (own?.provider === "openai") return own.apiKey;
   return env.OPENAI_API_KEY?.trim() || null;

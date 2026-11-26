@@ -1,0 +1,199 @@
+// Where the web call keeps what must survive between requests and server
+// instances: the call counters (per address, per page session, per day) and
+// the calls that are running, with the moment each must be hung up.
+//
+// The public demo runs with PUBLIC_READONLY=1, so the studio database is off
+// there. The one database it does have is the assistant-pairing database
+// (PAIRING_DATABASE_URL, docs/CONNECT_AI_ASSISTANT.md), and its `PairBudget`
+// table is exactly a counter with an expiry that the nightly pairing sweep
+// already cleans up. The web call borrows that table under the `voice:` key
+// prefix: no new table, no new database.
+//
+// Without that database the web call refuses to start in production
+// (`ledgerFor` returns null). Process memory is only used in development and
+// tests, where nothing is billed to a real visitor.
+
+import { pairingDatabaseUrl } from "../../../../scripts/pairing-config.mjs";
+
+/** A use can be given back when a later limit refuses the same call, or OpenAI never started it. */
+export type Take = { ok: true; giveBack(): Promise<void> } | { ok: false; retryAfter: number };
+
+export interface CallLedger {
+  readonly kind: "pairing-db" | "memory";
+  /** Counts one use of `bucket` in the current fixed window of `periodMs`; refuses at `limit`. Used for the daily cap. */
+  take(bucket: string, limit: number, periodMs: number, now: number): Promise<Take>;
+  /**
+   * Counts one use of `bucket` in the rolling `periodMs` before `now`; refuses at `limit`. Used for the hourly
+   * limits, so three calls just before the hour and three just after are still six in an hour, and refused.
+   * Kept as `limit` slots that each hold the moment their use expires; a use claims a free or expired slot.
+   */
+  takeRolling(bucket: string, limit: number, periodMs: number, now: number): Promise<Take>;
+  /** Records a running call, the moment it must end, and (hashed) the page session that started it. */
+  register(callId: string, deadline: number, owner?: string): Promise<void>;
+  /** Whether `owner` is the page session that started the call. */
+  owns(callId: string, owner: string): Promise<boolean>;
+  /** Running calls whose deadline has passed, oldest first. */
+  overdue(now: number, max: number): Promise<string[]>;
+  /** Whether the call is registered and not yet ended. */
+  isRunning(callId: string): Promise<boolean>;
+  /** Marks a call as ended, once OpenAI confirmed the hang-up. True when it was still running. */
+  finish(callId: string): Promise<boolean>;
+  /** Every call still running. Used when the kill switch is off. */
+  running(max: number): Promise<string[]>;
+}
+
+const windowEnd = (now: number, periodMs: number) => (Math.floor(now / periodMs) + 1) * periodMs;
+/** A finished or overdue call row stays a day so it can still be found and hung up. */
+const KEEP_MS = 24 * 3_600_000;
+const CALL_PREFIX = "voice:call:";
+const OWNER_PREFIX = "voice:owner:";
+
+/** For tests and local development only. */
+export function memoryLedger(): CallLedger {
+  const counters = new Map<string, { count: number; until: number }>();
+  const uses = new Map<string, number[]>();
+  const calls = new Map<string, { deadline: number; running: boolean; owner?: string }>();
+  return {
+    kind: "memory",
+    async take(bucket, limit, periodMs, now) {
+      const until = windowEnd(now, periodMs);
+      const key = `${bucket}:${until}`;
+      for (const [k, v] of counters) if (v.until <= now) counters.delete(k);
+      const current = counters.get(key) ?? { count: 0, until };
+      if (current.count >= limit) return { ok: false, retryAfter: Math.max(1, Math.ceil((until - now) / 1000)) };
+      counters.set(key, { count: current.count + 1, until });
+      return { ok: true, giveBack: async () => {
+        const counter = counters.get(key);
+        if (counter && counter.count > 0) counter.count -= 1;
+      } };
+    },
+    async takeRolling(bucket, limit, periodMs, now) {
+      const live = (uses.get(bucket) ?? []).filter((until) => until > now);
+      if (live.length >= limit) {
+        uses.set(bucket, live);
+        return { ok: false, retryAfter: Math.max(1, Math.ceil((Math.min(...live) - now) / 1000)) };
+      }
+      const until = now + periodMs;
+      uses.set(bucket, [...live, until]);
+      return { ok: true, giveBack: async () => {
+        const list = uses.get(bucket) ?? [];
+        const at = list.indexOf(until);
+        if (at >= 0) uses.set(bucket, [...list.slice(0, at), ...list.slice(at + 1)]);
+      } };
+    },
+    async register(callId, deadline, owner) {
+      calls.set(callId, { deadline, running: true, owner });
+    },
+    async owns(callId, owner) {
+      return calls.get(callId)?.owner === owner;
+    },
+    async overdue(now, max) {
+      return [...calls].filter(([, c]) => c.running && c.deadline <= now).sort((a, b) => a[1].deadline - b[1].deadline).slice(0, max).map(([id]) => id);
+    },
+    async isRunning(callId) {
+      return calls.get(callId)?.running === true;
+    },
+    async finish(callId) {
+      const call = calls.get(callId);
+      if (!call?.running) return false;
+      call.running = false;
+      return true;
+    },
+    async running(max) {
+      return [...calls].filter(([, c]) => c.running).slice(0, max).map(([id]) => id);
+    },
+  };
+}
+
+/** The few raw queries the ledger needs; satisfied by a Prisma client. */
+export interface SqlClient {
+  $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+}
+
+export function pairBudgetLedger(db: () => SqlClient): CallLedger {
+  return {
+    kind: "pairing-db",
+    async take(bucket, limit, periodMs, now) {
+      const until = windowEnd(now, periodMs);
+      const key = `voice:${bucket}:${until}`;
+      const rows = await db().$queryRaw<{ count: number }[]>`
+        INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${new Date(until)})
+        ON CONFLICT ("key") DO UPDATE SET "count" = "PairBudget"."count" + 1
+        WHERE "PairBudget"."count" < ${limit} RETURNING "count"`;
+      if (rows.length === 0) return { ok: false, retryAfter: Math.max(1, Math.ceil((until - now) / 1000)) };
+      return { ok: true, giveBack: async () => {
+        await db().$queryRaw`UPDATE "PairBudget" SET "count" = "count" - 1 WHERE "key" = ${key} AND "count" > 0 RETURNING "key"`;
+      } };
+    },
+    async takeRolling(bucket, limit, periodMs, now) {
+      // One row per slot; a slot is claimed only when it is new or its use has expired, in one atomic statement.
+      const slots = Array.from({ length: limit }, (_, i) => `voice:${bucket}:slot${i}`);
+      for (const key of slots) {
+        const rows = await db().$queryRaw<{ key: string }[]>`
+          INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${new Date(now + periodMs)})
+          ON CONFLICT ("key") DO UPDATE SET "count" = 1, "expiresAt" = EXCLUDED."expiresAt"
+          WHERE "PairBudget"."expiresAt" <= ${new Date(now)} RETURNING "key"`;
+        if (rows.length > 0) return { ok: true, giveBack: async () => {
+          await db().$queryRaw`UPDATE "PairBudget" SET "expiresAt" = ${new Date(now)} WHERE "key" = ${key} AND "expiresAt" = ${new Date(now + periodMs)} RETURNING "key"`;
+        } };
+      }
+      const rows = await db().$queryRaw<{ expiresAt: Date }[]>`
+        SELECT "expiresAt" FROM "PairBudget" WHERE "key" = ANY(${slots}) ORDER BY "expiresAt" LIMIT 1`;
+      const free = rows[0] ? new Date(rows[0].expiresAt).getTime() : now + periodMs;
+      return { ok: false, retryAfter: Math.max(1, Math.ceil((free - now) / 1000)) };
+    },
+    async register(callId, deadline, owner) {
+      // count 1 = running, 0 = ended. expiresAt = deadline + a day, so the pairing sweep keeps overdue rows.
+      const key = CALL_PREFIX + callId;
+      const keep = new Date(deadline + KEEP_MS);
+      await db().$queryRaw`
+        INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${keep})
+        ON CONFLICT ("key") DO NOTHING RETURNING "count"`;
+      // The owner is a second row whose key is the pair; the table has no other column to hold it.
+      if (owner) await db().$queryRaw`
+        INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${OWNER_PREFIX + callId + ":" + owner}, 0, ${keep})
+        ON CONFLICT ("key") DO NOTHING RETURNING "count"`;
+    },
+    async owns(callId, owner) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        SELECT "key" FROM "PairBudget" WHERE "key" = ${OWNER_PREFIX + callId + ":" + owner}`;
+      return rows.length > 0;
+    },
+    async overdue(now, max) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        SELECT "key" FROM "PairBudget" WHERE "key" LIKE ${CALL_PREFIX + "%"} AND "count" = 1 AND "expiresAt" <= ${new Date(now + KEEP_MS)}
+        ORDER BY "expiresAt" LIMIT ${max}`;
+      return rows.map((row) => row.key.slice(CALL_PREFIX.length));
+    },
+    async isRunning(callId) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        SELECT "key" FROM "PairBudget" WHERE "key" = ${CALL_PREFIX + callId} AND "count" = 1`;
+      return rows.length > 0;
+    },
+    async finish(callId) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        UPDATE "PairBudget" SET "count" = 0 WHERE "key" = ${CALL_PREFIX + callId} AND "count" = 1 RETURNING "key"`;
+      return rows.length > 0;
+    },
+    async running(max) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        SELECT "key" FROM "PairBudget" WHERE "key" LIKE ${CALL_PREFIX + "%"} AND "count" = 1 ORDER BY "expiresAt" LIMIT ${max}`;
+      return rows.map((row) => row.key.slice(CALL_PREFIX.length));
+    },
+  };
+}
+
+type Env = Record<string, string | undefined>;
+
+const holder = globalThis as typeof globalThis & { cresavoWebCallLedger?: CallLedger };
+
+/**
+ * The ledger this deployment uses: the pairing database when pairing is on and
+ * its URL is set; process memory outside production; otherwise null, and the
+ * web call stays closed. `pairingClient` is only called on first use.
+ */
+export function ledgerFor(env: Env, pairingClient: () => SqlClient): CallLedger | null {
+  if (env.ASSISTANT_PAIRING === "1" && pairingDatabaseUrl(env)) return (holder.cresavoWebCallLedger ??= pairBudgetLedger(pairingClient));
+  if (env.NODE_ENV !== "production" && env.VERCEL !== "1") return (holder.cresavoWebCallLedger ??= memoryLedger());
+  return null;
+}
