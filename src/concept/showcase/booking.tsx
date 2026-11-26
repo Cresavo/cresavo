@@ -115,6 +115,8 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
   const now = useSalonNow();
   const { preset, book, menuAnchor } = useContext(BookingContext);
   const [receipt, setReceipt] = useState<string>();
+  // A new price-list choice updates the preset; drop a receipt that is still on screen so the next booking can start.
+  useEffect(() => { setReceipt(undefined); }, [preset.count]);
   if (state === null) {
     return (
       <p className="py-8">

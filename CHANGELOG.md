@@ -102,6 +102,7 @@ All notable changes to this project are documented here. Format follows
 
 - **Showcase confirmation stays on the salon site.** After a booking on `/showcase/salong-klassisk/boka` or `/showcase/salong-vagad/boka` (and on the salon homepages), the receipt keeps the site's colours and type, every action stays on that site (none lead to `/boka/salong-eko`), and calendar text is Swedish.
 
+- **A new treatment can be booked after a receipt is still on the page.** On the salon homepages, choosing a treatment in the price list after a finished booking now starts that booking instead of leaving the previous receipt on screen.
 - **Showcase booking stays in Swedish if you arrived from an English page.** Treatment names on the two salon sites, and in the booking on those sites, stay in Swedish even when the session language is still English.
 - **Showcase booking starts from the price list.** On the two salon sites, “Boka tid” without a chosen treatment now takes the visitor to the menu instead of an empty search. The standalone booking page lists the treatments. The classic site’s sticky header no longer covers the booking heading, and each treatment row has a visible “Boka” cue.
 - **The customer card's one-line summary follows the Studio's language.** The rule-based line (used when no AI key is configured) is now written in English or Swedish with the rest of the Studio, instead of English phrases mixed with a Swedish treatment name.
