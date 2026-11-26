@@ -1,15 +1,19 @@
+import Image from "next/image";
 import { WithStaff } from "./with-staff";
 import type { DemoState, Service } from "../data/types";
 import { t } from "../i18n";
 import { formatDuration, formatMoney } from "../i18n/format";
 import { Button, buttonClass } from "../ui/button";
 import { Card } from "../ui/card";
+import { PHOTOS, type PhotoId } from "../page/theme";
 import { ListRow } from "../ui/list-row";
 import { ServiceInfo } from "./service-info";
 
 /**
  * "Book" starts the booking flow with the treatment already chosen. `compact` leaves the descriptions out.
  */
+const photoOf = (image: string | undefined) => (image && image in PHOTOS ? PHOTOS[image as PhotoId] : undefined);
+
 export function Treatments({ state, onBook, compact }: { state: DemoState; onBook: (serviceId: string) => void; compact?: boolean }) {
   const staffFor = (service: Service) => state.staff.filter((p) => service.staffIds.includes(p.id));
   const categories = state.categories.filter((category) => state.services.some((s) => s.category === category.id));
@@ -29,8 +33,15 @@ export function Treatments({ state, onBook, compact }: { state: DemoState; onBoo
           <Card className="divide-y divide-hairline">
             {state.services
               .filter((s) => s.category === category.id)
-              .map((service) => (
+              .map((service) => {
+                const photo = photoOf(service.image);
+                return (
                 <div key={service.id} className="flex items-center gap-3 py-2 pr-4">
+                  {photo && (
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-surface-2">
+                      <Image src={photo} alt="" fill sizes="52px" className="object-cover" />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <ListRow
                       title={service.name}
@@ -46,7 +57,8 @@ export function Treatments({ state, onBook, compact }: { state: DemoState; onBoo
                     <Button size="sm" onClick={() => onBook(service.id)} aria-label={t("booking.bookService", { service: service.name })}>{t("booking.book")}</Button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
           </Card>
         </section>
       ))}

@@ -7,10 +7,10 @@ import { freeStarts, needOf, openingFor } from "@/concept/data/slots";
 import { staffViewer } from "@/concept/ops/access";
 import {
   addExampleBookings, CHECKLIST_ROWS, checklistProgress, createSalon, hoursValid, INDUSTRIES, MAX_PEOPLE, MAX_PERSON_NAME, pageSeenCard,
-  restoreDraft, salonDraft, sameHours, SETUP_ACCENTS, SETUP_TYPES, suggestedSlug, suggestedTreatments, treatmentIssue, treatmentsValid, weeklyHours,
+  restoreDraft, salonDraft, sameHours, SETUP_ACCENTS, setupCover, SETUP_TYPES, setupTreatmentPhotos, suggestedSlug, suggestedTreatments, treatmentIssue, treatmentsValid, weeklyHours,
 } from "@/concept/onboarding/salon";
 import { normalizePage } from "@/concept/page/config";
-import { PALETTES } from "@/concept/page/theme";
+import { PALETTES, PHOTO_IDS } from "@/concept/page/theme";
 import { DURATION_STEP, MAX_DURATION, MIN_DURATION } from "@/concept/services/edit";
 import { FEW_BOOKINGS, SCHEDULE_ROWS, scheduleRows, suggestionLimit } from "@/concept/studio/today/limits";
 
@@ -103,7 +103,24 @@ describe("the guided setup's answers", () => {
   it("offers only calm colours, never a purple", () => {
     expect(SETUP_ACCENTS).not.toContain("peony");
     expect(SETUP_ACCENTS).not.toContain("ink");
-    expect(SETUP_ACCENTS.length).toBeLessThanOrEqual(6);
+    expect(SETUP_ACCENTS).not.toContain("rose");
+    expect(SETUP_ACCENTS).not.toContain("sky");
+    expect(SETUP_ACCENTS).toEqual(["forest", "sand", "linen"]);
+  });
+
+  it("gives a new salon a type cover, a photo hero and a unique thumb on each treatment", () => {
+    const uniqueTypes = ["hair", "beauty", "nails", "lashes", "massage", "skin", "foot"] as const;
+    expect(new Set(uniqueTypes.map(setupCover)).size).toBe(uniqueTypes.length);
+    for (const type of uniqueTypes) expect(PHOTO_IDS).toContain(setupCover(type));
+    const state = createSalon(monday, { ...salonDraft("en"), industry: "nails", name: "Studio Vide" });
+    expect(state.page.theme.heroPhoto).toBe("exampleNails");
+    expect(state.page.sections[0]).toEqual({ kind: "hero", variant: "photo" });
+    const images = state.services.map(service => service.image);
+    expect(images).toHaveLength(state.services.length);
+    expect(images.every(image => !!image && PHOTO_IDS.includes(image as typeof PHOTO_IDS[number]))).toBe(true);
+    expect(new Set(images).size).toBe(images.length);
+    expect(images[0]).toBe("exampleNails");
+    expect(setupTreatmentPhotos("massage", 4)[0]).toBe("exampleMassage");
   });
 
   it("restores a draft saved by the two-question setup with defaults for everything it did not ask", () => {

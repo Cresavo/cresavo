@@ -9,7 +9,7 @@ import { translate, type MessageKey } from "../i18n";
 import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
 import { checkOwnSlug } from "../page/address";
 import { DEFAULT_PAGE } from "../page/config";
-import { DEFAULT_THEME, normalizeTheme, PALETTES } from "../page/theme";
+import { DEFAULT_THEME, normalizeTheme, PALETTES, type PhotoId } from "../page/theme";
 import { slugify } from "../page/slug";
 import { getPack } from "../packs";
 import { weekFromHours } from "../ops/edit";
@@ -27,8 +27,27 @@ const packs: Record<Industry, PackId> = {
 };
 
 /** The calm booking-page colours setup offers; null keeps the neutral look that follows light and dark. */
-export const SETUP_ACCENTS = ["forest", "sand", "rose", "sky", "linen"] as const satisfies readonly (keyof typeof PALETTES)[];
+export const SETUP_ACCENTS = ["forest", "sand", "linen"] as const satisfies readonly (keyof typeof PALETTES)[];
 export type SetupAccent = typeof SETUP_ACCENTS[number];
+
+/** One example cover per setup type, plus a foot-care photo used as a treatment thumb. */
+export const SETUP_COVERS = {
+  hair: "exampleHair", beauty: "exampleBeauty", nails: "exampleNails", lashes: "exampleLashes",
+  massage: "exampleMassage", skin: "exampleSkin", foot: "exampleFeet", clinic: "exampleSkin", other: "exampleBeauty",
+} as const satisfies Record<Industry, PhotoId>;
+
+export const setupCover = (industry: Industry): PhotoId => SETUP_COVERS[industry];
+
+/** Distinct example photos for a new salon's treatments, starting with the type's own cover. */
+export function setupTreatmentPhotos(industry: Industry, count: number): PhotoId[] {
+  const primary = setupCover(industry);
+  const rest = (Object.keys(SETUP_COVERS) as Industry[])
+    .map(id => SETUP_COVERS[id])
+    .filter((id, index, all) => id !== primary && all.indexOf(id) === index);
+  const pool = [primary, ...rest];
+  return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+}
+
 
 export type Treatment = Pick<ServiceDraft, "name" | "duration" | "price">;
 export interface SalonDraft {
@@ -199,11 +218,12 @@ export function createSalon(today: string, draft: SalonDraft, options: CreateOpt
     accounting: { connected: false },
     modules: Object.fromEntries(MODULE_KEYS.map(key => [key, false])) as DemoState["modules"],
     dismissedCards: [], log: [], trash: [], supportGrants: [], tickets: [], memory: [], routines: [], domain: null,
-    page: { ...DEFAULT_PAGE, theme: normalizeTheme({ ...DEFAULT_THEME, logo: draft.logo ?? null, colors: draft.accent ? PALETTES[draft.accent] : null }), sections: [{ kind: "hero", variant: "plain" }, { kind: "treatments", variant: "list" },
+    page: { ...DEFAULT_PAGE, theme: normalizeTheme({ ...DEFAULT_THEME, logo: draft.logo ?? null, colors: draft.accent ? PALETTES[draft.accent] : null, heroPhoto: setupCover(draft.industry) }), sections: [{ kind: "hero", variant: "photo" }, { kind: "treatments", variant: "list" },
       { kind: "staff", variant: "names" }, { kind: "map", variant: "full" }] },
   };
-  const withMenu = draft.treatments.reduce((next, item) => applyServiceAction(next, { type: "service/add",
-    service: { ...item, category: "menu", description: "", staffIds: staff.map(person => person.id) } }), state);
+  const thumbs = setupTreatmentPhotos(draft.industry, draft.treatments.length);
+  const withMenu = draft.treatments.reduce((next, item, index) => applyServiceAction(next, { type: "service/add",
+    service: { ...item, category: "menu", description: "", image: thumbs[index], staffIds: staff.map(person => person.id) } }), state);
   return options.examplesAfter === undefined ? withMenu : addExampleBookings(withMenu, today, options.examplesAfter);
 }
 

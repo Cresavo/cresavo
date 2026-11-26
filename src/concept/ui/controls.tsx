@@ -66,7 +66,7 @@ export { Segmented as SegmentedControl };
 
 interface ChoiceCardsProps<T extends string> {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; /** Optional cover photo shown above the label. */ image?: string }[];
   onChange: (value: T) => void;
   label: string;
 }
@@ -96,11 +96,17 @@ export function ChoiceCards<T extends string>({ value, options, onChange, label 
               onChange(options[next].value);
             }}
             className={cx(
-              "ui-press flex min-h-16 items-center justify-center rounded-lg px-3 py-2 text-center text-body font-medium ring-inset",
+              "ui-press flex min-h-16 items-center justify-center rounded-lg text-center text-body font-medium ring-inset",
+              o.image ? "flex-col overflow-hidden p-0 text-left" : "px-3 py-2",
               checked ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-1 ring-input-border hover:bg-surface-2",
             )}
           >
-            {o.label}
+            {o.image && (
+              // A static file from /demo; nothing for the image optimiser to do.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={o.image} alt="" className="setup-cover h-24 w-full object-cover" />
+            )}
+            <span className={o.image ? "px-3 py-2" : undefined}>{o.label}</span>
           </button>
         );
       })}
