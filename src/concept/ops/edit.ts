@@ -47,7 +47,8 @@ export function applyOps(state: DemoState, action: OpsAction): DemoState {
           person.week[day]?.start === state.salon.hours[day]?.open && person.week[day]?.end === state.salon.hours[day]?.close);
         return followsSalon ? { ...person, week: weekFromHours(action.hours) } : person;
       }) : state.staff;
-      return { ...state, staff, salon: { ...state.salon, hours: action.hours, lunch: action.lunch, openings: undefined } };
+      // Drop the standard-demo day pins (date openings and 09:00–18:00 shifts) so later hours follow the edited plan.
+      return { ...state, staff, exceptions: state.exceptions.filter((e) => !e.id.startsWith("e-eko-today-") && !e.id.startsWith("e-eko-next-")), salon: { ...state.salon, hours: action.hours, lunch: action.lunch, openings: undefined } };
     }
     case "salon/close": {
       const name = action.name.trim();

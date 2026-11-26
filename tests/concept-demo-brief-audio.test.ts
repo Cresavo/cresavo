@@ -12,7 +12,7 @@ import {
 import { packOf } from "@/concept/packs";
 import { publicSalonView } from "@/concept/booking/public-projection";
 import { dateInWeek } from "@/concept/data/dates";
-import { openingFor } from "@/concept/data/slots";
+import { openingFor, workWindow } from "@/concept/data/slots";
 import { getBusiness } from "@/concept/tools/read";
 import { dayBookings } from "@/concept/selectors";
 import { eveningRecap } from "@/concept/summary/day";
@@ -110,9 +110,14 @@ describe("recorded demo brief clips", () => {
     const friday = createDemoState("2026-11-20");
     expect(openingFor(friday.salon, "2026-11-21")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(friday.salon, "2026-11-28")).toEqual({ open: 10 * 60, close: 15 * 60 });
+    const pinned = friday.exceptions.find((e) => e.id.startsWith("e-eko-next-"));
+    expect(pinned).toBeDefined();
     const edited = reduce(friday, { type: "salon/hours", hours: friday.salon.hours, lunch: friday.salon.lunch });
     expect(edited.salon.openings).toBeUndefined();
+    expect(edited.exceptions.some((e) => e.id.startsWith("e-eko-today-") || e.id.startsWith("e-eko-next-"))).toBe(false);
     expect(openingFor(edited.salon, "2026-11-21")).toEqual({ open: 10 * 60, close: 15 * 60 });
+    expect(workWindow(friday, pinned!.staffId, "2026-11-21")).toEqual({ start: 9 * 60, end: 18 * 60 });
+    expect(workWindow(edited, pinned!.staffId, "2026-11-21")).not.toEqual({ start: 9 * 60, end: 18 * 60 });
   });
 
   it("hides a holiday line on the card only when the Elin clip will play", () => {
