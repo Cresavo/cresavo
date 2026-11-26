@@ -143,7 +143,7 @@ function PanelBody({ assistant: plain, talk }: { assistant: ReturnType<typeof us
         onClick={(event) => {
           if ((event.target as HTMLElement).closest("a[href]")) closeAssistant();
         }}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
+        className="no-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
       >
         {thread.messages.map((message) => (
           <MessageView key={message.id} message={message} assistant={assistant} onEdit={() => edit(message.id)} />

@@ -197,7 +197,7 @@ function PaletteBody({ context }: { context: Parameters<typeof paletteResults>[0
       </div>
 
       {/* The list scrolls on its own so the field and the key hints stay put. */}
-      <div id={`${id}-list`} role="listbox" aria-label={t("palette.title")} className="max-h-96 min-h-0 overflow-y-auto">
+      <div id={`${id}-list`} role="listbox" aria-label={t("palette.title")} className="no-scrollbar max-h-96 min-h-0 overflow-y-auto">
         {sections.map((section) => (
           <div key={section.key} role="group" aria-labelledby={`${id}-${section.key}`} className="pt-2">
             <p id={`${id}-${section.key}`} className="px-3 py-1 text-meta text-text-secondary">{t(GROUP_TITLE[section.key])}</p>
