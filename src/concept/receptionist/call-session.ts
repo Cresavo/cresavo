@@ -68,7 +68,7 @@ export class ReceptionistCall {
   private cost = 0;
   private reported = false;
   private wrappingUp = false;
-  private primed = false;
+  private facts: Promise<ClientEvent | undefined> | undefined;
   private ended: CallEnd | undefined;
   private endedAt: number | undefined;
 
@@ -155,10 +155,14 @@ export class ReceptionistCall {
   // In the browser the tools run on the studio's own data. Its facts go in once, with the first event
   // (while she greets), so she can answer from them instead of looking them up mid-call.
   private async factsOnce(): Promise<ClientEvent | undefined> {
-    if (this.primed || this.options.channel !== "browser-test") return undefined;
-    this.primed = true;
-    const view = await this.options.host.read().catch(() => null);
-    return view ? systemNote(salonFactsNote(view)) : undefined;
+    if (this.options.channel !== "browser-test") return undefined;
+    if (this.facts) {
+      // Later events wait for the same read, so nothing overtakes the note; only the first sends it.
+      await this.facts;
+      return undefined;
+    }
+    this.facts = this.options.host.read().then((view) => (view ? systemNote(salonFactsNote(view)) : undefined), () => undefined);
+    return this.facts;
   }
 
   private async handleEvent(event: ServerEvent): Promise<Step> {
