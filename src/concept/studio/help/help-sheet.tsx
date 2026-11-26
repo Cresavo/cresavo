@@ -53,6 +53,10 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
       setQuestion("");
       setTicketing(false);
       search.clear();
+    } else {
+      // Parent-controlled closes (What's new, for example) never call close(), so the token
+      // has to be dropped here or a late reply can fill the next session.
+      latest.current++;
     }
   }
 
