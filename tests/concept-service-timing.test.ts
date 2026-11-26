@@ -9,7 +9,7 @@ import { undoBlockReason, undoEntry } from "@/concept/log/undo";
 import { openSlots } from "@/concept/booking/suggest";
 import { minuteInGap } from "@/concept/studio/calendar/gap";
 import { liveSlot } from "@/concept/studio/inbox/live-slot";
-import { utilisation } from "@/concept/selectors";
+import { publicView, utilisation } from "@/concept/selectors";
 import { restoreEntry } from "@/concept/trash/trash";
 import type { DemoState, Service, StaffId } from "@/concept/data/types";
 import { serviceIssues, type ServiceDraft } from "@/concept/services/edit";
@@ -245,6 +245,31 @@ describe("review fixes", () => {
     expect(openSlots(state, "pad30", day, clock, { ignoreId: id }).map((slot) => slot.start)).not.toContain(hm(11));
     expect(liveSlot(state, { staffId: "anna", serviceId: "pad30", date: day, start: hm(11) }, clock.today, clock.minutes, id)?.start).not.toBe(hm(11));
     expect(reduce(state, { type: "booking/move", id, date: day, start: hm(11) })).toBe(state);
+  });
+
+  it("offers moves for a retired or hidden treatment, but never new bookings of it (#8)", () => {
+    const booked = book(empty([pad30, trim]), "pad30", hm(10));
+    const id = booked.bookings[0].id;
+    const retired = reduce(booked, { type: "service/delete", id: "pad30" });
+    const hidden = publicView({ ...booked, services: booked.services.map((s) => (s.id === "pad30" ? { ...s, hidden: true } : s)) });
+    for (const state of [retired, hidden]) {
+      const starts = openSlots(state, "pad30", day, clock, { ignoreId: id }).map((slot) => slot.start);
+      expect(starts).toContain(hm(14));
+      expect(reduce(state, { type: "booking/move", id, date: day, start: hm(14) }).bookings[0].start).toBe(hm(14));
+      expect(openSlots(state, "pad30", day, clock)).toEqual([]);
+      expect(openSlots(state, "pad30", day, clock, { ignoreId: state.bookings.find((b) => b.serviceId === "trim")?.id })).toEqual([]);
+    }
+  });
+
+  it("suggests moves with the booked length after the treatment was shortened (#8)", () => {
+    const long = service("long", 120);
+    const booked = book(book(empty([long, trim]), "long", hm(9)), "trim", hm(12), 1);
+    const state = { ...booked, services: booked.services.map((s) => (s.id === "long" ? { ...s, duration: 30 } : s)) };
+    const id = state.bookings[0].id;
+    const starts = openSlots(state, "long", day, clock, { ignoreId: id }).map((slot) => slot.start);
+    expect(starts).not.toContain(hm(11));
+    expect(reduce(state, { type: "booking/move", id, date: day, start: hm(11) })).toBe(state);
+    for (const start of starts) expect(reduce(state, { type: "booking/move", id, date: day, start }).bookings[0].start).toBe(start);
   });
 
   it("opens the clicked time in a processing gap, kept inside the gap", () => {
