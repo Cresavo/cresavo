@@ -30,7 +30,7 @@ export function callerPhone(raw: string, trunkZero = true): CallerPhone {
   if (digits.startsWith("00")) digits = digits.slice(2);
   if (/^(\d)\1*$/.test(digits)) return { ok: false, reason: "unclear" };
   let phone: string;
-  if (international && digits.startsWith("46")) phone = `0${digits.slice(2).replace(/^0/, "")}`;
+  if (international && digits.startsWith("46") && trunkZero) phone = `0${digits.slice(2).replace(/^0/, "")}`;
   else if (international) {
     // "+44 (0)20 7946 0958": the 0 after the country code is not dialled from abroad.
     const code = DROP_ZERO.find((candidate) => digits.startsWith(candidate));
@@ -97,6 +97,8 @@ function groupRest(rest: string): string[] {
 export function spokenPhone(phone: string, language: Locale): string {
   const digits = phone.replace(/\D/g, "");
   if (phone.startsWith("+")) return `plus ${[digits.slice(0, 2), ...groupRest(digits.slice(2))].map((g) => group(g, language)).join(", ")}`;
+  // A national number without a 0 in front (a salon outside Sweden): every digit as said, in groups.
+  if (!digits.startsWith("0")) return [digits.slice(0, 3), ...groupRest(digits.slice(3))].map((g) => group(g, language)).join(", ");
   const zero = ONES[language][0];
   // 08 (Stockholm) is its own area code; otherwise the first group is 0 plus two digits (070, 031, 012).
   const head = digits.startsWith("08") ? "8" : digits.slice(1, 3);

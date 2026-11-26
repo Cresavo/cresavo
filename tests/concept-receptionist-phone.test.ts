@@ -26,6 +26,7 @@ describe("caller phone numbers", () => {
     expect(callerPhone("070-abc")).toEqual({ ok: false, reason: "unclear" });
     // A salon outside Sweden (its own number without 0 or +46) keeps national numbers that have no 0 in front.
     expect(callerPhone("2125550123", false)).toEqual({ ok: true, phone: "2125550123" });
+    expect(callerPhone("+46 70 987 65 43", false)).toEqual({ ok: true, phone: "+46709876543" });
     expect(usesTrunkZero("08-123 45 67")).toBe(true);
     expect(usesTrunkZero("+46 8 123 45 67")).toBe(true);
     expect(usesTrunkZero("+1 212 555 0100")).toBe(false);
@@ -36,6 +37,7 @@ describe("caller phone numbers", () => {
     expect(spokenPhone("0123456789", "sv")).toBe("noll tolv, tre fyrtiofem, sextiosju åttionio");
     expect(spokenPhone("081234567", "sv")).toBe("noll åtta, ett tjugotre, fyrtiofem sextiosju");
     expect(spokenPhone("0701050607", "sv")).toBe("noll sjuttio, ett noll fem, noll sex noll sju");
+    expect(spokenPhone("2125550123", "en")).toBe("two twelve, five fifty-five, zero one twenty-three");
     expect(spokenPhone("0709876543", "en")).toBe("zero seventy, nine eighty-seven, sixty-five forty-three");
     expect(spokenPhone("+442079460958", "sv")).toBe("plus fyrtiofyra, två noll sju, nio fyrtiosex, noll nio femtioåtta");
   });
