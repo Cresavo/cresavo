@@ -9,7 +9,7 @@ import { summaryDue } from "../../summary/day";
 import { Button } from "../../ui/button";
 import { Section } from "../../ui/card";
 import { BriefList } from "../assistant/brief-list";
-import { morningBriefClipUrl, standardDemoMorningBrief } from "../assistant/demo-brief-audio";
+import { morningBriefClipUrl } from "../assistant/demo-brief-audio";
 import { canPlaySpeech, speak, stopSpeaking } from "../assistant/speak";
 import { useStudio } from "../use-studio";
 
@@ -43,7 +43,7 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 /**
  * The day at a glance for the owner: rules pick and phrase the items from the salon's own data (no model, no cost),
  * and a button reads them aloud. On the standard Salong Eko demo, when the on-screen facts still match the recording, it plays a static Elin clip in the Studio language (English or Swedish); otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
- * The card always shows the live brief. On the unedited demo the morning recording still plays later in the day if only time-sensitive lines have changed, and the card stays if that recording is still available after closing.
+ * Once the day's last booking is over the evening summary takes over and the brief steps aside.
  */
 export function MorningBrief({ className }: { className?: string }) {
   const { state, today, minutes } = useStudio();
@@ -51,10 +51,7 @@ export function MorningBrief({ className }: { className?: string }) {
     const rules = morningBrief(state, { today, minutes });
     return { ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") };
   }, [state, today, minutes]);
-  const recorded = standardDemoMorningBrief(state, today, state.generatedFor, minutes);
-  const clip = recorded
-    ? morningBriefClipUrl(recorded, { today, minutes: 9 * 60 }, state.generatedFor)
-    : morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
+  const clip = morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
   const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);
   const [speaking, setSpeaking] = useState(false);
   // The utterance this card started, so a stale end from an earlier one does not reset the button.
@@ -81,15 +78,15 @@ export function MorningBrief({ className }: { className?: string }) {
   // Step aside only when the evening summary will actually take its place.
   const due = summaryDue(state, { today, minutes }) && taskEnabled(state.modules, "daily-summary") && state.bookings.some((booking) => !booking.example);
   useEffect(() => {
-    if (!due || clip || !speakingNow.current) return;
+    if (!due || !speakingNow.current) return;
     turn.current += 1;
     stopSpeaking();
     setSpeaking(false);
-  }, [due, clip]);
+  }, [due]);
   useEffect(() => () => {
     if (speakingNow.current) stopSpeaking();
   }, []);
 
-  if (due && !clip) return null;
+  if (due) return null;
   return <MorningBriefView brief={brief} speakable={speakable} speaking={speaking} onToggle={toggle} className={className} />;
 }

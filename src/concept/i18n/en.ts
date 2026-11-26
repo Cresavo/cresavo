@@ -2966,7 +2966,6 @@ const messages = {
   "booking.donePackageToast": "{name} marked as done. Package: {left}.",
 
   "summary.title": "Evening summary",
-  "summary.demoPreviewTitle": "Evening summary at closing",
 
   "feed.title": "Calendar subscription",
   "feed.text": "Add {name}'s work calendar to Google or Apple Calendar. It is read-only and shows treatments and first names, no contact details. Keep the link private.",
@@ -3137,6 +3136,10 @@ const messages = {
   "brief.notice.tomorrow": "tomorrow",
   "brief.readAloud": "Read the day aloud",
   "brief.stopReading": "Stop reading",
+  "brief.recordedTitle": "Recorded readings",
+  "brief.recordedMorning": "Morning brief",
+  "brief.recordedEvening": "Evening summary",
+  "brief.recordedHint": "Elin reads the standard demo brief, using only today and tomorrow.",
   "brief.lowStock": "{name} is running low.",
   "brief.holiday": "{name} is tomorrow: time for a campaign?|{name} is in {count} days: time for a campaign?",
   "brief.weekRevenue": "Earned last week: {amount}.",
