@@ -18,6 +18,7 @@ import { callClock } from "./call-levels";
 import { CallVisualizer } from "./call-visualizer";
 import type { CallLevels } from "./use-call-audio";
 import type { WebCallState } from "./use-web-call";
+import { RingWave, RibbonWave, SpringWave, type WaveKind } from "./waves";
 
 // The public call window with Maja: a calm, shareable phone-like screen.
 // Inspired by Fable's voice-first layout (named agent at the centre, the
@@ -52,19 +53,43 @@ function Transcript({ lines }: { lines: readonly TranscriptLine[] }) {
   );
 }
 
-function MajaMark({ ringing, compact }: { ringing: boolean; compact?: boolean }) {
+function MajaMark({ ringing, compact, portraitSrc }: { ringing: boolean; compact?: boolean; portraitSrc?: string }) {
   return (
     <div
       className={cx(
-        "flex shrink-0 items-center justify-center rounded-full bg-action-bg font-medium text-text",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-action-bg font-medium text-text",
         compact ? "size-16 text-h2" : "size-24 text-h1",
         ringing && "maja-ring",
       )}
       aria-hidden
     >
-      {t("webCall.monogram")}
+      {portraitSrc ? (
+        // Preview photograph of the fictional receptionist.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={portraitSrc} alt="" className="size-full object-cover" />
+      ) : (
+        t("webCall.monogram")
+      )}
     </div>
   );
+}
+
+function WaveBelow({
+  kind,
+  levels,
+  active,
+  muted,
+  ringing,
+}: {
+  kind: WaveKind;
+  levels: RefObject<CallLevels>;
+  active: boolean;
+  muted?: boolean;
+  ringing?: boolean;
+}) {
+  if (kind === "ribbon") return <RibbonWave levels={levels} active={active} muted={muted} ringing={ringing} />;
+  if (kind === "springs") return <SpringWave levels={levels} active={active} muted={muted} ringing={ringing} />;
+  return <CallVisualizer levels={levels} active={active} muted={muted} />;
 }
 
 export function RingScreen({
@@ -83,6 +108,8 @@ export function RingScreen({
   onAgain,
   onMuted,
   onShowText,
+  wave = "bars",
+  portraitSrc,
 }: {
   salon: WebCallSalon;
   ownerName: string;
@@ -99,6 +126,8 @@ export function RingScreen({
   onAgain: () => void;
   onMuted: (muted: boolean) => void;
   onShowText: (show: boolean) => void;
+  wave?: WaveKind;
+  portraitSrc?: string;
 }) {
   const status = statusText(call);
   const ringing = call.phase === "starting";
@@ -123,13 +152,26 @@ export function RingScreen({
         {!compact && <div className="mt-auto" aria-hidden />}
         <div className={cx("flex w-full flex-col", compact ? "items-stretch gap-6" : "items-center gap-5")}>
         <div className={cx("flex", compact ? "items-center gap-3 text-left" : "flex-col items-center gap-5")}>
-        <MajaMark ringing={ringing} compact={compact} />
+        {wave === "ring" ? (
+          <RingWave
+            levels={levels}
+            active={waveActive}
+            muted={muted}
+            ringing={ringing}
+            portraitSrc={portraitSrc}
+            compact={compact}
+          />
+        ) : (
+          <MajaMark ringing={ringing} compact={compact} portraitSrc={portraitSrc} />
+        )}
         <div className="space-y-1">
           <h1 className="text-h2 font-medium">{t("webCall.maja")}</h1>
           <p className="text-body text-text-secondary">{t("webCall.role", { salon: salon.salonName })}</p>
         </div>
         </div>
-        {waveActive && <CallVisualizer levels={levels} active={waveActive} muted={muted} />}
+        {waveActive && wave !== "ring" && (
+          <WaveBelow kind={wave} levels={levels} active={waveActive} muted={muted} ringing={ringing} />
+        )}
         {live && (
           <p className="text-body tabular-nums">
             <span role="status">{t("webCall.status.inCall")}</span>
@@ -154,6 +196,7 @@ export function RingScreen({
             booking={booking}
             outcome={outcome}
             instant={instant}
+            previews={ended}
           />
         )}
         {outcome === "handover" && <HandoverResult reason={handover} instant={instant} />}
