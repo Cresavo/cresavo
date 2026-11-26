@@ -1,5 +1,6 @@
 import { diffDays } from "../data/dates";
 import type { Customer, DemoState } from "../data/types";
+import { t, type MessageKey } from "../i18n";
 import { findService } from "../selectors";
 
 // The customer card's one-line summary. The facts are computed here from the
@@ -60,14 +61,21 @@ export function buildCustomerFacts(state: DemoState, customer: Customer): Custom
   };
 }
 
-/** Rule-based summary: the facts as one short line. */
+const TIME_OF_DAY: Record<TimeOfDay, MessageKey> = {
+  mornings: "customer.summary.mornings",
+  afternoons: "customer.summary.afternoons",
+  evenings: "customer.summary.evenings",
+};
+
+/** Rule-based summary: the facts as one short line, in the Studio's language. */
 export function summarizeFallback(facts: CustomerFacts): string {
-  const preferences = [facts.prefersStaff, facts.timeOfDay].filter(Boolean).join(", ");
+  const time = facts.timeOfDay ? t(TIME_OF_DAY[facts.timeOfDay]) : null;
+  const preferences = [facts.prefersStaff, time].filter(Boolean).join(", ");
   const parts = [
-    `${facts.regular ? "Regular" : "Customer"} since ${facts.sinceYear}`,
-    facts.service && facts.intervalWeeks ? `${facts.service.toLowerCase()} every ${facts.intervalWeeks} weeks` : facts.visits ? null : "no visits yet",
+    t(facts.regular ? "customer.summary.regularSince" : "customer.summary.customerSinceYear", { year: String(facts.sinceYear) }),
+    facts.service && facts.intervalWeeks ? t("customer.summary.everyWeeks", { service: facts.service.toLowerCase(), weeks: facts.intervalWeeks }) : facts.visits ? null : t("customer.summary.noVisits"),
     ...facts.traits,
-    preferences ? `prefers ${preferences}` : null,
+    preferences ? t("customer.summary.prefers", { preferences }) : null,
   ];
   return `${parts.filter(Boolean).join(", ")}.`;
 }
