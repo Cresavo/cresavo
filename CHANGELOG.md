@@ -102,6 +102,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **The receptionist demo call plays on iPhone.** iPhone Safari showed a black box with a crossed-out play icon instead of the poster and the video. The first encodes carried a colour profile embedded inside the video track and uneven frame timing, both left over from how the film was put together. Both videos are now encoded again in the plain form iPhones expect: H.264 High 4.0, yuv420p, a steady 30 frames a second, standard colour tags, AAC audio, and the index at the front. A test checks the files so a new encode can't bring the problem back.
 - **The Studio sidebar no longer shows a grey scroll bar on the desktop.** The menu still scrolls with the wheel, a trackpad or the keyboard when a short window cannot fit every item, and the focus ring stays visible. Search results and the assistant conversation use the same quiet scrolling.
 - **The salon homepages no longer repeat the booking instruction.** Before a treatment is chosen, the "Boka tid" section keeps its intro with the phone number and one underlined link to the treatments, placed right under it.
 - **The Swedish Recorded readings card shows both Elin buttons.** The card no longer hides a recording when the live brief wording differs from the script, so translated product names such as “Fotkräm med 10 % karbamid” do not remove “Morgonbrief”. On the standard Salong Eko demo both the morning and evening recordings stay available in English and Swedish. The audio is unchanged. English and Swedish.
