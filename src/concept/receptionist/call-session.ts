@@ -68,7 +68,8 @@ export class ReceptionistCall {
   private cost = 0;
   private reported = false;
   private wrappingUp = false;
-  private facts: Promise<ClientEvent | undefined> | undefined;
+  private factsSent = false;
+  private queue: Promise<unknown> = Promise.resolve();
   private ended: CallEnd | undefined;
   private endedAt: number | undefined;
 
@@ -146,6 +147,13 @@ export class ReceptionistCall {
 
   /** One server event in, the client events to send out. */
   async handle(event: ServerEvent): Promise<Step> {
+    // One event at a time, in order, so replies go out in the order the events came (and after the facts note).
+    const step = this.queue.then(() => this.handleInOrder(event));
+    this.queue = step.catch(() => undefined);
+    return step;
+  }
+
+  private async handleInOrder(event: ServerEvent): Promise<Step> {
     if (this.ended) return { send: [] };
     const facts = await this.factsOnce();
     const step = await this.handleEvent(event);
@@ -155,14 +163,10 @@ export class ReceptionistCall {
   // In the browser the tools run on the studio's own data. Its facts go in once, with the first event
   // (while she greets), so she can answer from them instead of looking them up mid-call.
   private async factsOnce(): Promise<ClientEvent | undefined> {
-    if (this.options.channel !== "browser-test") return undefined;
-    if (this.facts) {
-      // Later events wait for the same read, so nothing overtakes the note; only the first sends it.
-      await this.facts;
-      return undefined;
-    }
-    this.facts = this.options.host.read().then((view) => (view ? systemNote(salonFactsNote(view)) : undefined), () => undefined);
-    return this.facts;
+    if (this.factsSent || this.options.channel !== "browser-test") return undefined;
+    this.factsSent = true;
+    const view = await this.options.host.read().catch(() => null);
+    return view ? systemNote(salonFactsNote(view)) : undefined;
   }
 
   private async handleEvent(event: ServerEvent): Promise<Step> {

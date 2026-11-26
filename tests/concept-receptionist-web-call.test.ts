@@ -557,7 +557,7 @@ describe("web call persona", () => {
     const rules = webCallInstructions(salon);
     expect(rules).toMatch(/Never more than one such phrase per turn/);
     expect(rules).toMatch(/never one after a tool has answered/);
-    expect(rules).toMatch(/Only call get_salon_info if something you need is not there, and never announce it/);
+    expect(rules).toMatch(/Only call get_salon_info if something you need is not there \(or there is no such note\), and never announce it/);
     expect(rules).toMatch(/noll sju noll, nio åtta sju, sextiofem fyrtiotre/);
     expect(rules).toMatch(/never "din fullständiga namnuppgift"/);
   });

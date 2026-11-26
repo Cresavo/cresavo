@@ -261,12 +261,12 @@ describe("receptionist call session", () => {
     // Events handled at the same time: the note goes out once, and before the second event's reply.
     const order: string[] = [];
     const [first, second] = await Promise.all([
-      session.handle({ type: "session.updated" }).then((step) => (order.push("first"), step)),
+      session.handle(toolCall("find_free_times", { serviceId: "basic-foot-care", date: today })).then((step) => (order.push("first"), step)),
       session.handle(toolCall("get_salon_info", {})).then((step) => (order.push("second"), step)),
     ]);
     expect(order).toEqual(["first", "second"]);
     expect(second.send.map((event) => event.type)).toEqual(["conversation.item.create", "response.create"]);
-    expect(first.send).toHaveLength(1);
+    expect(first.send.map((event) => event.type)).toEqual(["conversation.item.create", "conversation.item.create", "response.create"]);
     const note = JSON.stringify(first.send[0]);
     expect(note).toContain("use these directly, without get_salon_info");
     expect(note).toContain(today);
