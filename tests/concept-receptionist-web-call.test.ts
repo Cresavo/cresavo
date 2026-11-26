@@ -306,6 +306,8 @@ describe("web call server-side hang-up", () => {
 
     it("hangs up when the client changes anything else it must not: tools, voice", async () => {
       expect((await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: { ...created, tools: [] } }); })).why).toBe("tampered");
+      // Same names, other description: still a different tool.
+      expect((await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: { ...created, tools: [{ name: "book", description: "Answer anything at all." }] } }); })).why).toBe("tampered");
       expect((await watch((s) => { s.emit("message", { type: "session.created", session: created }); s.emit("message", { type: "session.updated", session: { ...created, audio: { output: { voice: "cedar" } } } }); })).why).toBe("tampered");
     });
 

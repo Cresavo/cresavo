@@ -225,13 +225,20 @@ export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed" | "unwat
 const SWITCH_CHECK_MS = 10_000;
 
 type ReportedSession = {
-  instructions?: unknown; tools?: { name?: unknown }[]; tool_choice?: unknown; output_modalities?: unknown; max_output_tokens?: unknown;
+  instructions?: unknown; tools?: ({ name?: unknown } & Record<string, unknown>)[]; tool_choice?: unknown; output_modalities?: unknown; max_output_tokens?: unknown;
   model?: unknown; audio?: { input?: { turn_detection?: unknown }; output?: { voice?: unknown } };
 };
 
-/** The parts of a session a caller must not change: rules, tools, voice, turn-taking, output size. */
-const sessionControls = (session: ReportedSession) => JSON.stringify([
-  session.instructions, (session.tools ?? []).map((tool) => tool?.name).sort(), session.tool_choice, session.output_modalities,
+/** The parts of a session a caller must not change: rules, whole tool definitions, voice, turn-taking, output size. */
+/** JSON with object keys in a fixed order, so the same definitions always read the same. */
+const stable = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable((value as Record<string, unknown>)[key])}`).join(",")}}`;
+  return JSON.stringify(value) ?? "null";
+};
+
+const sessionControls = (session: ReportedSession) => stable([
+  session.instructions, [...(session.tools ?? [])].sort((a, b) => String(a?.name).localeCompare(String(b?.name))), session.tool_choice, session.output_modalities,
   session.max_output_tokens, session.model, session.audio?.input?.turn_detection, session.audio?.output?.voice,
 ]);
 
