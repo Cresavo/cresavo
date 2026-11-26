@@ -65,9 +65,12 @@ export function findAnchor(id: string, prefer?: string, doc: Pick<Document, "que
   if (!all.length) return "absent";
   const shown = all.filter((element) => element.getClientRects().length > 0 && !blocked(element, doc));
   if (!shown.length) return all.some((element) => element.getClientRects().length > 0) ? "blocked" : "hidden";
+  // A control that cannot be pressed yet (a visit still waiting for the server) is never the one.
+  const usable = shown.filter((element) => element.getAttribute("aria-disabled") !== "true" && !element.hasAttribute("disabled"));
+  if (!usable.length) return shown.some((element) => element.dataset.helpState !== undefined) ? "unmatched" : "blocked";
   // A visit tagged with no actions (one already done) still has the tag, and is never the one.
-  if (!prefer || !shown.some((element) => element.dataset.helpState !== undefined)) return { element: shown[0] };
-  const match = shown.find((element) => element.dataset.helpState?.split(" ").includes(prefer));
+  if (!prefer || !usable.some((element) => element.dataset.helpState !== undefined)) return { element: usable[0] };
+  const match = usable.find((element) => element.dataset.helpState?.split(" ").includes(prefer));
   return match ? { element: match } : "unmatched";
 }
 

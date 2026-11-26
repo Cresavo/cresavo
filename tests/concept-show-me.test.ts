@@ -51,7 +51,10 @@ describe("Show me never presses what changes data", () => {
 
 describe("finding the element to point at", () => {
   // A stand-in page: visits on screen with their state, and no open dialog.
-  const visit = (helpState?: string, shown = true) => ({ dataset: { helpState }, getClientRects: () => (shown ? [{}] : []), closest: () => null });
+  const visit = (helpState?: string, shown = true, settled = true) => ({
+    dataset: { helpState }, getClientRects: () => (shown ? [{}] : []), closest: () => null,
+    getAttribute: (name: string) => (name === "aria-disabled" && !settled ? "true" : null), hasAttribute: () => false,
+  });
   const page = (...elements: object[]) => ({
     querySelectorAll: (selector: string) => (selector.startsWith("dialog") ? [] : elements),
   }) as unknown as Pick<Document, "querySelectorAll">;
@@ -62,6 +65,14 @@ describe("finding the element to point at", () => {
     const payable = visit("take-payment mark-done");
     expect(findAnchor("calendar.booking", "take-payment", page(paid, payable))).toEqual({ element: payable });
     expect(findAnchor("calendar.booking", "mark-done", page(visit("move cancel"), paid))).toEqual({ element: paid });
+  });
+
+  it("skips a visit that cannot be opened yet", () => {
+    // A booking still waiting for the server has no click handler; the guide must not pick it.
+    const waiting = visit("move cancel", true, false);
+    const ready = visit("move cancel");
+    expect(findAnchor("calendar.booking", "move", page(waiting, ready))).toEqual({ element: ready });
+    expect(findAnchor("calendar.booking", "move", page(waiting))).toBe("unmatched");
   });
 
   it("never falls back to a visit that cannot offer the action", () => {
