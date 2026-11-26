@@ -62,7 +62,10 @@ export function SetupLook({ draft, name, change }: Props) {
 /** The booking page's header and first treatment, drawn with the page's own theme so the colours are the real ones. */
 function LookPreview({ draft, name }: { draft: SalonDraft; name: string }) {
   const theme = { ...DEFAULT_THEME, logo: draft.logo, colors: draft.accent ? PALETTES[draft.accent] : null };
-  const { className, ...attributes } = themeAttributes(theme);
+  // Without data-scheme: on a preview inside the studio it would set the whole document's colour scheme
+  // (tenant-theme.css). A palette's colours arrive as fixed values in the style, so the preview keeps them.
+  const { className, style, "data-corners": corners, "data-style": layout, "data-fonts": fonts } = themeAttributes(theme);
+  const attributes = { style, "data-corners": corners, "data-style": layout, "data-fonts": fonts };
   const first = draft.treatments[0];
   return <figure className="space-y-2">
     <figcaption className="text-meta text-text-secondary">{t("setup.preview")}</figcaption>

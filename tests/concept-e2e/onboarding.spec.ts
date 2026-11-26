@@ -105,6 +105,8 @@ for (const language of ["sv", "en"] as const) {
       await page.getByRole("button", { name: m("page.palette.forest") }).click();
       await expect(page.getByRole("button", { name: m("page.palette.forest") })).toHaveAttribute("aria-pressed", "true");
       await expect(page.getByRole("figure").getByText("Studio Vide")).toBeVisible();
+      // A light palette in the preview must not turn the studio's own dark theme light.
+      if (language === "en") expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).not.toBe("light");
       await frame(4);
       await page.getByRole("button", { name: m("setup.create") }).click();
 
