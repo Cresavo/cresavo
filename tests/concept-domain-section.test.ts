@@ -58,6 +58,23 @@ function renderDomain(live: boolean, host?: string) {
   return section.type(section.props);
 }
 
+function texts(node: ReactNode): string[] {
+  if (typeof node === "string") return [node];
+  if (!isValidElement<Props>(node)) return [];
+  return Children.toArray(node.props.children).flatMap(texts);
+}
+
+it("says a simulated domain does not open the booking page, and claims live only for a live connection", () => {
+  state = { ...state, domain: { host: connection.host, status: "secure" } };
+  const simulated = texts(renderDomain(false));
+  expect(simulated).toContain(t("domain.simulatedNote"));
+  expect(simulated).not.toContain(t("domain.live", { host: connection.host }));
+
+  const live = texts(renderDomain(true));
+  expect(live).toContain(t("domain.live", { host: connection.host }));
+  expect(live).not.toContain(t("domain.simulatedNote"));
+});
+
 it("leaves the domain unconnected when the live connect request fails", async () => {
   state = { ...state, domain: null };
   fetcher.mockRejectedValueOnce(new TypeError("Network unavailable"));

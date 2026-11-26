@@ -3219,6 +3219,7 @@ const messages = {
   "domain.status.secure": "Säker och publicerad",
   "domain.status.secure.text": "Din bokningssida är tillgänglig på adressen via HTTPS.",
   "domain.live": "Din bokningssida är publicerad på https://{host}.",
+  "domain.simulatedNote": "Simulerat i demon: ingenting kontrolleras hos din domänleverantör, och adressen öppnar inte din bokningssida.",
   "domain.check": "Kontrollera igen",
   "domain.remove": "Ta bort domänen",
   "domain.removed": "Domänen togs bort",

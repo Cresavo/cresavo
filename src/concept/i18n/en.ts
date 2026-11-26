@@ -3305,6 +3305,7 @@ const messages = {
   "domain.status.secure": "Secure and live",
   "domain.status.secure.text": "Your booking page answers on your address over HTTPS.",
   "domain.live": "Your booking page is live at https://{host}.",
+  "domain.simulatedNote": "Simulated in the demo: nothing is checked at your domain provider, and this address does not open your booking page.",
   "domain.check": "Check again",
   "domain.remove": "Remove domain",
   "domain.removed": "Domain removed",
