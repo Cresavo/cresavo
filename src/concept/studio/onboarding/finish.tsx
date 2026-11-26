@@ -53,18 +53,39 @@ export function SetupFinish({ progress, titleRef }: { progress: ReactNode; title
 /** Treatment rows in the booking page (the divided list under each category). */
 const TREATMENT_ROW = 'section[id^="treatments-"] .divide-y > div';
 
-/** Prefer the full page; if a cap would cut a row, end at the last row that fits. */
+/** Height of the page's own blocks, not the iframe viewport, so a shorter step can shrink the frame. */
+function contentHeight(doc: Document): number {
+  const win = doc.defaultView;
+  const body = doc.body;
+  if (!body) return 0;
+  const scrollY = win?.scrollY ?? 0;
+  let bottom = 0;
+  for (const child of body.children) {
+    bottom = Math.max(bottom, child.getBoundingClientRect().bottom + scrollY);
+  }
+  if (win) {
+    const style = win.getComputedStyle(body);
+    bottom += (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.marginBottom) || 0);
+  }
+  return Math.ceil(bottom);
+}
+
+/** Prefer the full page; if a cap would cut a row, end at the last complete edge that fits. */
 function heightThatEndsCleanly(doc: Document, content: number, cap: number): number {
   if (content <= cap) return content;
   const scrollY = doc.defaultView?.scrollY ?? 0;
+  const rows = [...doc.querySelectorAll(TREATMENT_ROW)];
   let bottom = 0;
-  for (const row of doc.querySelectorAll(TREATMENT_ROW)) {
-    const box = row.getBoundingClientRect();
-    const rowBottom = box.bottom + scrollY;
+  for (const row of rows) {
+    const rowBottom = row.getBoundingClientRect().bottom + scrollY;
     if (rowBottom <= cap) bottom = rowBottom;
     else break;
   }
-  return Math.min(cap, Math.ceil(bottom || cap));
+  if (bottom > 0) return Math.min(cap, Math.ceil(bottom));
+  // The cap falls inside the first row: end at its top so the row is not split.
+  const firstTop = rows[0] ? rows[0].getBoundingClientRect().top + scrollY : 0;
+  if (firstTop > 0 && firstTop <= cap) return Math.ceil(firstTop);
+  return cap;
 }
 
 /**
@@ -84,7 +105,7 @@ function SetupPreview({ src, title }: { src: string; title: string }) {
       try {
         const doc = node.contentDocument;
         if (!doc?.documentElement) return;
-        const content = Math.ceil(Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0));
+        const content = contentHeight(doc);
         if (content <= 0) return;
         const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
         const cap = window.matchMedia("(min-width: 64rem)").matches
