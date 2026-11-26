@@ -15,8 +15,10 @@ import { ROOMS } from "../packs/base";
 import { startCategories } from "../services/categories";
 import type { Pack } from "../packs/types";
 import type { Cost } from "../finance/types";
+import { dueBackList } from "../customers/return-visits";
 import { upcomingHolidays } from "./holidays";
 import { lunchFor, openingFor, pickResource, freeStarts, needOf, staffWorks, workWindow } from "./slots";
+import { buildCustomerStats } from "../selectors";
 import type {
   Booking,
   BookingSource,
@@ -30,8 +32,10 @@ import type {
   PackId,
   Resource,
   Review,
+  Salon,
   Service,
   Staff,
+  StaffException,
   StaffId,
 } from "./types";
 
@@ -428,7 +432,7 @@ function buildFor(pack: Pack, solo: boolean): Build {
   };
 }
 
-/** The demo's shortest working day: nine to six. */
+/** The demo's shortest working day, and the hours the recorded brief assumes: nine to six. */
 const FULL_DAY = { open: 9 * 60, close: 18 * 60 };
 
 /**
@@ -449,6 +453,182 @@ export function openOnDemoDay(pack: Pack, today: DateKey): Pack {
   function working(person: Staff): Staff {
     return { ...person, week: { ...person.week, [day]: { start: open, end: close } } };
   }
+}
+
+
+/** Today's and tomorrow's visits in the standard two-person Salong Eko demo, so the brief is the same on any weekday. */
+const STANDARD_DEMO_DAY: readonly {
+  offset: 0 | 1;
+  start: number;
+  duration: number;
+  staffId: StaffId;
+  serviceId: string;
+  customerId: string;
+  status: Booking["status"];
+  cancelReason?: string;
+}[] = [
+  { offset: 0, start: 9 * 60, duration: 60, staffId: "anna", serviceId: "medical-foot-care", customerId: "k080", status: "booked" },
+  { offset: 0, start: 10 * 60, duration: 60, staffId: "erik", serviceId: "classic-60", customerId: "k271", status: "booked" },
+  { offset: 0, start: 10 * 60 + 45, duration: 45, staffId: "anna", serviceId: "basic-foot-care", customerId: "k018", status: "booked" },
+  { offset: 0, start: 11 * 60 + 15, duration: 30, staffId: "erik", serviceId: "classic-30", customerId: "k193", status: "booked" },
+  { offset: 0, start: 11 * 60 + 30, duration: 30, staffId: "anna", serviceId: "ingrown-nail", customerId: "k317", status: "booked" },
+  { offset: 0, start: 13 * 60, duration: 30, staffId: "anna", serviceId: "ingrown-nail", customerId: "k240", status: "booked" },
+  { offset: 0, start: 13 * 60 + 30, duration: 75, staffId: "anna", serviceId: "spa-foot-care", customerId: "k292", status: "booked" },
+  { offset: 0, start: 14 * 60 + 45, duration: 75, staffId: "anna", serviceId: "spa-foot-care", customerId: "k028", status: "cancelled", cancelReason: "Ill" },
+  { offset: 0, start: 16 * 60 + 45, duration: 30, staffId: "erik", serviceId: "classic-30", customerId: "k298", status: "booked" },
+  { offset: 0, start: 17 * 60, duration: 60, staffId: "anna", serviceId: "medical-foot-care", customerId: "k248", status: "booked" },
+  { offset: 0, start: 17 * 60 + 15, duration: 30, staffId: "erik", serviceId: "classic-30", customerId: "k010", status: "booked" },
+  { offset: 1, start: 9 * 60, duration: 60, staffId: "anna", serviceId: "medical-foot-care", customerId: "k100", status: "booked" },
+  { offset: 1, start: 10 * 60, duration: 45, staffId: "anna", serviceId: "basic-foot-care", customerId: "k108", status: "booked" },
+  { offset: 1, start: 10 * 60 + 45, duration: 60, staffId: "anna", serviceId: "medical-foot-care", customerId: "k015", status: "booked" },
+  { offset: 1, start: 13 * 60, duration: 75, staffId: "anna", serviceId: "spa-foot-care", customerId: "k281", status: "booked" },
+  { offset: 1, start: 14 * 60 + 15, duration: 60, staffId: "anna", serviceId: "medical-foot-care", customerId: "k071", status: "booked" },
+  { offset: 1, start: 15 * 60 + 15, duration: 75, staffId: "anna", serviceId: "spa-foot-care", customerId: "k102", status: "booked" },
+  { offset: 1, start: 16 * 60 + 30, duration: 75, staffId: "anna", serviceId: "spa-foot-care", customerId: "k154", status: "booked" },
+];
+
+function usesStandardDemoDay(setup: BusinessSetup, pack: Pack): boolean {
+  return !setup.solo && pack.id === "foot-massage";
+}
+
+function matchesStandardDemoDay(bookings: Booking[], today: DateKey): boolean {
+  const tomorrow = addDays(today, 1);
+  const day = bookings.filter((b) => b.date === today || b.date === tomorrow);
+  if (day.length !== STANDARD_DEMO_DAY.length) return false;
+  return STANDARD_DEMO_DAY.every((slot) => {
+    const date = slot.offset === 0 ? today : tomorrow;
+    return day.some(
+      (b) =>
+        b.date === date &&
+        b.start === slot.start &&
+        b.duration === slot.duration &&
+        b.staffId === slot.staffId &&
+        b.serviceId === slot.serviceId &&
+        b.customerId === slot.customerId &&
+        b.status === slot.status,
+    );
+  });
+}
+
+const STANDARD_DEMO_DUE_BACK = 22;
+
+/** Hold the due-back count at the recorded brief's number without filling upcoming free times. */
+function pinStandardDemoDueBack(state: DemoState, today: DateKey) {
+  const extras = dueBackList(state, buildCustomerStats(state, today), today)
+    .sort((a, b) => a.overdueDays - b.overdueDays || a.customer.firstName.localeCompare(b.customer.firstName, "sv"))
+    .slice(STANDARD_DEMO_DUE_BACK);
+  extras.forEach((row, index) => {
+    const finished = state.bookings
+      .filter((b) => b.customerId === row.customer.id && b.status === "completed")
+      .sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start)[0];
+    if (finished && diffDays(today, addDays(finished.date, 26 * 7)) >= 0) finished.date = addDays(today, -14);
+    state.journals.push({
+      id: `j-eko-due-${index + 1}`,
+      customerId: row.customer.id,
+      bookingId: finished?.id,
+      date: today,
+      staffId: finished?.staffId ?? row.customer.preferredStaff,
+      treatment: "",
+      observations: "",
+      advice: "",
+      nextVisit: "In 26 weeks",
+    });
+  });
+}
+
+/**
+ * Keep today and tomorrow nine to six for the brief. Tomorrow's weekday is only extended, never shortened, so
+ * other days of that weekday keep their generated visits. Today is capped with a date exception only when the
+ * weekday is longer than nine to six (Thursday).
+ */
+function pinStandardDemoHours(salon: Salon, staff: Staff[], today: DateKey): { salon: Salon; staff: Staff[]; exceptions: StaffException[] } {
+  const tomorrow = addDays(today, 1);
+  const day = weekday(tomorrow);
+  const usual = salon.hours[day];
+  const wasClosed = !usual;
+  const hours = {
+    ...salon.hours,
+    [day]: {
+      open: Math.min(usual?.open ?? FULL_DAY.open, FULL_DAY.open),
+      close: Math.max(usual?.close ?? FULL_DAY.close, FULL_DAY.close),
+    },
+  };
+  const staffOut = staff.map((person) => {
+    const shift = person.week[day];
+    if (!shift && !wasClosed) return person;
+    const start = Math.min(shift?.start ?? FULL_DAY.open, FULL_DAY.open);
+    const end = Math.max(shift?.end ?? FULL_DAY.close, FULL_DAY.close);
+    if (shift && shift.start === start && shift.end === end) return person;
+    return { ...person, week: { ...person.week, [day]: { start, end } } };
+  });
+  const ctx = { salon: { ...salon, hours }, staff: staffOut, exceptions: [] as StaffException[] };
+  const exceptions: StaffException[] = [];
+  for (const person of staffOut) {
+    const todayWindow = workWindow(ctx, person.id, today);
+    if (todayWindow && (todayWindow.start < FULL_DAY.open || todayWindow.end > FULL_DAY.close)) {
+      exceptions.push({
+        id: `e-eko-today-${person.id}`,
+        staffId: person.id,
+        date: today,
+        kind: "shift",
+        start: FULL_DAY.open,
+        end: FULL_DAY.close,
+      });
+    }
+  }
+  for (const person of staffOut) {
+    if (!STANDARD_DEMO_DAY.some((slot) => slot.offset === 1 && slot.staffId === person.id)) continue;
+    const window = workWindow(ctx, person.id, tomorrow);
+    if (!window || window.start > FULL_DAY.open || window.end < FULL_DAY.close) {
+      exceptions.push({
+        id: `e-eko-next-${person.id}`,
+        staffId: person.id,
+        date: tomorrow,
+        kind: "shift",
+        start: FULL_DAY.open,
+        end: FULL_DAY.close,
+      });
+    }
+  }
+  return {
+    salon: { ...salon, hours, closures: salon.closures.filter((c) => c.date !== tomorrow) },
+    staff: staffOut,
+    exceptions,
+  };
+}
+
+/** Keep today and tomorrow on the same visits every weekday, so a recorded Swedish reading can match the brief. */
+function pinStandardDemoDay(build: Build, today: DateKey, bookings: Booking[]): Booking | undefined {
+  if (matchesStandardDemoDay(bookings, today)) {
+    return bookings.find((b) => b.date === today && b.status === "cancelled");
+  }
+  const tomorrow = addDays(today, 1);
+  const kept = bookings.filter((b) => b.date !== today && b.date !== tomorrow);
+  let todayN = 0;
+  let nextN = 0;
+  const pinned: Booking[] = STANDARD_DEMO_DAY.map((slot) => {
+    const service = build.services.find((s) => s.id === slot.serviceId);
+    if (!service) throw new Error(`standard demo day is missing ${slot.serviceId}`);
+    const n = slot.offset === 0 ? (todayN += 1) : (nextN += 1);
+    return {
+      id: `b-eko-${slot.offset === 0 ? "today" : "next"}-${n}`,
+      customerId: slot.customerId,
+      staffId: slot.staffId,
+      serviceId: slot.serviceId,
+      date: slot.offset === 0 ? today : tomorrow,
+      start: slot.start,
+      duration: slot.duration,
+      price: service.price,
+      status: slot.status,
+      source: "online",
+      ...(slot.cancelReason ? { cancelReason: slot.cancelReason } : {}),
+    };
+  });
+  assignResources(build, pinned);
+  bookings.length = 0;
+  bookings.push(...kept, ...pinned);
+  bookings.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start || a.staffId.localeCompare(b.staffId));
+  return pinned.find((b) => b.status === "cancelled");
 }
 
 /** The demo business's booking page: its ready-made design or own colours, and its About text after the team. */
@@ -498,6 +678,7 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     const drop = bookings.find((b) => b.date === today && b.staffId === "erik" && b !== lastOfDay("erik") && b.start >= 14 * 60);
     if (drop) bookings.splice(bookings.indexOf(drop), 1);
   }
+  if (usesStandardDemoDay(setup, pack)) cancelled = pinStandardDemoDay(build, today, bookings) ?? cancelled;
 
   const journals = makeJournals(rng, profiles, bookings, build);
   const reviews = makeReviews(rng, today, bookings, build);
@@ -667,22 +848,23 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     publishOn: addDays(today, startsInDays),
   }));
 
-  return {
+  const hours = usesStandardDemoDay(setup, pack) ? pinStandardDemoHours(salon, team, today) : { salon, staff: team, exceptions: [] as StaffException[] };
+  const state = {
     cancellationPolicy: DEFAULT_POLICY, checkoutHolds: [],
     version: DEMO_VERSION,
     industry: null,
     pack: pack.id,
     generatedFor: today,
     seq: 1,
-    salon,
+    salon: hours.salon,
     localization,
     reminderSettings: { ...DEFAULT_REMINDER_SETTINGS },
-    staff: team,
+    staff: hours.staff,
     services,
     retiredServices: [],
     categories: startCategories(pack),
     resources: build.resources,
-    exceptions: [],
+    exceptions: hours.exceptions,
     customers,
     bookings,
     journals,
@@ -710,4 +892,6 @@ export function createDemoState(today: DateKey, setup: BusinessSetup = {}): Demo
     page: demoPage(pack),
     domain: null,
   };
+  if (usesStandardDemoDay(setup, pack)) pinStandardDemoDueBack(state, today);
+  return state;
 }

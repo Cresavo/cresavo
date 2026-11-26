@@ -51,7 +51,7 @@ export function EveningSummaryView({ recap, speakable, speaking, onToggle }: Vie
 
 /**
  * After the last booking: the day and tomorrow in a few lines, from rules only (no model, no cost).
- * A button reads them aloud: a static clip on the recorded Swedish Salong Eko demo day, otherwise the browser's speech synthesis, and only ever when that button is pressed.
+ * A button reads them aloud: a static clip on the standard Swedish Salong Eko demo when the on-screen facts still match the recording, otherwise the browser's speech synthesis, and only ever when that button is pressed.
  */
 export function EveningSummary() {
   const { state, today, minutes } = useStudio();

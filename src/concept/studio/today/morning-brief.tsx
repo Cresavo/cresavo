@@ -42,7 +42,7 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 
 /**
  * The day at a glance for the owner: rules pick and phrase the items from the salon's own data (no model, no cost),
- * and a button reads them aloud. On the recorded Swedish Salong Eko demo day it plays a static clip; otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
+ * and a button reads them aloud. On the standard Swedish Salong Eko demo, when the on-screen facts still match the recording, it plays a static clip; otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
  * Once the day's last booking is over the evening summary takes over and the brief steps aside.
  */
 export function MorningBrief({ className }: { className?: string }) {

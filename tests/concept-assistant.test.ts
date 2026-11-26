@@ -295,7 +295,10 @@ describe("briefs", () => {
 
   it("reacts to a cancellation, low stock and an upcoming holiday", () => {
     const ids = eventReactions(base, clock).map((i) => i.id.split("-")[0]);
-    expect(ids).toEqual(expect.arrayContaining(["cancel", "stock", "holiday"]));
+    expect(ids).toEqual(expect.arrayContaining(["cancel", "stock"]));
+    expect(ids).not.toContain("holiday");
+    const own = { ...base, industry: "foot" as const };
+    expect(eventReactions(own, clock).map((i) => i.id.split("-")[0])).toEqual(expect.arrayContaining(["cancel", "stock", "holiday"]));
   });
 
   it("gives a weekly review on Monday mornings and a closing brief after the last booking", () => {

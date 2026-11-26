@@ -255,7 +255,7 @@ describe("discovery and A2A", () => {
     };
     const { services } = await send({ action: "services" });
     expect(services.length).toBeGreaterThan(3);
-    const free = await send({ action: "availability", serviceId: services[0].id, date: addDays(today, 1) });
+    const free = await send({ action: "availability", serviceId: services[0].id, date: today });
     expect(free.staff[0].starts.length).toBeGreaterThan(0);
     expect((await send({ action: "book", serviceId: services[0].id })).bookingUrl).toContain(`/boka/salong-eko?service=${services[0].id}`);
     expect((await send({ action: "delete-everything" })).error.code).toBe("invalid_request");

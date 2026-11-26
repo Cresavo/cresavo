@@ -2,7 +2,12 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { morningBrief } from "@/concept/assistant/briefs";
 import { createDemoState } from "@/concept/data/generate";
-import { getActiveLocale, getVocabulary, setLocale, setVocabulary } from "@/concept/i18n";
+import {
+  getActiveLocale,
+  getVocabulary,
+  setLocale,
+  setVocabulary,
+} from "@/concept/i18n";
 import { packOf } from "@/concept/packs";
 import { dayBookings } from "@/concept/selectors";
 import { eveningRecap } from "@/concept/summary/day";
@@ -16,12 +21,21 @@ import {
   eveningBriefClipUrl,
   morningBriefClipUrl,
 } from "@/concept/studio/assistant/demo-brief-audio";
-import { canPlaySpeech, canSpeak, speak, stopSpeaking } from "@/concept/studio/assistant/speak";
+import {
+  canPlaySpeech,
+  canSpeak,
+  speak,
+  stopSpeaking,
+} from "@/concept/studio/assistant/speak";
 
 const today = DEMO_BRIEF_DAY;
 const morningClock = { today, minutes: 9 * 60 };
 const base = createDemoState(today);
-const lastEnd = Math.max(...dayBookings(base, today).map((booking) => booking.start + booking.duration));
+const lastEnd = Math.max(
+  ...dayBookings(base, today).map(
+    (booking) => booking.start + booking.duration,
+  ),
+);
 const eveningClock = { today, minutes: lastEnd };
 
 const previousLocale = getActiveLocale();
@@ -40,47 +54,127 @@ describe("recorded demo brief clips", () => {
     vi.unstubAllGlobals();
   });
 
-  it("still matches the 17 November 2026 Swedish Salong Eko demo", () => {
+  it("still matches the standard Swedish Salong Eko demo, on any day", () => {
     swedishDemo();
     const brief = morningBrief(base, morningClock);
-    expect(brief.items.map((item) => [item.id, item.text])).toEqual(RECORDED_MORNING_ITEMS.map(([id, text]) => [id, text]));
+    expect(brief.items.map((item) => item.text)).toEqual(
+      RECORDED_MORNING_ITEMS.map(([, text]) => text),
+    );
+    expect(brief.items[1].id).toMatch(/^cancel-/);
     const recap = eveningRecap(base, eveningClock);
     expect(recap.summary).toBe(RECORDED_EVENING_SUMMARY);
     expect(recap.highlights).toEqual([...RECORDED_EVENING_HIGHLIGHTS]);
+    for (const day of [
+      "2026-11-16",
+      "2026-11-18",
+      "2026-11-21",
+      "2026-11-26",
+    ]) {
+      const state = createDemoState(day);
+      const morning = morningBrief(state, { today: day, minutes: 9 * 60 });
+      expect(
+        morningBriefClipUrl(
+          morning,
+          { today: day, minutes: 9 * 60 },
+          state.generatedFor,
+        ),
+      ).toBe(MORNING_BRIEF_CLIP);
+      const end = Math.max(
+        ...dayBookings(state, day).map(
+          (booking) => booking.start + booking.duration,
+        ),
+      );
+      const evening = eveningRecap(state, { today: day, minutes: end });
+      expect(
+        eveningBriefClipUrl(evening, { today: day }, state.generatedFor),
+      ).toBe(EVENING_BRIEF_CLIP);
+    }
   });
 
   it("offers the morning clip only for that Swedish morning brief", () => {
     swedishDemo();
     const brief = morningBrief(base, morningClock);
-    expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBe(MORNING_BRIEF_CLIP);
+    expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBe(
+      MORNING_BRIEF_CLIP,
+    );
     setLocale("en");
-    expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBeNull();
+    expect(
+      morningBriefClipUrl(brief, morningClock, base.generatedFor),
+    ).toBeNull();
     swedishDemo();
-    expect(morningBriefClipUrl(brief, { today, minutes: 12 * 60 }, base.generatedFor)).toBeNull();
-    expect(morningBriefClipUrl(brief, { today: "2026-11-26", minutes: 9 * 60 }, base.generatedFor)).toBeNull();
+    expect(
+      morningBriefClipUrl(
+        brief,
+        { today, minutes: 12 * 60 },
+        base.generatedFor,
+      ),
+    ).toBeNull();
+    expect(
+      morningBriefClipUrl(
+        brief,
+        { today: "2026-11-26", minutes: 9 * 60 },
+        base.generatedFor,
+      ),
+    ).toBeNull();
     expect(morningBriefClipUrl(brief, morningClock, "2026-11-26")).toBeNull();
-    const withoutGaps = { ...brief, items: brief.items.filter((item) => item.id !== "gaps") };
-    expect(morningBriefClipUrl(withoutGaps, morningClock, base.generatedFor)).toBeNull();
+    const withoutGaps = {
+      ...brief,
+      items: brief.items.filter((item) => item.id !== "gaps"),
+    };
+    expect(
+      morningBriefClipUrl(withoutGaps, morningClock, base.generatedFor),
+    ).toBeNull();
   });
 
   it("offers the evening clip only for that Swedish recap", () => {
     swedishDemo();
     const recap = eveningRecap(base, eveningClock);
-    expect(eveningBriefClipUrl(recap, eveningClock, base.generatedFor)).toBe(EVENING_BRIEF_CLIP);
+    expect(eveningBriefClipUrl(recap, eveningClock, base.generatedFor)).toBe(
+      EVENING_BRIEF_CLIP,
+    );
     setLocale("en");
-    expect(eveningBriefClipUrl(recap, eveningClock, base.generatedFor)).toBeNull();
+    expect(
+      eveningBriefClipUrl(recap, eveningClock, base.generatedFor),
+    ).toBeNull();
     swedishDemo();
-    expect(eveningBriefClipUrl(recap, { today: "2026-11-26" }, base.generatedFor)).toBeNull();
-    expect(eveningBriefClipUrl({ ...recap, summary: "Dagens intäkter: 0 kr från 0 besök." }, eveningClock, base.generatedFor)).toBeNull();
+    expect(
+      eveningBriefClipUrl(recap, { today: "2026-11-26" }, base.generatedFor),
+    ).toBeNull();
+    expect(
+      eveningBriefClipUrl(
+        { ...recap, summary: "Dagens intäkter: 0 kr från 0 besök." },
+        eveningClock,
+        base.generatedFor,
+      ),
+    ).toBeNull();
     const otherDay = createDemoState("2026-11-26");
-    const otherEnd = Math.max(...dayBookings(otherDay, "2026-11-26").map((booking) => booking.start + booking.duration));
-    const other = eveningRecap(otherDay, { today: "2026-11-26", minutes: otherEnd });
-    expect(eveningBriefClipUrl(other, { today: "2026-11-26" }, otherDay.generatedFor)).toBeNull();
+    const otherEnd = Math.max(
+      ...dayBookings(otherDay, "2026-11-26").map(
+        (booking) => booking.start + booking.duration,
+      ),
+    );
+    const other = eveningRecap(otherDay, {
+      today: "2026-11-26",
+      minutes: otherEnd,
+    });
+    expect(
+      eveningBriefClipUrl(
+        other,
+        { today: "2026-11-26" },
+        otherDay.generatedFor,
+      ),
+    ).toBe(EVENING_BRIEF_CLIP);
   });
 
   it("keeps the pre-rendered clips as small local mp3 files, with no runtime TTS in the source", () => {
-    const morning = new URL("../public/demo/brief/morning-elin.mp3", import.meta.url);
-    const evening = new URL("../public/demo/brief/evening-elin.mp3", import.meta.url);
+    const morning = new URL(
+      "../public/demo/brief/morning-elin.mp3",
+      import.meta.url,
+    );
+    const evening = new URL(
+      "../public/demo/brief/evening-elin.mp3",
+      import.meta.url,
+    );
     expect(existsSync(morning)).toBe(true);
     expect(existsSync(evening)).toBe(true);
     expect(statSync(morning).size).toBeGreaterThan(50_000);
@@ -88,12 +182,35 @@ describe("recorded demo brief clips", () => {
     expect(statSync(evening).size).toBeGreaterThan(50_000);
     expect(statSync(evening).size).toBeLessThan(400_000);
     const source = [
-      readFileSync(new URL("../src/concept/studio/assistant/demo-brief-audio.ts", import.meta.url), "utf8"),
-      readFileSync(new URL("../src/concept/studio/assistant/speak.ts", import.meta.url), "utf8"),
-      readFileSync(new URL("../src/concept/studio/today/morning-brief.tsx", import.meta.url), "utf8"),
-      readFileSync(new URL("../src/concept/studio/today/evening-summary.tsx", import.meta.url), "utf8"),
+      readFileSync(
+        new URL(
+          "../src/concept/studio/assistant/demo-brief-audio.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFileSync(
+        new URL("../src/concept/studio/assistant/speak.ts", import.meta.url),
+        "utf8",
+      ),
+      readFileSync(
+        new URL(
+          "../src/concept/studio/today/morning-brief.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFileSync(
+        new URL(
+          "../src/concept/studio/today/evening-summary.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
     ].join("\n");
-    expect(source).not.toMatch(/api\.elevenlabs|api\.openai|ELEVENLABS_API_KEY|OPENAI_API_KEY/);
+    expect(source).not.toMatch(
+      /api\.elevenlabs|api\.openai|ELEVENLABS_API_KEY|OPENAI_API_KEY/,
+    );
   });
 });
 
@@ -121,7 +238,9 @@ describe("speech with a pre-rendered clip", () => {
     }
   }
 
-  function mockWorld(options: { speech?: boolean; play?: () => Promise<void> } = {}) {
+  function mockWorld(
+    options: { speech?: boolean; play?: () => Promise<void> } = {},
+  ) {
     FakeAudio.instances = [];
     playClip = options.play ?? (() => Promise.resolve());
     const spoken: Utterance[] = [];
@@ -137,7 +256,8 @@ describe("speech with a pre-rendered clip", () => {
     }
     vi.stubGlobal("window", window);
     vi.stubGlobal("Audio", FakeAudio);
-    if (options.speech !== false) vi.stubGlobal("SpeechSynthesisUtterance", Utterance);
+    if (options.speech !== false)
+      vi.stubGlobal("SpeechSynthesisUtterance", Utterance);
     return { synth, spoken };
   }
 
@@ -159,7 +279,9 @@ describe("speech with a pre-rendered clip", () => {
   });
 
   it("falls back to the browser voice when the clip cannot be played", async () => {
-    const { spoken } = mockWorld({ play: () => Promise.reject(new Error("failed to play")) });
+    const { spoken } = mockWorld({
+      play: () => Promise.reject(new Error("failed to play")),
+    });
     const onEnd = vi.fn();
     expect(speak("Morgonöversikt.", onEnd, MORNING_BRIEF_CLIP)).toBe(true);
     await vi.waitFor(() => expect(spoken).toHaveLength(1));
