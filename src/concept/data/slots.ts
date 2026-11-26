@@ -41,6 +41,8 @@ export const needOf = (service: Pick<Service, "id" | "duration"> & VisitTiming):
 /** Opening hours of a day; null when the weekday is closed or the day is a closure. */
 export function openingFor(salon: Salon, date: DateKey) {
   if (salon.closures.some((c) => c.date === date) || (salon.bookableUntil && date > salon.bookableUntil)) return null;
+  const opening = salon.openings?.find((item) => item.date === date);
+  if (opening) return { open: opening.open, close: opening.close };
   return salon.hours[weekday(date)] ?? null;
 }
 

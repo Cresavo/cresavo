@@ -2802,6 +2802,7 @@ const messages = {
   "calendar.rooms": "Rooms",
   "calendar.allRooms": "All rooms",
   "calendar.staff": "Staff",
+  "calendar.withStaff": "with {name}",
   "booking.room": "Room",
 
   "resources.title": "Rooms and chairs",

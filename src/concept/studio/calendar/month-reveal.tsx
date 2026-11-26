@@ -67,7 +67,7 @@ export function MonthReveal({ heading, toolbar, date, today, onPick, info }: Mon
         </Button>
       </div>
       {present && (
-        <div id={id} data-closing={!open || undefined} className="studio-month-reveal studio-swipe pb-2 pt-2"
+        <div id={id} data-closing={!open || undefined} className="studio-month-reveal studio-swipe border-b border-hairline pb-4 pt-2"
           onAnimationEnd={(event) => { if (!open && event.target === event.currentTarget) setPresent(false); }}>
           <MonthGrid month={month} today={today} selected={date} label={t("calendar.month.days")}
             onMonth={(next) => setBrowse({ from: date, month: next })}
