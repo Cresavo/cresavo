@@ -25,7 +25,6 @@ import {
   RECORDED_MORNING_ITEMS,
   eveningBriefClipUrl,
   morningBriefClipUrl,
-  recordedMorningBrief,
 } from "@/concept/studio/assistant/demo-brief-audio";
 import {
   canPlaySpeech,
@@ -120,16 +119,13 @@ describe("recorded demo brief clips", () => {
     expect(workWindow(edited, pinned!.staffId, "2026-11-21")).not.toEqual({ start: 9 * 60, end: 18 * 60 });
   });
 
-  it("hides a holiday line on the card only when the Elin clip will play", () => {
+  it("keeps an upcoming holiday on the card while the Elin clip can still play", () => {
     swedishDemo();
     const brief = morningBrief(base, morningClock);
     expect(brief.items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
-    const shown = recordedMorningBrief(brief, morningClock, base.generatedFor);
-    expect(shown.items.some((item) => item.id.startsWith("holiday-"))).toBe(false);
-    expect(morningBriefClipUrl(shown, morningClock, base.generatedFor)).toBe(MORNING_BRIEF_CLIP);
-    expect(recordedMorningBrief(brief, { today, minutes: 12 * 60 }, base.generatedFor).items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBe(MORNING_BRIEF_CLIP);
     const edited = { ...brief, items: brief.items.filter((item) => item.id !== "gaps") };
-    expect(recordedMorningBrief(edited, morningClock, base.generatedFor).items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    expect(edited.items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
     expect(morningBriefClipUrl(edited, morningClock, base.generatedFor)).toBeNull();
   });
 

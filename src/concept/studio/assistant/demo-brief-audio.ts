@@ -6,8 +6,9 @@ import { getActiveLocale } from "../../i18n";
 // facts are the same on any weekday, written relative to today, with no
 // weekday or calendar date in the recording. They are static files, with no
 // ElevenLabs or OpenAI call at runtime. The clip is used only when the
-// on-screen brief still has those exact facts; otherwise the browser reads
-// the live text.
+// on-screen brief still has those facts (an upcoming holiday is ignored,
+// because its wording changes with the date); otherwise the browser reads
+// the live text, holiday included.
 
 /** A stable demo day used by tests; the recordings themselves are not tied to it. */
 export const DEMO_BRIEF_DAY: DateKey = "2026-11-17";
@@ -61,19 +62,6 @@ function matchesRecordedMorning(brief: Brief) {
     if (item.text !== text) return false;
     return id.endsWith("-") ? item.id.startsWith(id) : item.id === id;
   });
-}
-
-/**
- * When the Elin morning clip will play, drop the changing holiday line so the card shows the same facts as the recording.
- * If the clip is not eligible, the live brief is left alone, holiday included, and the browser reads it.
- */
-export function recordedMorningBrief(
-  brief: Brief,
-  clock: { today: string; minutes: number },
-  generatedFor: string,
-): Brief {
-  if (!morningBriefClipUrl(brief, clock, generatedFor)) return brief;
-  return { ...brief, items: brief.items.filter((item) => !item.id.startsWith("holiday-")) };
 }
 
 /** The morning Elin clip, or null when the live brief no longer matches the recording. */
