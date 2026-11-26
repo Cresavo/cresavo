@@ -57,7 +57,8 @@ export function EveningSummaryView({ recap, speakable, speaking, onToggle }: Vie
  */
 export function EveningSummary() {
   const { state, today, minutes } = useStudio();
-  const due = taskEnabled(state.modules, "daily-summary") && summaryDue(state, { today, minutes });
+  const summaryOn = taskEnabled(state.modules, "daily-summary");
+  const due = summaryOn && summaryDue(state, { today, minutes });
   const recap = useMemo(() => {
     const lastEnd = Math.max(0, ...dayBookings(state, today).map((booking) => booking.start + booking.duration));
     // Before closing, use the end-of-day figures so the recorded evening reading can still match.
@@ -86,15 +87,15 @@ export function EveningSummary() {
     speakingNow.current = speaking;
   }, [speaking]);
   useEffect(() => {
-    if (due || clip || !speakingNow.current) return;
+    if ((summaryOn && (due || clip)) || !speakingNow.current) return;
     turn.current += 1;
     stopSpeaking();
     setSpeaking(false);
-  }, [due, clip]);
+  }, [summaryOn, due, clip]);
   useEffect(() => () => {
     if (speakingNow.current) stopSpeaking();
   }, []);
 
-  if (!due && !clip) return null;
+  if (!summaryOn || (!due && !clip)) return null;
   return <EveningSummaryView recap={recap} speakable={speakable} speaking={speaking} onToggle={toggle} />;
 }
