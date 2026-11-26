@@ -29,7 +29,8 @@ export function createNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function contentSecurityPolicy(nonce: string, pathname: string, production = process.env.NODE_ENV === "production"): string {
+/** `connect` lists further origins scripts may call; the phone receptionist's test call adds the Realtime API for the studio. */
+export function contentSecurityPolicy(nonce: string, pathname: string, production = process.env.NODE_ENV === "production", connect: readonly string[] = []): string {
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -43,6 +44,6 @@ export function contentSecurityPolicy(nonce: string, pathname: string, productio
     // Journal recordings in the concept demo play from object URLs made in this tab.
     "media-src 'self' blob:",
     "font-src 'self'",
-    `connect-src 'self'${production ? "" : " ws://localhost:* ws://127.0.0.1:*"}`,
+    `connect-src 'self'${connect.map((origin) => ` ${origin}`).join("")}${production ? "" : " ws://localhost:* ws://127.0.0.1:*"}`,
   ].join("; ");
 }

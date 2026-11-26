@@ -11,6 +11,7 @@ import { productSiteOrigin } from "./concept/site/origin";
 import { siteRequestHost } from "./concept/site/request-host";
 import { galleryAvailable } from "./concept/server/gallery";
 import { conceptRoute } from "./concept/page/language";
+import { REALTIME_ORIGIN, receptionistEnabled, STUDIO_PERMISSIONS_WITH_MICROPHONE } from "./concept/receptionist/flag";
 import { isProductHome, routeHost, UNKNOWN_PATH, type HostRoute } from "./concept/page/resolve";
 
 /** Consume the explicit demo link before rendering. The product site's demo buttons say which language the visitor
@@ -32,18 +33,21 @@ function demoLanguageEntry(request: NextRequest) {
   return response;
 }
 
-type Csp = { nonce: string; policy: string; frame: "DENY" | "SAMEORIGIN" | null };
+type Csp = { nonce: string; policy: string; frame: "DENY" | "SAMEORIGIN" | null; microphone: boolean };
 
 function pageCsp(pathname: string): Csp | undefined {
   if (cspExempt(pathname)) return;
   const nonce = createNonce();
-  return { nonce, policy: contentSecurityPolicy(nonce, pathname), frame: frameOptions(pathname) };
+  // Only with the phone receptionist switched on may the studio use the microphone and reach the Realtime API (its browser test call).
+  const microphone = receptionistEnabled() && conceptRoute(pathname) === "studio";
+  return { nonce, policy: contentSecurityPolicy(nonce, pathname, undefined, microphone ? [REALTIME_ORIGIN] : []), frame: frameOptions(pathname), microphone };
 }
 
 /** The framing and script policy of a page, on the response. */
 function setCspHeaders(response: Response, csp: Csp) {
   response.headers.set("Content-Security-Policy", csp.policy);
   if (csp.frame) response.headers.set("X-Frame-Options", csp.frame);
+  if (csp.microphone) response.headers.set("Permissions-Policy", STUDIO_PERMISSIONS_WITH_MICROPHONE);
 }
 
 /** Rendering reads the nonce from the request headers; never trust client-supplied values. */
