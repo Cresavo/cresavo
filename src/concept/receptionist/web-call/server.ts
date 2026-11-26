@@ -7,6 +7,7 @@ import { webCallInstructions, type WebCallSalon } from "./persona";
 import { estimateResponseCost, ratesFor, type CallLimits, type RealtimeUsage } from "../limits";
 import { salonWith, teamWith } from "../../packs/base";
 import { callRecorder, type CallReport } from "./report";
+import { demoSalonFacts } from "./facts";
 
 // The server half of the public web call. The browser sends its WebRTC offer
 // here; this server adds the session (model, rules, tools) and exchanges the
@@ -41,11 +42,11 @@ export function demoWebCallSalon(language: "sv" | "en"): WebCallSalon {
 }
 
 /** The Realtime session of a web call: the receptionist's session, with the web-call voice, model and turn-taking. */
-export function webCallSession(salon: WebCallSalon, model: string) {
+export function webCallSession(salon: WebCallSalon, model: string, facts = "") {
   const base = realtimeSession({ salonName: salon.salonName, language: salon.language, greeting: "", model });
   return {
     ...base,
-    instructions: webCallInstructions(salon),
+    instructions: webCallInstructions(salon, facts),
     // Quick to answer; the salon's tools do the thinking that matters.
     reasoning: { effort: "low" },
     audio: {
@@ -123,7 +124,7 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
   const limits = webCallLimits(env);
   // The page's salon names are display only: the rules are built from the demo salon's own data on the server,
   // so a crafted name cannot write into Maja's instructions or make her another business.
-  const session = webCallSession(demoWebCallSalon(input.salon.language), model);
+  const session = webCallSession(demoWebCallSalon(input.salon.language), model, demoSalonFacts(new Date(now())));
   const form = new FormData();
   form.set("sdp", input.sdp);
   form.set("session", JSON.stringify(session));

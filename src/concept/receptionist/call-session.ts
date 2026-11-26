@@ -13,6 +13,9 @@ import { MAX_LINE_LENGTH, MAX_TRANSCRIPT_LINES, type CallChannel, type CallEnd, 
 // says when to hang up.
 
 /** A Realtime server event, as far as the session reads it. */
+/** Appended to an answer the caller talked over: it was not heard to the end. */
+export const CUT_MARK = " …";
+
 export interface ServerEvent {
   type: string;
   transcript?: string;
@@ -88,6 +91,11 @@ export class ReceptionistCall {
     return this.ended !== undefined;
   }
 
+  private markCut() {
+    const last = [...this.transcript].reverse().find((line) => line.who === "receptionist");
+    if (last && !last.text.endsWith(CUT_MARK)) last.text = `${last.text.slice(0, MAX_LINE_LENGTH - CUT_MARK.length)}${CUT_MARK}`;
+  }
+
   private say(who: TranscriptLine["who"], text: string | undefined) {
     const clean = plainText(text ?? "", MAX_LINE_LENGTH);
     if (clean && this.transcript.length < MAX_TRANSCRIPT_LINES) this.transcript.push({ who, text: clean, at: this.seconds });
@@ -132,6 +140,11 @@ export class ReceptionistCall {
         return { send: [] };
       case "response.done":
         return this.responseDone(event);
+      // The caller talked over her: the rest of that answer was never heard (OpenAI drops it from the context too).
+      // Its written line still holds the whole answer, so the log marks it as cut off.
+      case "conversation.item.truncated":
+        this.markCut();
+        return { send: [] };
       default:
         return { send: [] };
     }

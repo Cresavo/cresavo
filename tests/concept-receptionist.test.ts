@@ -7,7 +7,7 @@ import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf, openingFor } from "@/concept/data/slots";
 import type { DemoState } from "@/concept/data/types";
 import { receptionistSettings } from "@/concept/receptionist/actions";
-import { ReceptionistCall, type ServerEvent } from "@/concept/receptionist/call-session";
+import { CUT_MARK, ReceptionistCall, type ServerEvent } from "@/concept/receptionist/call-session";
 import { Elks46NotConnected, elks46Transport } from "@/concept/receptionist/elks46";
 import { STUDIO_PERMISSIONS_WITH_MICROPHONE } from "@/concept/receptionist/flag";
 import { studioStoreHost } from "@/concept/receptionist/host";
@@ -264,6 +264,14 @@ describe("receptionist call session", () => {
     const item = step.send[0].item as { type: string; call_id: string; output: string };
     expect(item).toMatchObject({ type: "function_call_output", call_id: "c-get_salon_info" });
     expect(JSON.parse(item.output)).toMatchObject({ ok: true });
+  });
+
+  it("marks a reply the caller cut off, so the log does not show words that were never heard", async () => {
+    const { session } = call();
+    await session.handle({ type: "response.output_audio_transcript.done", transcript: "Då är det bokat. Nu behöver jag också ditt namn" });
+    await session.handle({ type: "conversation.item.truncated" });
+    await session.handle({ type: "conversation.item.truncated" });
+    expect(session.record().transcript.at(-1)!.text).toBe(`Då är det bokat. Nu behöver jag också ditt namn${CUT_MARK}`);
   });
 
   it("keeps the transcript and records a booked call", async () => {
