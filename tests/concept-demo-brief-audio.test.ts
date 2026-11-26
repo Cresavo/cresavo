@@ -11,7 +11,9 @@ import {
 } from "@/concept/i18n";
 import { packOf } from "@/concept/packs";
 import { publicSalonView } from "@/concept/booking/public-projection";
+import { dateInWeek } from "@/concept/data/dates";
 import { openingFor } from "@/concept/data/slots";
+import { getBusiness } from "@/concept/tools/read";
 import { dayBookings } from "@/concept/selectors";
 import { eveningRecap } from "@/concept/summary/day";
 import {
@@ -102,6 +104,9 @@ describe("recorded demo brief clips", () => {
     const publicSaturday = publicSalonView(saturday, new Date("2026-11-21T09:00:00+01:00"));
     expect(openingFor(publicSaturday.salon, "2026-11-22")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(publicSaturday.salon, "2026-11-29")).toBeNull();
+    expect(openingFor(publicSaturday.salon, dateInWeek("2026-11-21", 0))).toEqual({ open: 9 * 60, close: 18 * 60 });
+    const hours = getBusiness.run({ state: saturday, clock: { today: "2026-11-21", minutes: 9 * 60 } }, {}).openingHours;
+    expect(hours.find((row) => row.day === "Sunday")).toEqual({ day: "Sunday", open: "09:00", close: "18:00" });
     const friday = createDemoState("2026-11-20");
     expect(openingFor(friday.salon, "2026-11-21")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(friday.salon, "2026-11-28")).toEqual({ open: 10 * 60, close: 15 * 60 });
