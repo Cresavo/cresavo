@@ -5,7 +5,7 @@ import type { HelpEntry } from "./types";
 // (tests/concept-e2e/help-map.spec.ts). Add an entry and its anchor together, with its caption and search words in
 // both dictionaries (`src/concept/i18n/show-me-*.ts`).
 
-type Extra = Pick<HelpEntry, "global" | "module" | "viewport" | "prefer" | "pointOnly">;
+type Extra = Pick<HelpEntry, "global" | "module" | "viewport" | "prefer" | "pointOnly" | "empty">;
 
 const go = (id: string, route: string, path: readonly string[], label: HelpEntry["label"], extra: Extra = {}): HelpEntry =>
   ({ id, route, path, safety: "navigate", label, ...extra });
@@ -64,7 +64,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
   go("calendar.previous", CALENDAR, ["nav.calendar"], "calendar.previous"),
   go("calendar.next", CALENDAR, ["nav.calendar"], "calendar.next"),
   go("calendar.options", CALENDAR, ["nav.calendar"], "calendar.options"),
-  go("calendar.booking", CALENDAR, ["nav.calendar"], "showMe.calendar.booking.label"),
+  go("calendar.booking", CALENDAR, ["nav.calendar"], "showMe.calendar.booking.label", { empty: { pointAt: ["calendar.next", "calendar.new-booking"] } }),
   change("booking.move", CALENDAR, toBooking, "showMe.booking.move.label", { prefer: "upcoming" }),
   change("booking.cancel", CALENDAR, toBooking, "booking.cancel", { prefer: "upcoming" }),
   change("booking.take-payment", CALENDAR, toBooking, "register.take", { prefer: "past" }),
@@ -73,7 +73,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
 
   // Customers, a customer's card and importing.
   go("customers.search", CUSTOMERS, ["nav.customers"], "showMe.customers.search.label"),
-  go("customers.row", CUSTOMERS, ["nav.customers"], "showMe.customers.row.label"),
+  go("customers.row", CUSTOMERS, ["nav.customers"], "showMe.customers.row.label", { empty: { pointAt: ["customers.search", "customers.import"] } }),
   go("customers.import", CUSTOMERS, ["nav.customers"], "import.title"),
   change("customer.book", CUSTOMER, toCustomer, "showMe.customer.book.label"),
   go("customer.actions", CUSTOMER, toCustomer, "customer.rights.title"),
@@ -86,7 +86,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
 
   // Inbox.
   go("inbox.filters", INBOX, ["nav.inbox"], "inbox.filter", { pointOnly: true }),
-  go("inbox.message", INBOX, ["nav.inbox"], "showMe.inbox.message.label"),
+  go("inbox.message", INBOX, ["nav.inbox"], "showMe.inbox.message.label", { empty: { pointAt: ["inbox.filters"] } }),
   change("inbox.reply", INBOX, ["nav.inbox", "inbox.message"], "showMe.inbox.reply.label"),
   change("inbox.mark-all-read", INBOX, ["nav.inbox"], "inbox.markAllRead"),
 
@@ -107,7 +107,7 @@ export const HELP_MAP: readonly HelpEntry[] = [
   // Business pages under More.
   change("services.add", "/studio/more/services", ["nav.more", "more.services"], "services.add"),
   change("services.categories", "/studio/more/services", ["nav.more", "more.services"], "services.categories"),
-  go("services.treatment", "/studio/more/services", ["nav.more", "more.services"], "showMe.services.treatment.label"),
+  go("services.treatment", "/studio/more/services", ["nav.more", "more.services"], "showMe.services.treatment.label", { empty: { pointAt: ["services.add"] } }),
   change("booking-page.editor", "/studio/more/booking-page", ["nav.more", "more.booking-page"], "showMe.booking-page.editor.label"),
   go("booking-page.open", "/studio/more/booking-page", ["nav.more", "more.booking-page"], "pageEditor.open"),
   change("staff.edit-week", "/studio/more/staff", ["nav.more", "more.staff"], "schedule.editWeek"),

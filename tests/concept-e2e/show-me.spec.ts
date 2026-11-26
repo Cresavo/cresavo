@@ -121,3 +121,30 @@ test("with only visits still to come, Take payment points at an earlier day inst
   await expect(card.getByRole("heading", { name: "A booking" })).toBeVisible();
   await expect(card.getByText("Take payment is on a visit that has finished.")).toHaveCount(0);
 });
+
+test("on a day without bookings the guide points at another day and carries on when one has some", async ({ page }) => {
+  // The demo has bookings around today only: a day next spring has none.
+  await page.goto("/studio/calendar?date=2027-03-01");
+  await expect(page.getByRole("heading", { name: "Monday 1 March" })).toBeVisible();
+  await expect(page.locator('[data-help-id="calendar.booking"]')).toHaveCount(0);
+  await page.locator('[data-help-id="shell.help"]:visible').first().click();
+  const question = page.getByLabel("What do you want to do?");
+  await question.fill("open a booking");
+  await question.press("Enter");
+  await page.getByRole("button", { name: /^Show me: A booking/ }).click();
+
+  const card = page.locator(".studio-show-me-card");
+  await card.getByRole("button", { name: "Take me there" }).click();
+  await expect(card.getByText("There are no bookings on this day.")).toBeVisible();
+  await expect(card.getByText("Change the day to find one.")).toBeVisible();
+  await expect(card.getByText(/is not on this screen/)).toHaveCount(0);
+  await expect(page.locator('[data-help-id="calendar.next"][data-tour-active]:visible')).toHaveCount(1);
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+
+  // Back to today, which has bookings: the guide carries on by itself.
+  await page.locator('[data-help-id="calendar.options"]:visible').click();
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(page.locator('[data-help-id="calendar.booking"][data-tour-active]').first()).toBeVisible();
+  await expect(card.getByText("Tap a booking to open its details.")).toBeVisible();
+  await expect(card.getByText("There are no bookings on this day.")).toHaveCount(0);
+});

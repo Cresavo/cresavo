@@ -4,9 +4,10 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type R
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { helpSteps } from "../../help/map/entries";
+import { helpEntry, helpSteps } from "../../help/map/entries";
 import type { HelpEntry } from "../../help/map/types";
-import { ANOTHER_DAY, clickFor, clickTarget, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
+import { clickFor, clickTarget, findAnchor, mayClickFor, onRoute } from "../../help/pointer/dom";
+import { steerFor, type Steer } from "../../help/pointer/steer";
 import { moveShowMe, stopShowMe, useShowMe } from "../../help/pointer/store";
 import { t, type MessageKey } from "../../i18n";
 import { moduleEnabled } from "../../modules/registry";
@@ -21,6 +22,8 @@ const POLL_MS = 120;
 /** How long a clicked step may take to show the next element before the guide opens its page itself. */
 const NAVIGATE_AFTER_MS = 700;
 const GIVE_UP_MS = 4500;
+/** How long a page with nothing to point at is given to draw its list before the guide calls it empty. */
+const EMPTY_AFTER_MS = 1500;
 const GAP = 12;
 
 /** The "Show me" guide: a dot and an outline on the element, and a caption card with the steps. Mounted once by the shell. */
@@ -44,8 +47,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const last = index === steps.length - 1;
   const [found, setFound] = useState<Found | null>(null);
   const [missing, setMissing] = useState<number | null>(null);
-  /** A step with no visit of the kind asked for on screen: the guide points at another day instead. */
-  const [unmatched, setUnmatched] = useState<number | null>(null);
+  /** A step whose list has nothing fitting on screen: the guide explains and points elsewhere (another day, Import). */
+  const [steer, setSteer] = useState<{ index: number; plan: Steer } | null>(null);
   /** A step whose press did not go through: from then on the guide only points at it. */
   const [unpressable, setUnpressable] = useState<number | null>(null);
   // Going back past a step this layout does not have (the phone's tab bar on a desktop) skips it the same way.
@@ -53,42 +56,52 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const blocker: "module" | "owner" | null = step.module && !moduleEnabled(state.modules, step.module) ? "module"
     : !canOpen(role, step.route) ? "owner" : null;
   const target = found?.index === index ? found.element : null;
-  const steering = unmatched === index;
+  const steering = steer?.index === index ? steer.plan : null;
 
   const go = (next: number) => {
     direction.current = next < index ? -1 : 1;
     setMissing(null);
-    setUnmatched(null);
+    setSteer(null);
     moveShowMe(next);
   };
+
+  /** The step whose list was empty when the owner was pointed elsewhere; leaving its page ends the guide. */
+  const steeredStep = useRef<number | null>(null);
 
   // Find the step's element; open its page when it does not turn up by itself.
   useEffect(() => {
     if (blocker) return;
+    // The owner took the way the guide pointed to instead (Import, another page): that is where they meant to go.
+    if (steeredStep.current === index && !onRoute(pathname, step.route)) return stopShowMe();
     let timer = 0;
     let opened = false;
     // Counted rather than read from the clock, which a page (or a test) may hold still.
     let waited = 0;
-    let steered = false;
+    let steered: Steer | null = null;
+    const visible = (ids: readonly string[]) =>
+      ids.map((id) => findAnchor(id)).find((lookup): lookup is { element: HTMLElement } => typeof lookup === "object")?.element ?? null;
     const look = () => {
       const result = findAnchor(step.id, entry.prefer);
       if (typeof result === "object") {
         setMissing(null);
-        setUnmatched(null);
+        setSteer(null);
         return setFound({ index, element: result.element });
       }
-      if (entry.prefer && (result === "unmatched" || steered)) {
-        // No visit of the kind asked for here: never open another kind. Point at the next or previous day, and go on
-        // by ourselves when one shows up or the owner opens a fitting visit.
-        steered = true;
-        setUnmatched(index);
+      const onPage = onRoute(pathname, step.route);
+      steered ??= steerFor(step, entry, result, { onPage, settled: waited >= EMPTY_AFTER_MS || !!visible(step.empty?.pointAt ?? []) });
+      if (steered) {
+        // Nothing fitting in the list here (no finished visit, an empty day, no customers yet): never open the wrong
+        // thing. Explain, point at the way to find one, and go on by ourselves when it shows up or the owner opens it.
+        const plan = steered;
+        steeredStep.current = index;
+        setMissing(null);
+        setSteer((current) => (current?.index === index && current.plan === plan ? current : { index, plan }));
         const ahead = steps[index + 1];
         if (ahead && typeof findAnchor(ahead.id) === "object") {
           direction.current = 1;
           return moveShowMe(index + 1);
         }
-        const day = findAnchor(ANOTHER_DAY[entry.prefer]);
-        const element = typeof day === "object" ? day.element : null;
+        const element = visible(plan.pointAt);
         setFound((current) => (current?.index === index && current.element === element ? current : element && { index, element }));
         timer = window.setTimeout(look, POLL_MS * 2);
         return;
@@ -105,14 +118,14 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
         router.push(step.route);
       }
       // Say so after a while, but keep looking: a slow page or a sheet the owner opens still brings it.
-      if (waited > GIVE_UP_MS) setMissing(index);
+      if (waited > GIVE_UP_MS && result !== "blocked") setMissing(index);
       const pause = waited > GIVE_UP_MS ? POLL_MS * 4 : POLL_MS;
       waited += pause;
       timer = window.setTimeout(look, pause);
     };
     look();
     return () => window.clearTimeout(timer);
-  }, [blocker, entry.prefer, index, pathname, router, step, steps]);
+  }, [blocker, entry, index, pathname, router, step, steps]);
 
   const heading = useRef<HTMLHeadingElement>(null);
   const hintId = useId();
@@ -130,8 +143,12 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
     target.setAttribute("aria-describedby", [described, hintId].filter(Boolean).join(" "));
     heading.current?.focus({ preventScroll: true });
     const followed = () => {
-      // The other day's arrow only changes the day; the guide goes on once a fitting visit is there.
-      if (steering) return;
+      // Another day's arrow only changes the day, and the guide goes on once a fitting visit is there. Pressing
+      // something that starts a change instead (New booking, Add treatment) ends the guide: the owner has taken over.
+      if (steering) {
+        if (helpEntry(target.dataset.helpId ?? "")?.safety === "changes-data") stopShowMe();
+        return;
+      }
       if (last) stopShowMe();
       else if (mayClickFor(step)) {
         direction.current = 1;
@@ -155,7 +172,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      // While the owner works in a sheet of their own, Escape closes that sheet, not the guide.
+      if (event.key !== "Escape" || aside(topLayer(), target)) return;
       event.preventDefault();
       event.stopPropagation();
       stopShowMe();
@@ -168,7 +186,8 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
   const card = useRef<HTMLElement>(null);
   const origin = useRef<HTMLSpanElement>(null);
   const place = usePlacement(target, card, origin);
-  if (!place.host) return null;
+  // The owner opened a sheet of their own (calendar options, a booking): step aside until it closes, never cover it.
+  if (!place.host || aside(place.host, target)) return null;
 
   const changes = !mayClickFor(step);
   // "Take me there" only when the element is one control now; a group, or a press that failed, is only pointed at.
@@ -200,8 +219,10 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
       </div>
       <h2 id={headingId} ref={heading} tabIndex={-1} style={{ outline: "none" }} className="text-h3 font-semibold">{label}</h2>
       <div aria-live="polite" className="space-y-2">
-        {steering && entry.prefer ? (
-          <FriendlyNotice message={friendlyMessage({ what: `showMe.unmatched.${entry.prefer}.what`, next: `showMe.unmatched.${entry.prefer}.next` }, { label: t(entry.label) })} />
+        {steering ? (
+          <FriendlyNotice message={steering.kind === "unmatched" && entry.prefer
+            ? friendlyMessage({ what: `showMe.unmatched.${entry.prefer}.what`, next: `showMe.unmatched.${entry.prefer}.next` }, { label: t(entry.label) })
+            : friendlyMessage({ what: `showMe.${step.id}.empty.what` as MessageKey, next: `showMe.${step.id}.empty.next` as MessageKey })} />
         ) : blocker || missing === index ? (
           <Blocked step={step} reason={blocker ?? "missing"} />
         ) : (
@@ -216,7 +237,7 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
         {index > 0 && <Button variant="secondary" size="sm" onClick={() => go(index - 1)}>{t("showMe.back")}</Button>}
         {control && <Button size="sm" onClick={takeMe}>{t("showMe.takeMe")}</Button>}
         {pointing && !last && <Button size="sm" onClick={() => go(index + 1)}>{t("showMe.next")}</Button>}
-        {last && !control && !steering && <Button size="sm" variant={target ? "primary" : "secondary"} onClick={finish}>{t("showMe.done")}</Button>}
+        {(last || steering) && !control && <Button size="sm" variant={target ? "primary" : "secondary"} onClick={finish}>{t("showMe.done")}</Button>}
       </div>
     </section>
   </>, place.host);
@@ -236,6 +257,11 @@ interface Placement {
   host: HTMLElement | null;
   card: CSSProperties;
   dot?: CSSProperties;
+}
+
+/** A sheet is open on top that does not hold what the guide points at. */
+function aside(host: HTMLElement, target: HTMLElement | null): boolean {
+  return host instanceof HTMLDialogElement && !(target && host.contains(target));
 }
 
 /** The open modal dialog on top, which keeps the rest of the page out of reach, or the studio. */

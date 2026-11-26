@@ -32,4 +32,10 @@ export interface HelpEntry {
    * and the owner picks within it. "Show me" never presses it, and it is never a step on the way to another entry.
    */
   pointOnly?: true;
+  /**
+   * The element is one item of a list that can be empty (a day without bookings, no customers yet). When the page
+   * is there but the list is not, the guide says so calmly (`showMe.<id>.empty.what` and `.next`) and points at the
+   * first of these entries that is on screen, such as the next day or Import.
+   */
+  empty?: { pointAt: readonly string[] };
 }

@@ -152,7 +152,7 @@ function LocalCalendar({ switchCalendar, requestedDate }: { switchCalendar?: Rea
       <PageHeader title={t("calendar.title")} actions={switchCalendar} />
       <EmptyState icon={<CalendarPlus size={22} />} title={t("setup.empty.calendar")}
         action={state.services.length
-          ? <Button disabled={offline} onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
+          ? <Button data-help-id="calendar.new-booking" disabled={offline} onClick={() => setSheet({ kind: "new", preset: { date, staffId: viewer?.id } })}>{t("calendar.newBooking")}</Button>
           : <ButtonLink href="/studio/more/services">{t("services.add")}</ButtonLink>} />
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>;

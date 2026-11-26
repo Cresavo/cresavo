@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { HELP_MAP, helpEntry, helpSteps } from "@/concept/help/map/entries";
 import { ANOTHER_DAY, clickFor, clickTarget, findAnchor, INTERACTIVE, mayClickFor, onRoute, ShowMeRefusal } from "@/concept/help/pointer/dom";
+import { steerFor } from "@/concept/help/pointer/steer";
 import { moveShowMe, startShowMe, stopShowMe } from "@/concept/help/pointer/store";
+import { en } from "@/concept/i18n/en";
+import { sv } from "@/concept/i18n/sv";
 import { setupGaps } from "@/concept/help/setup-gaps";
 import { showMeTool } from "@/concept/help/show-me-tool";
 import { friendlyMessage, friendlyText } from "@/concept/ui/friendly-copy";
@@ -47,7 +50,7 @@ describe("Show me never presses what changes data", () => {
 describe("finding the element to point at", () => {
   // A stand-in page: visits on screen with their state, and no open dialog.
   const visit = (helpState?: string, shown = true) => ({ dataset: { helpState }, getClientRects: () => (shown ? [{}] : []), closest: () => null });
-  const page = (...elements: ReturnType<typeof visit>[]) => ({
+  const page = (...elements: object[]) => ({
     querySelectorAll: (selector: string) => (selector.startsWith("dialog") ? [] : elements),
   }) as unknown as Pick<Document, "querySelectorAll">;
 
@@ -63,16 +66,55 @@ describe("finding the element to point at", () => {
     expect(findAnchor("calendar.booking", "past", page(visit("upcoming"), visit("past", false)))).toBe("unmatched");
   });
 
-  it("ignores prefer for elements without a state, and tells absent from hidden", () => {
+  it("ignores prefer for elements without a state, and tells absent, hidden and blocked apart", () => {
     const button = visit();
     expect(findAnchor("booking.take-payment", "past", page(button))).toEqual({ element: button });
     expect(findAnchor("nav.more", undefined, page())).toBe("absent");
     expect(findAnchor("nav.more", undefined, page(visit(undefined, false)))).toBe("hidden");
+    // On screen, but behind an open sheet: not an empty list.
+    const covered = { ...visit(), closest: (selector: string) => (selector === "[inert]" ? {} : null) };
+    expect(findAnchor("calendar.booking", undefined, page(covered))).toBe("blocked");
   });
 
   it("points at the day before for a finished visit and the day after for one to come", () => {
     expect(ANOTHER_DAY).toEqual({ past: "calendar.previous", upcoming: "calendar.next" });
     for (const id of Object.values(ANOTHER_DAY)) expect(helpEntry(id)?.route).toBe("/studio/calendar");
+  });
+});
+
+describe("an empty list on the way", () => {
+  const entry = (id: string) => helpEntry(id)!;
+  const ready = { onPage: true, settled: true };
+
+  it("points at another day when the calendar has no bookings, kind or not", () => {
+    expect(steerFor(entry("calendar.booking"), entry("calendar.booking"), "absent", ready)).toEqual({ kind: "empty", pointAt: ["calendar.next", "calendar.new-booking"] });
+    expect(steerFor(entry("calendar.booking"), entry("booking.take-payment"), "absent", ready)).toEqual({ kind: "unmatched", pointAt: ["calendar.previous"] });
+    expect(steerFor(entry("calendar.booking"), entry("booking.move"), "unmatched", ready)).toEqual({ kind: "unmatched", pointAt: ["calendar.next"] });
+  });
+
+  it("waits while the page is not there yet, still drawing, or covered by a sheet", () => {
+    const booking = entry("calendar.booking");
+    expect(steerFor(booking, booking, "absent", { onPage: false, settled: true })).toBeNull();
+    expect(steerFor(booking, booking, "absent", { onPage: true, settled: false })).toBeNull();
+    expect(steerFor(booking, booking, "blocked", ready)).toBeNull();
+    expect(steerFor(booking, booking, "hidden", ready)).toBeNull();
+    // A place that is not a list item is missing, not empty.
+    expect(steerFor(entry("nav.more"), entry("nav.more"), "absent", ready)).toBeNull();
+  });
+
+  it("explains every list that can be empty in both languages and points at things on its own page", () => {
+    const lists = HELP_MAP.filter((item) => item.empty);
+    expect(lists.map((item) => item.id).sort()).toEqual(["calendar.booking", "customers.row", "inbox.message", "services.treatment"]);
+    const english: Record<string, string> = en.messages;
+    const swedish: Record<string, string> = sv.messages;
+    for (const item of lists) {
+      for (const part of ["what", "next"]) {
+        const key = `showMe.${item.id}.empty.${part}`;
+        expect(english[key], key).toBeTruthy();
+        expect(swedish[key], key).toBeTruthy();
+      }
+      for (const id of item.empty!.pointAt) expect(helpEntry(id)?.route, `${item.id} → ${id}`).toBe(item.route);
+    }
   });
 });
 

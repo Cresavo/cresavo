@@ -50,7 +50,7 @@ export default function CustomersPage() {
       <PageHeader title={t("customers.title")} />
       <EmptyState icon={<UserSearch size={22} />} title={t("setup.empty.customers")} action={viewer
         ? <ButtonLink href="/studio/calendar">{t("nav.calendar")}</ButtonLink>
-        : <ButtonLink href="/studio/customers/import">{t("customers.import")}</ButtonLink>} />
+        : <ButtonLink href="/studio/customers/import" helpId="customers.import">{t("customers.import")}</ButtonLink>} />
     </>;
   }
 
