@@ -23,6 +23,30 @@ connected: the only way in today is "Try in the browser".
 Bookings a call makes are ordinary `booking/create` actions with source
 `phone`; nothing in this folder holds a booking rule of its own.
 
+## Public web call ("Ring Salong Eko")
+
+`/studio/ring` on the demo has one button that calls Maja from the browser
+(`web-call/`). Unlike the studio's test call, the browser never gets a
+credential: it sends its WebRTC offer to `POST /api/concept/receptionist/web-call`,
+and the server creates the call with OpenAI (`POST /v1/realtime/calls`, the
+"unified interface") using the API key. OpenAI answers with the call's id, so
+the server can end the call itself (`POST /v1/realtime/calls/{id}/hangup`).
+
+| File | What it does |
+| --- | --- |
+| `web-call/config.ts` | The kill switch (`PHONE_RECEPTIONIST_WEB_CALL=1`), the model (`gpt-realtime-2.1`, or `PHONE_RECEPTIONIST_WEB_MODEL`), the 4-minute ceiling and the quotas. |
+| `web-call/page-token.ts` | The signed page token (20 minutes) the page is rendered with; the route refuses requests without one. It also names the page session for the per-session limit. |
+| `web-call/ledger.ts` | Counters and running calls in the pairing database's `PairBudget` table (keys `voice:*`, hashed, no addresses). Process memory only outside production. |
+| `web-call/server.ts` | Limits, call creation, hang-up at the deadline (scheduled with `after()`), retry of failed hang-ups, and the sweep of overdue calls on every request. |
+| `web-call/persona.ts` | Maja's web-call voice: soft AI disclosure, calm pace, honest suggestions, owner call-back, strict salon-only role. |
+| `web-call/browser.ts` | The browser side: microphone, WebRTC, iPhone audio unlock, and the end report. |
+
+Limits, all on the server: 3 calls an hour per address, 3 an hour per page
+session, 30 a day in all (`PHONE_RECEPTIONIST_WEB_DAILY`), 4 minutes per call.
+A running call is hung up at its deadline by the request that started it; if
+that instance is gone, the next web-call request on any instance sweeps it.
+Turning the switch off hangs up running calls on the next request.
+
 ## Keys and limits
 
 - `OPENAI_API_KEY` (or the sample salon's saved OpenAI key) stays on the
