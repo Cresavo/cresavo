@@ -202,6 +202,15 @@ describe("Swedish site aliases", () => {
       for (const path of ["/privacy", "/sv/privacy/"]) {
         expect(routeHost(host, path, directory, product)).toEqual({ action: "redirect", targetHost: product, path: "/sv/privacy" });
       }
+      for (const path of ["/own-domain", "/sv/own-domain", "/sv/own-domain/"]) {
+        expect(routeHost(host, path, directory, product)).toEqual({ action: "redirect", targetHost: product, path: "/sv/own-domain" });
+      }
+      for (const path of ["/about", "/sv/about"]) {
+        expect(routeHost(host, path, directory, product)).toEqual({ action: "redirect", targetHost: product, path: "/sv/about" });
+      }
+      for (const path of ["/showcase/salong-klassisk", "/showcase/salong-vagad/boka"]) {
+        expect(routeHost(host, path, directory, product)).toEqual({ action: "redirect", targetHost: product, path });
+      }
     }
     expect(resolveHost("else.cresavo.se", directory, product).kind).toBe("unknown");
     expect(routeHost("else.cresavo.se", "/sv", directory, product)).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
