@@ -35,7 +35,7 @@ export function SetupTeam({ people, change }: { people: string[]; change: (peopl
     <div ref={choice}>
       <ChoiceCards<Mode> label={t("setup.team")} value={mode}
         options={[{ value: "solo", label: t("setup.solo") }, { value: "team", label: t("setup.withTeam") }]}
-        onChange={next => change(next === "solo" ? [owner] : [owner, ""])} />
+        onChange={next => { if (next !== mode) change(next === "solo" ? [owner] : [owner, ""]); }} />
     </div>
     <Field width="short" label={t("setup.yourName")} hint={t("setup.yourNameHint")}>
       <TextInput autoComplete="name" maxLength={MAX_PERSON_NAME} value={owner} onChange={e => change([e.target.value, ...colleagues])} />
