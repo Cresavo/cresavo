@@ -23,6 +23,7 @@ import {
   RECORDED_MORNING_ITEMS,
   eveningBriefClipUrl,
   morningBriefClipUrl,
+  recordedMorningBrief,
 } from "@/concept/studio/assistant/demo-brief-audio";
 import {
   canPlaySpeech,
@@ -107,6 +108,18 @@ describe("recorded demo brief clips", () => {
     const edited = reduce(friday, { type: "salon/hours", hours: friday.salon.hours, lunch: friday.salon.lunch });
     expect(edited.salon.openings).toBeUndefined();
     expect(openingFor(edited.salon, "2026-11-21")).toEqual({ open: 10 * 60, close: 15 * 60 });
+  });
+
+  it("hides a holiday line on the card only when the Elin clip will play", () => {
+    swedishDemo();
+    const brief = morningBrief(base, morningClock);
+    expect(brief.items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    const shown = recordedMorningBrief(brief);
+    expect(shown.items.some((item) => item.id.startsWith("holiday-"))).toBe(false);
+    expect(morningBriefClipUrl(shown, morningClock, base.generatedFor)).toBe(MORNING_BRIEF_CLIP);
+    const edited = { ...brief, items: brief.items.filter((item) => item.id !== "gaps") };
+    expect(recordedMorningBrief(edited).items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    expect(morningBriefClipUrl(edited, morningClock, base.generatedFor)).toBeNull();
   });
 
   it("offers the morning clip only for that Swedish morning brief", () => {
