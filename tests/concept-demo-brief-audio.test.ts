@@ -223,7 +223,7 @@ describe("recorded demo brief clips", () => {
     const later = morningBrief(base, { today, minutes: 15 * 60 });
     expect(later.items.some((item) => item.id.startsWith("cancel-"))).toBe(false);
     expect(morningBriefClipUrl(later, { today, minutes: 15 * 60 }, base.generatedFor)).toBeNull();
-    const recorded = standardDemoMorningBrief(base, today, base.generatedFor);
+    const recorded = standardDemoMorningBrief(base, today, base.generatedFor, 18 * 60);
     expect(recorded).not.toBeNull();
     expect(morningBriefClipUrl(recorded!, { today, minutes: 18 * 60 }, base.generatedFor)).toBe(
       MORNING_BRIEF_CLIP,
@@ -231,11 +231,41 @@ describe("recorded demo brief clips", () => {
     englishDemo();
     expect(
       morningBriefClipUrl(
-        standardDemoMorningBrief(base, today, base.generatedFor)!,
+        standardDemoMorningBrief(base, today, base.generatedFor, 18 * 60)!,
         { today, minutes: 18 * 60 },
         base.generatedFor,
       ),
     ).toBe(MORNING_BRIEF_CLIP_EN);
+  });
+
+  it("keeps a later booking-page cancellation notice instead of the recorded brief", () => {
+    swedishDemo();
+    const cancelled = base.bookings.find((booking) => booking.date === today && booking.status === "cancelled")!;
+    const withNotice = {
+      ...base,
+      inbox: [
+        ...base.inbox,
+        {
+          id: "i-notice-cancel",
+          kind: "cancel" as const,
+          customerId: cancelled.customerId,
+          bookingId: cancelled.id,
+          date: today,
+          time: 16 * 60,
+          title: "Cancelled",
+          body: "",
+          read: false,
+          handled: false,
+          event: "cancelled" as const,
+          visitDate: today,
+          visitStart: cancelled.start,
+        },
+      ],
+    };
+    const live = morningBrief(withNotice, { today, minutes: 15 * 60 });
+    expect(live.items.some((item) => item.id.startsWith("notice-"))).toBe(true);
+    expect(standardDemoMorningBrief(withNotice, today, withNotice.generatedFor, 15 * 60)).toBeNull();
+    expect(morningBriefClipUrl(live, { today, minutes: 15 * 60 }, withNotice.generatedFor)).toBeNull();
   });
 
   it("offers the evening clip for the matching Studio language", () => {

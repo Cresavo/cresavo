@@ -48,7 +48,7 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 export function MorningBrief({ className }: { className?: string }) {
   const { state, today, minutes } = useStudio();
   const brief = useMemo(() => {
-    const rules = standardDemoMorningBrief(state, today, state.generatedFor) ?? morningBrief(state, { today, minutes });
+    const rules = standardDemoMorningBrief(state, today, state.generatedFor, minutes) ?? morningBrief(state, { today, minutes });
     return { ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") };
   }, [state, today, minutes]);
   const clip = morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);

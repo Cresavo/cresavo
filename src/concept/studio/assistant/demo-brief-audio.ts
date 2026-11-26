@@ -146,7 +146,12 @@ export function eveningBriefClipUrl(
 }
 
 /** The 09:00 brief when it still matches the recording, so the card and Elin stay in step after free slots or a cancellation drop off later in the day. */
-export function standardDemoMorningBrief(state: DemoState, today: string, generatedFor: string): Brief | null {
-  const brief = morningBrief(state, { today, minutes: 9 * 60 });
-  return morningBriefClipUrl(brief, { today, minutes: 9 * 60 }, generatedFor) ? brief : null;
+export function standardDemoMorningBrief(state: DemoState, today: string, generatedFor: string, minutes: number): Brief | null {
+  const recorded = morningBrief(state, { today, minutes: 9 * 60 });
+  if (!morningBriefClipUrl(recorded, { today, minutes: 9 * 60 }, generatedFor)) return null;
+  // A later unread booking-page notice must not be hidden by the 09:00 snapshot.
+  const live = minutes === 9 * 60 ? recorded : morningBrief(state, { today, minutes });
+  const recordedIds = new Set(recorded.items.map((item) => item.id));
+  if (live.items.some((item) => item.id.startsWith("notice-") && !recordedIds.has(item.id))) return null;
+  return recorded;
 }
