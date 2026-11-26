@@ -13,19 +13,38 @@ export type CallerPhone = { ok: true; phone: string } | { ok: false; reason: "mi
 
 const INPUT = /^\+?[\d\s().-]+$/;
 
-/** True for a salon with a Swedish number (0… or +46…): its callers' national numbers start with 0. */
-export function usesTrunkZero(salonPhone: string): boolean {
+/** How the salon's callers write numbers: whether national numbers start with a trunk 0, and whether the salon is in Sweden. */
+export interface Dialing {
+  trunkZero: boolean;
+  swedish: boolean;
+}
+
+const SWEDEN: Dialing = { trunkZero: true, swedish: true };
+
+/**
+ * Read from the salon's own number (and currency, for a number written the national way): +46 or 0046 is Sweden;
+ * a national 0… number is Sweden only for a salon that charges in SEK, and otherwise just a trunk-zero country.
+ */
+export function salonDialing(salonPhone: string, currency: string): Dialing {
   const said = salonPhone.trim();
-  if (said.startsWith("+")) return said.replace(/\D/g, "").startsWith("46");
   const digits = said.replace(/\D/g, "");
-  return digits.startsWith("00") ? digits.startsWith("0046") : digits.startsWith("0");
+  const international = said.startsWith("+") || digits.startsWith("00");
+  if (international) {
+    const code = digits.replace(/^00/, "");
+    if (code.startsWith("46")) return SWEDEN;
+    return { trunkZero: TRUNK_ZERO_CODES.some((candidate) => code.startsWith(candidate)), swedish: false };
+  }
+  if (digits.startsWith("0")) return { trunkZero: true, swedish: currency === "SEK" };
+  return { trunkZero: false, swedish: false };
 }
 
 /**
- * The caller's number as it is kept. With `trunkZero` (a Swedish salon) a national number must start with 0;
- * elsewhere (no 0 in front, as in the US) a bare national number is kept as said.
+ * The caller's number as it is kept. Where national numbers start with 0, one without it is refused as
+ * misheard; elsewhere (as in the US) a bare national number is kept as said. Only a Swedish salon writes
+ * +46 numbers the Swedish way, with 0; anywhere else they keep their country code so they can be dialled.
  */
-export function callerPhone(raw: string, trunkZero = true): CallerPhone {
+export function callerPhone(raw: string, dialing: Dialing = SWEDEN): CallerPhone {
+  const { trunkZero, swedish } = dialing;
   const said = raw.trim();
   if (!INPUT.test(said)) return { ok: false, reason: "unclear" };
   let digits = said.replace(/\D/g, "");
@@ -33,16 +52,15 @@ export function callerPhone(raw: string, trunkZero = true): CallerPhone {
   if (digits.startsWith("00")) digits = digits.slice(2);
   if (/^(\d)\1*$/.test(digits)) return { ok: false, reason: "unclear" };
   let phone: string;
-  if (international && digits.startsWith("46") && trunkZero) phone = `0${digits.slice(2).replace(/^0/, "")}`;
+  if (international && digits.startsWith("46") && swedish) phone = `0${digits.slice(2).replace(/^0/, "")}`;
   else if (international) {
     // "+44 (0)20 7946 0958": the 0 after the country code is not dialled from abroad.
-    const code = DROP_ZERO.find((candidate) => digits.startsWith(candidate));
+    const code = [...DROP_ZERO, "46"].find((candidate) => digits.startsWith(candidate));
     phone = `+${code && digits[code.length] === "0" ? code + digits.slice(code.length + 1) : digits}`;
-  }
-  else if (digits.startsWith("0") || !trunkZero) phone = digits;
+  } else if (digits.startsWith("0") || !trunkZero) phone = digits;
   else return { ok: false, reason: digits.length >= 6 ? "missing_zero" : "unclear" };
   const count = phone.replace(/\D/g, "").length;
-  const wanted = phone.startsWith("+") || !trunkZero ? count >= 7 && count <= 15 : count >= 7 && count <= 11;
+  const wanted = swedish && !phone.startsWith("+") ? count >= 7 && count <= 11 : count >= 7 && count <= 15;
   if (!wanted || /^\+?(\d)\1+$/.test(phone)) return { ok: false, reason: "unclear" };
   return { ok: true, phone };
 }

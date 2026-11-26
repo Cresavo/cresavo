@@ -11,7 +11,7 @@ import { bookableServices, findService, fullName } from "../selectors";
 import { field } from "../tools/define";
 import { plainText } from "./actions";
 import type { ReceptionistHost, SalonView } from "./host";
-import { callerPhone, spokenPhone, usesTrunkZero } from "./phone";
+import { callerPhone, salonDialing, spokenPhone } from "./phone";
 import type { CallOutcome } from "./types";
 import type { Locale } from "@/lib/locale";
 
@@ -101,7 +101,7 @@ const language = (state: DemoState) => state.localization.language;
 
 /** What the phone tools say about a number they cannot use, so she asks again instead of storing a wrong one. */
 function checkPhone(state: DemoState, raw: string): { phone: string; refusal?: undefined } | { phone?: undefined; refusal: Output } {
-  const checked = callerPhone(raw, usesTrunkZero(state.salon.phone));
+  const checked = callerPhone(raw, salonDialing(state.salon.phone, state.localization.currency));
   if (checked.ok) return { phone: checked.phone };
   return { refusal: checked.reason === "missing_zero"
     ? refuse("phone_missing_zero", "Swedish numbers start with 0 (or +46), and this one does not. You probably missed the first digit. Ask once, short, if the number starts with noll, then read the whole number back digit by digit in groups.")

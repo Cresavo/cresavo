@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { salonFactsNote } from "@/concept/receptionist/facts";
 import { studioStoreHost } from "@/concept/receptionist/host";
-import { callerPhone, spokenPhone, usesTrunkZero } from "@/concept/receptionist/phone";
+import { callerPhone, salonDialing, spokenPhone } from "@/concept/receptionist/phone";
 import { newCallMemory, runReceptionistTool } from "@/concept/receptionist/tools";
 import { salonClock } from "@/concept/tools/clock";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
@@ -24,16 +24,22 @@ describe("caller phone numbers", () => {
     expect(callerPhone("1111111")).toEqual({ ok: false, reason: "unclear" });
     expect(callerPhone("070 12")).toEqual({ ok: false, reason: "unclear" });
     expect(callerPhone("070-abc")).toEqual({ ok: false, reason: "unclear" });
-    // A salon outside Sweden (its own number without 0 or +46) keeps national numbers that have no 0 in front.
-    expect(callerPhone("2125550123", false)).toEqual({ ok: true, phone: "2125550123" });
-    expect(callerPhone("+46 70 987 65 43", false)).toEqual({ ok: true, phone: "+46709876543" });
-    expect(usesTrunkZero("08-123 45 67")).toBe(true);
-    expect(usesTrunkZero("+46 8 123 45 67")).toBe(true);
-    expect(usesTrunkZero("+1 212 555 0100")).toBe(false);
-    expect(usesTrunkZero("001 212 555 0100")).toBe(false);
-    expect(usesTrunkZero("0046 8 123 45 67")).toBe(true);
-    expect(callerPhone("123456789012", false)).toEqual({ ok: true, phone: "123456789012" });
-    expect(callerPhone("012345678901", true)).toEqual({ ok: false, reason: "unclear" });
+    // A salon outside Sweden: national numbers without a 0 in front are kept, +46 keeps its country code.
+    const us = salonDialing("+1 212 555 0100", "USD");
+    expect(us).toEqual({ trunkZero: false, swedish: false });
+    expect(callerPhone("2125550123", us)).toEqual({ ok: true, phone: "2125550123" });
+    expect(callerPhone("123456789012", us)).toEqual({ ok: true, phone: "123456789012" });
+    expect(callerPhone("+46 70 987 65 43", us)).toEqual({ ok: true, phone: "+46709876543" });
+    expect(salonDialing("001 212 555 0100", "USD")).toEqual({ trunkZero: false, swedish: false });
+    // A UK salon written the national way: trunk zero, but not Sweden.
+    const uk = salonDialing("020 7946 0958", "GBP");
+    expect(uk).toEqual({ trunkZero: true, swedish: false });
+    expect(callerPhone("+46 (0)70 987 65 43", uk)).toEqual({ ok: true, phone: "+46709876543" });
+    expect(callerPhone("7946 0958", uk)).toEqual({ ok: false, reason: "missing_zero" });
+    expect(salonDialing("08-123 45 67", "SEK")).toEqual({ trunkZero: true, swedish: true });
+    expect(salonDialing("+46 8 123 45 67", "EUR")).toEqual({ trunkZero: true, swedish: true });
+    expect(salonDialing("0046 8 123 45 67", "SEK")).toEqual({ trunkZero: true, swedish: true });
+    expect(callerPhone("012345678901")).toEqual({ ok: false, reason: "unclear" });
   });
 
   it("reads a number back smoothly in groups, always starting with noll", () => {
