@@ -88,6 +88,7 @@ function register(server: McpServer, tool: ConceptTool, caller: Caller) {
           draft: () => tool.draft(toolContext(), input),
         });
         if ("conflict" in result) return fail("idempotency_conflict", "This idempotencyKey was already used for a different request.");
+        if ("expired" in result) return fail("idempotency_key_expired", "This idempotencyKey belongs to a proposal that is no longer kept, so nothing was proposed again. Use a new key only if the change is still wanted.");
         return ok({ ...proposalView(result.proposal), replayed: result.replayed });
       } catch (error) {
         return failure(error);

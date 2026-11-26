@@ -107,6 +107,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **An agent retrying an old proposal no longer proposes it twice.** The demo's MCP keeps the 50 newest proposals; a retry with the idempotency key of one that has dropped out now gets `idempotency_key_expired` instead of drafting a second pending proposal.
 - **The setup finish preview on a phone shows complete treatments.** The booking page in the frame grows with its content on a narrow screen, so a treatment row is no longer cut through. On a wide screen the sticky side preview is capped to the window and ends on a complete row. English and Swedish.
 - **The receptionist demo call plays on iPhone.** iPhone Safari showed a black box with a crossed-out play icon instead of the poster and the video. The first encodes carried a colour profile embedded inside the video track and uneven frame timing, both left over from how the film was put together. Both videos are now encoded again in the plain form iPhones expect: H.264 High 4.0, yuv420p, a steady 30 frames a second, standard colour tags, AAC audio, and the index at the front. A test checks the files so a new encode can't bring the problem back.
 - **The Studio sidebar no longer shows a grey scroll bar on the desktop.** The menu still scrolls with the wheel, a trackpad or the keyboard when a short window cannot fit every item, and the focus ring stays visible. Search results and the assistant conversation use the same quiet scrolling.

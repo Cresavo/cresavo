@@ -43,12 +43,14 @@ export function resetDemoBusiness(now = new Date()) {
   holder.cresavoConceptBusiness = fresh(salonClock(now).today);
 }
 
-export type CreateResult = { proposal: AgentProposal; replayed: boolean } | { conflict: true };
+export type CreateResult = { proposal: AgentProposal; replayed: boolean } | { conflict: true } | { expired: true };
 
 /**
  * Stores a draft as a pending proposal. The same idempotency key with the same
  * request returns the first proposal without drafting again; with a different
- * request it is a conflict. `draft` may throw a ToolError, which stores nothing.
+ * request it is a conflict. Keys outlive the bounded proposal list, so a key
+ * whose proposal has dropped out is expired: it never drafts a second one.
+ * `draft` may throw a ToolError, which stores nothing.
  */
 export function createProposal(input: { caller: string; key: string; tool: string; client: AgentClient; fingerprint: string; draft: () => ChangeDraft }, now = Date.now()): CreateResult {
   const current = business(new Date(now));
@@ -57,7 +59,7 @@ export function createProposal(input: { caller: string; key: string; tool: strin
   if (known) {
     const proposal = current.proposals.find((p) => p.id === known.proposalId);
     if (known.fingerprint !== input.fingerprint) return { conflict: true };
-    if (proposal) return { proposal, replayed: true };
+    return proposal ? { proposal, replayed: true } : { expired: true };
   }
   const proposal: AgentProposal = { ...input.draft(), id: `ap-${randomUUID()}`, tool: input.tool, client: input.client, createdAt: now, status: "pending" };
   current.proposals = [proposal, ...current.proposals].slice(0, MAX_PROPOSALS);
