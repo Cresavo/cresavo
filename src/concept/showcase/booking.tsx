@@ -9,7 +9,7 @@ import { ConceptLanguage } from "../i18n/boundary";
 import { salonCopy } from "../i18n/salon-eko-copy";
 import type { Palette } from "../page/colour";
 import { DEFAULT_THEME, type CornerStyle } from "../page/theme";
-import { openBookingWorkspace, usePublicDemo } from "../store";
+import { openBookingWorkspace, usePublicDemo, withLifetimeOf } from "../store";
 import { cx } from "../ui/cx";
 import { Toaster } from "../ui/toast";
 import { useSalonNow } from "../use-now";
@@ -30,7 +30,7 @@ function useShowcaseState(): DemoState | null | undefined {
   const state = usePublicDemo();
   useEffect(() => { openBookingWorkspace(SHOWCASE_SLUG); }, []);
   if (!state) return undefined;
-  return state.salon.slug === SHOWCASE_SLUG ? showcaseState(state) : null;
+  return state.salon.slug === SHOWCASE_SLUG ? withLifetimeOf(showcaseState(state), state) : null;
 }
 
 /** The price list from the live demo once it is read, so a change made in the studio shows here too. */
