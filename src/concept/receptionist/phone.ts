@@ -61,7 +61,7 @@ export function callerPhone(raw: string, dialing: Dialing = SWEDEN): CallerPhone
   } else if (digits.startsWith("0") || !trunkZero) phone = digits;
   else return { ok: false, reason: digits.length >= 6 ? "missing_zero" : "unclear" };
   const count = phone.replace(/\D/g, "").length;
-  const wanted = swedish && !phone.startsWith("+") ? count >= 7 && count <= 11 : count >= 7 && count <= 15;
+  const wanted = count >= 7 && count <= 15;
   if (!wanted || /^\+?(\d)\1+$/.test(phone)) return { ok: false, reason: "unclear" };
   return { ok: true, phone };
 }
@@ -100,6 +100,13 @@ function group(digits: string, language: Locale): string {
   return words.join(" ");
 }
 
+/** How many digits the country code has (ITU zones: +1 and +7 one digit, +2xx, +35x, +42x … three, others two). */
+function countryCodeLength(digits: string): number {
+  if (/^[17]/.test(digits)) return 1;
+  if (/^(2[1-689]|3[578]|42|5[09]|6[789]|8[0578]|9[679])/.test(digits)) return 3;
+  return 2;
+}
+
 /** Splits digits into groups of three, the last of two to four ("345 6780", said "tre fyrtiofem, sextiosju åttio"). */
 function groupRest(rest: string): string[] {
   const groups: string[] = [];
@@ -118,7 +125,10 @@ function groupRest(rest: string): string[] {
  */
 export function spokenPhone(phone: string, language: Locale): string {
   const digits = phone.replace(/\D/g, "");
-  if (phone.startsWith("+")) return `plus ${[digits.slice(0, 2), ...groupRest(digits.slice(2))].map((g) => group(g, language)).join(", ")}`;
+  if (phone.startsWith("+")) {
+    const code = digits.slice(0, countryCodeLength(digits));
+    return `plus ${[code, ...groupRest(digits.slice(code.length))].map((g) => group(g, language)).join(", ")}`;
+  }
   // A national number without a 0 in front (a salon outside Sweden): every digit as said, in groups.
   if (!digits.startsWith("0")) return [digits.slice(0, 3), ...groupRest(digits.slice(3))].map((g) => group(g, language)).join(", ");
   const zero = ONES[language][0];

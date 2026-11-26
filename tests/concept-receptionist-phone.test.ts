@@ -43,7 +43,8 @@ describe("caller phone numbers", () => {
     expect(salonDialing("08-123 45 67", "SEK")).toEqual({ trunkZero: true, swedish: true });
     expect(salonDialing("+46 8 123 45 67", "EUR")).toEqual({ trunkZero: true, swedish: true });
     expect(salonDialing("0046 8 123 45 67", "SEK")).toEqual({ trunkZero: true, swedish: true });
-    expect(callerPhone("012345678901")).toEqual({ ok: false, reason: "unclear" });
+    expect(callerPhone("071234567890")).toEqual({ ok: true, phone: "071234567890" });
+    expect(callerPhone("0123456789012345")).toEqual({ ok: false, reason: "unclear" });
   });
 
   it("reads a number back smoothly in groups, always starting with noll", () => {
@@ -51,6 +52,8 @@ describe("caller phone numbers", () => {
     expect(spokenPhone("0123456789", "sv")).toBe("noll tolv, tre fyrtiofem, sextiosju åttionio");
     expect(spokenPhone("081234567", "sv")).toBe("noll åtta, ett tjugotre, fyrtiofem sextiosju");
     expect(spokenPhone("0701050607", "sv")).toBe("noll sjuttio, ett noll fem, noll sex noll sju");
+    expect(spokenPhone("+12125550123", "en")).toBe("plus one, two twelve, five fifty-five, zero one twenty-three");
+    expect(spokenPhone("+358401234567", "sv")).toBe("plus tre femtioåtta, fyra noll ett, två trettiofyra, fem sextiosju");
     expect(spokenPhone("2125550123", "en")).toBe("two twelve, five fifty-five, zero one twenty-three");
     expect(spokenPhone("0709876543", "en")).toBe("zero seventy, nine eighty-seven, sixty-five forty-three");
     expect(spokenPhone("+442079460958", "sv")).toBe("plus fyrtiofyra, två noll sju, nio fyrtiosex, noll nio femtioåtta");
