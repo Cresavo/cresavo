@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Eye, History, LifeBuoy, Sparkles } from "lucide-react";
 import { askHelp, type HelpReply } from "../../help/client";
@@ -53,12 +53,14 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
       setQuestion("");
       setTicketing(false);
       search.clear();
-    } else {
-      // Parent-controlled closes (What's new, for example) never call close(), so the token
-      // has to be dropped here or a late reply can fill the next session.
-      latest.current++;
     }
   }
+
+  // close() covers the usual path. A parent can also set open to false (What's new does),
+  // so drop the token whenever the sheet is not open, or a late reply can fill the next session.
+  useEffect(() => {
+    if (!open) latest.current++;
+  }, [open]);
 
   const ask = async (text: string) => {
     const trimmed = text.trim();
