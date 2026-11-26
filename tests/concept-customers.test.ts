@@ -41,6 +41,13 @@ describe("customer summary", () => {
     expect(summarizeFallback(facts)).toBe("Stamkund sedan 2024, foot care var 6:e vecka, sensitive skin, föredrar Anna, eftermiddagar.");
     expect(summarizeFallback({ ...facts, regular: false, service: null, intervalWeeks: null, traits: [], prefersStaff: null, timeOfDay: null, visits: 0 })).toBe("Kund sedan 2024, inga besök än.");
   });
+  it("keeps the requested language even when the process locale differs", async () => {
+    setLocale("en");
+    expect(summarizeFallback(facts, "sv")).toBe("Stamkund sedan 2024, foot care var 6:e vecka, sensitive skin, föredrar Anna, eftermiddagar.");
+    const { output, log } = await runTask("summarize-customer", { ...facts, language: "sv" }, { env: {} });
+    expect(output.summary).toBe("Stamkund sedan 2024, foot care var 6:e vecka, sensitive skin, föredrar Anna, eftermiddagar.");
+    expect(log.source).toBe("rules");
+  });
   it("derives habits from finished visits only", () => {
     const visits = [0, 42, 84, 126].map((offset) => ({ date: addDays("2026-05-04", offset) }));
     const { state, customer } = scenario([...visits, { date: "2026-10-01", status: "cancelled" }], { tags: ["Regular", "Sensitive skin"] });

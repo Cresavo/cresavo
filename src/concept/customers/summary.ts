@@ -1,6 +1,7 @@
 import { diffDays } from "../data/dates";
 import type { Customer, DemoState } from "../data/types";
-import { t, type MessageKey } from "../i18n";
+import { getActiveLocale, translate, type MessageKey } from "../i18n";
+import type { Locale } from "@/lib/locale";
 import { findService } from "../selectors";
 
 // The customer card's one-line summary. The facts are computed here from the
@@ -67,15 +68,15 @@ const TIME_OF_DAY: Record<TimeOfDay, MessageKey> = {
   evenings: "customer.summary.evenings",
 };
 
-/** Rule-based summary: the facts as one short line, in the Studio's language. */
-export function summarizeFallback(facts: CustomerFacts): string {
-  const time = facts.timeOfDay ? t(TIME_OF_DAY[facts.timeOfDay]) : null;
+/** Rule-based summary: the facts as one short line, in the given language (or the Studio's current one). */
+export function summarizeFallback(facts: CustomerFacts, lang: Locale = getActiveLocale()): string {
+  const time = facts.timeOfDay ? translate(lang, TIME_OF_DAY[facts.timeOfDay]) : null;
   const preferences = [facts.prefersStaff, time].filter(Boolean).join(", ");
   const parts = [
-    t(facts.regular ? "customer.summary.regularSince" : "customer.summary.customerSinceYear", { year: String(facts.sinceYear) }),
-    facts.service && facts.intervalWeeks ? t("customer.summary.everyWeeks", { service: facts.service.toLowerCase(), weeks: facts.intervalWeeks }) : facts.visits ? null : t("customer.summary.noVisits"),
+    translate(lang, facts.regular ? "customer.summary.regularSince" : "customer.summary.customerSinceYear", { year: String(facts.sinceYear) }),
+    facts.service && facts.intervalWeeks ? translate(lang, "customer.summary.everyWeeks", { service: facts.service.toLowerCase(), weeks: facts.intervalWeeks }) : facts.visits ? null : translate(lang, "customer.summary.noVisits"),
     ...facts.traits,
-    preferences ? t("customer.summary.prefers", { preferences }) : null,
+    preferences ? translate(lang, "customer.summary.prefers", { preferences }) : null,
   ];
   return `${parts.filter(Boolean).join(", ")}.`;
 }
