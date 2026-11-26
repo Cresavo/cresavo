@@ -1,5 +1,6 @@
-import { salonFacts } from "./tools";
+import { salonFacts, spokenView } from "./tools";
 import type { SalonView } from "./host";
+import type { Locale } from "@/lib/locale";
 
 // The salon's facts as one short note for the start of a call: today's date,
 // opening hours for the week, treatments with their ids and prices, and the
@@ -7,8 +8,8 @@ import type { SalonView } from "./host";
 // edits in the studio show up, and the receptionist knows them from the first
 // word instead of looking them up (and announcing the lookup) mid-call.
 
-export function salonFactsNote(view: SalonView): string {
-  const facts = salonFacts(view);
+export function salonFactsNote(view: SalonView, language?: Locale): string {
+  const facts = salonFacts(spokenView(view, language));
   const currency = facts.treatments[0]?.currency ?? "SEK";
   return [
     "The salon right now (current; use these directly, without get_salon_info):",
