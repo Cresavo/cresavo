@@ -47,6 +47,8 @@ export const newCallMemory = (callId: string): CallMemory => ({ callId, verified
 
 const name = z.string().trim().min(2).max(80);
 const phone = z.string().trim().min(7).max(24);
+const email = z.string().trim().min(5).max(120);
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,63}\.[^\s@]{2,}$/;
 const PARTS = { morning: [0, 12 * 60], afternoon: [12 * 60, 17 * 60], evening: [17 * 60, 24 * 60] } as const;
 
 const inputs = {
@@ -56,7 +58,7 @@ const inputs = {
   find_booking: z.object({ callerName: name, callerPhone: phone }).strict(),
   move_appointment: z.object({ bookingId: field.id, date: field.date, time: field.time, confirmed: z.boolean() }).strict(),
   cancel_appointment: z.object({ bookingId: field.id, confirmed: z.boolean() }).strict(),
-  hand_over_to_staff: z.object({ reason: z.string().trim().min(3).max(300), callerName: name.optional(), callerPhone: phone.optional() }).strict(),
+  hand_over_to_staff: z.object({ reason: z.string().trim().min(3).max(300), callerName: name.optional(), callerPhone: phone.optional(), callerEmail: email.optional() }).strict(),
   end_call: z.object({}).strict(),
 } as const;
 
@@ -69,7 +71,7 @@ const descriptions: Record<ReceptionistToolName, string> = {
   find_booking: "Look up the caller's upcoming bookings. Needs the name and the phone number the booking was made with. Required before moving or cancelling.",
   move_appointment: "Move one of the caller's bookings (found with find_booking) to a new day and time with the same staff member. First confirmed=false to get the read-back, then confirmed=true after the caller said yes.",
   cancel_appointment: "Cancel one of the caller's bookings (found with find_booking). First confirmed=false to get the read-back, then confirmed=true after the caller said yes.",
-  hand_over_to_staff: "Leave a note for the staff to call the caller back. Use it whenever you are unsure, the caller asks for a person, or a tool says a request needs the staff.",
+  hand_over_to_staff: "Leave a note for the staff to call or e-mail the caller back; needs callerPhone or callerEmail. Use it whenever you are unsure, the caller asks for a person, or a tool says a request needs the staff.",
   end_call: "Hang up. Call it only after you have said goodbye.",
 };
 
@@ -123,7 +125,7 @@ function salonInfo(view: SalonView): Output {
     salon: { name: state.salon.name, address: state.salon.address, area: state.salon.area, phone: state.salon.phone },
     openingHours: hours,
     treatments: bookableServices(state).map((s) => ({ id: s.id, name: s.name, minutes: s.duration, price: s.price, currency: state.localization.currency, staffIds: s.staffIds })),
-    staff: state.staff.map((s) => ({ id: s.id, name: s.firstName })),
+    staff: state.staff.map((s) => ({ id: s.id, name: s.firstName, ...(s.role === "Owner" ? { owner: true } : {}) })),
     bookableDaysAhead: PUBLIC_WINDOW_DAYS,
   };
 }
@@ -276,10 +278,11 @@ async function handOver(host: ReceptionistHost, view: SalonView, memory: CallMem
   const reason = plainText(input.reason, 300);
   const caller = input.callerName ? plainText(input.callerName, 80) : undefined;
   const number = input.callerPhone && isContactPhone(input.callerPhone) ? input.callerPhone.trim() : undefined;
-  // A note without a number staff can ring would be a call-back promise nobody can keep.
-  if (!number) return refuse("needs_phone", "Ask for a phone number the staff can call back on, read it back, then call hand_over_to_staff again with callerPhone. If the caller would rather not give one, do not promise a call back; suggest calling again during opening hours.");
+  const address = input.callerEmail && EMAIL.test(input.callerEmail.trim()) ? input.callerEmail.trim().toLowerCase() : undefined;
+  // A note without a number or address the staff can reach would be a call-back promise nobody can keep.
+  if (!number && !address) return refuse("needs_phone", "Ask for a phone number or an e-mail address the staff can reach the caller on, read it back, then call hand_over_to_staff again with callerPhone or callerEmail. If the caller would rather not give one, do not promise a call back; suggest calling again during opening hours.");
   const committed = await host.commit(
-    { type: "inbox/add", item: { kind: "message", fromName: caller, date: view.clock.today, time: view.clock.minutes, title: text.title, body: text.body({ reason, caller, phone: number }), read: false, handled: false } },
+    { type: "inbox/add", item: { kind: "message", fromName: caller, date: view.clock.today, time: view.clock.minutes, title: text.title, body: text.body({ reason, caller, phone: number, email: address }), read: false, handled: false } },
     idempotencyKey(memory),
   );
   if (!committed.ok) return refuse("note_failed", "The note could not be saved. Ask the caller to call again during opening hours.");
@@ -298,7 +301,7 @@ function idempotencyKey(memory: CallMemory): string {
 /** The inbox note of a handover, worded by the caller of the engine from the dictionary in the salon's language. */
 export interface HandoverText {
   title: string;
-  body: (input: { reason: string; caller?: string; phone?: string }) => string;
+  body: (input: { reason: string; caller?: string; phone?: string; email?: string }) => string;
 }
 
 export interface ToolRun {

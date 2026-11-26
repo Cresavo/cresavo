@@ -22,12 +22,16 @@ export function readonlyForbidden() {
 // The demo register's pay requests (creating one, paying one) hold an amount for ten minutes in process memory,
 // never customer data: same-origin only, with their own limits (src/concept/register/pay-request-http.ts).
 const REGISTER_PAY_WRITE = /^\/api\/concept\/register\/pay-requests(?:\/[\w.-]{1,160}\/pay)?$/;
+// The demo's web call with the receptionist: it stores no customer data on the server, only call counters in the
+// pairing database. Off unless its own switch is on, same-origin only, with a signed page token and its own limits
+// (src/concept/receptionist/web-call).
+const RECEPTIONIST_WEB_CALL = /^\/api\/concept\/receptionist\/web-call(?:\/end)?$/;
 export function publicReadonlyResponse(request: Request) {
   if (!isPublicReadonly()) return;
   const path = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
   if (request.method === "POST" && PUBLIC_WRITES.has(path) && pairingOrigin(request.headers)) return;
   if (/^\/(?:admin|api\/admin)(?:\/|$)/.test(path) ||
       (!["GET", "HEAD", "OPTIONS"].includes(request.method) &&
-       !(request.method === "POST" && (path === "/api/locale" || path === "/api/waitlist" || path === "/api/concept/poster" || REGISTER_PAY_WRITE.test(path)))))
+       !(request.method === "POST" && (path === "/api/locale" || path === "/api/waitlist" || path === "/api/concept/poster" || REGISTER_PAY_WRITE.test(path) || RECEPTIONIST_WEB_CALL.test(path)))))
     return readonlyForbidden();
 }
