@@ -16,7 +16,7 @@ import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
 import { getActiveLocale, setVocabulary } from "./i18n";
 import { salonCopy } from "./i18n/salon-eko-copy";
-import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onboarding/salon";
+import { checkNewSlug, createSalon, hoursValid, suggestedSlug, type SalonDraft } from "./onboarding/salon";
 import { setupOf } from "./onboarding/setup";
 import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
@@ -678,7 +678,7 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
     if (snapshots[to].state && draft) return false;
     if (!snapshots[to].state) {
       if (to !== "own" || !draft) return false;
-      if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
+      if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok || !hoursValid(draft.hours)) return false;
       const now = new Date();
       const next = createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() });
       const epoch = newEpoch();

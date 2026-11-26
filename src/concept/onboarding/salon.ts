@@ -9,6 +9,7 @@ import { translate, type MessageKey } from "../i18n";
 import { DEFAULT_BOOKING_LANGUAGE, DEFAULT_CURRENCY } from "../i18n/business";
 import { checkOwnSlug } from "../page/address";
 import { DEFAULT_PAGE } from "../page/config";
+import { DEFAULT_THEME, normalizeTheme, PALETTES } from "../page/theme";
 import { slugify } from "../page/slug";
 import { getPack } from "../packs";
 import { weekFromHours } from "../ops/edit";
@@ -25,6 +26,10 @@ const packs: Record<Industry, PackId> = {
   massage: "foot-massage", clinic: "clinic", other: "foot-massage",
 };
 
+/** The calm booking-page colours setup offers; null keeps the neutral look that follows light and dark. */
+export const SETUP_ACCENTS = ["forest", "sand", "rose", "sky", "linen"] as const satisfies readonly (keyof typeof PALETTES)[];
+export type SetupAccent = typeof SETUP_ACCENTS[number];
+
 export type Treatment = Pick<ServiceDraft, "name" | "duration" | "price">;
 export interface SalonDraft {
   name: string;
@@ -33,8 +38,31 @@ export interface SalonDraft {
   currency: string;
   hours: Salon["hours"];
   treatments: Treatment[];
+  /** The owner first (may be blank), then colleagues. Blank colleagues are left out. */
   people: string[];
   slug: string;
+  /** The booking page's colours, or null for the neutral look. */
+  accent: SetupAccent | null;
+  /** A small logo as a data URL (see `readLogo`), or null for the leaf mark. */
+  logo: string | null;
+}
+
+/** Setup takes the owner and up to five colleagues; more people are added later under Staff. */
+export const MAX_PEOPLE = 6;
+export const MAX_PERSON_NAME = 60;
+const DAY = 24 * 60;
+
+/** Every open day starts before it ends, within the day, on whole minutes. */
+export function hoursValid(hours: Salon["hours"]): boolean {
+  return WEEK_ORDER.every(day => {
+    const span = hours[day];
+    return span === null || span === undefined || (Number.isInteger(span.open) && Number.isInteger(span.close) && span.open >= 0 && span.close <= DAY && span.open < span.close);
+  });
+}
+
+/** The same hours on the given days, closed on the rest. */
+export function sameHours(days: number[], open: number, close: number): Salon["hours"] {
+  return Object.fromEntries(WEEK_ORDER.map(day => [day, days.includes(day) ? { open, close } : null]));
 }
 
 export function weeklyHours(saturday = false): Salon["hours"] {
@@ -78,7 +106,39 @@ export const treatmentsValid = (list: Treatment[]) => list.every((_, i) => !trea
 
 export function salonDraft(language: Locale = DEFAULT_BOOKING_LANGUAGE): SalonDraft {
   return { name: "", industry: "hair", language, currency: DEFAULT_CURRENCY, hours: weeklyHours(),
-    people: [""], treatments: suggestedTreatments("hair", language), slug: "" };
+    people: [""], treatments: suggestedTreatments("hair", language), slug: "", accent: null, logo: null };
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * A draft read back from the browser: anything missing or malformed takes the default, so a draft saved by an
+ * earlier setup (name, type and treatments only) or by another version still opens.
+ */
+export function restoreDraft(input: unknown, language: Locale): SalonDraft {
+  const base = salonDraft(language);
+  if (!isObject(input)) return base;
+  const industry = INDUSTRIES.includes(input.industry as Industry) ? input.industry as Industry : base.industry;
+  const saved: Locale = input.language === "sv" || input.language === "en" ? input.language : base.language;
+  const hours = isObject(input.hours) ? Object.fromEntries(WEEK_ORDER.map(day => {
+    const span = (input.hours as Record<string, unknown>)[day];
+    return [day, isObject(span) ? { open: span.open, close: span.close } : null];
+  })) as Salon["hours"] : base.hours;
+  const treatments = Array.isArray(input.treatments) && input.treatments.every(item => isObject(item) && typeof item.name === "string")
+    ? (input.treatments as Record<string, unknown>[]).map(item => ({ name: String(item.name), price: Number(item.price), duration: Number(item.duration) }))
+    : suggestedTreatments(industry, saved);
+  const people = Array.isArray(input.people) && input.people.length && input.people.every(name => typeof name === "string")
+    ? (input.people as string[]).slice(0, MAX_PEOPLE).map(name => name.slice(0, MAX_PERSON_NAME)) : base.people;
+  const logo = typeof input.logo === "string" ? normalizeTheme({ logo: input.logo }).logo : null;
+  return {
+    ...base,
+    name: typeof input.name === "string" ? input.name.slice(0, 80) : base.name,
+    industry,
+    language: saved,
+    hours: hoursValid(hours) ? hours : base.hours,
+    treatments, people, logo,
+    accent: SETUP_ACCENTS.includes(input.accent as SetupAccent) ? input.accent as SetupAccent : null,
+  };
 }
 
 export const checkNewSlug = (value: string, demoSlug?: string) => checkOwnSlug(value, "", true, demoSlug);
@@ -106,9 +166,10 @@ export function createSalon(today: string, draft: SalonDraft, options: CreateOpt
   const { language, currency, hours } = draft;
   const checked = checkNewSlug(draft.slug || suggestedSlug(draft));
   if (!checked.ok) throw new Error("Invalid salon slug");
+  if (!hoursValid(hours)) throw new Error("Invalid opening hours");
   const name = draft.name.trim() || translate(language, "setup.defaultName");
   const week = weekFromHours(hours);
-  const roster = draft.people.length ? draft.people : [""];
+  const roster = (draft.people.length ? draft.people : [""]).slice(0, MAX_PEOPLE).map(person => person.slice(0, MAX_PERSON_NAME));
   const staff = roster.flatMap((person, index): Staff[] => {
     if (index && !person.trim()) return [];
     // Without a person's name the owner is shown as the salon ("With Studio Linnea"), never as its first word.
@@ -127,7 +188,7 @@ export function createSalon(today: string, draft: SalonDraft, options: CreateOpt
     accounting: { connected: false },
     modules: Object.fromEntries(MODULE_KEYS.map(key => [key, false])) as DemoState["modules"],
     dismissedCards: [], log: [], trash: [], supportGrants: [], tickets: [], memory: [], routines: [], domain: null,
-    page: { ...DEFAULT_PAGE, sections: [{ kind: "hero", variant: "plain" }, { kind: "treatments", variant: "list" },
+    page: { ...DEFAULT_PAGE, theme: normalizeTheme({ ...DEFAULT_THEME, logo: draft.logo ?? null, colors: draft.accent ? PALETTES[draft.accent] : null }), sections: [{ kind: "hero", variant: "plain" }, { kind: "treatments", variant: "list" },
       { kind: "staff", variant: "names" }, { kind: "map", variant: "full" }] },
   };
   const withMenu = draft.treatments.reduce((next, item) => applyServiceAction(next, { type: "service/add",

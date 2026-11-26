@@ -156,6 +156,8 @@ body:has(.studio-root) .demo-banner {
 :where(.studio-root a:focus-visible) { border-radius: var(--radius-xs); }
 /* A full-width row draws its ring just inside its own edge, so it does not run into the rows beside it. */
 .studio-root .ui-row:focus-visible { outline-offset: -2px; }
+/* A page title that takes focus after a step change is read out, but it is not a control, so it has no ring. */
+.studio-root h1[tabindex="-1"]:focus-visible { outline: none; }
 
 /* Headings break into even lines; running text avoids a single word on its last line. Utilities still override. */
 :where(.studio-root) :where(h1, h2, h3) { text-wrap: balance; }
@@ -302,3 +304,12 @@ body:has(.studio-root) .demo-banner {
   animation-duration: var(--dur-2);
   animation-timing-function: var(--ease-out);
 }
+
+/* Setup: each question arrives with a short slide from the side it was reached from; nothing moves with reduced motion. */
+.setup-step { animation: setup-step-in var(--dur-2) var(--ease-out) both; }
+.setup-step[data-back] { animation-name: setup-step-back; }
+@keyframes setup-step-in { from { opacity: 0; transform: translateX(var(--space-3)); } }
+@keyframes setup-step-back { from { opacity: 0; transform: translateX(calc(-1 * var(--space-3))); } }
+.setup-preview { height: 30rem; }
+@media (min-width: 64rem) { .setup-preview { height: min(44rem, calc(100dvh - 8rem)); } }
+@media (prefers-reduced-motion: reduce) { .setup-step { animation: none; } }

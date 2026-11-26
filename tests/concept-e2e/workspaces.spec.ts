@@ -52,7 +52,7 @@ test("setup steers clear of a renamed demo link and both salons reserve each oth
   await expect(save).toBeDisabled();
   await page.goto("/studio/setup");
   await page.getByLabel("Name", { exact: true }).fill("Studio Fern");
-  await page.getByRole("button", { name: "Next", exact: true }).click();
+  for (let step = 1; step < 5; step++) await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByRole("button", { name: "Create my salon" }).click();
   await expect(page.getByRole("link", { name: "See your booking page" })).toHaveAttribute("href", "/boka/studio-fern-2");
   await page.goto("/studio/more/settings/link");

@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { salonState } from "./fixtures";
 
-// The journey that has to stay short: from the demo to your own salon's booking page
-// in at most three setup screens and ten inputs, with no question setup can answer itself.
-const MAX_SCREENS = 3;
+// The journey that has to stay short: from the demo to your own salon's booking page in at most six
+// setup screens and ten inputs, where every screen after the name can be passed as it is.
+const MAX_SCREENS = 6;
 const MAX_INPUTS = 10;
 
 test("own salon to own booking page", async ({ page }) => {
@@ -22,9 +22,14 @@ test("own salon to own booking page", async ({ page }) => {
   await page.getByRole("radio", { name: "Lashes & brows" }).click();
   await page.getByRole("button", { name: "Next", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "What can clients book?" })).toBeVisible();
+  for (const heading of ["When are you open?", "What can clients book?", "Who works here?"]) {
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    await screen(page);
+    if (heading === "What can clients book?") await expect(page.getByText("Lash lift", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+  }
+  await expect(page.getByRole("heading", { name: "How should your booking page look?" })).toBeVisible();
   await screen(page);
-  await expect(page.getByText("Lash lift", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Create my salon" }).click();
 
   await expect(page.getByRole("heading", { name: "Your salon is ready" })).toBeVisible();

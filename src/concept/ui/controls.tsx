@@ -110,15 +110,18 @@ interface ChipProps {
   onClick: () => void;
   children: ReactNode;
   count?: number;
+  /** Layout only, such as `flex-1` in a row of equal chips. */
+  className?: string;
 }
 
-export function Chip({ active, onClick, children, count }: ChipProps) {
+export function Chip({ active, onClick, children, count, className }: ChipProps) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
       className={cx(
+        className,
         "inline-flex w-fit min-h-target min-w-target max-w-full items-center gap-2 rounded-full px-3 text-left text-body font-medium ring-1 ring-inset [overflow-wrap:anywhere]",
         active ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-hairline hover:bg-surface-2",
       )}

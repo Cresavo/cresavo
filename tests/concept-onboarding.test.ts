@@ -6,9 +6,11 @@ import { DEMO_VERSION } from "@/concept/data/generate";
 import { freeStarts, needOf, openingFor } from "@/concept/data/slots";
 import { staffViewer } from "@/concept/ops/access";
 import {
-  addExampleBookings, CHECKLIST_ROWS, checklistProgress, createSalon, INDUSTRIES, pageSeenCard, salonDraft, SETUP_TYPES,
-  suggestedSlug, suggestedTreatments, treatmentIssue, treatmentsValid, weeklyHours,
+  addExampleBookings, CHECKLIST_ROWS, checklistProgress, createSalon, hoursValid, INDUSTRIES, MAX_PEOPLE, MAX_PERSON_NAME, pageSeenCard,
+  restoreDraft, salonDraft, sameHours, SETUP_ACCENTS, SETUP_TYPES, suggestedSlug, suggestedTreatments, treatmentIssue, treatmentsValid, weeklyHours,
 } from "@/concept/onboarding/salon";
+import { normalizePage } from "@/concept/page/config";
+import { PALETTES } from "@/concept/page/theme";
 import { DURATION_STEP, MAX_DURATION, MIN_DURATION } from "@/concept/services/edit";
 import { FEW_BOOKINGS, SCHEDULE_ROWS, scheduleRows, suggestionLimit } from "@/concept/studio/today/limits";
 
@@ -57,6 +59,70 @@ describe("browser salon setup", () => {
     expect(createSalon(monday, draft).staff).toHaveLength(1);
     expect(() => createSalon(monday, { ...draft, slug: "salong-eko" })).toThrow();
     expect(migrateState({ ...createSalon(monday, draft), version: 18, industry: undefined })?.industry).toBeNull();
+  });
+});
+
+describe("the guided setup's answers", () => {
+  const logo = "data:image/png;base64,iVBORw0KGgo=";
+
+  it("opens on the chosen days and hours, for the salon and every person in it", () => {
+    const hours = sameHours([1, 2, 3, 4, 5, 6], 600, 1080);
+    const state = createSalon(monday, { ...salonDraft("en"), name: "Studio Linnea", hours, people: ["Linnea Berg", "Mira", ""] });
+    expect(state.salon.hours).toEqual(hours);
+    expect(openingFor(state.salon, saturday)).toEqual({ open: 600, close: 1080 });
+    expect(openingFor(state.salon, addDays(saturday, 1))).toBeNull();
+    expect(state.staff.map(person => [person.firstName, person.lastName])).toEqual([["Linnea", "Berg"], ["Mira", ""]]);
+    for (const person of state.staff) expect(person.week[6]).toEqual({ start: 600, end: 1080 });
+    expect(state.services.every(service => service.staffIds.length === 2)).toBe(true);
+    expect(freeStarts(state, state.staff[1].id, saturday, needOf(state.services[0]))).toContain(600);
+  });
+
+  it("refuses hours that end before they start and keeps a team to the setup limit", () => {
+    expect(hoursValid(sameHours([1], 600, 540))).toBe(false);
+    expect(hoursValid({ ...weeklyHours(), 2: { open: 0, close: 24 * 60 + 15 } })).toBe(false);
+    expect(hoursValid(weeklyHours(true))).toBe(true);
+    expect(() => createSalon(monday, { ...salonDraft("en"), hours: sameHours([1], 600, 540) })).toThrow();
+    const crowd = Array.from({ length: MAX_PEOPLE + 3 }, (_, i) => `Person${i} ${"x".repeat(MAX_PERSON_NAME)}`);
+    const state = createSalon(monday, { ...salonDraft("en"), people: crowd });
+    expect(state.staff).toHaveLength(MAX_PEOPLE);
+    expect(state.staff.every(person => `${person.firstName} ${person.lastName}`.length <= MAX_PERSON_NAME)).toBe(true);
+  });
+
+  it("dresses the booking page in the chosen colour and logo, and keeps the neutral look by default", () => {
+    expect(createSalon(monday, salonDraft("en")).page.theme.colors).toBeNull();
+    expect(createSalon(monday, salonDraft("en")).page.theme.logo).toBeNull();
+    for (const accent of SETUP_ACCENTS) {
+      const { page } = createSalon(monday, { ...salonDraft("en"), accent, logo });
+      expect(page.theme.colors).toEqual(PALETTES[accent]);
+      expect(page.theme.logo).toBe(logo);
+      expect(normalizePage(page).theme).toEqual(page.theme);
+    }
+    expect(createSalon(monday, { ...salonDraft("en"), logo: "javascript:alert(1)" }).page.theme.logo).toBeNull();
+  });
+
+  it("offers only calm colours, never a purple", () => {
+    expect(SETUP_ACCENTS).not.toContain("peony");
+    expect(SETUP_ACCENTS).not.toContain("ink");
+    expect(SETUP_ACCENTS.length).toBeLessThanOrEqual(6);
+  });
+
+  it("restores a draft saved by the two-question setup with defaults for everything it did not ask", () => {
+    const older = { name: "Studio Vide", industry: "nails", language: "sv", currency: "SEK", hours: weeklyHours(),
+      treatments: [{ name: "Manikyr", duration: 45, price: 495 }], people: [""], slug: "" };
+    const draft = restoreDraft(older, "en");
+    expect(draft).toEqual({ ...salonDraft("sv"), name: "Studio Vide", industry: "nails", treatments: older.treatments });
+    expect(draft.accent).toBeNull();
+    expect(draft.logo).toBeNull();
+    expect(createSalon(monday, draft).salon.name).toBe("Studio Vide");
+  });
+
+  it("restores the new answers and drops what is malformed", () => {
+    const saved = { ...salonDraft("en"), name: "Studio Linnea", hours: sameHours([2, 3], 480, 960), people: ["Linnea", "Mira"], accent: "sand", logo };
+    expect(restoreDraft(JSON.parse(JSON.stringify(saved)), "en")).toEqual(saved);
+    expect(restoreDraft(null, "sv")).toEqual(salonDraft("sv"));
+    expect(restoreDraft("nonsense", "en")).toEqual(salonDraft("en"));
+    const broken = restoreDraft({ industry: "rockets", hours: { 1: { open: 900, close: 100 } }, people: [42], accent: "peony", logo: "http://x/y.png", name: 7 }, "en");
+    expect(broken).toEqual(salonDraft("en"));
   });
 });
 
