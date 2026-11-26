@@ -57,8 +57,9 @@ interface Preset { serviceId?: string; count: number }
 const BookingContext = createContext<{
   preset: Preset;
   book: (serviceId?: string) => void;
+  close: () => void;
   menuAnchor: string;
-}>({ preset: { count: 0 }, book: () => {}, menuAnchor: "behandlingar" });
+}>({ preset: { count: 0 }, book: () => {}, close: () => {}, menuAnchor: "behandlingar" });
 
 export const useBook = () => useContext(BookingContext).book;
 export const useBookingPreset = () => useContext(BookingContext).preset;
@@ -80,7 +81,10 @@ export function ShowcaseBookingProvider({ children, anchor = "boka", menuAnchor 
       scrollToId(menuAnchor);
     }
   }, [anchor, menuAnchor]);
-  const value = useMemo(() => ({ preset, book, menuAnchor }), [preset, book, menuAnchor]);
+  const close = useCallback(() => {
+    setPreset((current) => ({ count: current.count, serviceId: undefined }));
+  }, []);
+  const value = useMemo(() => ({ preset, book, close, menuAnchor }), [preset, book, close, menuAnchor]);
   return <BookingContext.Provider value={value}>{children}</BookingContext.Provider>;
 }
 
@@ -113,10 +117,9 @@ function TreatmentPicker({ onPick }: { onPick: (serviceId: string) => void }) {
 function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePath: string }) {
   const state = useShowcaseState();
   const now = useSalonNow();
-  const { preset, book, menuAnchor } = useContext(BookingContext);
-  const [receipt, setReceipt] = useState<string>();
-  // A new price-list choice updates the preset; drop a receipt that is still on screen so the next booking can start.
-  useEffect(() => { setReceipt(undefined); }, [preset.count]);
+  const { preset, book, close, menuAnchor } = useContext(BookingContext);
+  const [receipt, setReceipt] = useState<{ id: string; at: number }>();
+  const shown = receipt && receipt.at === preset.count ? receipt.id : undefined;
   if (state === null) {
     return (
       <p className="py-8">
@@ -124,14 +127,14 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
       </p>
     );
   }
-  if (receipt) {
+  if (shown) {
     return (
       <ConceptLanguage language="sv" currency="SEK">
         <ShowcaseConfirmation
-          id={receipt}
+          id={shown}
           sharePath={sharePath}
-          onBack={() => setReceipt(undefined)}
-          onOpen={setReceipt}
+          onBack={() => { setReceipt(undefined); close(); }}
+          onOpen={(id) => setReceipt({ id, at: preset.count })}
           onBookAgain={(serviceId) => { setReceipt(undefined); book(serviceId); }}
         />
       </ConceptLanguage>
@@ -150,7 +153,7 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
   if (!state || !initial) return <p role="status" className="py-8 text-text-secondary">Hämtar lediga tider …</p>;
   return (
     <ConceptLanguage language="sv" currency="SEK">
-      <BookingWizard key={preset.count} state={state} now={now} initialServiceId={initial} onBooked={setReceipt} />
+      <BookingWizard key={preset.count} state={state} now={now} initialServiceId={initial} onBooked={(id) => setReceipt({ id, at: preset.count })} />
     </ConceptLanguage>
   );
 }
