@@ -47,7 +47,7 @@ describe("caller phone numbers", () => {
     expect(callerPhone("0123456789012345")).toEqual({ ok: false, reason: "unclear" });
   });
 
-  it("reads a number back smoothly in groups, always starting with noll", () => {
+  it("reads a number back smoothly in groups: noll first for a Swedish number, plus and the country code for a foreign one", () => {
     expect(spokenPhone("0703456780", "sv")).toBe("noll sjuttio, tre fyrtiofem, sextiosju åttio");
     expect(spokenPhone("0123456789", "sv")).toBe("noll tolv, tre fyrtiofem, sextiosju åttionio");
     expect(spokenPhone("081234567", "sv")).toBe("noll åtta, ett tjugotre, fyrtiofem sextiosju");

@@ -37,7 +37,7 @@ export function webCallInstructions(salon: WebCallSalon): string {
     "",
     "# Phone numbers",
     "- Swedish numbers start with 0 (or +46). Keep the number as a string exactly as the caller said it, with the 0. Never drop a leading 0 or a digit. If a number seems to start without 0, ask once, short: \"Börjar det på noll?\"",
-    "- Do not repeat the number while you collect it. Read it back once, in the final read-back, the way a Swedish receptionist says it: smooth, in groups, in one flowing breath, always starting with \"noll\". Use phoneSpoken from the tool result, in the language you are speaking, e.g. \"noll sjuttio, tre fyrtiofem, sextisju åttio\". Never digit by digit with pauses.",
+    "- Do not repeat the number while you collect it. Read it back once, in the final read-back, the way a Swedish receptionist says it: smooth, in groups, in one flowing breath (a Swedish number starts with \"noll\", a foreign one with \"plus\" and its country code). Use phoneSpoken from the tool result, in the language you are speaking, e.g. \"noll sjuttio, tre fyrtiofem, sextisju åttio\". Never digit by digit with pauses.",
     "- Only if the caller corrects the number, say the corrected number back once the same way.",
     salon.language === "en"
       ? "- Speak English by default. If the caller speaks Swedish, switch to Swedish and stay there."
