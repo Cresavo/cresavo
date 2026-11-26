@@ -42,6 +42,11 @@ export async function connectBrowserCall(options: { clientSecret: string; speake
   } catch (error) {
     throw new BrowserCallError(microphoneFailure(error));
   }
+  // The prompt cannot be cancelled: a call ended while it was open lets go of the microphone as soon as it is granted.
+  if (signal?.aborted) {
+    for (const track of microphone.getTracks()) track.stop();
+    throw new BrowserCallError("connection");
+  }
 
   const peer = new RTCPeerConnection();
   const events = peer.createDataChannel("oai-events");
@@ -90,6 +95,9 @@ export async function connectBrowserCall(options: { clientSecret: string; speake
   // The microphone was unplugged or the browser took it back.
   for (const track of microphone.getAudioTracks()) track.onended = () => lost("error");
 
+  // Ending the call while it connects closes the microphone and the connection at once.
+  const abandon = () => close();
+  signal?.addEventListener("abort", abandon, { once: true });
   try {
     for (const track of microphone.getTracks()) peer.addTrack(track, microphone);
     const offer = await peer.createOffer();
@@ -105,7 +113,10 @@ export async function connectBrowserCall(options: { clientSecret: string; speake
   } catch (error) {
     close();
     throw error instanceof BrowserCallError ? error : new BrowserCallError("connection");
+  } finally {
+    signal?.removeEventListener("abort", abandon);
   }
+  if (closed) throw new BrowserCallError("connection");
 
   return {
     channel: "browser-test",
