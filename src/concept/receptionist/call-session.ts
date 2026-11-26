@@ -2,7 +2,7 @@ import type { Clock } from "../finance/types";
 import { plainText } from "./actions";
 import type { ReceptionistHost } from "./host";
 import { openingInstruction, type InstructionInput } from "./instructions";
-import { estimateResponseCost, WRAP_UP_COST_SHARE, WRAP_UP_SECONDS, type CallLimits, type RealtimeUsage } from "./limits";
+import { estimateResponseCost, WRAP_UP_COST_SHARE, WRAP_UP_SECONDS, type CallLimits, type Rates, type RealtimeUsage } from "./limits";
 import { newCallMemory, runReceptionistTool, type CallMemory, type HandoverText } from "./tools";
 import { MAX_LINE_LENGTH, MAX_TRANSCRIPT_LINES, type CallChannel, type CallEnd, type CallRecord, type TranscriptLine } from "./types";
 
@@ -36,6 +36,10 @@ export interface CallOptions {
   startedAt: Clock;
   /** Epoch milliseconds. */
   now: () => number;
+  /** What she is asked to say first; the standard greeting instruction when left out. */
+  opening?: string;
+  /** Prices for the cost estimate; the mini model's when left out. */
+  rates?: Rates;
 }
 
 export interface Step {
@@ -65,7 +69,7 @@ export class ReceptionistCall {
 
   /** What the transport sends when the audio is connected: the greeting. */
   open(): ClientEvent[] {
-    return [{ type: "response.create", response: { instructions: openingInstruction(this.options.salon) } }];
+    return [{ type: "response.create", response: { instructions: this.options.opening ?? openingInstruction(this.options.salon) } }];
   }
 
   get seconds(): number {
@@ -136,7 +140,7 @@ export class ReceptionistCall {
   private async responseDone(event: ServerEvent): Promise<Step> {
     if (event.response?.usage) {
       this.reported = true;
-      this.cost += estimateResponseCost(event.response.usage);
+      this.cost += estimateResponseCost(event.response.usage, this.options.rates);
     }
     const calls = (event.response?.output ?? []).filter((item) => item.type === "function_call" && item.call_id && item.name);
     const send: ClientEvent[] = [];

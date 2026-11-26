@@ -33,7 +33,7 @@ export interface RealtimeUsage {
 }
 
 /** USD per million tokens. */
-interface Rates {
+export interface Rates {
   textIn: number;
   textCachedIn: number;
   textOut: number;
@@ -46,6 +46,13 @@ interface Rates {
 // call ceiling and the owner's overview, not the bill. Transcription of the
 // caller's speech is billed separately and is not counted here.
 const MINI_RATES: Rates = { textIn: 0.6, textCachedIn: 0.06, textOut: 2.4, audioIn: 10, audioCachedIn: 0.3, audioOut: 20 };
+// The full models (gpt-realtime-2, gpt-realtime-2.1), list prices on 26 Nov 2026.
+const FULL_RATES: Rates = { textIn: 4, textCachedIn: 0.4, textOut: 24, audioIn: 32, audioCachedIn: 0.4, audioOut: 64 };
+
+/** The list prices of a Realtime model: the mini rates for a mini model, the full ones otherwise (the safe side). */
+export function ratesFor(model: string): Rates {
+  return /mini/.test(model) ? MINI_RATES : FULL_RATES;
+}
 
 const count = (value: number | undefined) => (typeof value === "number" && Number.isFinite(value) && value > 0 ? value : 0);
 
