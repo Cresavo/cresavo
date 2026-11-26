@@ -266,12 +266,18 @@ describe("receptionist call session", () => {
     expect(JSON.parse(item.output)).toMatchObject({ ok: true });
   });
 
-  it("marks a reply the caller cut off, so the log does not show words that were never heard", async () => {
+  it("marks the reply the caller cut off, so the log does not show words that were never heard", async () => {
     const { session } = call();
-    await session.handle({ type: "response.output_audio_transcript.done", transcript: "Då är det bokat. Nu behöver jag också ditt namn" });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "a", transcript: "Jag har halv tre." });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "b", transcript: "Då är det bokat. Nu behöver jag också ditt namn" });
+    await session.handle({ type: "conversation.item.truncated", item_id: "b" });
+    await session.handle({ type: "conversation.item.truncated", item_id: "b" });
+    // A cut that arrives before its line still marks that line, not the one before it.
+    await session.handle({ type: "conversation.item.truncated", item_id: "c" });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "c", transcript: "Vill du" });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "d", transcript: "Toppen." });
     await session.handle({ type: "conversation.item.truncated" });
-    await session.handle({ type: "conversation.item.truncated" });
-    expect(session.record().transcript.at(-1)!.text).toBe(`Då är det bokat. Nu behöver jag också ditt namn${CUT_MARK}`);
+    expect(session.record().transcript.map((line) => line.text)).toEqual(["Jag har halv tre.", `Då är det bokat. Nu behöver jag också ditt namn${CUT_MARK}`, `Vill du${CUT_MARK}`, "Toppen."]);
   });
 
   it("keeps the transcript and records a booked call", async () => {

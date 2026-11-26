@@ -19,6 +19,8 @@ export const CUT_MARK = " …";
 export interface ServerEvent {
   type: string;
   transcript?: string;
+  /** The conversation item a transcript or a truncation belongs to. */
+  item_id?: string;
   response?: {
     usage?: RealtimeUsage;
     output?: { type?: string; name?: string; call_id?: string; arguments?: string }[];
@@ -58,6 +60,9 @@ const systemNote = (text: string): ClientEvent => ({ type: "conversation.item.cr
 export class ReceptionistCall {
   private readonly memory: CallMemory;
   private readonly transcript: TranscriptLine[] = [];
+  /** Her lines by conversation item, and items cut off before their line arrived, so a cut marks the right line in either order. */
+  private readonly linesByItem = new Map<string, TranscriptLine>();
+  private readonly cutItems = new Set<string>();
   private readonly started: number;
   private cost = 0;
   private reported = false;
@@ -91,14 +96,25 @@ export class ReceptionistCall {
     return this.ended !== undefined;
   }
 
-  private markCut() {
-    const last = [...this.transcript].reverse().find((line) => line.who === "receptionist");
-    if (last && !last.text.endsWith(CUT_MARK)) last.text = `${last.text.slice(0, MAX_LINE_LENGTH - CUT_MARK.length)}${CUT_MARK}`;
+  private static cut(line: TranscriptLine) {
+    if (!line.text.endsWith(CUT_MARK)) line.text = `${line.text.slice(0, MAX_LINE_LENGTH - CUT_MARK.length)}${CUT_MARK}`;
   }
 
-  private say(who: TranscriptLine["who"], text: string | undefined) {
+  private markCut(itemId: string | undefined) {
+    if (!itemId) return;
+    const line = this.linesByItem.get(itemId);
+    if (line) ReceptionistCall.cut(line);
+    else if (this.cutItems.size < MAX_TRANSCRIPT_LINES) this.cutItems.add(itemId);
+  }
+
+  private say(who: TranscriptLine["who"], text: string | undefined, itemId?: string) {
     const clean = plainText(text ?? "", MAX_LINE_LENGTH);
-    if (clean && this.transcript.length < MAX_TRANSCRIPT_LINES) this.transcript.push({ who, text: clean, at: this.seconds });
+    if (!clean || this.transcript.length >= MAX_TRANSCRIPT_LINES) return;
+    const line: TranscriptLine = { who, text: clean, at: this.seconds };
+    this.transcript.push(line);
+    if (!itemId) return;
+    this.linesByItem.set(itemId, line);
+    if (this.cutItems.delete(itemId)) ReceptionistCall.cut(line);
   }
 
   private finish(reason: CallEnd, send: ClientEvent[] = []): Step {
@@ -136,14 +152,14 @@ export class ReceptionistCall {
       // The second name is the one the API used before general availability.
       case "response.output_audio_transcript.done":
       case "response.audio_transcript.done":
-        this.say("receptionist", event.transcript);
+        this.say("receptionist", event.transcript, event.item_id);
         return { send: [] };
       case "response.done":
         return this.responseDone(event);
       // The caller talked over her: the rest of that answer was never heard (OpenAI drops it from the context too).
       // Its written line still holds the whole answer, so the log marks it as cut off.
       case "conversation.item.truncated":
-        this.markCut();
+        this.markCut(event.item_id);
         return { send: [] };
       default:
         return { send: [] };
