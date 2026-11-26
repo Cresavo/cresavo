@@ -129,7 +129,7 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
   }
   const deadline = now() + limits.maxSeconds * 1000;
   try {
-    await ledger.register(callId, deadline);
+    await ledger.register(callId, deadline, ledgerKey(secret, "sid", options.session));
   } catch (error) {
     // A call the ledger does not know could never be swept or switched off: end it now.
     await hangUp(callId, options.apiKey, options.fetch);
@@ -205,7 +205,10 @@ export function openSideband(callId: string, apiKey: string): SidebandSocket {
   return new Socket(url, { headers: { Authorization: `Bearer ${apiKey}` } });
 }
 
-export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed" | "unwatched";
+export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed" | "unwatched" | "switched_off";
+
+/** How often a running call looks at the kill switch. */
+const SWITCH_CHECK_MS = 10_000;
 
 type ReportedSession = {
   instructions?: unknown; tools?: { name?: unknown }[]; tool_choice?: unknown; output_modalities?: unknown; max_output_tokens?: unknown;
@@ -227,6 +230,8 @@ export interface SuperviseOptions {
   instructions: string;
   /** The tools this server gave the call, by name; a session that reports others was changed by the client. */
   toolNames?: readonly string[];
+  /** The kill switch, read again while the call runs; when it turns off, the call ends. */
+  enabled?: () => boolean;
   fetch?: typeof fetch;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -282,7 +287,18 @@ export async function superviseCall(callId: string, deadline: number, options: S
     socket = undefined;
     resolveEnd("unwatched");
   }
+  let settled = false;
+  if (options.enabled) {
+    const enabled = options.enabled;
+    void (async () => {
+      while (!settled) {
+        await sleep(SWITCH_CHECK_MS);
+        if (!settled && !enabled()) resolveEnd("switched_off");
+      }
+    })();
+  }
   const why = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
+  settled = true;
   // Whatever ended the watch, the call is hung up: a call that already ended answers 404, which counts as done.
   // The sideband closing early fails closed: the call ends rather than running unwatched.
   await endWithRetries(callId, options, sleep);

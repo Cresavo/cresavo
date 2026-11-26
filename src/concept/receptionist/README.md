@@ -37,15 +37,23 @@ the server can end the call itself (`POST /v1/realtime/calls/{id}/hangup`).
 | `web-call/config.ts` | The kill switch (`PHONE_RECEPTIONIST_WEB_CALL=1`), the model (`gpt-realtime-2.1`, or `PHONE_RECEPTIONIST_WEB_MODEL`), the 4-minute ceiling and the quotas. |
 | `web-call/page-token.ts` | The signed page token (20 minutes) the page is rendered with; the route refuses requests without one. It also names the page session for the per-session limit. |
 | `web-call/ledger.ts` | Counters and running calls in the pairing database's `PairBudget` table (keys `voice:*`, hashed, no addresses). Process memory only outside production. |
-| `web-call/server.ts` | Limits, call creation, hang-up at the deadline (scheduled with `after()`), retry of failed hang-ups, and the sweep of overdue calls on every request. |
+| `web-call/server.ts` | Limits, call creation, the server's watch of each call (deadline, cost, tampering, kill switch; scheduled with `after()`), retry of failed hang-ups, and the sweep of overdue calls on every request. |
 | `web-call/persona.ts` | Maja's web-call voice: soft AI disclosure, calm pace, honest suggestions, owner call-back, strict salon-only role. |
 | `web-call/browser.ts` | The browser side: microphone, WebRTC, iPhone audio unlock, and the end report. |
 
-Limits, all on the server: 3 calls an hour per address, 3 an hour per page
+Limits, all on the server: 3 calls in any rolling hour per address, 3 per page
 session, 30 a day in all (`PHONE_RECEPTIONIST_WEB_DAILY`), 4 minutes per call.
-A running call is hung up at its deadline by the request that started it; if
-that instance is gone, the next web-call request on any instance sweeps it.
-Turning the switch off hangs up running calls on the next request.
+The request that started a call keeps its own connection to it (OpenAI's
+sideband, with the key) and hangs it up at the deadline, when OpenAI's usage
+reports reach the cost ceiling (`PHONE_RECEPTIONIST_MAX_COST_USD`), when the
+client changes the session's rules, tools or voice, or when that connection
+fails. If that instance is gone, the next web-call request on any instance
+sweeps overdue calls. Only the page that started a call can end it early.
+
+Kill switch: set `PHONE_RECEPTIONIST_WEB_CALL` to anything but `1` (or remove
+it) and redeploy. The button closes, the start route answers 404, and the first
+request to `/studio/ring` or the start route hangs up every call still running.
+A call the old deployment is still watching ends within 4 minutes regardless.
 
 ## Keys and limits
 

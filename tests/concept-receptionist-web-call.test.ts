@@ -82,7 +82,7 @@ describe("web call page token", () => {
     const issued = issuePageToken(SECRET, NOW);
     expect(verifyPageToken(SECRET, issued.token, NOW)).toEqual({ ok: true, session: issued.session });
     expect(verifyPageToken(SECRET, issued.token, NOW + (PAGE_TOKEN_SECONDS - 1) * 1000)).toMatchObject({ ok: true });
-    expect(verifyPageToken(SECRET, issued.token, NOW + PAGE_TOKEN_SECONDS * 1000)).toEqual({ ok: false, reason: "expired" });
+    expect(verifyPageToken(SECRET, issued.token, NOW + PAGE_TOKEN_SECONDS * 1000)).toMatchObject({ ok: false, reason: "expired" });
   });
 
   it("refuses a tampered, foreign, malformed or far-future token", () => {
@@ -302,6 +302,21 @@ describe("web call server-side hang-up", () => {
       expect(why).toBe("deadline");
     });
 
+    it("ends the call when the kill switch turns off while it runs", async () => {
+      const ledger = memoryLedger();
+      await ledger.register("rtc_switch001", NOW + 240_000);
+      const fetcher = provider();
+      let on = true;
+      let checks = 0;
+      const why = await superviseCall("rtc_switch001", NOW + 240_000, {
+        apiKey: KEY, ledger, fetch: fetcher, now: () => NOW, connect: () => new FakeSideband(),
+        sleep: (ms) => (ms > 60_000 ? new Promise<void>(() => undefined) : Promise.resolve().then(() => { if (++checks === 3) on = false; })),
+        enabled: () => on, limits: { maxSeconds: 240, maxCostUsd: 0.5 }, model: "gpt-realtime-2.1", instructions: "ours",
+      });
+      expect(why).toBe("switched_off");
+      expect(await ledger.isRunning("rtc_switch001")).toBe(false);
+    });
+
     it("ends the call when its watch connection fails or cannot be opened", async () => {
       expect((await watch((s) => s.emit("error"))).why).toBe("unwatched");
       const ledger = memoryLedger();
@@ -404,21 +419,26 @@ describe("web call routes", () => {
 
   it("starts a call with a valid token, then refuses the fourth call from the same address", async () => {
     const { start, end, fetcher } = await load({ ...ON, OPENAI_API_KEY: KEY, SESSION_SECRET: SECRET });
-    const ok = await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET).token)));
+    const page = issuePageToken(SECRET).token;
+    const ok = await start(post("/api/concept/receptionist/web-call", input(page)));
     expect(ok.status).toBe(200);
     const body = await ok.json();
     expect(body).toMatchObject({ callId: "rtc_route00001", model: "gpt-realtime-2.1", limits: { maxSeconds: 240 } });
     expect(JSON.stringify(body)).not.toContain(KEY);
     // The server watches the call from its own connection, with the key.
     expect(FakeSideband.opened[0]).toEqual({ url: "wss://api.openai.com/v1/realtime?call_id=rtc_route00001", headers: { Authorization: `Bearer ${KEY}` } });
-    for (let i = 0; i < 2; i++) expect((await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET).token)))).status).toBe(200);
+    // The fake provider answers every call with the same id, so the page that owns it stays the same.
+    for (let i = 0; i < 2; i++) expect((await start(post("/api/concept/receptionist/web-call", input(page)))).status).toBe(200);
     const fourth = await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET).token)));
     expect(fourth.status).toBe(429);
     expect(await fourth.json()).toEqual({ error: "rate_limited" });
     expect(Number(fourth.headers.get("retry-after"))).toBeGreaterThan(0);
-    // The browser's goodbye hangs the call up at OpenAI.
+    // Another page cannot end this call: same answer, nothing happens.
     const before = fetcher.mock.calls.length;
     expect((await end(post("/api/concept/receptionist/web-call/end", { token: issuePageToken(SECRET).token, callId: "rtc_route00001" }))).status).toBe(204);
+    expect(fetcher.mock.calls.length).toBe(before);
+    // The page that started it can: its goodbye hangs the call up at OpenAI.
+    expect((await end(post("/api/concept/receptionist/web-call/end", { token: page, callId: "rtc_route00001" }))).status).toBe(204);
     expect(String(fetcher.mock.calls[before][0])).toContain("rtc_route00001/hangup");
   });
 

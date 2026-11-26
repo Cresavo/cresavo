@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { verifyPageToken } from "@/concept/receptionist/web-call/page-token";
+import { webCallEnabled } from "@/concept/receptionist/web-call/config";
 import { cleanupRuntime, webCallRuntime } from "@/concept/receptionist/web-call/runtime";
 import { hangUpAll, MAX_OFFER_BYTES, startWebCall, superviseCall, sweepOverdue, webCallInput } from "@/concept/receptionist/web-call/server";
 import { withRequestLog } from "@/concept/server/logger";
@@ -54,7 +55,7 @@ export const POST = withRequestLog("/api/concept/receptionist/web-call", async (
     const started = await startWebCall(input.data, { ...runtime, client, session: token.session });
     if (!started.ok) return refuse(started.error, started.error === "provider_unavailable" ? 502 : 429, started.retryAfter);
     // The server watches the call itself: deadline, cost ceiling from OpenAI's own usage reports, tampering.
-    later(() => superviseCall(started.callId, started.deadline, { ...runtime, limits: started.limits, model: started.model, instructions: started.instructions, toolNames: started.toolNames })
+    later(() => superviseCall(started.callId, started.deadline, { ...runtime, limits: started.limits, model: started.model, instructions: started.instructions, toolNames: started.toolNames, enabled: () => webCallEnabled(process.env) })
       .then((why) => console.log(JSON.stringify({ level: "info", msg: "web_call_ended", why })), () => undefined));
     return Response.json({ callId: started.callId, sdp: started.sdp, limits: started.limits, model: started.model }, { headers: { "Cache-Control": "no-store" } });
   } catch {

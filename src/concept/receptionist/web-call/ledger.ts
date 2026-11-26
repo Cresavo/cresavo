@@ -27,8 +27,10 @@ export interface CallLedger {
    * Kept as `limit` slots that each hold the moment their use expires; a use claims a free or expired slot.
    */
   takeRolling(bucket: string, limit: number, periodMs: number, now: number): Promise<Take>;
-  /** Records a running call and the moment it must end. */
-  register(callId: string, deadline: number): Promise<void>;
+  /** Records a running call, the moment it must end, and (hashed) the page session that started it. */
+  register(callId: string, deadline: number, owner?: string): Promise<void>;
+  /** Whether `owner` is the page session that started the call. */
+  owns(callId: string, owner: string): Promise<boolean>;
   /** Running calls whose deadline has passed, oldest first. */
   overdue(now: number, max: number): Promise<string[]>;
   /** Whether the call is registered and not yet ended. */
@@ -43,12 +45,13 @@ const windowEnd = (now: number, periodMs: number) => (Math.floor(now / periodMs)
 /** A finished or overdue call row stays a day so it can still be found and hung up. */
 const KEEP_MS = 24 * 3_600_000;
 const CALL_PREFIX = "voice:call:";
+const OWNER_PREFIX = "voice:owner:";
 
 /** For tests and local development only. */
 export function memoryLedger(): CallLedger {
   const counters = new Map<string, { count: number; until: number }>();
   const uses = new Map<string, number[]>();
-  const calls = new Map<string, { deadline: number; running: boolean }>();
+  const calls = new Map<string, { deadline: number; running: boolean; owner?: string }>();
   return {
     kind: "memory",
     async take(bucket, limit, periodMs, now) {
@@ -69,8 +72,11 @@ export function memoryLedger(): CallLedger {
       uses.set(bucket, [...live, now + periodMs]);
       return { ok: true };
     },
-    async register(callId, deadline) {
-      calls.set(callId, { deadline, running: true });
+    async register(callId, deadline, owner) {
+      calls.set(callId, { deadline, running: true, owner });
+    },
+    async owns(callId, owner) {
+      return calls.get(callId)?.owner === owner;
     },
     async overdue(now, max) {
       return [...calls].filter(([, c]) => c.running && c.deadline <= now).sort((a, b) => a[1].deadline - b[1].deadline).slice(0, max).map(([id]) => id);
@@ -122,12 +128,22 @@ export function pairBudgetLedger(db: () => SqlClient): CallLedger {
       const free = rows[0] ? new Date(rows[0].expiresAt).getTime() : now + periodMs;
       return { ok: false, retryAfter: Math.max(1, Math.ceil((free - now) / 1000)) };
     },
-    async register(callId, deadline) {
+    async register(callId, deadline, owner) {
       // count 1 = running, 0 = ended. expiresAt = deadline + a day, so the pairing sweep keeps overdue rows.
       const key = CALL_PREFIX + callId;
+      const keep = new Date(deadline + KEEP_MS);
       await db().$queryRaw`
-        INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${new Date(deadline + KEEP_MS)})
+        INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${keep})
         ON CONFLICT ("key") DO NOTHING RETURNING "count"`;
+      // The owner is a second row whose key is the pair; the table has no other column to hold it.
+      if (owner) await db().$queryRaw`
+        INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${OWNER_PREFIX + callId + ":" + owner}, 0, ${keep})
+        ON CONFLICT ("key") DO NOTHING RETURNING "count"`;
+    },
+    async owns(callId, owner) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        SELECT "key" FROM "PairBudget" WHERE "key" = ${OWNER_PREFIX + callId + ":" + owner}`;
+      return rows.length > 0;
     },
     async overdue(now, max) {
       const rows = await db().$queryRaw<{ key: string }[]>`

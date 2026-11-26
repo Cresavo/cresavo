@@ -35,7 +35,7 @@ export function issuePageToken(secret: string, now = Date.now()): PageToken {
   return { token: `${payload}.${sign(secret, payload)}`, session, expiresAt };
 }
 
-export type TokenCheck = { ok: true; session: string } | { ok: false; reason: "invalid" | "expired" };
+export type TokenCheck = { ok: true; session: string } | { ok: false; reason: "invalid" } | { ok: false; reason: "expired"; session: string };
 
 export function verifyPageToken(secret: string, token: unknown, now = Date.now()): TokenCheck {
   if (typeof token !== "string" || token.length > 200) return { ok: false, reason: "invalid" };
@@ -48,6 +48,6 @@ export function verifyPageToken(secret: string, token: unknown, now = Date.now()
   const seconds = Math.floor(now / 1000);
   // A token from the future (longer than one lifetime ahead) was not made here.
   if (expiresAt > seconds + PAGE_TOKEN_SECONDS + 60) return { ok: false, reason: "invalid" };
-  if (expiresAt <= seconds) return { ok: false, reason: "expired" };
+  if (expiresAt <= seconds) return { ok: false, reason: "expired", session: parts[1] };
   return { ok: true, session: parts[1] };
 }

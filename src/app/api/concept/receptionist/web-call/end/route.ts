@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { verifyPageToken } from "@/concept/receptionist/web-call/page-token";
 import { cleanupRuntime } from "@/concept/receptionist/web-call/runtime";
-import { endWebCall, sweepOverdue } from "@/concept/receptionist/web-call/server";
+import { endWebCall, ledgerKey, sweepOverdue } from "@/concept/receptionist/web-call/server";
 import { withRequestLog } from "@/concept/server/logger";
 import { fromSameOrigin } from "@/concept/server/same-origin";
 import { readCapped } from "@/concept/site/waitlist-server";
@@ -32,7 +32,8 @@ export const POST = withRequestLog("/api/concept/receptionist/web-call/end", asy
   const token = verifyPageToken(runtime.secret, parsed.data.token);
   if (!token.ok && token.reason !== "expired") return done(403);
   try {
-    await endWebCall(parsed.data.callId, runtime);
+    // Only the page that started a call can end it; any other answers the same, and nothing happens.
+    if (await runtime.ledger.owns(parsed.data.callId, ledgerKey(runtime.secret, "sid", token.session))) await endWebCall(parsed.data.callId, runtime);
     await sweepOverdue(runtime);
   } catch {
     return done(503);
