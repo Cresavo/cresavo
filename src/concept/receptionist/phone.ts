@@ -1,6 +1,9 @@
 import type { Locale } from "@/lib/locale";
 import { TRUNK_ZERO_CODES } from "../booking/lookup";
 
+// Italy keeps its 0 after the country code (+39 02 …): it is part of the number there, not a trunk prefix.
+const DROP_ZERO = TRUNK_ZERO_CODES.filter((code) => code !== "39");
+
 // Phone numbers as a caller says them. A number is always a string: Swedish
 // numbers start with 0 (or +46), and a number without its leading 0 is not the
 // number the caller said. So a bare number without the 0 is refused as unclear
@@ -21,7 +24,7 @@ export function callerPhone(raw: string): CallerPhone {
   if (international && digits.startsWith("46")) phone = `0${digits.slice(2).replace(/^0/, "")}`;
   else if (international) {
     // "+44 (0)20 7946 0958": the 0 after the country code is not dialled from abroad.
-    const code = TRUNK_ZERO_CODES.find((candidate) => digits.startsWith(candidate));
+    const code = DROP_ZERO.find((candidate) => digits.startsWith(candidate));
     phone = `+${code && digits[code.length] === "0" ? code + digits.slice(code.length + 1) : digits}`;
   }
   else if (digits.startsWith("0")) phone = digits;

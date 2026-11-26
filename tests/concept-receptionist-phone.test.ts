@@ -16,6 +16,7 @@ describe("caller phone numbers", () => {
     expect(callerPhone("0046701234567")).toEqual({ ok: true, phone: "0701234567" });
     expect(callerPhone("+44 20 7946 0958")).toEqual({ ok: true, phone: "+442079460958" });
     expect(callerPhone("+44 (0)20 7946 0958")).toEqual({ ok: true, phone: "+442079460958" });
+    expect(callerPhone("+39 02 1234 5678")).toEqual({ ok: true, phone: "+390212345678" });
   });
 
   it("refuses a number heard without its 0, and numbers that are not numbers", () => {
@@ -65,7 +66,8 @@ describe("the salon as Maja says it", () => {
     expect(await run("book_appointment", { ...details, callerPhone: "123456789", confirmed: false })).toMatchObject({ ok: false, error: "phone_missing_zero" });
     const readBack = await run("book_appointment", { ...details, confirmed: false });
     expect(readBack).toMatchObject({ status: "needs_confirmation", readBack: { phone: "0123456789", phoneSpoken: { sv: "noll tolv, tre fyrtiofem, sextiosju åttionio", en: "zero twelve, three forty-five, sixty-seven eighty-nine" } } });
-    expect(await run("book_appointment", { ...details, confirmed: true })).toMatchObject({ ok: true, status: "booked" });
+    // The caller switched to English between the read-back and the yes: the booking still goes through, now in English.
+    expect(await run("book_appointment", { ...details, confirmed: true, spokenLanguage: "en" })).toMatchObject({ ok: true, status: "booked", treatment: "Basic foot care" });
     const after = (await store.load("demo"))!.state;
     // Stored data keeps its own names; the customer's number keeps its 0.
     expect(after.services.find((service) => service.id === "basic-foot-care")!.name).toBe(stored.services.find((service) => service.id === "basic-foot-care")!.name);

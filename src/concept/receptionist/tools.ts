@@ -76,11 +76,16 @@ const descriptions: Record<ReceptionistToolName, string> = {
   end_call: "Hang up. Call it only after you have said goodbye.",
 };
 
+/** Tools whose answers are read out, and so can be given in the language the call is in right now. */
+const SPOKEN_TOOLS = new Set<ReceptionistToolName>(["get_salon_info", "find_free_times", "book_appointment", "find_booking", "move_appointment", "cancel_appointment"]);
+const SPOKEN_LANGUAGE = { type: "string", enum: ["sv", "en"], description: "The language you are speaking with the caller right now, so names, days and numbers come back in it." };
+
 /** The tools as a Realtime session declares them. */
 export function receptionistToolSchemas() {
   return (Object.keys(inputs) as ReceptionistToolName[]).map((tool) => {
     const parameters = { ...(z.toJSONSchema(inputs[tool]) as Record<string, unknown>) };
     delete parameters.$schema;
+    if (SPOKEN_TOOLS.has(tool)) parameters.properties = { ...(parameters.properties as Record<string, unknown>), spokenLanguage: SPOKEN_LANGUAGE };
     return { type: "function" as const, name: tool, description: descriptions[tool], parameters };
   });
 }
@@ -353,10 +358,17 @@ export async function runReceptionistTool(run: ToolRun, tool: string, rawArgumen
   } catch {
     return refuse("invalid_arguments", "Send the arguments as one JSON object.");
   }
+  // The call's current language is not part of what is booked: taken off before the tool's own arguments are checked.
+  let spoken = run.language;
+  if (SPOKEN_TOOLS.has(tool) && json && typeof json === "object" && !Array.isArray(json) && "spokenLanguage" in json) {
+    const { spokenLanguage, ...rest } = json as Record<string, unknown>;
+    if (spokenLanguage === "sv" || spokenLanguage === "en") spoken = spokenLanguage;
+    json = rest;
+  }
   const parsed = inputs[tool].safeParse(json);
   if (!parsed.success) return refuse("invalid_arguments", parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ").slice(0, 300));
   const stored = await run.host.read();
-  const view = stored && spokenView(stored, run.language);
+  const view = stored && spokenView(stored, spoken);
   if (!view) return refuse("salon_unavailable", "The calendar cannot be reached. Apologise and ask the caller to call again later.");
   const { host, memory } = run;
   switch (tool) {
