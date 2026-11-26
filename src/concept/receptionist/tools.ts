@@ -276,6 +276,8 @@ async function handOver(host: ReceptionistHost, view: SalonView, memory: CallMem
   const reason = plainText(input.reason, 300);
   const caller = input.callerName ? plainText(input.callerName, 80) : undefined;
   const number = input.callerPhone && isContactPhone(input.callerPhone) ? input.callerPhone.trim() : undefined;
+  // A note without a number staff can ring would be a call-back promise nobody can keep.
+  if (!number) return refuse("needs_phone", "Ask for a phone number the staff can call back on, read it back, then call hand_over_to_staff again with callerPhone. If the caller would rather not give one, do not promise a call back; suggest calling again during opening hours.");
   const committed = await host.commit(
     { type: "inbox/add", item: { kind: "message", fromName: caller, date: view.clock.today, time: view.clock.minutes, title: text.title, body: text.body({ reason, caller, phone: number }), read: false, handled: false } },
     idempotencyKey(memory),

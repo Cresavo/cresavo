@@ -224,6 +224,20 @@ describe("receptionist tools", () => {
     expect(inbox[0].body).toContain("complaint");
     expect(memory).toMatchObject({ outcome: "handover", handoverReason: "Wants to talk about a complaint" });
   });
+
+  it("asks for a usable number before it promises a call back", async () => {
+    const { host, state } = salon();
+    const memory = newCallMemory("call-a");
+    const before = (await state()).inbox.length;
+    for (const callerPhone of [undefined, "12"]) {
+      const input = { reason: "Wants to talk about a complaint", callerName: "Robin Vale", ...(callerPhone ? { callerPhone } : {}) };
+      const output = await run(host, memory, "hand_over_to_staff", input);
+      expect(output).toMatchObject({ ok: false });
+      expect(output).not.toMatchObject({ status: "note_left" });
+    }
+    expect((await state()).inbox).toHaveLength(before);
+    expect(memory.outcome).toBe("none");
+  });
 });
 
 describe("receptionist call session", () => {
