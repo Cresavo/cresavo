@@ -118,7 +118,12 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
   const state = useShowcaseState();
   const now = useSalonNow();
   const { preset, book, close, menuAnchor } = useContext(BookingContext);
-  const [receipt, setReceipt] = useState<{ id: string; at: number }>();
+  const leaveFlow = useCallback((inFlow: boolean) => { if (!inFlow) close(); }, [close]);
+  const [receipt, setReceipt] = useState<{ id: string; at: number } | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    const id = new URLSearchParams(window.location.search).get("bokning");
+    return id ? { id, at: 0 } : undefined;
+  });
   const shown = receipt && receipt.at === preset.count ? receipt.id : undefined;
   if (state === null) {
     return (
@@ -153,7 +158,7 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
   if (!state || !initial) return <p role="status" className="py-8 text-text-secondary">Hämtar lediga tider …</p>;
   return (
     <ConceptLanguage language="sv" currency="SEK">
-      <BookingWizard key={preset.count} state={state} now={now} initialServiceId={initial} onBooked={(id) => setReceipt({ id, at: preset.count })} />
+      <BookingWizard key={preset.count} state={state} now={now} initialServiceId={initial} listOnPage={listTreatments} onFlowChange={leaveFlow} onBooked={(id) => setReceipt({ id, at: preset.count })} />
     </ConceptLanguage>
   );
 }

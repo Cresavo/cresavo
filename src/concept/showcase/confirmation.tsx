@@ -99,7 +99,7 @@ export function ShowcaseConfirmation({
       salon: state.salon.name,
       date: booking.date,
       start: booking.start,
-      url: new URL(sharePath, window.location.origin).href,
+      url: new URL(showcaseVisitPath(sharePath, booking.id), window.location.origin).href,
     });
     if (result === "copied") showToast(t("booking.share.copied"));
     if (result === "failed") showToast(t("booking.share.failed"));
@@ -229,11 +229,20 @@ function ShowcasePayment({ booking, state, active }: { booking: Booking; state: 
   );
 }
 
+
+/** The visit on this salon site, never the engine's /boka/<slug>/booking/<id> page. */
+export function showcaseVisitPath(sharePath: string, id: string) {
+  const url = new URL(sharePath, "https://cresavo.invalid");
+  url.searchParams.set("bokning", id);
+  return `${url.pathname}${url.search}`;
+}
+
 export function showcaseCalendarLinks(state: DemoState, booking: Booking, sharePath: string, language = getActiveLocale()) {
   const service = findService(state, booking.serviceId);
   if (!service) return null;
   return {
     googleHref: googleCalendarLink({ booking, service, salon: state.salon, language }),
-    sharePath,
+    sharePath: showcaseVisitPath(sharePath, booking.id),
   };
 }
+
