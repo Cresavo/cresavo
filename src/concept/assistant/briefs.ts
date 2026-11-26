@@ -48,9 +48,10 @@ export function eventReactions(state: DemoState, clock: Clock): BriefItem[] {
     for (const item of lowStock(state).slice(0, 2)) items.push({ id: `stock-${item.id}`, text: t("brief.lowStock", { name: item.name }), priority: 3, href: "/studio/more/stock" });
   }
   const holiday = [...state.holidays].sort((a, b) => a.date.localeCompare(b.date)).find((h) => h.date >= clock.today && diffDays(h.date, clock.today) <= HOLIDAY_DAYS);
-  // The standard demo fixture keeps holidays in state for the campaigns page, but leaves them out of the
-  // morning brief so the recorded Swedish reading stays the same on every date.
-  if (holiday && state.modules.campaigns && state.industry !== null) {
+  // The standard two-person Salong Eko demo keeps holidays in state for the campaigns page, but leaves them
+  // out of the morning brief so the recorded Swedish reading stays the same on every date.
+  const standardDemoBrief = state.industry === null && state.pack === "foot-massage" && state.staff.length > 1;
+  if (holiday && state.modules.campaigns && !standardDemoBrief) {
     items.push({ id: `holiday-${holiday.id}`, text: tc("brief.holiday", diffDays(holiday.date, clock.today), { name: holiday.name }), priority: 2, href: "/studio/more/campaigns" });
   }
   return items;

@@ -537,35 +537,23 @@ function pinStandardDemoDueBack(state: DemoState, today: DateKey) {
 }
 
 /**
- * Keep today and tomorrow nine to six for the brief. Tomorrow's weekday is only extended, never shortened, so
- * other days of that weekday keep their generated visits. Today is capped with a date exception only when the
- * weekday is longer than nine to six (Thursday).
+ * Keep today and tomorrow nine to six for the brief. Tomorrow is opened or extended on that date only, never
+ * by changing the weekday template, so other Sundays or short days stay as generated.
  */
 function pinStandardDemoHours(salon: Salon, staff: Staff[], today: DateKey): { salon: Salon; staff: Staff[]; exceptions: StaffException[] } {
   const tomorrow = addDays(today, 1);
-  const day = weekday(tomorrow);
-  const usual = salon.hours[day];
-  const wasClosed = !usual;
-  const hours = {
-    ...salon.hours,
-    [day]: {
-      open: Math.min(usual?.open ?? FULL_DAY.open, FULL_DAY.open),
-      close: Math.max(usual?.close ?? FULL_DAY.close, FULL_DAY.close),
-    },
+  const usual = salon.hours[weekday(tomorrow)];
+  const needsOpening = !usual || usual.open > FULL_DAY.open || usual.close < FULL_DAY.close;
+  const salonOut: Salon = {
+    ...salon,
+    ...(needsOpening ? { openings: [{ date: tomorrow, open: FULL_DAY.open, close: FULL_DAY.close }] } : {}),
+    closures: salon.closures.filter((c) => c.date !== tomorrow),
   };
-  const staffOut = staff.map((person) => {
-    const shift = person.week[day];
-    if (!shift && !wasClosed) return person;
-    const start = Math.min(shift?.start ?? FULL_DAY.open, FULL_DAY.open);
-    const end = Math.max(shift?.end ?? FULL_DAY.close, FULL_DAY.close);
-    if (shift && shift.start === start && shift.end === end) return person;
-    return { ...person, week: { ...person.week, [day]: { start, end } } };
-  });
-  const ctx = { salon: { ...salon, hours }, staff: staffOut, exceptions: [] as StaffException[] };
+  const ctx = { salon: salonOut, staff, exceptions: [] as StaffException[] };
   const exceptions: StaffException[] = [];
-  for (const person of staffOut) {
-    const todayWindow = workWindow(ctx, person.id, today);
-    if (todayWindow && (todayWindow.start < FULL_DAY.open || todayWindow.end > FULL_DAY.close)) {
+  for (const person of staff) {
+    const window = workWindow(ctx, person.id, today);
+    if (window && (window.start < FULL_DAY.open || window.end > FULL_DAY.close)) {
       exceptions.push({
         id: `e-eko-today-${person.id}`,
         staffId: person.id,
@@ -576,7 +564,7 @@ function pinStandardDemoHours(salon: Salon, staff: Staff[], today: DateKey): { s
       });
     }
   }
-  for (const person of staffOut) {
+  for (const person of staff) {
     if (!STANDARD_DEMO_DAY.some((slot) => slot.offset === 1 && slot.staffId === person.id)) continue;
     const window = workWindow(ctx, person.id, tomorrow);
     if (!window || window.start > FULL_DAY.open || window.end < FULL_DAY.close) {
@@ -590,11 +578,7 @@ function pinStandardDemoHours(salon: Salon, staff: Staff[], today: DateKey): { s
       });
     }
   }
-  return {
-    salon: { ...salon, hours, closures: salon.closures.filter((c) => c.date !== tomorrow) },
-    staff: staffOut,
-    exceptions,
-  };
+  return { salon: salonOut, staff, exceptions };
 }
 
 /** Keep today and tomorrow on the same visits every weekday, so a recorded Swedish reading can match the brief. */

@@ -299,6 +299,8 @@ describe("briefs", () => {
     expect(ids).not.toContain("holiday");
     const own = { ...base, industry: "foot" as const };
     expect(eventReactions(own, clock).map((i) => i.id.split("-")[0])).toEqual(expect.arrayContaining(["cancel", "stock", "holiday"]));
+    const hair = eventReactions(createDemoState(today, { pack: "hair" }), clock).map((i) => i.id.split("-")[0]);
+    expect(hair).toContain("holiday");
   });
 
   it("gives a weekly review on Monday mornings and a closing brief after the last booking", () => {
