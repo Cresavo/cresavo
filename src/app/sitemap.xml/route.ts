@@ -11,6 +11,8 @@ export function GET(request: Request) {
   <url><loc>${origin}/sv</loc></url>
   <url><loc>${origin}/about</loc></url>
   <url><loc>${origin}/sv/about</loc></url>
+  <url><loc>${origin}/own-domain</loc></url>
+  <url><loc>${origin}/sv/own-domain</loc></url>
 </urlset>
 `;
   return new Response(sitemap, { headers: { "Content-Type": "application/xml; charset=utf-8" } });
