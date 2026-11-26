@@ -11,6 +11,7 @@ import { staffViewer } from "@/concept/ops/access";
 import { useRole } from "@/concept/ops/role";
 import { NeedsMoving } from "@/concept/studio/today/needs-moving";
 import { PageHeader } from "@/concept/studio/page-header";
+import { DemoBriefRecordings } from "@/concept/studio/today/demo-brief-recordings";
 import { EveningSummary } from "@/concept/studio/today/evening-summary";
 import { Attention } from "@/concept/studio/today/attention";
 import { MorningBrief } from "@/concept/studio/today/morning-brief";
@@ -89,6 +90,7 @@ export default function TodayPage() {
         </div>
         <div className="min-w-0 max-lg:contents lg:space-y-8">
           {!viewer && state.modules.assistant && <MorningBrief className="max-lg:-order-1" />}
+          {!viewer && state.modules.assistant && <DemoBriefRecordings />}
           <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
           {!viewer && hasRealBookings && <EveningSummary />}
           {!viewer && <Attention onOpen={setSheet} />}

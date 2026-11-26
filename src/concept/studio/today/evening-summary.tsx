@@ -51,11 +51,12 @@ export function EveningSummaryView({ recap, speakable, speaking, onToggle }: Vie
 
 /**
  * After the last booking: the day and tomorrow in a few lines, from rules only (no model, no cost).
- * A button reads them aloud: a static clip on the standard Swedish Salong Eko demo when the on-screen facts still match the recording, otherwise the browser's speech synthesis, and only ever when that button is pressed.
+ * A button reads them aloud: a static Elin clip on the standard Salong Eko demo, in the Studio language, when the on-screen facts still match the recording, otherwise the browser's speech synthesis, and only ever when that button is pressed.
  */
 export function EveningSummary() {
   const { state, today, minutes } = useStudio();
-  const due = taskEnabled(state.modules, "daily-summary") && summaryDue(state, { today, minutes });
+  const summaryOn = taskEnabled(state.modules, "daily-summary");
+  const due = summaryOn && summaryDue(state, { today, minutes });
   const recap = useMemo(() => eveningRecap(state, { today, minutes }), [state, today, minutes]);
   const clip = eveningBriefClipUrl(recap, { today }, state.generatedFor);
   const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);
@@ -80,8 +81,7 @@ export function EveningSummary() {
     speakingNow.current = speaking;
   }, [speaking]);
   useEffect(() => {
-    if (due) return;
-    if (!speakingNow.current) return;
+    if (due || !speakingNow.current) return;
     turn.current += 1;
     stopSpeaking();
     setSpeaking(false);
