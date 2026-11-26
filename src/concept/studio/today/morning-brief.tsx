@@ -42,8 +42,8 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 
 /**
  * The day at a glance for the owner: rules pick and phrase the items from the salon's own data (no model, no cost),
- * and a button reads them aloud. On the standard Swedish Salong Eko demo, when the on-screen facts still match the recording, it plays a static clip; otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
- * Once the day's last booking is over the evening summary takes over and the brief steps aside.
+ * and a button reads them aloud. On the standard Salong Eko demo, when the on-screen facts still match the recording, it plays a static Elin clip in the Studio language (English or Swedish); otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
+ * Once the day's last booking is over the evening summary takes over, unless the morning recording still matches, so both readings can be heard on the same visit.
  */
 export function MorningBrief({ className }: { className?: string }) {
   const { state, today, minutes } = useStudio();
@@ -78,15 +78,15 @@ export function MorningBrief({ className }: { className?: string }) {
   // Step aside only when the evening summary will actually take its place.
   const due = summaryDue(state, { today, minutes }) && taskEnabled(state.modules, "daily-summary") && state.bookings.some((booking) => !booking.example);
   useEffect(() => {
-    if (!due || !speakingNow.current) return;
+    if (!due || clip || !speakingNow.current) return;
     turn.current += 1;
     stopSpeaking();
     setSpeaking(false);
-  }, [due]);
+  }, [due, clip]);
   useEffect(() => () => {
     if (speakingNow.current) stopSpeaking();
   }, []);
 
-  if (due) return null;
+  if (due && !clip) return null;
   return <MorningBriefView brief={brief} speakable={speakable} speaking={speaking} onToggle={toggle} className={className} />;
 }

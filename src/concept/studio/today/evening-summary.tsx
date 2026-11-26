@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { Moon, Square, Volume2 } from "lucide-react";
 import { t } from "../../i18n";
 import { taskEnabled } from "../../modules/registry";
+import { dayBookings } from "../../selectors";
 import { eveningRecap, eveningSpeech, summaryDue } from "../../summary/day";
 import { Button } from "../../ui/button";
 import { Section } from "../../ui/card";
@@ -51,12 +52,17 @@ export function EveningSummaryView({ recap, speakable, speaking, onToggle }: Vie
 
 /**
  * After the last booking: the day and tomorrow in a few lines, from rules only (no model, no cost).
- * A button reads them aloud: a static clip on the standard Swedish Salong Eko demo when the on-screen facts still match the recording, otherwise the browser's speech synthesis, and only ever when that button is pressed.
+ * A button reads them aloud: a static Elin clip on the standard Salong Eko demo, in the Studio language, when the on-screen facts still match the recording, otherwise the browser's speech synthesis, and only ever when that button is pressed.
+ * On that unedited demo the recap is also shown before closing, using the end-of-day figures, so the evening recording can be heard on the same visit.
  */
 export function EveningSummary() {
   const { state, today, minutes } = useStudio();
   const due = taskEnabled(state.modules, "daily-summary") && summaryDue(state, { today, minutes });
-  const recap = useMemo(() => eveningRecap(state, { today, minutes }), [state, today, minutes]);
+  const recap = useMemo(() => {
+    const lastEnd = Math.max(0, ...dayBookings(state, today).map((booking) => booking.start + booking.duration));
+    // Before closing, use the end-of-day figures so the recorded evening reading can still match.
+    return eveningRecap(state, { today, minutes: Math.max(minutes, lastEnd) });
+  }, [state, today, minutes]);
   const clip = eveningBriefClipUrl(recap, { today }, state.generatedFor);
   const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);
   const [speaking, setSpeaking] = useState(false);
@@ -80,16 +86,15 @@ export function EveningSummary() {
     speakingNow.current = speaking;
   }, [speaking]);
   useEffect(() => {
-    if (due) return;
-    if (!speakingNow.current) return;
+    if (due || clip || !speakingNow.current) return;
     turn.current += 1;
     stopSpeaking();
     setSpeaking(false);
-  }, [due]);
+  }, [due, clip]);
   useEffect(() => () => {
     if (speakingNow.current) stopSpeaking();
   }, []);
 
-  if (!due) return null;
+  if (!due && !clip) return null;
   return <EveningSummaryView recap={recap} speakable={speakable} speaking={speaking} onToggle={toggle} />;
 }
