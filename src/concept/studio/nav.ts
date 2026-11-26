@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Palette,
   Package,
+  PhoneCall,
   PanelsTopLeft,
   Plug,
   Settings,
@@ -32,8 +33,8 @@ export interface NavItem {
   label: MessageKey;
   description?: MessageKey;
   icon: LucideIcon;
-  /** Help-map id of this item's link or row (`src/concept/help/map`). */
-  helpId: string;
+  /** Help-map id of this item's link or row (`src/concept/help/map`). Left out for a page behind a deployment switch, which the help map does not list. */
+  helpId?: string;
 }
 
 export const PRIMARY_NAV: NavItem[] = [
@@ -54,6 +55,9 @@ export const BUSINESS_NAV: NavItem[] = [
   { href: "/studio/more/campaigns", label: "nav.campaigns", description: "nav.campaigns.description", icon: Megaphone, helpId: "more.campaigns" },
   { href: "/studio/more/finance", label: "nav.finance", description: "nav.finance.description", icon: TrendingUp, helpId: "more.finance" },
 ];
+
+/** The phone receptionist: listed only where the deployment has switched it on and the sample salon is open. */
+export const RECEPTIONIST_NAV: NavItem = { href: "/studio/more/receptionist", label: "nav.receptionist", description: "nav.receptionist.description", icon: PhoneCall };
 
 /** The assistant's page holds what it remembers and its routines, as two tabs. */
 export const ASSISTANT_PAGE = "/studio/more/assistant";
@@ -98,9 +102,9 @@ export function visibleItems(items: NavItem[], modules: Record<ModuleKey, boolea
 }
 
 /** What More (and the desktop sidebar's groups) list for a business: pages of switched-off modules are left out. */
-export function moreMenu(state: Pick<DemoState, "modules">) {
+export function moreMenu(state: Pick<DemoState, "modules">, extras: { receptionist?: boolean } = {}) {
   return {
-    business: visibleItems(BUSINESS_NAV, state.modules),
+    business: [...visibleItems(BUSINESS_NAV, state.modules), ...(extras.receptionist ? [RECEPTIONIST_NAV] : [])],
     settings: visibleItems(SETTINGS_NAV, state.modules),
   };
 }

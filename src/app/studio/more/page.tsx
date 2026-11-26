@@ -5,6 +5,7 @@ import { t } from "@/concept/i18n";
 import { ADVANCED_NAV, moreMenu, type NavItem } from "@/concept/studio/nav";
 import { InstallRow } from "@/concept/studio/install/install-row";
 import { PageHeader } from "@/concept/studio/page-header";
+import { useReceptionistAvailable } from "@/concept/studio/receptionist/use-receptionist-status";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card, Section } from "@/concept/ui/card";
 import { ListRow } from "@/concept/ui/list-row";
@@ -29,7 +30,7 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
 
 export default function MorePage() {
   const { state } = useStudio();
-  const menu = moreMenu(state);
+  const menu = moreMenu(state, { receptionist: useReceptionistAvailable() });
   return (
     <>
       <PageHeader title={t("more.title")} subtitle={t("more.subtitle")} />

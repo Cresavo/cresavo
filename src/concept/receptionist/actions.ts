@@ -1,5 +1,6 @@
 import { isDateKey } from "../data/dates";
-import type { DemoState } from "../data/types";
+import { openingFor } from "../data/slots";
+import type { DateKey, DemoState } from "../data/types";
 import {
   DEFAULT_RECEPTIONIST,
   MAX_CALLS,
@@ -26,6 +27,16 @@ const CHANNELS = new Set<CallRecord["channel"]>(["browser-test", "phone"]);
 
 export function receptionistSettings(state: Pick<DemoState, "receptionist">): ReceptionistSettings {
   return state.receptionist ?? DEFAULT_RECEPTIONIST;
+}
+
+/** Whether the receptionist would take a call at this minute of the salon's day, by the owner's opening-hours rule. */
+export function wouldAnswer(state: Pick<DemoState, "salon" | "receptionist">, today: DateKey, minutes: number): boolean {
+  const { enabled, answerWhen } = receptionistSettings(state);
+  if (!enabled) return false;
+  if (answerWhen === "always") return true;
+  const hours = openingFor(state.salon, today);
+  const open = !!hours && minutes >= hours.open && minutes < hours.close;
+  return answerWhen === "open" ? open : !open;
 }
 
 /** Control characters out, runs of whitespace to one space: text that is later read to a model or shown in a list. */

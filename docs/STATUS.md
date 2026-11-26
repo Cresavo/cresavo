@@ -69,6 +69,8 @@ Start with the [demo and product tour](../README.md) or see the
   alongside Gitleaks. The `main` ruleset requires these checks and blocks new
   serious CodeQL findings and force pushes. [Security checks](QUALITY_SECURITY.md#security-checks).
 
+- A phone receptionist ("Maja") exists behind `PHONE_RECEPTIONIST_ENABLED`, off in the public demo and limited to the sample salon. The Studio page switches her on, sets the greeting and the opening-hours rule, lists calls with transcripts, and "Try in the browser" runs a call over OpenAI Realtime with a one-minute client secret. No phone number is connected; the 46elks transport is a stub. A live call with a real key has not been run in CI: the browser test scripts the model. What remains before a number: [receptionist README](../src/concept/receptionist/README.md#before-a-real-number-is-connected).
+
 ## Before a real pilot
 
 Built and tested, but switched off in the public demo:

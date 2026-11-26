@@ -35,7 +35,8 @@ import { SearchPalette } from "./search/search-palette";
 import { NoticesButton } from "./notices/notices-button";
 import { NoticeToasts } from "./notices/notice-toasts";
 import { ShowMePointer } from "./help/show-me-pointer";
-import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
+import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, RECEPTIONIST_NAV, SETTINGS_NAV, type NavItem } from "./nav";
+import { useReceptionistAvailable } from "./receptionist/use-receptionist-status";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
 
@@ -198,7 +199,7 @@ const inGroup = (items: NavItem[], pathname: string) => items.some((item) => isA
 /** The group that is open by itself: the one the page is in. On the main pages that is Business, when the screen is tall enough for it. */
 function groupOf(pathname: string, tall: boolean): GroupId | null {
   if (inGroup(SETTINGS_NAV, pathname)) return "settings";
-  return tall || inGroup(BUSINESS_NAV, pathname) ? "business" : null;
+  return tall || inGroup([...BUSINESS_NAV, RECEPTIONIST_NAV], pathname) ? "business" : null;
 }
 
 const SHORT_SCREEN = "(max-height: 859px)";
@@ -219,7 +220,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   const unread = unreadCount(state);
   const person = role === "staff" ? (staffViewer(state) ?? state.staff[0]) : state.staff[0];
   const allowed = (items: NavItem[]) => items.filter((item) => canOpen(role, item.href));
-  const menu = moreMenu(state);
+  const menu = moreMenu(state, { receptionist: useReceptionistAvailable() });
   const groups: { id: GroupId; title: MessageKey; items: NavItem[] }[] = [
     { id: "business" as const, title: "nav.section.business" as const, items: allowed(menu.business) },
     { id: "settings" as const, title: "nav.section.settings" as const, items: allowed(menu.settings) },

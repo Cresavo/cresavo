@@ -6,7 +6,8 @@ import { addDays, formatTime } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf, openingFor } from "@/concept/data/slots";
 import type { DemoState } from "@/concept/data/types";
-import { receptionistSettings } from "@/concept/receptionist/actions";
+import { receptionistSettings, wouldAnswer } from "@/concept/receptionist/actions";
+import { moreMenu, RECEPTIONIST_NAV } from "@/concept/studio/nav";
 import { ReceptionistCall, type ServerEvent } from "@/concept/receptionist/call-session";
 import { Elks46NotConnected, elks46Transport } from "@/concept/receptionist/elks46";
 import { STUDIO_PERMISSIONS_WITH_MICROPHONE } from "@/concept/receptionist/flag";
@@ -63,6 +64,22 @@ describe("receptionist settings and call log", () => {
     expect(reduce(on, { type: "receptionist/settings", settings: { enabled: true } }, NOW)).toBe(on);
     expect(reduce(on, { type: "receptionist/settings", settings: { answerWhen: "sometimes" as never } }, NOW)).toBe(on);
     expect(reduce(on, { type: "receptionist/settings", settings: { greeting: "x".repeat(900) } }, NOW).receptionist!.greeting).toHaveLength(240);
+  });
+
+  it("follows the opening-hours rule, and never answers while switched off", () => {
+    const day = Array.from({ length: 7 }, (_, i) => addDays(today, i)).find((date) => openingFor(base.salon, date))!;
+    const { open, close } = openingFor(base.salon, day)!;
+    const with_ = (answerWhen: "always" | "open" | "closed", enabled = true) => reduce(reduce(base, { type: "receptionist/settings", settings: { enabled: true, answerWhen } }, NOW), { type: "receptionist/settings", settings: { enabled } }, NOW);
+    expect(wouldAnswer(base, day, open)).toBe(false);
+    expect(wouldAnswer(with_("always"), day, 3 * 60)).toBe(true);
+    expect([open - 1, open, close - 1, close].map((minute) => wouldAnswer(with_("open"), day, minute))).toEqual([false, true, true, false]);
+    expect([open - 1, open, close - 1, close].map((minute) => wouldAnswer(with_("closed"), day, minute))).toEqual([true, false, false, true]);
+    expect(wouldAnswer(with_("closed", false), day, open - 1)).toBe(false);
+  });
+
+  it("is in the menu only where it is switched on", () => {
+    expect([...moreMenu(base).business, ...moreMenu(base).settings]).not.toContain(RECEPTIONIST_NAV);
+    expect(moreMenu(base, { receptionist: true }).business.at(-1)).toBe(RECEPTIONIST_NAV);
   });
 
   const call = (id: string, extra: Partial<CallRecord> = {}): CallRecord => ({
