@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode, Ref } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
 import { CalendarCheck, Palette, Upload } from "lucide-react";
 import { bookingHome } from "../../booking/links";
 import { t } from "../../i18n";
@@ -45,7 +45,78 @@ export function SetupFinish({ progress, titleRef }: { progress: ReactNode; title
         </ul>
       </section>
     </div>
-    <iframe src={home} title={t("setup.previewTitle")}
-      className="setup-preview order-3 block w-full rounded-lg bg-surface ring-1 ring-hairline lg:sticky lg:top-8" />
+    <SetupPreview src={home} title={t("setup.previewTitle")} />
   </div>;
+}
+
+
+/** Treatment rows in the booking page (the divided list under each category). */
+const TREATMENT_ROW = 'section[id^="treatments-"] .divide-y > div';
+
+/** Prefer the full page; if a cap would cut a row, end at the last row that fits. */
+function heightThatEndsCleanly(doc: Document, content: number, cap: number): number {
+  if (content <= cap) return content;
+  const scrollY = doc.defaultView?.scrollY ?? 0;
+  let bottom = 0;
+  for (const row of doc.querySelectorAll(TREATMENT_ROW)) {
+    const box = row.getBoundingClientRect();
+    const rowBottom = box.bottom + scrollY;
+    if (rowBottom <= cap) bottom = rowBottom;
+    else break;
+  }
+  return Math.min(cap, Math.ceil(bottom || cap));
+}
+
+/**
+ * On a narrow screen the frame grows with the booking page, so a treatment row is never cut through.
+ * From lg the sticky side column is capped to the viewport and ends on a complete row.
+ */
+function SetupPreview({ src, title }: { src: string; title: string }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    let observer: ResizeObserver | undefined;
+
+    const measure = () => {
+      try {
+        const doc = node.contentDocument;
+        if (!doc?.documentElement) return;
+        const content = Math.ceil(Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0));
+        if (content <= 0) return;
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        const cap = window.matchMedia("(min-width: 64rem)").matches
+          ? Math.floor(Math.min(44 * rem, window.innerHeight - 8 * rem))
+          : null;
+        setHeight(cap ? heightThatEndsCleanly(doc, content, cap) : content);
+      } catch { /* Cross-origin: the CSS fallback height stays. */ }
+    };
+
+    const onLoad = () => {
+      measure();
+      try {
+        const doc = node.contentDocument;
+        if (!doc?.documentElement || typeof ResizeObserver === "undefined") return;
+        observer?.disconnect();
+        observer = new ResizeObserver(measure);
+        observer.observe(doc.documentElement);
+        if (doc.body) observer.observe(doc.body);
+      } catch { /* Same as measure. */ }
+    };
+
+    node.addEventListener("load", onLoad);
+    if (node.contentDocument?.readyState === "complete") onLoad();
+    window.addEventListener("resize", measure);
+    return () => {
+      node.removeEventListener("load", onLoad);
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [src]);
+
+  const style = height ? { "--setup-preview-height": `${height}px` } as CSSProperties : undefined;
+  return <iframe ref={frame} src={src} title={title} style={style}
+    className="setup-preview order-3 block w-full overflow-hidden rounded-lg bg-surface ring-1 ring-hairline lg:sticky lg:top-8" />;
 }

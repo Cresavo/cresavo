@@ -18,6 +18,28 @@ async function capture(page: Page, frame: string) {
   expect(jpg.length).toBeLessThan(200_000);
 }
 
+
+/** The finish preview must not cut through a treatment row: it either fits its page, or ends in a gap. */
+async function previewEndsCleanly(page: Page, title: string) {
+  const result = await page.evaluate(previewTitle => {
+    const frame = [...document.querySelectorAll("iframe")].find(node => node.title === previewTitle);
+    if (!(frame instanceof HTMLIFrameElement)) return { ok: false, reason: "missing-frame" };
+    const doc = frame.contentDocument;
+    if (!doc?.documentElement) return { ok: false, reason: "missing-document" };
+    const view = frame.clientHeight;
+    const content = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0);
+    if (content <= view + 1) return { ok: true, reason: "fits", view, content };
+    const rows = [...doc.querySelectorAll('section[id^="treatments-"] .divide-y > div')];
+    const cut = rows.flatMap((row, index) => {
+      const top = row.getBoundingClientRect().top;
+      const bottom = row.getBoundingClientRect().bottom;
+      return top < view - 1 && bottom > view + 1 ? [{ index, top, bottom, view }] : [];
+    });
+    return { ok: cut.length === 0, reason: cut.length ? "cut-row" : "ends-in-gap", view, content, cut };
+  }, title);
+  expect(result, JSON.stringify(result)).toMatchObject({ ok: true });
+}
+
 async function audit(page: Page) {
   await page.addScriptTag({ path: axe });
   const issues = await page.evaluate(async () => {
@@ -62,6 +84,7 @@ for (const language of ["sv", "en"] as const) {
       // Hours: Saturday on, opening at ten. Back keeps the answers, and so does a reload.
       await step(2);
       await expect(page.getByRole("heading", { name: m("setup.hours") })).toBeFocused();
+      await expect(page.getByText(m("setup.hoursHint"))).toBeVisible();
       const days = page.getByRole("group", { name: m("setup.openDays") });
       await expect(days.getByRole("button", { pressed: true })).toHaveCount(5);
       await days.getByRole("button", { name: saturday }).click();
@@ -116,6 +139,7 @@ for (const language of ["sv", "en"] as const) {
       await expect(page.getByRole("heading", { name: m("setup.ready") })).toBeVisible();
       await step(6);
       await expect(page.frameLocator(`iframe[title="${m("setup.previewTitle")}"]`).getByRole("heading", { name: "Studio Vide", level: 1 })).toBeVisible();
+      await previewEndsCleanly(page, m("setup.previewTitle"));
       // The salon lives in this browser: the owner tries the page, nothing offers its address to share.
       await expect(page.getByRole("link", { name: m("setup.testBooking") })).toHaveAttribute("href", "/boka/studio-vide#book");
       await expect(page.getByRole("button", { name: m("share.copyLink") })).toHaveCount(0);
