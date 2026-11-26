@@ -28,6 +28,8 @@ export type TestCallState =
 const TENANT = "demo";
 /** How long the goodbye may take to play before the line is closed anyway. */
 const GOODBYE_MS = 8000;
+/** How long connecting may take, the microphone prompt included, before the attempt gives up. */
+const CONNECT_MS = 45_000;
 
 async function mint(input: { salonName: string; language: Locale; greeting: string }, signal: AbortSignal): Promise<MintedSession | TestCallFailure> {
   let response: Response;
@@ -64,9 +66,10 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
     ending.current = call.transport;
     window.clearInterval(call.timer);
     call.transport.stopMicrophone();
-    // A booking the receptionist is committing right now belongs in this call's record.
-    await Promise.allSettled([...call.pending]);
+    // Ending first makes the session ignore every later event, so no new booking can start.
     call.session.end(reason);
+    // A booking the receptionist is committing right now still belongs in this call's record.
+    await Promise.allSettled([...call.pending]);
     if (waitForGoodbye) await call.transport.drained(GOODBYE_MS);
     call.transport.close();
     if (ending.current === call.transport) ending.current = null;
@@ -86,10 +89,18 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
       if (starting.current === abort) starting.current = null;
     };
     const fail = (reason: TestCallFailure) => {
+      window.clearTimeout(deadline);
       settle();
       if (!abort.signal.aborted) setState({ phase: "failed", reason });
     };
 
+    // A stalled connection gives up on its own and lets go of the microphone.
+    const deadline = window.setTimeout(() => {
+      if (starting.current !== abort) return;
+      abort.abort();
+      settle();
+      setState({ phase: "failed", reason: "connection" });
+    }, CONNECT_MS);
     const minted = await mint(salon, abort.signal);
     if (typeof minted === "string") return fail(minted);
 
@@ -138,6 +149,7 @@ export function useTestCall(salon: { salonName: string; language: Locale; greeti
       logForSupport("RECEPTIONIST_CONNECT", error instanceof BrowserCallError ? error.reason : "unknown");
       return fail(error instanceof BrowserCallError ? error.reason : "connection");
     }
+    window.clearTimeout(deadline);
     settle();
     if (abort.signal.aborted) return transport.close();
     if (droppedEarly) {
