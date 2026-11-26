@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
 import { HELP_MAP, helpEntry, helpSteps } from "@/concept/help/map/entries";
 import { ANOTHER_DAY, clickFor, clickTarget, currentAnchor, findAnchor, INTERACTIVE, mayClickFor, onRoute, ShowMeRefusal } from "@/concept/help/pointer/dom";
+import { readFileSync } from "node:fs";
 import { steerFor } from "@/concept/help/pointer/steer";
+import { visitActions } from "@/concept/studio/booking/visit-actions";
 import { moveShowMe, startShowMe, stopShowMe } from "@/concept/help/pointer/store";
 import { en } from "@/concept/i18n/en";
 import { sv } from "@/concept/i18n/sv";
@@ -54,21 +56,26 @@ describe("finding the element to point at", () => {
     querySelectorAll: (selector: string) => (selector.startsWith("dialog") ? [] : elements),
   }) as unknown as Pick<Document, "querySelectorAll">;
 
-  it("opens only a visit in the state asked for", () => {
-    const finished = visit("past");
-    expect(findAnchor("calendar.booking", "past", page(visit("upcoming"), finished))).toEqual({ element: finished });
+  it("opens only a visit whose sheet offers the action", () => {
+    // The first finished visit is paid (Mark done only); the next one can still take payment.
+    const paid = visit("mark-done");
+    const payable = visit("take-payment mark-done");
+    expect(findAnchor("calendar.booking", "take-payment", page(paid, payable))).toEqual({ element: payable });
+    expect(findAnchor("calendar.booking", "mark-done", page(visit("move cancel"), paid))).toEqual({ element: paid });
   });
 
   it("never falls back to a visit that cannot offer the action", () => {
-    expect(findAnchor("calendar.booking", "past", page(visit("upcoming"), visit("upcoming")))).toBe("unmatched");
-    expect(findAnchor("calendar.booking", "upcoming", page(visit("past")))).toBe("unmatched");
-    // A finished visit that is off screen does not count either.
-    expect(findAnchor("calendar.booking", "past", page(visit("upcoming"), visit("past", false)))).toBe("unmatched");
+    expect(findAnchor("calendar.booking", "take-payment", page(visit("move cancel"), visit("mark-done")))).toBe("unmatched");
+    expect(findAnchor("calendar.booking", "move", page(visit("take-payment mark-done")))).toBe("unmatched");
+    // Visits with nothing left to do still carry the (empty) tag.
+    expect(findAnchor("calendar.booking", "take-payment", page(visit(""), visit("")))).toBe("unmatched");
+    // A fitting visit that is off screen does not count either.
+    expect(findAnchor("calendar.booking", "take-payment", page(visit("move cancel"), visit("take-payment", false)))).toBe("unmatched");
   });
 
   it("ignores prefer for elements without a state, and tells absent, hidden and blocked apart", () => {
     const button = visit();
-    expect(findAnchor("booking.take-payment", "past", page(button))).toEqual({ element: button });
+    expect(findAnchor("booking.take-payment", "take-payment", page(button))).toEqual({ element: button });
     expect(findAnchor("nav.more", undefined, page())).toBe("absent");
     expect(findAnchor("nav.more", undefined, page(visit(undefined, false)))).toBe("hidden");
     // On screen, but behind an open sheet: not an empty list.
@@ -77,20 +84,45 @@ describe("finding the element to point at", () => {
   });
 
   it("presses only the outlined element while it is still the page's current one", () => {
-    const outlined = { ...visit("upcoming"), isConnected: true } as unknown as HTMLElement;
-    expect(currentAnchor("calendar.booking", "upcoming", outlined, page(outlined))).toBe(outlined);
+    const outlined = { ...visit("move cancel"), isConnected: true } as unknown as HTMLElement;
+    expect(currentAnchor("calendar.booking", "move", outlined, page(outlined))).toBe(outlined);
     // The day changed: another visit is there now, or none, or the old one is detached.
-    const other = { ...visit("upcoming"), isConnected: true };
-    expect(currentAnchor("calendar.booking", "upcoming", outlined, page(other))).toBeNull();
-    expect(currentAnchor("calendar.booking", "upcoming", outlined, page())).toBeNull();
-    const detached = { ...visit("upcoming"), isConnected: false } as unknown as HTMLElement;
-    expect(currentAnchor("calendar.booking", "upcoming", detached, page(detached))).toBeNull();
-    expect(currentAnchor("calendar.booking", "upcoming", null, page(other))).toBeNull();
+    const other = { ...visit("move cancel"), isConnected: true };
+    expect(currentAnchor("calendar.booking", "move", outlined, page(other))).toBeNull();
+    expect(currentAnchor("calendar.booking", "move", outlined, page())).toBeNull();
+    const detached = { ...visit("move cancel"), isConnected: false } as unknown as HTMLElement;
+    expect(currentAnchor("calendar.booking", "move", detached, page(detached))).toBeNull();
+    expect(currentAnchor("calendar.booking", "move", null, page(other))).toBeNull();
   });
 
-  it("points at the day before for a finished visit and the day after for one to come", () => {
-    expect(ANOTHER_DAY).toEqual({ past: "calendar.previous", upcoming: "calendar.next" });
+  it("points at the day before for payment and Mark done, and the day after for Move and Cancel", () => {
+    expect(ANOTHER_DAY).toEqual({ "take-payment": "calendar.previous", "mark-done": "calendar.previous", move: "calendar.next", cancel: "calendar.next" });
     for (const id of Object.values(ANOTHER_DAY)) expect(helpEntry(id)?.route).toBe("/studio/calendar");
+  });
+});
+
+describe("what a visit's sheet offers", () => {
+  const facts = { today: "2026-11-17", minutes: 11 * 60, paid: false, inPackage: false, register: true } as const;
+  const at = (date: string, start: number, status: "booked" | "completed" | "cancelled" = "booked") => ({ date, start, duration: 60, status });
+
+  it.each([
+    ["a visit tomorrow", at("2026-11-18", 600), facts, ["move", "cancel"]],
+    ["a visit later today", at("2026-11-17", 780), facts, ["move", "cancel", "take-payment"]],
+    ["a visit over today", at("2026-11-17", 540), facts, ["take-payment", "mark-done"]],
+    ["a paid visit over today", at("2026-11-17", 540), { ...facts, paid: true }, ["mark-done"]],
+    ["a package visit over today", at("2026-11-17", 540), { ...facts, inPackage: true }, ["mark-done"]],
+    ["a visit without a register", at("2026-11-17", 540), { ...facts, register: false }, ["mark-done"]],
+    ["a visit marked done", at("2026-11-17", 540, "completed"), facts, []],
+    ["a cancelled visit", at("2026-11-18", 600, "cancelled"), facts, []],
+  ] as const)("%s", (_name, booking, given, actions) => {
+    expect(visitActions(booking, given).actions).toEqual(actions);
+  });
+
+  it("is the one rule the booking sheet and the calendar's tags both use", () => {
+    for (const file of ["src/concept/studio/booking/booking-sheet.tsx", "src/concept/studio/calendar/block.tsx", "src/concept/studio/calendar/week-agenda.tsx"]) {
+      expect(readFileSync(file, "utf8"), file).toContain("useVisitActions()");
+    }
+    expect(readFileSync("src/concept/studio/booking/booking-sheet.tsx", "utf8")).not.toMatch(/booking\.date <= today|const upcoming = booking\.status/);
   });
 });
 
@@ -101,6 +133,7 @@ describe("an empty list on the way", () => {
   it("points at another day when the calendar has no bookings, kind or not", () => {
     expect(steerFor(entry("calendar.booking"), entry("calendar.booking"), "absent", ready)).toEqual({ kind: "empty", pointAt: ["calendar.next", "calendar.new-booking"] });
     expect(steerFor(entry("calendar.booking"), entry("booking.take-payment"), "absent", ready)).toEqual({ kind: "unmatched", pointAt: ["calendar.previous"] });
+    expect(steerFor(entry("calendar.booking"), entry("booking.mark-done"), "unmatched", ready)).toEqual({ kind: "unmatched", pointAt: ["calendar.previous"] });
     expect(steerFor(entry("calendar.booking"), entry("booking.move"), "unmatched", ready)).toEqual({ kind: "unmatched", pointAt: ["calendar.next"] });
   });
 

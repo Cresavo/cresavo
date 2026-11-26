@@ -48,23 +48,26 @@ function blocked(element: Element, doc: Pick<Document, "querySelectorAll">): boo
 
 export type AnchorLookup = { element: HTMLElement } | "hidden" | "absent" | "blocked" | "unmatched";
 
-/** Where to find another visit of the kind asked for: finished visits lie on earlier days, coming ones on later. */
-export const ANOTHER_DAY: Record<NonNullable<HelpEntry["prefer"]>, string> = { past: "calendar.previous", upcoming: "calendar.next" };
+/** Where to find another visit that offers the action: payment and Mark done on earlier days, Move and Cancel on later. */
+export const ANOTHER_DAY: Record<NonNullable<HelpEntry["prefer"]>, string> = {
+  "take-payment": "calendar.previous", "mark-done": "calendar.previous", move: "calendar.next", cancel: "calendar.next",
+};
 
 /**
  * The element for an entry that the owner can see now. "hidden" when the page has it but not in this layout (the
  * tab bar on a desktop), "absent" when it is not on the page (yet), "blocked" when it is there but an open sheet
- * keeps it out of reach. Of elements that carry a `data-help-state`
- * (visits), only one in the `prefer` state will do: "unmatched" when none on screen is, so the guide never opens a
- * visit that cannot offer what was asked (an upcoming visit has no Take payment).
+ * keeps it out of reach. Of elements that carry a `data-help-state` (visits, tagged with the actions their sheet
+ * offers), only one listing the `prefer` action will do: "unmatched" when none on screen does, so the guide never
+ * opens a visit that cannot offer what was asked (a paid visit has no Take payment).
  */
 export function findAnchor(id: string, prefer?: string, doc: Pick<Document, "querySelectorAll"> = document): AnchorLookup {
   const all = [...doc.querySelectorAll<HTMLElement>(`[data-help-id="${id.replace(/["\\]/g, "\\$&")}"]`)];
   if (!all.length) return "absent";
   const shown = all.filter((element) => element.getClientRects().length > 0 && !blocked(element, doc));
   if (!shown.length) return all.some((element) => element.getClientRects().length > 0) ? "blocked" : "hidden";
-  if (!prefer || !shown.some((element) => element.dataset.helpState)) return { element: shown[0] };
-  const match = shown.find((element) => element.dataset.helpState === prefer);
+  // A visit tagged with no actions (one already done) still has the tag, and is never the one.
+  if (!prefer || !shown.some((element) => element.dataset.helpState !== undefined)) return { element: shown[0] };
+  const match = shown.find((element) => element.dataset.helpState?.split(" ").includes(prefer));
   return match ? { element: match } : "unmatched";
 }
 

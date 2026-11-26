@@ -1,4 +1,5 @@
 import type { ModuleKey } from "../../data/types";
+import type { VisitAction } from "../../studio/booking/visit-actions";
 import type { MessageKey } from "../../i18n";
 
 /**
@@ -25,8 +26,11 @@ export interface HelpEntry {
   module?: ModuleKey;
   /** Only one layout has it: the phone tab bar, or the desktop sidebar. */
   viewport?: "phone" | "desktop";
-  /** Of several matching elements, prefer the one with this `data-help-state` (a visit that has finished, say). */
-  prefer?: "upcoming" | "past";
+  /**
+   * Of several matching elements, only one whose `data-help-state` lists this action will do: a visit whose sheet
+   * offers Take payment, say (the calendar tags each visit with `visitActions()`).
+   */
+  prefer?: VisitAction;
   /**
    * The element is a group of controls (a row of filters, tab list, a section): the guide shows and explains it,
    * and the owner picks within it. "Show me" never presses it, and it is never a step on the way to another entry.

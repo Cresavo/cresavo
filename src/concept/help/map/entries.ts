@@ -65,10 +65,10 @@ export const HELP_MAP: readonly HelpEntry[] = [
   go("calendar.next", CALENDAR, ["nav.calendar"], "calendar.next"),
   go("calendar.options", CALENDAR, ["nav.calendar"], "calendar.options"),
   go("calendar.booking", CALENDAR, ["nav.calendar"], "showMe.calendar.booking.label", { empty: { pointAt: ["calendar.next", "calendar.new-booking"] } }),
-  change("booking.move", CALENDAR, toBooking, "showMe.booking.move.label", { prefer: "upcoming" }),
-  change("booking.cancel", CALENDAR, toBooking, "booking.cancel", { prefer: "upcoming" }),
-  change("booking.take-payment", CALENDAR, toBooking, "register.take", { prefer: "past" }),
-  change("booking.mark-done", CALENDAR, toBooking, "booking.markDone", { prefer: "past" }),
+  change("booking.move", CALENDAR, toBooking, "showMe.booking.move.label", { prefer: "move" }),
+  change("booking.cancel", CALENDAR, toBooking, "booking.cancel", { prefer: "cancel" }),
+  change("booking.take-payment", CALENDAR, toBooking, "register.take", { prefer: "take-payment" }),
+  change("booking.mark-done", CALENDAR, toBooking, "booking.markDone", { prefer: "mark-done" }),
   go("booking.customer-card", CALENDAR, toBooking, "booking.customerCard"),
 
   // Customers, a customer's card and importing.

@@ -235,7 +235,7 @@ function Guide({ entryId, index: asked }: { entryId: string; index: number }) {
       <div aria-live="polite" className="space-y-2">
         {steering ? (
           <FriendlyNotice message={steering.kind === "unmatched" && entry.prefer
-            ? friendlyMessage({ what: `showMe.unmatched.${entry.prefer}.what`, next: `showMe.unmatched.${entry.prefer}.next` }, { label: t(entry.label) })
+            ? friendlyMessage({ what: `showMe.unmatched.${entry.prefer}.what`, next: `showMe.unmatched.${entry.prefer}.next` })
             : friendlyMessage({ what: `showMe.${step.id}.empty.what` as MessageKey, next: `showMe.${step.id}.empty.next` as MessageKey })} />
         ) : blocker || missing === index ? (
           <Blocked step={step} reason={blocker ?? "missing"} />

@@ -29,7 +29,7 @@ function plan(entry: HelpEntry): { start: string; openers: HelpEntry[] } {
 /** Visible anchors of an entry; `prefer` picks which of several to open on the way (a finished visit), as the guide does. */
 const anchor = (page: Page, entry: HelpEntry) => {
   const all = page.locator(`[data-help-id="${entry.id}"]:visible`);
-  const preferred = entry.prefer ? page.locator(`[data-help-id="${entry.id}"][data-help-state="${entry.prefer}"]:visible`) : null;
+  const preferred = entry.prefer ? page.locator(`[data-help-id="${entry.id}"][data-help-state~="${entry.prefer}"]:visible`) : null;
   return { all, preferred };
 };
 

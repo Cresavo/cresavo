@@ -11,10 +11,12 @@ import { Badge } from "../../ui/badge";
 import type { OpenSheet } from "../booking/booking-sheets";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
+import { useVisitActions } from "../booking/use-visit-actions";
 
 /** The week as a list per day (phones). */
 export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
-  const { state, today, minutes } = useStudio();
+  const { state, today } = useStudio();
+  const actionsOf = useVisitActions();
   const staffId = staff.length === 1 ? staff[0].id : undefined;
   return (
     <div className="space-y-6">
@@ -40,7 +42,7 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
                   return (
                     <li key={b.id}>
                       <ListRow className="!px-1" helpId="calendar.booking"
-                        helpState={d < today || (d === today && b.start + b.duration <= minutes) ? "past" : "upcoming"} onClick={() => onOpen({ kind: "booking", id: b.id })}
+                        helpState={actionsOf(b).actions.join(" ")} onClick={() => onOpen({ kind: "booking", id: b.id })}
                         leading={<><span className="w-12 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span><StaffDot staffId={b.staffId} /></>}
                         title={visitorName(b, customer)}
                         meta={[b.visitFor && customer && t("booking.bookedByName", { name: fullName(customer) }), staff.length > 1 && staff.find((person) => person.id === b.staffId)?.firstName].filter(Boolean).join(" · ") || undefined}
