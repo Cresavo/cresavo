@@ -193,6 +193,17 @@ describe("treatment actions", () => {
     expect(findService(salonCopy(own, "sv"), "classic-60")!.details).toBe("Our own words.");
   });
 
+  it("lets a copy of a demo treatment follow the language like the original, until the owner rewrites it", () => {
+    const copied = reduce(base, { type: "service/duplicate", id: "classic-60", name: "Klassisk massage 60 min (kopia)" });
+    const copy = copied.services[ids(copied).indexOf("classic-60") + 1];
+    const original = findService(salonCopy(copied, "sv"), "classic-60")!;
+    const swedish = findService(salonCopy(copied, "sv"), copy.id)!;
+    expect(swedish).toMatchObject({ name: "Klassisk massage 60 min (kopia)", description: original.description, details: original.details });
+    expect(swedish.description).not.toBe(copy.description);
+    const own = reduce(copied, { type: "service/update", id: copy.id, service: { ...copy, description: "Our own words.", details: "More of our own words." } });
+    expect(findService(salonCopy(own, "sv"), copy.id)).toMatchObject({ description: "Our own words.", details: "More of our own words." });
+  });
+
   it("hides a treatment from customers without deleting it, and shows it again", () => {
     const { next, entry } = logged(base, { type: "service/visibility", id: "classic-60", hidden: true });
     expect(entry.summary).toBe("Hid Classic massage 60 min from the booking page");

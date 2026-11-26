@@ -31,12 +31,25 @@ function fixtureField(value: string, key: MessageKey, language: Locale): string 
   return value === translate("en", key) || value === translate("sv", key) ? translate(language, key) : value;
 }
 
+/** Demo treatment ids by their description and longer text in either language, so a duplicated treatment's copied text still follows the language. */
+const fixtureTexts: [string, MessageKey | undefined][] = [
+  ...Object.entries(serviceKeys).map(([id, key]) => [id, key && `${key}.description`] as [string, MessageKey | undefined]),
+  ...Object.entries(detailsKeys),
+];
+const fixtureTextIds = new Map(fixtureTexts.flatMap(([id, key]) => (key ? [[translate("en", key), id], [translate("sv", key), id]] as const : [])));
+
+function fixtureServiceId(service: Service): string | undefined {
+  if (serviceKeys[service.id]) return service.id;
+  return fixtureTextIds.get(service.description) ?? (service.details ? fixtureTextIds.get(service.details) : undefined);
+}
+
 export function serviceCopy(service: Service, language: Locale): Service {
-  const key = serviceKeys[service.id];
-  if (!key) return service;
+  const id = fixtureServiceId(service);
+  const key = id && serviceKeys[id];
+  if (!id || !key) return service;
   const name = fixtureField(service.name, `${key}.name`, language);
   const description = fixtureField(service.description, `${key}.description`, language);
-  const detailsKey = detailsKeys[service.id];
+  const detailsKey = detailsKeys[id];
   const details = service.details && detailsKey ? fixtureField(service.details, detailsKey, language) : service.details;
   if (name === service.name && description === service.description && details === service.details) return service;
   return { ...service, name, description, ...(details ? { details } : {}) };
