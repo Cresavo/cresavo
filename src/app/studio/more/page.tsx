@@ -16,7 +16,7 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <ListRow key={item.href} href={item.href} help={item.href} title={t(item.label)}
+            <ListRow key={item.href} href={item.href} help={item.href} helpId={item.helpId} title={t(item.label)}
               meta={item.description && t(item.description)}
               leading={<Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}
               trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />} />
@@ -44,6 +44,7 @@ export default function MorePage() {
         <li>
           <ListRow
             href={ADVANCED_NAV.href}
+            helpId={ADVANCED_NAV.helpId}
             title={t(ADVANCED_NAV.label)}
             meta={ADVANCED_NAV.description && t(ADVANCED_NAV.description)}
             leading={<ADVANCED_NAV.icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}

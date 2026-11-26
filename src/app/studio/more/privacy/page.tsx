@@ -47,7 +47,7 @@ export default function PrivacyPage() {
       <div className="space-y-8 md:max-w-3xl">
         <Notice tone="warning">{t("privacy.confirm")}</Notice>
 
-        <Section title={t("privacy.review.title")} action={<ButtonLink href="/studio/customers/review" variant="secondary" size="sm">{t("privacy.review.open")}</ButtonLink>}>
+        <Section title={t("privacy.review.title")} action={<ButtonLink href="/studio/customers/review" helpId="privacy.review" variant="secondary" size="sm">{t("privacy.review.open")}</ButtonLink>}>
           <p className="text-body text-text-secondary">{t("privacy.review.text", { years: RETENTION.inactiveCustomerYears })}</p>
           <p className="text-body font-medium">{tc("review.subtitle", due.length, { years: RETENTION.inactiveCustomerYears })}</p>
         </Section>

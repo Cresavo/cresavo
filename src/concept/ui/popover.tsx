@@ -234,6 +234,8 @@ export interface ActionMenuItem {
   run: () => void;
   /** A destructive action, set in the danger colour. */
   tone?: "danger";
+  /** Help-map id ("Show me" points here). */
+  helpId?: string;
 }
 
 /**
@@ -269,6 +271,7 @@ function MenuItems({ groups }: { groups: readonly (readonly ActionMenuItem[])[] 
             {group.map(item => (
               <button key={item.label} type="button" role={inSheet ? undefined : "menuitem"} tabIndex={inSheet ? undefined : -1}
                 data-popover-close
+                data-help-id={item.helpId}
                 className={cx("flex min-h-target w-full items-center gap-3 px-4 py-2 text-left text-body font-medium hover:bg-surface-2 focus-visible:bg-surface-2",
                   item.tone === "danger" && "text-danger")}
                 onClick={() => (later ? later(item.run) : item.run())}>

@@ -176,7 +176,7 @@ function LocalCalendar({ switchCalendar, requestedDate }: { switchCalendar?: Rea
         actions={
           <>
             {switchCalendar}
-            <Button data-help="new-booking" disabled={offline} icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
+            <Button data-help="new-booking" data-help-id="calendar.new-booking" disabled={offline} icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { date, staffId } })}>
               {t("calendar.newBooking")}
             </Button>
           </>
@@ -198,10 +198,10 @@ function LocalCalendar({ switchCalendar, requestedDate }: { switchCalendar?: Rea
         toolbar={
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex shrink-0 items-center">
-            <IconButton label={t("calendar.previous")} onClick={() => setDate(addDays(date, -step))}>
+            <IconButton data-help-id="calendar.previous" label={t("calendar.previous")} onClick={() => setDate(addDays(date, -step))}>
               <ChevronLeft size={20} aria-hidden />
             </IconButton>
-            <IconButton label={t("calendar.next")} onClick={() => setDate(addDays(date, step))}>
+            <IconButton data-help-id="calendar.next" label={t("calendar.next")} onClick={() => setDate(addDays(date, step))}>
               <ChevronRight size={20} aria-hidden />
             </IconButton>
           </div>
@@ -210,8 +210,8 @@ function LocalCalendar({ switchCalendar, requestedDate }: { switchCalendar?: Rea
             value={view}
             onChange={setView}
             options={[
-              { value: "day", label: t("calendar.day") },
-              { value: "week", label: t("calendar.week") },
+              { value: "day", label: t("calendar.day"), helpId: "calendar.view-day" },
+              { value: "week", label: t("calendar.week"), helpId: "calendar.view-week" },
             ]}
           />
           {staffControl && <div className="studio-calendar-staff hidden min-w-0 xl:block">{staffControl}</div>}

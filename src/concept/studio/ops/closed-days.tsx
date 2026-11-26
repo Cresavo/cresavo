@@ -29,7 +29,7 @@ export function ClosedDaysSection() {
   return (
     <Section
       title={t("closed.title")}
-      action={<Button ref={addButton} size="sm" variant="secondary" icon={<Plus size={16} />} aria-expanded={adding} onClick={() => (adding ? close() : setAdding(true))}>{t("closed.add")}</Button>}
+      action={<Button data-help-id="hours.closed-days" ref={addButton} size="sm" variant="secondary" icon={<Plus size={16} />} aria-expanded={adding} onClick={() => (adding ? close() : setAdding(true))}>{t("closed.add")}</Button>}
     >
       <Card>
         <AddRow open={adding} label={t("closed.add")} submitLabel={t("common.save")} canSubmit={!!date && !!name.trim()} trigger={addButton} onClose={close}

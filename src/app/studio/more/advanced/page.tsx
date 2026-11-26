@@ -31,6 +31,7 @@ export default function AdvancedPage() {
           <Card className="overflow-hidden p-1">
             <ListRow
               href={DEVELOPERS_PAGE}
+              helpId="advanced.developers"
               title={t("advanced.developers.open")}
               meta={t("advanced.developers.description")}
               leading={<Code2 size={22} aria-hidden className="shrink-0 text-text-secondary" />}
@@ -39,16 +40,16 @@ export default function AdvancedPage() {
           </Card>
         </Section>
         <div id="website" className="scroll-mt-4 space-y-8">
-          <EmbedCode />
-          <OwnAddressSection />
+          <div data-help-id="advanced.embed"><EmbedCode /></div>
+          <div data-help-id="advanced.own-domain"><OwnAddressSection /></div>
         </div>
-        <div id="language" className="scroll-mt-4"><BookingLanguageSection /></div>
-        <div id="sms" className="scroll-mt-4"><SmsPriceSettings key={state.salon.slug} state={state} today={salonNow.today} /></div>
-        <div id="styling" className="scroll-mt-4"><CustomStylingSection key={state.salon.slug} /></div>
-        <div id="resources" className="scroll-mt-4"><ResourcesSection /></div>
-        <div id="support" className="scroll-mt-4"><SupportAccess /></div>
-        <div id="labs" className="scroll-mt-4"><LabsSection /></div>
-        <div id="pack" className="scroll-mt-4"><PackSection /></div>
+        <div id="language" data-help-id="advanced.booking-language" className="scroll-mt-4"><BookingLanguageSection /></div>
+        <div id="sms" data-help-id="advanced.sms-price" className="scroll-mt-4"><SmsPriceSettings key={state.salon.slug} state={state} today={salonNow.today} /></div>
+        <div id="styling" data-help-id="advanced.styling" className="scroll-mt-4"><CustomStylingSection key={state.salon.slug} /></div>
+        <div id="resources" data-help-id="advanced.rooms" className="scroll-mt-4"><ResourcesSection /></div>
+        <div id="support" data-help-id="advanced.support-access" className="scroll-mt-4"><SupportAccess /></div>
+        <div id="labs" data-help-id="advanced.labs" className="scroll-mt-4"><LabsSection /></div>
+        <div id="pack" data-help-id="advanced.pack" className="scroll-mt-4"><PackSection /></div>
         <RoleSwitch />
         <DemoSection />
       </div>

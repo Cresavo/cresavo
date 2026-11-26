@@ -29,7 +29,7 @@ export default function AddOnsPage() {
   return (
     <MorePage title={t("nav.features")} subtitle={t("features.subtitle")}>
       <div className="max-w-3xl space-y-3">
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden" data-help-id="features.switches">
           <ul className="divide-y divide-hairline">
             {MODULES.map((module) => {
               const on = moduleEnabled(state.modules, module.id);

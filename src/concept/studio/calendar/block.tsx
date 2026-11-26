@@ -34,8 +34,10 @@ interface BookingBlockProps {
 
 /** A booking positioned in a time column. Draggable on devices with a mouse. */
 export function BookingBlock({ booking, top, height, scale, compact, staffName, misfit, onOpen, onGapOpen }: BookingBlockProps) {
-  const { state } = useStudio();
+  const { state, today, minutes } = useStudio();
   const customer = findCustomer(state, booking.customerId);
+  // "Show me" opens a finished visit to take payment, and one still to come to move it.
+  const past = booking.date < today || (booking.date === today && booking.start + booking.duration <= minutes);
   const service = findService(state, booking.serviceId);
   const gap = processingGap(booking, booking.start, booking.duration);
   const buffers = [
@@ -65,6 +67,8 @@ export function BookingBlock({ booking, top, height, scale, compact, staffName, 
         onDragStart={onDragStart}
         onClick={settled ? () => { hidePreview(); onOpen(); } : undefined}
         data-calendar-booking={booking.id}
+        data-help-id="calendar.booking"
+        data-help-state={past ? "past" : "upcoming"}
         data-date={booking.date}
         data-start={booking.start}
         aria-describedby={previewed ? PREVIEW_ID : undefined}

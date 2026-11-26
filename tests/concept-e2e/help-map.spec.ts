@@ -1,0 +1,52 @@
+import { expect, test, type Page } from "@playwright/test";
+import { HELP_MAP, helpEntry } from "../../src/concept/help/map/entries";
+import type { HelpEntry } from "../../src/concept/help/map/types";
+
+// Every place in the "Show me" help map renders its `data-help-id` anchor in the real studio. An entry that needs a
+// click on its own page first (a booking's buttons need the booking open) follows those steps of its path, so the
+// paths are checked too. The source-level check is tests/concept-help-map.test.ts.
+
+const NOW = new Date("2026-11-17T11:00:00+01:00");
+
+/** The page to open and the steps to click there before the entry's element shows. */
+function plan(entry: HelpEntry): { start: string; openers: HelpEntry[] } {
+  let start = entry.global ? "/studio" : entry.route;
+  const openers: HelpEntry[] = [];
+  for (const id of [...entry.path].reverse()) {
+    const step = helpEntry(id)!;
+    const samePage = entry.global ? !!step.global : !step.global && step.route === entry.route;
+    const concrete = !start.includes("[");
+    if (concrete && !samePage) break;
+    openers.unshift(step);
+    if (!concrete && !step.global && !step.route.includes("[")) start = step.route;
+  }
+  return { start, openers };
+}
+
+/** Visible anchors of an entry; `prefer` picks which of several to open on the way (a finished visit), as the guide does. */
+const anchor = (page: Page, entry: HelpEntry) => {
+  const all = page.locator(`[data-help-id="${entry.id}"]:visible`);
+  const preferred = entry.prefer ? page.locator(`[data-help-id="${entry.id}"][data-help-state="${entry.prefer}"]:visible`) : null;
+  return { all, preferred };
+};
+
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(NOW);
+  await page.addInitScript(() => localStorage.setItem("studio-tour-seen-v1", "1"));
+});
+
+for (const entry of HELP_MAP) {
+  test(`help map: ${entry.id}`, async ({ page }, info) => {
+    const desktop = info.project.name === "desktop";
+    test.skip(entry.viewport ? (entry.viewport === "desktop") !== desktop : desktop, "Checked in the other layout.");
+    const { start, openers } = plan(entry);
+    await page.goto(start);
+    for (const step of openers) {
+      const { all, preferred } = anchor(page, { ...step, prefer: entry.prefer });
+      const target = preferred && await preferred.count() ? preferred.first() : all.first();
+      await expect(target, `${entry.id}: step ${step.id}`).toBeVisible({ timeout: 15000 });
+      await target.click();
+    }
+    await expect(anchor(page, entry).all.first(), entry.id).toBeVisible({ timeout: 15000 });
+  });
+}

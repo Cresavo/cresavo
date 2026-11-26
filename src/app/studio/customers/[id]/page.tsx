@@ -82,7 +82,7 @@ export default function CustomerPage() {
   return (
     <>
       <PageHeader title={fullName(customer)} subtitle={t("customer.since", { date: formatDate(customer.since) })} back={back}
-        actions={<Button icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>
+        actions={<Button data-help-id="customer.book" icon={<CalendarPlus size={18} />} onClick={() => setSheet({ kind: "new", preset: { customerId: customer.id, serviceId: s.lastServiceId } })}>
           {t("customer.bookAgain")}
         </Button>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -125,7 +125,7 @@ export default function CustomerPage() {
             </div>
           </Card>
           {state.modules.stock && !viewer && (
-            <Button variant="secondary" width="responsive" icon={<ShoppingBag size={18} />} onClick={() => setSelling(true)}>
+            <Button data-help-id="customer.sell" variant="secondary" width="responsive" icon={<ShoppingBag size={18} />} onClick={() => setSelling(true)}>
               {t("stock.sell")}
             </Button>
           )}
@@ -155,7 +155,7 @@ export default function CustomerPage() {
             options={[
               { value: "overview", label: t("customer.tab.overview") },
               { value: "history", label: tc("customer.tab.history", history.length) },
-              ...(state.modules.journal ? [{ value: "journal" as const, label: t("customer.tab.journal") }] : []),
+              ...(state.modules.journal ? [{ value: "journal" as const, label: t("customer.tab.journal"), helpId: "customer.journal" }] : []),
             ]}
           />
           {tab === "overview" && (

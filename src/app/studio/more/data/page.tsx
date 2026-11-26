@@ -78,18 +78,18 @@ export default function DataPage() {
       <div className="grid grid-cols-1 gap-4 lg:max-w-5xl lg:grid-cols-3">
         <div id="migration" className="contents">
           <PlainCard icon={<Download size={22} />} title={t("data.card.download")} text={t("data.card.downloadText")}>
-            <div className="flex flex-wrap gap-2">
+            <div data-help-id="data.download" className="flex flex-wrap gap-2">
               {exports.map(({ label, file, after }, index) => (
                 <ExportButton key={label} label={label} primary={!pairing && index === 0} file={file} after={after} />
               ))}
             </div>
           </PlainCard>
           <PlainCard icon={<Upload size={22} />} title={t("data.card.import")} text={t("data.card.importText")}>
-            <ButtonLink href="/studio/customers/import" variant="secondary" size="sm" className="self-start">{t("import.title")}</ButtonLink>
+            <ButtonLink href="/studio/customers/import" helpId="data.import" variant="secondary" size="sm" className="self-start">{t("import.title")}</ButtonLink>
           </PlainCard>
         </div>
         <PlainCard icon={<ShieldCheck size={22} />} title={t("data.card.privacy")} text={t("data.card.privacyText")}>
-          <ButtonLink href="/studio/more/privacy" variant="secondary" size="sm" className="self-start">{t("data.card.privacyOpen")}</ButtonLink>
+          <ButtonLink href="/studio/more/privacy" helpId="data.privacy" variant="secondary" size="sm" className="self-start">{t("data.card.privacyOpen")}</ButtonLink>
         </PlainCard>
         <PlainCard icon={<MessageCircle size={22} />} title={t("data.card.assistant")} text={t("data.card.assistantText")}>
           <div className="flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export default function DataPage() {
                 {t(state.modules.assistant ? "setup.assistantReady" : "setup.enableAssistant")}
               </Button>
             )}
-            <ButtonLink href={DEVELOPERS_PAGE} variant="tertiary" size="sm" icon={<ChevronRight size={16} />}>{t("data.card.assistantDetails")}</ButtonLink>
+            <ButtonLink href={DEVELOPERS_PAGE} helpId="data.assistant" variant="tertiary" size="sm" icon={<ChevronRight size={16} />}>{t("data.card.assistantDetails")}</ButtonLink>
           </div>
         </PlainCard>
       </div>

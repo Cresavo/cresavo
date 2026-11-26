@@ -124,7 +124,7 @@ export function InboxDetail({ item, onDone }: { item: InboxItem; onDone?: () => 
                 {t("inbox.offerSlot")}
               </Button>
             )}
-            <Button icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
+            <Button data-help-id="inbox.reply" icon={<Send size={16} />} disabled={!reply.trim()} onClick={send}>
               {review ? t("reviews.publish") : slot ? t("inbox.sendAndBook") : t("inbox.send")}
             </Button>
           </div>

@@ -89,7 +89,7 @@ function InboxPageContent() {
         title={t("inbox.title")}
         subtitle={unread ? tc("inbox.subtitle", unread) : t("inbox.allRead")}
         actions={
-          <Button variant="secondary" icon={<CheckCheck size={18} />} disabled={!unread} onClick={() => dispatch({ type: "inbox/read-all" })}>
+          <Button data-help-id="inbox.mark-all-read" variant="secondary" icon={<CheckCheck size={18} />} disabled={!unread} onClick={() => dispatch({ type: "inbox/read-all" })}>
             {t("inbox.markAllRead")}
           </Button>
         }
@@ -106,6 +106,7 @@ function InboxPageContent() {
       )}
       <SegmentedControl<Filter>
         label={t("inbox.filter")}
+        helpId="inbox.filters"
         fit
         value={filter}
         onChange={(next) => {

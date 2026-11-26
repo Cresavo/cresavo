@@ -9,7 +9,7 @@ export default function SalonSettingsPage() {
   const { state } = useStudio();
   return (
     <SettingsSubPage title={t("settings.section.salon")} subtitle={t("settings.section.salon.description")}>
-      <SalonDetailsForm key={`${state.industry ?? "demo"}:${state.salon.slug}`} />
+      <div data-help-id="salon.details"><SalonDetailsForm key={`${state.industry ?? "demo"}:${state.salon.slug}`} /></div>
     </SettingsSubPage>
   );
 }

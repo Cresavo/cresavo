@@ -30,9 +30,11 @@ export function QuickActions({ role, assistant, page }: { role: Role; assistant:
   ];
   return (
     <>
-      <ActionMenu title={t("quick.title")}
-        items={actions.map(({ label, icon: Icon, run }) => ({ label, run, icon: <Icon size={20} aria-hidden className="shrink-0" /> }))}
-        icon={<Plus size={22} aria-hidden />} />
+      <span data-help-id="shell.quick-actions" className="inline-flex rounded-md">
+        <ActionMenu title={t("quick.title")}
+          items={actions.map(({ label, icon: Icon, run }) => ({ label, run, icon: <Icon size={20} aria-hidden className="shrink-0" /> }))}
+          icon={<Plus size={22} aria-hidden />} />
+      </span>
       <BookingSheets sheet={sheet} onChange={setSheet} />
     </>
   );

@@ -1,8 +1,10 @@
 import { BRAND } from "../brand";
 import type { en } from "./en";
+import { showMeSv } from "./show-me-sv";
 
 // Swedish UI text. English defines the keys and placeholders.
 const messages = {
+  ...showMeSv,
   "ui.demo": "Demo: inget skickas eller debiteras",
   "ui.demoShort": "Demo",
   "ui.loading": "Laddar",

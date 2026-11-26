@@ -101,7 +101,7 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
         )}
 
         {view.kind === "ask" && (
-          <div data-help="whats-new" className="border-t border-hairline pt-2">
+          <div data-help="whats-new" data-help-id="help.whats-new" className="border-t border-hairline pt-2">
             <ListRow
               onClick={onWhatsNew}
               title={t("whatsNew.title")}
@@ -114,7 +114,7 @@ export function HelpSheet({ open, onClose, onWhatsNew }: { open: boolean; onClos
 
         {/* History and undo lives here, under Help, rather than in More. */}
         {view.kind === "ask" && canOpen(role, HISTORY_PAGE) && (
-          <div data-help="history" className="border-t border-hairline pt-2">
+          <div data-help="history" data-help-id="help.history" className="border-t border-hairline pt-2">
             <ListRow
               onClick={() => { close(); router.push(HISTORY_PAGE); }}
               title={t("nav.log")}

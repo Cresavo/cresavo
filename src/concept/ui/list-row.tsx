@@ -14,12 +14,15 @@ type ListRowProps = Pick<AriaAttributes, "aria-label" | "aria-current" | "aria-d
   className?: string;
   /** Name for the Help button's "Show me". */
   help?: string;
+  /** Help-map id ("Show me" points here), see `src/concept/help/map`. */
+  helpId?: string;
 } & ({ href: string; onClick?: never } | { onClick?: () => void; href?: never });
 
-export function ListRow({ title, meta, leading, trailing, href, onClick, motion, onExited, className, help, ...aria }: ListRowProps) {
+export function ListRow({ title, meta, leading, trailing, href, onClick, motion, onExited, className, help, helpId, ...aria }: ListRowProps) {
   const row = {
     ...aria,
     "data-help": help,
+    "data-help-id": helpId,
     "data-row-motion": motion,
     inert: motion === "exit" || undefined,
     onAnimationEnd: (event: AnimationEvent) => {

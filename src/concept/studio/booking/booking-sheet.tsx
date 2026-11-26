@@ -212,7 +212,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
         <>
           {failureNotice}
           {customer && (
-            <ButtonLink href={`/studio/customers/${customer.id}`} variant="ghost" icon={<UserRound size={18} />}>
+            <ButtonLink href={`/studio/customers/${customer.id}`} helpId="booking.customer-card" variant="ghost" icon={<UserRound size={18} />}>
               {t("booking.customerCard")}
             </ButtonLink>
           )}
@@ -220,15 +220,15 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details", dock
             <Button variant="secondary" icon={<ReceiptText size={18} />} onClick={() => go("register")}>{t("register.viewReceipt")}</Button>
           )}
           {finished && (
-            <Button variant={takesPayment ? "secondary" : "primary"} icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
+            <Button data-help-id="booking.mark-done" variant={takesPayment ? "secondary" : "primary"} icon={<Check size={18} />} disabled={pending} onClick={markDone}>{t("booking.markDone")}</Button>
           )}
           {takesPayment && (
-            <Button icon={<CreditCard size={18} />} onClick={() => go("register")}>{t("register.take")}</Button>
+            <Button data-help-id="booking.take-payment" icon={<CreditCard size={18} />} onClick={() => go("register")}>{t("register.take")}</Button>
           )}
           {upcoming && (
             <>
-              <Button variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
-              <Button icon={<CalendarClock size={18} />} onClick={() => go("move")}>{t("booking.move")}</Button>
+              <Button data-help-id="booking.cancel" variant="danger" icon={<CalendarX2 size={18} />} onClick={() => { setOffer(false); go("cancel"); }}>{t(salonCancellation ? "protection.salonCancel" : "booking.cancel")}</Button>
+              <Button data-help-id="booking.move" icon={<CalendarClock size={18} />} onClick={() => go("move")}>{t("booking.move")}</Button>
             </>
           )}
         </>

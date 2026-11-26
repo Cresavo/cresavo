@@ -19,6 +19,7 @@ export function InboxRow({ state, item, today, minutes, selected, onSelect }: In
   const at = inboxTimestamp(item, today, minutes);
   return (
     <ListRow
+      helpId="inbox.message"
       onClick={onSelect}
       aria-current={selected ? "true" : undefined}
       className={selected ? "bg-action-bg/60 hover:bg-action-bg/60" : undefined}

@@ -12,7 +12,7 @@ export default function BookingPageEditor() {
     <MorePage
       title={t("nav.bookingPage")}
       subtitle={t("pageEditor.subtitle")}
-      actions={<ButtonLink href={`/boka/${state.salon.slug}`} variant="secondary">{t("pageEditor.open")}</ButtonLink>}
+      actions={<ButtonLink href={`/boka/${state.salon.slug}`} helpId="booking-page.open" variant="secondary">{t("pageEditor.open")}</ButtonLink>}
     >
       <PageEditor />
     </MorePage>

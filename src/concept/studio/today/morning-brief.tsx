@@ -33,7 +33,7 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
   );
   return (
     <Section title={brief.title} action={action} className={className}>
-      <div data-testid="morning-brief" data-help="morning-brief">
+      <div data-testid="morning-brief" data-help="morning-brief" data-help-id="today.morning-brief">
         <BriefList brief={brief} />
       </div>
     </Section>

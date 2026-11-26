@@ -60,7 +60,7 @@ export function MonthReveal({ heading, toolbar, date, today, onPick, info }: Mon
       <div className="flex min-w-0 items-center gap-2">
         <div className="min-w-0">{toolbar}</div>
         {/* Icon only on a phone, so it fits the toolbar row; the name stays for screen readers. */}
-        <Button variant="tertiary" size="sm" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
+        <Button data-help-id="calendar.month" variant="tertiary" size="sm" aria-expanded={open} aria-controls={id} onClick={() => setOpen(!open)}
           icon={<CalendarDays size={18} aria-hidden />} className={cx("ml-auto shrink-0 max-sm:px-0", open && "bg-surface-2")}>
           <span className="max-sm:sr-only">{t("calendar.month")}</span>
           <ChevronDown size={16} aria-hidden className={cx("transition-transform duration-normal ease-enter max-sm:hidden", open && "rotate-180")} />

@@ -9,7 +9,7 @@ export default function HoursSettingsPage() {
   return (
     <SettingsSubPage title={t("settings.section.hours")} subtitle={t("settings.section.hours.description")}>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div id="hours"><HoursSection /></div>
+        <div id="hours" data-help-id="hours.weekly"><HoursSection /></div>
         <ClosedDaysSection />
       </div>
     </SettingsSubPage>

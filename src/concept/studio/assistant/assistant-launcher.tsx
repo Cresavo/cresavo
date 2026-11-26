@@ -36,7 +36,7 @@ export function AssistantHeaderButton() {
   const labOn = useLabFlag("voiceAssistant");
   return (
     <>
-      <Button size="sm" variant="tertiary" data-help="assistant" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
+      <Button size="sm" variant="tertiary" data-help="assistant" data-help-id="shell.assistant" icon={<MessageCircle size={16} aria-hidden />} onClick={() => openAssistant()} className="max-sm:w-11 max-sm:justify-center max-sm:px-0">
         <span className="max-sm:sr-only">{t("assistant.open")}</span>
       </Button>
       {labOn && (

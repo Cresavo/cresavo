@@ -1,8 +1,10 @@
 import { ASSISTANT, BRAND } from "../brand";
+import { showMeEn } from "./show-me-en";
 // English UI text for the studio. Keys are grouped by area with a dotted
 // prefix. "one|many" values are plural forms used with `tc()`.
 
 const messages = {
+  ...showMeEn,
   "ui.demo": "Demo: nothing is sent or charged",
   "ui.demoShort": "Demo",
   "ui.loading": "Loading",

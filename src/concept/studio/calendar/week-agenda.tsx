@@ -39,7 +39,7 @@ export function WeekAgenda({ monday, staff, resourceId, onOpen }: { monday: Date
                   const customer = findCustomer(state, b.customerId);
                   return (
                     <li key={b.id}>
-                      <ListRow className="!px-1" onClick={() => onOpen({ kind: "booking", id: b.id })}
+                      <ListRow className="!px-1" helpId="calendar.booking" onClick={() => onOpen({ kind: "booking", id: b.id })}
                         leading={<><span className="w-12 shrink-0 font-medium tabular-nums">{formatTime(b.start)}</span><StaffDot staffId={b.staffId} /></>}
                         title={visitorName(b, customer)}
                         meta={[b.visitFor && customer && t("booking.bookedByName", { name: fullName(customer) }), staff.length > 1 && staff.find((person) => person.id === b.staffId)?.firstName].filter(Boolean).join(" · ") || undefined}

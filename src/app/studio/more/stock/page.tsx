@@ -36,8 +36,8 @@ export default function StockPage() {
       module="stock"
       actions={
         <>
-          <Button variant={low.length ? "secondary" : "primary"} icon={<ShoppingBag size={18} />} onClick={() => setSheet({ kind: "sell" })}>{t("stock.sell")}</Button>
-          <Button variant="secondary" icon={<PackageCheck size={18} />} onClick={() => setSheet({ kind: "receive" })}>{t("stock.receive")}</Button>
+          <Button variant={low.length ? "secondary" : "primary"} icon={<ShoppingBag size={18} />} data-help-id="stock.sell" onClick={() => setSheet({ kind: "sell" })}>{t("stock.sell")}</Button>
+          <Button data-help-id="stock.receive" variant="secondary" icon={<PackageCheck size={18} />} onClick={() => setSheet({ kind: "receive" })}>{t("stock.receive")}</Button>
         </>
       }
     >
@@ -49,7 +49,7 @@ export default function StockPage() {
               <p className="font-medium">{tc("stock.lowTitle", low.length)}</p>
               <p className="text-sm text-text-secondary">{low.map((i) => i.name).join(", ")}</p>
             </div>
-            <Button width="responsive" onClick={() => setSheet({ kind: "purchase" })}>{t("stock.createOrder")}</Button>
+            <Button data-help-id="stock.order" width="responsive" onClick={() => setSheet({ kind: "purchase" })}>{t("stock.createOrder")}</Button>
           </Card>
         )}
         {orders.length > 0 && (
