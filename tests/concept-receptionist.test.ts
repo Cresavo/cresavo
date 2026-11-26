@@ -7,7 +7,7 @@ import { createDemoState } from "@/concept/data/generate";
 import { freeStarts, needOf, openingFor } from "@/concept/data/slots";
 import type { DemoState } from "@/concept/data/types";
 import { receptionistSettings } from "@/concept/receptionist/actions";
-import { ReceptionistCall, type ServerEvent } from "@/concept/receptionist/call-session";
+import { CUT_MARK, ReceptionistCall, type ServerEvent } from "@/concept/receptionist/call-session";
 import { Elks46NotConnected, elks46Transport } from "@/concept/receptionist/elks46";
 import { STUDIO_PERMISSIONS_WITH_MICROPHONE } from "@/concept/receptionist/flag";
 import { studioStoreHost } from "@/concept/receptionist/host";
@@ -251,19 +251,81 @@ describe("receptionist call session", () => {
 
   const toolCall = (name: string, args: unknown, usage?: object): ServerEvent => ({ type: "response.done", response: { usage, output: [{ type: "function_call", name, call_id: `c-${name}`, arguments: JSON.stringify(args) }] } });
 
-  it("greets with the salon's greeting", () => {
+  it("greets with the salon's greeting, in the browser right after the salon's facts", async () => {
+    const greeting = { type: "response.create", response: { instructions: expect.stringContaining("Hej och välkommen till Salong Eko, det är Maja") } };
+    const world = salon();
+    const phone = new ReceptionistCall({ id: "call-phone", channel: "phone", host: world.host, salon: input, limits: DEFAULT_LIMITS, handover, startedAt: { today, minutes: 540 }, now: world.now });
+    expect(phone.open()).toEqual([greeting]);
+    expect((await phone.handle({ type: "session.created" })).send).toEqual([]);
     const { session } = call();
-    expect(session.open()).toEqual([{ type: "response.create", response: { instructions: expect.stringContaining("Hej och välkommen till Salong Eko, det är Maja") } }]);
+    expect(session.open()).toEqual([]);
+    const first = await session.handle({ type: "session.created" });
+    expect(first.send).toEqual([{ type: "conversation.item.create", item: expect.objectContaining({ role: "system" }) }, greeting]);
+    expect((await session.handle({ type: "session.updated" })).send).toEqual([]);
+  });
+
+  it("gives her the salon's own facts once, with the first event, so she need not look them up", async () => {
+    const { session } = call();
+    // Events handled at the same time: the note goes out once, and before the second event's reply.
+    const order: string[] = [];
+    const [first, second] = await Promise.all([
+      session.handle(toolCall("find_free_times", { serviceId: "basic-foot-care", date: today })).then((step) => (order.push("first"), step)),
+      session.handle(toolCall("get_salon_info", {})).then((step) => (order.push("second"), step)),
+    ]);
+    expect(order).toEqual(["first", "second"]);
+    expect(second.send.map((event) => event.type)).toEqual(["conversation.item.create", "response.create"]);
+    expect(first.send.map((event) => event.type)).toEqual(["conversation.item.create", "conversation.item.create", "response.create"]);
+    const note = JSON.stringify(first.send[0]);
+    expect(note).toContain("use these directly, without get_salon_info");
+    expect(note).toContain(today);
+    expect(note).toContain(`(${addDays(today, 6)}):`);
+    expect(note).toMatch(/basic-foot-care: [^;]+, \d+ min, \d+/);
+    expect(note).toMatch(/anna = Anna[^,]* \(owner\)/);
+    expect((await session.handle({ type: "session.updated" })).send).toEqual([]);
+  });
+
+  it("still records what arrived before the caller hung up", async () => {
+    const { session, state } = call();
+    const slot = await freeSlot(await state());
+    const details = { serviceId: slot.service.id, staffId: slot.staffId, date: slot.date, time: slot.time, callerName: "Robin Vale", callerPhone: "070-174 06 42" };
+    await session.handle(toolCall("book_appointment", { ...details, confirmed: false }));
+    const pending = [
+      session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "Tack, hej då" }),
+      session.handle(toolCall("book_appointment", { ...details, confirmed: true }, { output_token_details: { audio_tokens: 1000 } })),
+    ];
+    session.end("caller");
+    const [, booking] = await Promise.all(pending);
+    expect(session.record().transcript.map((line) => line.text)).toEqual(["Tack, hej då"]);
+    // The usage still counts, but nothing is booked after the hang-up.
+    expect(booking.send).toEqual([]);
+    expect(session.record()).toMatchObject({ outcome: "none", costUsd: 0.02 });
+    expect((await session.handle({ type: "conversation.item.input_audio_transcription.completed", transcript: "efteråt" })).send).toEqual([]);
+    expect(session.record().transcript).toHaveLength(1);
   });
 
   it("runs a tool call and asks for the next reply", async () => {
     const { session } = call();
+    await session.handle({ type: "session.updated" });
     const step = await session.handle(toolCall("get_salon_info", {}));
     expect(step.hangUp).toBeUndefined();
     expect(step.send.map((event) => event.type)).toEqual(["conversation.item.create", "response.create"]);
     const item = step.send[0].item as { type: string; call_id: string; output: string };
     expect(item).toMatchObject({ type: "function_call_output", call_id: "c-get_salon_info" });
     expect(JSON.parse(item.output)).toMatchObject({ ok: true });
+  });
+
+  it("marks the reply the caller cut off, so the log does not show words that were never heard", async () => {
+    const { session } = call();
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "a", transcript: "Jag har halv tre." });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "b", transcript: "Då är det bokat. Nu behöver jag också ditt namn" });
+    await session.handle({ type: "conversation.item.truncated", item_id: "b" });
+    await session.handle({ type: "conversation.item.truncated", item_id: "b" });
+    // A cut that arrives before its line still marks that line, not the one before it.
+    await session.handle({ type: "conversation.item.truncated", item_id: "c" });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "c", transcript: "Vill du" });
+    await session.handle({ type: "response.output_audio_transcript.done", item_id: "d", transcript: "Toppen." });
+    await session.handle({ type: "conversation.item.truncated" });
+    expect(session.record().transcript.map((line) => line.text)).toEqual(["Jag har halv tre.", `Då är det bokat. Nu behöver jag också ditt namn${CUT_MARK}`, `Vill du${CUT_MARK}`, "Toppen."]);
   });
 
   it("keeps the transcript and records a booked call", async () => {

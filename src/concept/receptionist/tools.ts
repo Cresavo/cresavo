@@ -112,7 +112,12 @@ function sameName(given: string, customer: { firstName: string; lastName: string
   return first.every((part) => said.has(part)) && (last.length === 0 || last.every((part) => said.has(part)));
 }
 
-function salonInfo(view: SalonView): Output {
+/** What get_salon_info answers: today, hours for a week, treatments with ids and prices, staff. */
+export function salonFacts(view: SalonView) {
+  return salonInfo(view);
+}
+
+function salonInfo(view: SalonView) {
   const { state, clock } = view;
   const hours = Array.from({ length: 7 }, (_, offset) => {
     const date = addDays(clock.today, offset);
