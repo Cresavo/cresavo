@@ -57,7 +57,7 @@ export function SalonWizard() {
   }, [draft, language, setDraft]);
 
   if (live) return <SetupFinish titleRef={title} progress={<SetupProgress number={TOTAL} />} />;
-  if (savedSalon) return <div className="md:max-w-form"><SalonEntry standalone /></div>;
+  if (savedSalon) return <div className="md:max-w-form lg:mx-auto"><SalonEntry standalone /></div>;
   if (!restored) return null;
 
   const update = (patch: Partial<SalonDraft>) => setDraft({ ...draft, ...patch });
@@ -79,7 +79,7 @@ export function SalonWizard() {
     else go(step + 1);
   };
 
-  return <form onSubmit={e => { e.preventDefault(); next(); }} className="space-y-6 md:max-w-form">
+  return <form onSubmit={e => { e.preventDefault(); next(); }} className="space-y-6 md:max-w-form lg:mx-auto">
     <SetupProgress number={step + 1} />
     <div key={question} className="setup-step" data-back={back || undefined}>
       <PageHeader tools={false} titleRef={title} title={t(`setup.${question}`)} subtitle={t(`setup.${question}Hint`)} />
@@ -97,10 +97,10 @@ export function SalonWizard() {
       {question === "team" && <SetupTeam people={draft.people} change={people => update({ people })} />}
       {question === "look" && <SetupLook draft={draft} name={name} change={update} />}
     </div>
-    <div className="flex items-center gap-2 border-t border-hairline pt-4">
+    <div className="flex flex-wrap items-center gap-2 border-t border-hairline pt-4">
       {step > 0
         ? <Button variant="tertiary" icon={<ArrowLeft size={18} />} onClick={() => go(step - 1)}>{t("welcome.back")}</Button>
-        : <ButtonLink href="/studio" variant="ghost" className="text-text-secondary">{t("setup.demo")}</ButtonLink>}
+        : <ButtonLink href="/studio" variant="ghost" className="text-text-secondary max-sm:order-last max-sm:w-full max-sm:justify-start">{t("setup.demo")}</ButtonLink>}
       <Button type="submit" size="lg" className="ml-auto max-sm:flex-1" loading={saving} disabled={!valid}>
         {t(step === STEPS.length - 1 ? "setup.create" : "welcome.next")}<ArrowRight size={16} aria-hidden />
       </Button>

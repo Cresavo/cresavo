@@ -98,6 +98,9 @@ for (const language of ["sv", "en"] as const) {
       await page.getByRole("textbox", { name: m("setup.colleague", { number: 1 }), exact: true }).fill("Kim Demo");
       await page.getByRole("button", { name: m("setup.addColleague") }).click();
       await expect(page.getByRole("textbox", { name: m("setup.colleague", { number: 2 }), exact: true })).toBeFocused();
+      await page.getByRole("button", { name: m("setup.remove", { name: m("setup.colleague", { number: 2 }) }) }).click();
+      await expect(page.getByRole("textbox", { name: m("setup.colleague", { number: 1 }), exact: true })).toBeFocused();
+      await page.getByRole("button", { name: m("setup.addColleague") }).click();
       await frame(3);
       await next();
 
@@ -113,7 +116,10 @@ for (const language of ["sv", "en"] as const) {
       await expect(page.getByRole("heading", { name: m("setup.ready") })).toBeVisible();
       await step(6);
       await expect(page.frameLocator(`iframe[title="${m("setup.previewTitle")}"]`).getByRole("heading", { name: "Studio Vide", level: 1 })).toBeVisible();
-      await expect(page.getByLabel(m("setup.link"))).toHaveValue(/\/boka\/studio-vide$/);
+      // The salon lives in this browser: the owner tries the page, nothing offers its address to share.
+      await expect(page.getByRole("link", { name: m("setup.testBooking") })).toHaveAttribute("href", "/boka/studio-vide#book");
+      await expect(page.getByRole("button", { name: m("share.copyLink") })).toHaveCount(0);
+      await expect(page.getByRole("textbox")).toHaveCount(0);
       // The salon type's own word for customers is used, so the import row is found by where it goes.
       await expect(page.locator('a[href="/studio/customers/import"]')).toBeVisible();
       await expect(page.getByText(translate(language, "trial.notice"))).toHaveCount(0);
@@ -185,8 +191,7 @@ test("all seven fresh studio views offer an action", async ({ page }) => {
   }
 });
 
-test("setup from Settings can be finished with defaults alone, and the link copied", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("setup from Settings can be finished with defaults alone", async ({ page }) => {
   await page.goto("/studio/more/settings");
   await page.getByRole("link", { name: "Start with your own salon" }).click();
   for (const heading of ["What’s your salon called?", "When are you open?", "What can clients book?", "Who works here?"]) {
@@ -197,16 +202,14 @@ test("setup from Settings can be finished with defaults alone, and the link copi
   await expect(page.getByRole("button", { name: "Neutral" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Create my salon" }).click();
   await expect(page.getByRole("link", { name: "See your booking page" })).toHaveAttribute("href", "/boka/my-salon");
+  await expect(page.getByText("Book a visit yourself to see what your customers will see.")).toBeVisible();
   await audit(page);
-  await page.getByRole("button", { name: "Copy booking link" }).click();
-  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/boka\/my-salon$/);
   const own = (await salonState(page, "own"))!;
   expect(own.staff).toHaveLength(1);
   expect(own.salon.hours[6]).toBeNull();
   expect(own.page.theme.colors).toBeNull();
   await page.getByRole("link", { name: "Go to my day" }).click();
-  await expect(page.getByRole("heading", { name: /^Getting started/ })).toContainText("2 of 4 done");
+  await expect(page.getByRole("heading", { name: /^Getting started/ })).toContainText("1 of 4 done");
 });
 
 test("setup keeps its place across visits, goes back from every step and asks for an open day", async ({ page }) => {
@@ -226,6 +229,13 @@ test("setup keeps its place across visits, goes back from every step and asks fo
   await page.getByLabel("Thursday to").selectOption("1200");
   for (let step = 2; step <= 5; step++) {
     await expect(page.getByText(`Step ${step} of 6`)).toBeVisible();
+    if (step === 4) {
+      // Removing the only colleague goes back to "Just me", and the cursor goes with it.
+      await page.getByRole("radio", { name: "Me and my team" }).click();
+      await page.getByRole("button", { name: "Remove Colleague 1" }).click();
+      await expect(page.getByRole("radio", { name: "Just me" })).toBeFocused();
+      await expect(page.getByRole("radio", { name: "Just me" })).toHaveAttribute("aria-checked", "true");
+    }
     if (step < 5) await page.getByRole("button", { name: "Next", exact: true }).click();
   }
   // Leaving for the studio and coming back opens the same question with the same answers.

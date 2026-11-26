@@ -14,18 +14,29 @@ export function SetupTeam({ people, change }: { people: string[]; change: (peopl
   const owner = people[0] ?? "";
   const colleagues = people.slice(1);
   const mode: Mode = colleagues.length ? "team" : "solo";
-  const added = useRef<HTMLInputElement>(null);
-  const focusAdded = useRef(false);
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const choice = useRef<HTMLDivElement>(null);
+  // Where the cursor goes after the rows change: a colleague's field, or the choice once nobody is left.
+  const focusNext = useRef<number | "choice" | null>(null);
   useEffect(() => {
-    // A row added with "Add a colleague" gets the cursor; choosing a team keeps focus on the choice.
-    if (focusAdded.current) added.current?.focus();
-    focusAdded.current = false;
+    // Choosing a team keeps focus on the choice; adding or removing a row moves it to a sensible place.
+    const target = focusNext.current;
+    focusNext.current = null;
+    if (target === "choice") choice.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+    else if (target !== null) inputs.current[target]?.focus();
   }, [colleagues.length]);
+  const remove = (index: number) => {
+    const rest = colleagues.filter((_, n) => n !== index);
+    focusNext.current = rest.length ? Math.min(index, rest.length - 1) : "choice";
+    change([owner, ...rest]);
+  };
   const setColleague = (index: number, name: string) => change([owner, ...colleagues.map((other, i) => i === index ? name : other)]);
   return <div className="space-y-6">
-    <ChoiceCards<Mode> label={t("setup.team")} value={mode}
-      options={[{ value: "solo", label: t("setup.solo") }, { value: "team", label: t("setup.withTeam") }]}
-      onChange={next => change(next === "solo" ? [owner] : [owner, ""])} />
+    <div ref={choice}>
+      <ChoiceCards<Mode> label={t("setup.team")} value={mode}
+        options={[{ value: "solo", label: t("setup.solo") }, { value: "team", label: t("setup.withTeam") }]}
+        onChange={next => change(next === "solo" ? [owner] : [owner, ""])} />
+    </div>
     <Field width="short" label={t("setup.yourName")} hint={t("setup.yourNameHint")}>
       <TextInput autoComplete="name" maxLength={MAX_PERSON_NAME} value={owner} onChange={e => change([e.target.value, ...colleagues])} />
     </Field>
@@ -34,15 +45,15 @@ export function SetupTeam({ people, change }: { people: string[]; change: (peopl
         const label = t("setup.colleague", { number: i + 1 });
         return <div key={i} className="flex items-end gap-1 md:max-w-field-short">
           <Field label={label}>
-            <TextInput ref={i === colleagues.length - 1 ? added : undefined} autoComplete="off" maxLength={MAX_PERSON_NAME} value={name}
+            <TextInput ref={element => { inputs.current[i] = element; }} autoComplete="off" maxLength={MAX_PERSON_NAME} value={name}
               onChange={e => setColleague(i, e.target.value)} />
           </Field>
           <IconButton label={t("setup.remove", { name: name.trim() || label })}
-            onClick={() => change([owner, ...colleagues.filter((_, n) => n !== i)])}><X size={18} /></IconButton>
+            onClick={() => remove(i)}><X size={18} /></IconButton>
         </div>;
       })}
       {people.length < MAX_PEOPLE && <Button variant="tertiary" className="-ml-2" icon={<Plus size={16} />}
-        onClick={() => { focusAdded.current = true; change([...people, ""]); }}>{t("setup.addColleague")}</Button>}
+        onClick={() => { focusNext.current = colleagues.length; change([...people, ""]); }}>{t("setup.addColleague")}</Button>}
     </div>}
   </div>;
 }
