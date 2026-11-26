@@ -5,7 +5,8 @@ import { isAiConfigured, runAiTask } from "../../ai/api-client";
 import { commandReply, replyRequest, respond } from "../../assistant/engine";
 import type { NewMemory } from "../../assistant/memory";
 import type { Routine } from "../../assistant/routines";
-import { type InputMode, type Message } from "../../assistant/thread";
+import { deferChanges } from "../../assistant/spoken-changes";
+import { type InputMode, type Message, type Reply } from "../../assistant/thread";
 import { commandExamples } from "../../command/examples";
 import { buildIntentContext } from "../../command/intent-context";
 import type { Choice, Proposal } from "../../command/proposal";
@@ -17,8 +18,9 @@ import { studioSalonCopy } from "../../i18n/salon-eko-copy";
 import { currentState, dispatchWithLog } from "../../store";
 import { useStudio } from "../use-studio";
 import { speak } from "./speak";
+import { spokenReply } from "./spoken-text";
 import { applyReply, approveReply, declineReply, editReply, pickReply, skipRoutineReply, sourceFor, undoReply } from "./reply-actions";
-import { addMessages, messageId, refineReply, startNewThread, updateReply, useThread } from "./thread-store";
+import { addMessages, messageId, refineReply, replyOf, startNewThread, updateReply, useThread } from "./thread-store";
 
 const ASSISTANT = { actor: "owner", source: "assistant" } as const;
 
@@ -47,17 +49,25 @@ export function useAssistant() {
     [state, today, role],
   );
 
-  /** `via` says whether the owner typed or spoke the words; it travels with the reply to approval and the activity log. */
-  const send = (raw: string, via: InputMode = "typed") => {
+  /**
+   * `via` says whether the owner typed or spoke the words; it travels with the reply to approval and the activity log.
+   * `talk` is a spoken conversation: it changes nothing at once (a "remember…" becomes a card to approve) and is
+   * handed the settled reply to read aloud, or null when there is none.
+   */
+  const send = (raw: string, via: InputMode = "typed", talk?: (reply: Reply | null) => void) => {
     const text = raw.trim();
-    if (!text || currentRole() !== role) return;
+    if (!text || currentRole() !== role) return talk?.(null);
     const input = { state, text, context: thread.context, clock: { today, minutes }, role, viewer: staffViewer(state)?.id, examples };
-    const outcome = respond(input);
+    const outcome = talk ? deferChanges(respond(input), state) : respond(input);
     const logIds = outcome.effects.map((effect) => dispatchWithLog(effect, { actor: role, source: sourceFor(via) }));
     const undoId = logIds.findLast((id) => typeof id === "string");
     const refining = role === "owner" && !!outcome.command && aiReady;
-    const speakReply = (spoken: string | null) => {
-      if (spoken && thread.speak && currentRole() === role) speak(spoken);
+    // Only the safe line is read aloud: first names, and never health, journal or contact details.
+    const speakReply = (settled: string | null) => {
+      const reply = settled === null || currentRole() !== role ? undefined : replyOf(answer.id);
+      if (talk) return talk(reply ?? null);
+      const spoken = reply && spokenReply(reply, currentState() ?? state);
+      if (spoken && thread.speak) speak(spoken);
     };
     const question: Message = { id: messageId(), from: "owner", text, understood: outcome.understood !== text ? outcome.understood : undefined, at: Date.now() };
     const answer: Message = {

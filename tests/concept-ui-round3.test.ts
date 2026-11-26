@@ -1,4 +1,9 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { wearSalonHome } from "@/concept/booking/salon-home";
+import { TENANT_METADATA } from "@/concept/booking/tenant-metadata";
+import { updatedText } from "@/concept/studio/calendar/offline-note";
+import { textScale } from "@/concept/studio/calendar/time-axis";
 import { openStatus } from "@/concept/booking/open-status";
 import { openStatusText } from "@/concept/booking/hero";
 import { shareVisit, visitShare } from "@/concept/booking/share-visit";
@@ -151,5 +156,83 @@ describe("share this time", () => {
 
     vi.stubGlobal("navigator", { clipboard: { writeText: async () => { throw new Error("denied"); } } });
     expect(await shareVisit(visit)).toBe("failed");
+  });
+});
+
+describe("calendar without a connection", () => {
+  it("says when the board was read: the time today, the day and time before that", () => {
+    const read = new Date(2026, 10, 25, 14, 32).getTime();
+    expect(updatedText(read, WEDNESDAY)).toBe("Updated at 14:32. New bookings wait until the connection is back.");
+    expect(updatedText(read, "2026-11-26")).toBe("Updated Wednesday 25 November at 14:32. New bookings wait until the connection is back.");
+    setLocale("sv");
+    expect(updatedText(read, WEDNESDAY)).toBe("Uppdaterad kl. 14:32. Nya bokningar får vänta tills anslutningen är tillbaka.");
+  });
+});
+
+describe("large text", () => {
+  it("grows the calendar's minutes with the reader's text size, never below the default", () => {
+    expect(textScale(16)).toBe(1);
+    expect(textScale(32)).toBe(2);
+    expect(textScale(12)).toBe(1);
+    expect(textScale(Number.NaN)).toBe(1);
+  });
+
+  it("hides phone tab labels by the text size, not only by the zoomed width", () => {
+    const css = readFileSync("src/app/studio/studio.css", "utf8");
+    expect(css).toMatch(/\.studio-tab \{ container-type: inline-size; \}/);
+    expect(css).toMatch(/@container \(max-width: 4rem\) \{\s*\.studio-tab-label/);
+    // The tab's height is in pixels, so hidden labels leave no empty band under the icons.
+    expect(css).toMatch(/\.studio-tab \{ min-height: calc\(var\(--touch-target\) \+ var\(--space-5\)\); \}/);
+    expect(css).toMatch(/\.studio-root \{[^}]*font-size: 1rem;/);
+  });
+});
+
+describe("page transitions", () => {
+  const css = readFileSync("src/app/studio/studio.css", "utf8");
+
+  it("crossfades whole-page loads only for readers who have not asked for reduced motion", () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{\s*@view-transition \{ navigation: auto; \}\s*\}/);
+    expect(css.match(/@view-transition/g)).toHaveLength(1);
+  });
+
+  it("leaves the theme wave's own transition alone", () => {
+    expect(css).toContain(":root:not([data-theme-transition])::view-transition-old(root)");
+    expect(css).toContain(':root[data-theme-transition="wave"]::view-transition-new(root)');
+  });
+});
+
+describe("the salon's own home screen", () => {
+  function fakeDocument() {
+    const head: { name?: string; content: string; isConnected: boolean }[] = [];
+    const icon = { href: "/tenant/apple-icon.png", getAttribute: () => icon.href, setAttribute: (_: string, value: string) => { icon.href = value; } };
+    const doc = {
+      title: "Book online",
+      head: { append: (node: (typeof head)[number]) => { node.isConnected = true; head.push(node); } },
+      createElement: () => ({ name: "", content: "", isConnected: false, remove() { head.splice(head.indexOf(this), 1); this.isConnected = false; } }),
+      querySelector: (selector: string) => selector.includes("apple-touch-icon") ? icon : head.find((node) => node.name === "apple-mobile-web-app-title") ?? null,
+    };
+    return { doc: doc as unknown as Document, head, icon };
+  }
+
+  it("keeps the platform manifest off booking pages by default", () => {
+    expect(TENANT_METADATA.manifest).toBeNull();
+  });
+
+  it("wears the business's name and logo once asked, and puts the page back after", () => {
+    const { doc, head, icon } = fakeDocument();
+    const undo = wearSalonHome(doc, "Salong Eko", "/media/logo.png");
+    expect(doc.title).toBe("Salong Eko");
+    expect(head).toEqual([expect.objectContaining({ name: "apple-mobile-web-app-title", content: "Salong Eko" })]);
+    expect(icon.href).toBe("/media/logo.png");
+    undo();
+    expect(doc.title).toBe("Book online");
+    expect(head).toEqual([]);
+    expect(icon.href).toBe("/tenant/apple-icon.png");
+  });
+
+  it("keeps the neutral icon when the business has no logo", () => {
+    const { doc, icon } = fakeDocument();
+    wearSalonHome(doc, "Salong Eko", null);
+    expect(icon.href).toBe("/tenant/apple-icon.png");
   });
 });

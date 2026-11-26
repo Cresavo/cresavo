@@ -10,6 +10,7 @@ import { RoleSwitch } from "@/concept/studio/ops/role-switch";
 import { ResourcesSection } from "@/concept/studio/ops/resources-section";
 import { OwnAddressSection } from "@/concept/studio/page/address-section";
 import { BookingLanguageSection, CustomStylingSection, DemoSection, PackSection } from "@/concept/studio/settings/advanced-sections";
+import { LabsSection } from "@/concept/studio/settings/labs-section";
 import { SupportAccess } from "@/concept/studio/support/support-access";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card, Section } from "@/concept/ui/card";
@@ -18,7 +19,7 @@ import { useSalonNow } from "@/concept/use-now";
 
 /**
  * Everything most salons never need, in one place: developer details, the website code and an own domain,
- * booking language, the SMS price, own styling, rooms, support access, the industry pack and the demo reset.
+ * booking language, the SMS price, own styling, rooms, support access, Labs, the industry pack and the demo reset.
  */
 export default function AdvancedPage() {
   const { state } = useStudio();
@@ -46,6 +47,7 @@ export default function AdvancedPage() {
         <div id="styling" className="scroll-mt-4"><CustomStylingSection key={state.salon.slug} /></div>
         <div id="resources" className="scroll-mt-4"><ResourcesSection /></div>
         <div id="support" className="scroll-mt-4"><SupportAccess /></div>
+        <div id="labs" className="scroll-mt-4"><LabsSection /></div>
         <div id="pack" className="scroll-mt-4"><PackSection /></div>
         <RoleSwitch />
         <DemoSection />

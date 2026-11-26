@@ -116,7 +116,7 @@ export function TimePicker({ state, serviceId, staffId, clock, onPick, onWaitlis
           </p>
 
           {selected.slots.length ? (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="ui-slot-grid gap-2">
               {selected.slots.map((slot) => (
                 <Button
                   key={slot.start}

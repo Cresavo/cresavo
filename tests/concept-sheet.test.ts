@@ -46,6 +46,7 @@ it.each(["Escape", "close button", "backdrop"])("restores focus before notifying
     showModal() { this.open = true; ownerDocument.activeElement = this; },
     close: vi.fn(() => { dialog.open = false; ownerDocument.activeElement = {}; }),
     getAnimations: () => [{ finished }],
+    hasAttribute: () => false,
   };
   const opener = { current: null };
   const onClose = vi.fn(() => {
@@ -87,4 +88,56 @@ it.each(["Escape", "close button", "backdrop"])("restores focus before notifying
 
   closing.props.onClose!({ currentTarget: dialog } as unknown as Parameters<NonNullable<typeof closing.props.onClose>>[0]);
   expect(onClose).toHaveBeenCalledOnce();
+});
+
+it.each([[true, "show"], [false, "showModal"]] as const)("a docked sheet opens beside the page on a wide screen (wide: %s)", (wide, opened) => {
+  const attributes = new Set<string>();
+  const keydown: EventListener[] = [];
+  const requestDismissal = vi.fn();
+  const dialog = {
+    ownerDocument: {
+      activeElement: {},
+      defaultView: { matchMedia: (query: string) => ({ matches: wide && query === "(min-width: 1280px)" }) },
+      addEventListener: (type: string, listener: EventListener) => { if (type === "keydown") keydown.push(listener); },
+      removeEventListener: (type: string, listener: EventListener) => { if (type === "keydown") keydown.splice(keydown.indexOf(listener), 1); },
+      querySelectorAll: (selector: string): object[] => selector === "dialog[open]" ? [] : [],
+    },
+    open: false,
+    show: vi.fn(() => { dialog.open = true; }),
+    showModal: vi.fn(() => { dialog.open = true; }),
+    toggleAttribute: (name: string, on: boolean) => { if (on) attributes.add(name); else attributes.delete(name); },
+    hasAttribute: (name: string) => attributes.has(name),
+  };
+  useRef.mockReturnValueOnce({ current: dialog }).mockReturnValueOnce({ current: null });
+  useState.mockReturnValueOnce([true, vi.fn()]).mockReturnValueOnce([false, requestDismissal]);
+  const sheet = Sheet({ open: true, dock: true, title: "Booking", children: null, onClose: vi.fn() }) as ReactElement<ComponentProps<"dialog">>;
+  useEffect.mock.lastCall![0]();
+  expect(dialog[opened]).toHaveBeenCalledOnce();
+  expect(attributes.has("data-docked")).toBe(wide);
+
+  // Escape: the browser gives a docked panel none, so the sheet listens on the dialog and on the document.
+  const preventDefault = vi.fn();
+  const currentTarget = { hasAttribute: (name: string) => attributes.has(name), ownerDocument: dialog.ownerDocument };
+  sheet.props.onKeyDown!({ key: "Escape", defaultPrevented: false, preventDefault, currentTarget } as unknown as Parameters<NonNullable<typeof sheet.props.onKeyDown>>[0]);
+  expect(preventDefault).toHaveBeenCalledTimes(wide ? 1 : 0);
+
+  if (wide) {
+    // A nested open dialog (Edit contact, Move) takes Escape; the panel stays.
+    const nestedPrevent = vi.fn();
+    dialog.ownerDocument.querySelectorAll = (selector: string) => selector === "dialog[open]" ? [{}, dialog] : [];
+    requestDismissal.mockClear();
+    sheet.props.onKeyDown!({ key: "Escape", defaultPrevented: false, preventDefault: nestedPrevent, currentTarget } as unknown as Parameters<NonNullable<typeof sheet.props.onKeyDown>>[0]);
+    expect(nestedPrevent).not.toHaveBeenCalled();
+    expect(requestDismissal).not.toHaveBeenCalled();
+    dialog.ownerDocument.querySelectorAll = (selector: string) => selector === "dialog[open]" ? [] : [];
+  }
+
+  if (wide) {
+    const fromPage = vi.fn();
+    keydown.at(-1)!({ key: "Escape", defaultPrevented: false, preventDefault: fromPage } as unknown as Event);
+    expect(fromPage).toHaveBeenCalledOnce();
+    expect(requestDismissal).toHaveBeenCalledWith(true);
+  } else {
+    expect(keydown).toHaveLength(0);
+  }
 });

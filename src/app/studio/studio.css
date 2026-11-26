@@ -5,7 +5,8 @@
 .studio-root {
   --studio-bottom-nav: calc(2 * var(--space-8));
   font-family: var(--font-ui);
-  font-size: 16px;
+  /* The root size, so larger text in the browser or the phone reaches text without a size of its own. */
+  font-size: 1rem;
   font-feature-settings: "cv11", "ss01";
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
@@ -62,6 +63,19 @@
   pointer-events: none;
 }
 .studio-tab-icon { transition: color var(--dur-2) var(--ease-out); }
+/* A tab label needs about four times the root text size ("Customers"). With large text the tab is narrower than
+   that, so the bar shows icons only and the label stays the link's accessible name, as at 200 % zoom. */
+.studio-tab { container-type: inline-size; }
+/* The bar's height is in pixels like its spacing tokens, so larger text grows the tab only as far as its icon and label
+   need, without an empty band under the icons once the labels are hidden. */
+.studio-tab { min-height: calc(var(--touch-target) + var(--space-5)); }
+@container (max-width: 4rem) {
+  .studio-tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* With the booking panel docked beside it, the calendar's column is narrower than the window says: the staff
+   filter moves into the options panel again, so Day and Week stay readable on the toolbar row. */
+body:has(.ui-sheet[data-docked][open]) .studio-calendar-staff { display: none; }
+body:has(.ui-sheet[data-docked][open]) .studio-calendar-staff-menu { display: block; }
 /* Calendar: the month drops down from the heading and folds back up into it. A vertical swipe on the heading or
    the month is the gesture, so it does not scroll the page there. */
 .studio-swipe { touch-action: pan-x pinch-zoom; }
@@ -196,14 +210,32 @@ body:has(.studio-root) .demo-banner {
 }
 
 .studio-calendar-day { --calendar-column-width: calc(3 * var(--space-8) + var(--space-4)); }
+/* A week column is a little wider than a touch target, so a first name such as "Susanne" fits beside a colleague's
+   column; below that the grid scrolls sideways rather than crushing the names. */
+.studio-calendar-week { --calendar-column-width: calc(var(--touch-target) + 4 * var(--space-1)); }
 
-/* Lunch reads the same in the day and week grids: a faint tint with sparse lines,
-   so it is clearly not free time and never louder than a booking. */
-.studio-calendar-lunch {
-  background:
-    repeating-linear-gradient(135deg, transparent 0 9px, var(--ui-hairline) 9px 10px),
-    color-mix(in srgb, var(--ui-surface-2) 70%, transparent);
+/* Lunch reads the same in the day and week grids: a soft wash, clearly not free time and never louder than a booking. */
+.studio-calendar-lunch { background: var(--ui-surface-2); }
+/* The one "Lunch" word spans every working column of the day, so it sits above the washes of the later columns,
+   and bookings sit above it: a booking over lunch is never painted over. The now-line stays under both. */
+.studio-calendar-lunch-label { z-index: 1; }
+.studio-calendar-booking { z-index: 2; }
+
+/* The week's day number. Today is a filled circle in the page's own ink, like a chosen day in the month: neutral, so
+   it never reads as the red now-line or as an error. */
+.studio-week-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  margin-top: 2px;
+  border-radius: var(--radius-pill);
+  font-size: var(--type-body);
+  font-weight: 500;
+  color: var(--ui-text);
 }
+.studio-today-mark { background: var(--ui-text); color: var(--ui-bg); font-weight: 600; }
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 
@@ -257,4 +289,16 @@ body:has(.studio-root) .demo-banner {
 /* Reduced motion: a short plain crossfade instead. */
 :root[data-theme-transition="fade"]::view-transition-new(root) {
   animation: ui-fade 200ms linear both;
+}
+
+/* Loading another Studio or booking page as a whole document (a reload, a sign-in, a link from an e-mail): one short,
+   damped crossfade instead of a white flash. Nothing travels and nothing is shared between the pages. Without a
+   wish for reduced motion only; the theme wave above keeps its own rules (it is not a navigation). */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+:root:not([data-theme-transition])::view-transition-old(root),
+:root:not([data-theme-transition])::view-transition-new(root) {
+  animation-duration: var(--dur-2);
+  animation-timing-function: var(--ease-out);
 }

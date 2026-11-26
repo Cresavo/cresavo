@@ -1,5 +1,6 @@
 import { Mail, MapPin, Phone, Star } from "lucide-react";
-import { weekday } from "../data/dates";
+import { dateInWeek, weekday, WEEK_ORDER } from "../data/dates";
+import { openingFor } from "../data/slots";
 import type { DemoState, Review } from "../data/types";
 import { t, tc, words } from "../i18n";
 import { formatDate, formatTime } from "../i18n/format";
@@ -8,8 +9,7 @@ import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
 import { mapLink } from "./links";
 import { publicName, recentReviews, reviewSummary } from "./reviews";
-
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+import { SalonHomeRow } from "./salon-home";
 
 /** The week at a glance, today in bold, with the lunch break as a note under it. */
 export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
@@ -20,7 +20,7 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
       <Card className="px-4 py-2">
         <dl className="divide-y divide-hairline text-meta">
           {WEEK_ORDER.map((day) => {
-            const hours = state.salon.hours[day];
+            const hours = openingFor(state.salon, dateInWeek(now.today, day));
             return (
               <div key={day} className={cx("flex items-center justify-between py-2", day === todayIndex && "font-semibold")}>
                 <dt>{words.weekdays[day]}</dt>
@@ -61,6 +61,7 @@ export function FindUs({ state }: { state: DemoState }) {
           <Mail aria-hidden size={16} className="shrink-0 text-text-secondary" />
           <span className={cx(linkClass, "min-w-0 [overflow-wrap:anywhere]")}>{salon.email}</span>
         </a>
+        <SalonHomeRow name={salon.name} />
       </Card>
     </Section>
   );

@@ -13,6 +13,7 @@ import { NeedsMoving } from "@/concept/studio/today/needs-moving";
 import { PageHeader } from "@/concept/studio/page-header";
 import { EveningSummary } from "@/concept/studio/today/evening-summary";
 import { Attention } from "@/concept/studio/today/attention";
+import { MorningBrief } from "@/concept/studio/today/morning-brief";
 import { NextDayCustomer } from "@/concept/studio/today/next-customer";
 import { Timeline } from "@/concept/studio/today/timeline";
 import { TodayStats } from "@/concept/studio/today/today-stats";
@@ -68,10 +69,11 @@ export default function TodayPage() {
       />
       {role === "owner" && state.industry && <FirstSteps />}
       {/* The day is the page: the schedule in the main column with the next customer inside it, and the morning
-          brief beside it on a wide screen. Spacing and a few hairlines group things; nothing sits in a card. */}
-      {empty ? <EmptyState icon={<CalendarOff size={22} />} title={t("setup.empty.today")} action={<ButtonLink href={state.services.length ? "/studio/calendar" : "/studio/more/services"}>{t(state.services.length ? "nav.calendar" : "services.add")}</ButtonLink>} /> : <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_clamp(18rem,28vw,24rem)] lg:gap-16">
-        <div className="flex min-w-0 flex-col gap-8">
-          {role === "owner" && !state.industry && tour.open && <DemoTour close={tour.close} />}
+          brief beside it on a wide screen. On a phone both columns are one list: the tour, then the brief, then
+          the day, with the day's figures last. Spacing and a few hairlines group things; nothing sits in a card. */}
+      {empty ? <EmptyState icon={<CalendarOff size={22} />} title={t("setup.empty.today")} action={<ButtonLink href={state.services.length ? "/studio/calendar" : "/studio/more/services"}>{t(state.services.length ? "nav.calendar" : "services.add")}</ButtonLink>} /> : <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(18rem,28vw,24rem)] lg:gap-16">
+        <div className="min-w-0 max-lg:contents lg:flex lg:flex-col lg:gap-8">
+          {role === "owner" && !state.industry && tour.open && <div className="max-lg:-order-2"><DemoTour close={tour.close} /></div>}
           {/* On a phone the day comes first; the day's figures follow it. */}
           {open && !viewer && hasRealBookings && <div className="max-lg:order-last"><TodayStats /></div>}
           <Section title={t("today.schedule")}>
@@ -85,7 +87,8 @@ export default function TodayPage() {
           </Section>
           <NextDayCustomer staffId={viewer?.id} onOpen={setSheet} />
         </div>
-        <div className="min-w-0 space-y-8">
+        <div className="min-w-0 max-lg:contents lg:space-y-8">
+          {!viewer && state.modules.assistant && <MorningBrief className="max-lg:-order-1" />}
           <NeedsMoving staffId={viewer?.id} onOpen={setSheet} />
           {!viewer && hasRealBookings && <EveningSummary />}
           {!viewer && <Attention onOpen={setSheet} />}

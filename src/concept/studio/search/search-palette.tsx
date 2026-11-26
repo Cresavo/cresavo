@@ -10,6 +10,8 @@ import { Sheet } from "../../ui/sheet";
 import { Button } from "../../ui/button";
 import { SearchInput } from "../../ui/controls";
 import { openAssistant, useThread } from "../assistant/thread-store";
+import { isDateKey } from "../../data/dates";
+import { requestCalendarDay } from "../calendar/show-day";
 import { useStudio } from "../use-studio";
 import { GROUP_ORDER, paletteResults, resolveRecent, type PaletteGroup, type PaletteItem } from "./palette-items";
 
@@ -154,8 +156,15 @@ function PaletteBody({ context }: { context: Parameters<typeof paletteResults>[0
   const run = (item: PaletteItem) => {
     remember(item.id);
     setOpen(false);
-    if (item.href) router.push(item.href);
-    else openAssistant(query.trim() ? { ask: query.trim() } : {});
+    if (item.href) {
+      // Tell the calendar even when the ?date= link is already in the address (a soft replace
+      // that should have dropped it can stay in flight, and router.push is then a no-op).
+      const date = new URL(item.href, "http://local.invalid").searchParams.get("date");
+      if (date && isDateKey(date)) requestCalendarDay(date);
+      router.push(item.href);
+    } else {
+      openAssistant(query.trim() ? { ask: query.trim() } : {});
+    }
   };
 
   let index = -1;

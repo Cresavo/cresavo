@@ -55,6 +55,8 @@ export interface Salon {
   orgNumber: string;
   /** Opening hours per weekday (0 = Sunday), minutes from midnight. null = closed. */
   hours: Record<number, { open: number; close: number } | null>;
+  /** One-off opening hours that replace the weekday template for that date only. */
+  openings?: { date: DateKey; open: number; close: number }[];
   /** The lunch break on long days; null = no break. */
   lunch: Interval | null;
   closures: Closure[];

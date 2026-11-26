@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { addDays, diffDays, formatTime } from "../data/dates";
+import { addDays, dateInWeek, diffDays, formatTime, WEEK_ORDER } from "../data/dates";
 import { freeStarts, needOf, openingFor } from "../data/slots";
 import type { Booking, DemoState, ModuleKey, StaffId } from "../data/types";
 import { buildOverview } from "../finance/overview";
@@ -55,8 +55,8 @@ export const getBusiness = readTool({
     currency: "SEK",
     today: clock.today,
     now: formatTime(clock.minutes),
-    openingHours: [1, 2, 3, 4, 5, 6, 0].map((day) => {
-      const hours = state.salon.hours[day];
+    openingHours: WEEK_ORDER.map((day) => {
+      const hours = openingFor(state.salon, dateInWeek(clock.today, day));
       return { day: words.weekdays[day], open: hours ? formatTime(hours.open) : null, close: hours ? formatTime(hours.close) : null };
     }),
     staff: state.staff.map((s) => ({ id: s.id, name: s.firstName, title: s.title })),

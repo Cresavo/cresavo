@@ -30,7 +30,7 @@ const owner = state.customers.find((c) => c.id === single.customerId)!;
 function freeDay(staffId: typeof single.staffId, need: Need) {
   for (let i = 1; i < 30; i++) {
     const date = addDays(today, i);
-    const starts = freeStarts(state, staffId, date, need, { ignoreId: single.id });
+    const starts = freeStarts(state, staffId, date, need, { ignoreId: single.id }).filter((start) => date !== single.date || start !== single.start);
     if (starts.length) return { date, starts };
   }
   throw new Error("no free day in the demo data");
@@ -82,9 +82,69 @@ describe("proposals", () => {
     expect(next.bookings.find((b) => b.id === single.id)).toMatchObject({ date, start: starts[0] });
   });
 
+  describe("moving to another person", () => {
+    // In the demo each treatment has one person; here everyone does every treatment.
+    const everyone = state.staff.map((s) => s.id);
+    const shared = { ...state, services: state.services.map((s) => ({ ...s, staffIds: everyone })) };
+    const named = (booking: typeof single) => state.customers.filter((c) => fullName(c) === fullName(state.customers.find((x) => x.id === booking.customerId)!)).length === 1;
+    const booking = upcoming.find((b) => named(b) && upcoming.filter((o) => o.customerId === b.customerId && o.date === b.date).length === 1)!;
+    const customer = state.customers.find((c) => c.id === booking.customerId)!;
+    const to = everyone.find((id) => id !== booking.staffId)!;
+    const nameOf = (id: string) => state.staff.find((s) => s.id === id)!.firstName;
+    const freeWith = (staffId: typeof single.staffId) => {
+      for (let i = 1; i < 30; i++) {
+        const date = addDays(today, i);
+        const starts = freeStarts(shared, staffId, date, booking, { ignoreId: booking.id }).filter((start) => date !== booking.date || start !== booking.start);
+        if (starts.length) return { date, starts };
+      }
+      throw new Error("no free day in the demo data");
+    };
+    const move = (params: Record<string, string>, role: "owner" | "staff" = "owner", within = shared) =>
+      proposalFor(within, { action: "move", params: { bookingId: booking.id, ...params }, summary: "move", confidence: 1 }, "move", clock, [], role);
+
+    it("is a proposal that shows the person before and after, and the store accepts it", () => {
+      const { date, starts } = freeWith(to);
+      const text = `Move ${fullName(customer)} on ${booking.date} to ${date} at ${formatTime(starts[0])} with ${nameOf(to)}`;
+      const proposal = proposalFor(shared, interpretCommand(text, context), text, clock, examples);
+      if (proposal.kind !== "change") throw new Error(`expected a change, got ${proposal.kind}`);
+      expect(proposal.action).toEqual({ type: "booking/move", id: booking.id, date, start: starts[0], staffId: to });
+      expect(proposal.rows[1]).toEqual({ label: "With", before: nameOf(booking.staffId), after: nameOf(to) });
+      expect(reduce(shared, proposal.action).bookings.find((b) => b.id === booking.id)).toMatchObject({ date, start: starts[0], staffId: to });
+    });
+
+    it("keeps the day and time when only the person changes", () => {
+      const intent = interpretCommand(`Move ${fullName(customer)} on ${booking.date} to ${nameOf(to)}`, context);
+      expect(intent).toMatchObject({ action: "move", params: { bookingId: booking.id, staffId: to, date: booking.date, time: formatTime(booking.start) } });
+      const proposal = proposalFor(shared, intent, "move", clock, examples);
+      expect(["change", "choose", "message"]).toContain(proposal.kind);
+      if (proposal.kind === "change") expect(proposal.action).toMatchObject({ staffId: to });
+    });
+
+    it("leaves the person out when it stays the same", () => {
+      const { date, starts } = freeWith(booking.staffId);
+      const proposal = move({ staffId: booking.staffId, date, time: formatTime(starts[0]) });
+      if (proposal.kind !== "change") throw new Error(`expected a change, got ${proposal.kind}`);
+      expect(proposal.rows).toHaveLength(1);
+      expect(proposal.action).not.toHaveProperty("staffId");
+    });
+
+    it("refuses someone who does not do the treatment", () => {
+      const proposal = move({ staffId: to, date: booking.date, time: formatTime(booking.start) }, "owner", state);
+      expect(proposal).toMatchObject({ kind: "message", text: expect.stringContaining(nameOf(to)) });
+    });
+
+    it("lets a staff member move a booking only to themselves", () => {
+      const viewer = staffViewer(state)!;
+      const own = upcoming.find((b) => b.staffId === viewer.id)!;
+      const other = everyone.find((id) => id !== viewer.id)!;
+      const proposal = proposalFor(shared, { action: "move", params: { bookingId: own.id, staffId: other, date: own.date, time: formatTime(own.start) }, summary: "move", confidence: 1 }, "move", clock, [], "staff");
+      expect(proposal).toMatchObject({ kind: "message", text: expect.stringContaining("for the owner") });
+    });
+  });
+
   it("offers nearby free times when the wanted time is taken", () => {
     const service = state.services.find((s) => s.id === single.serviceId)!;
-    const other = state.bookings.find((b) => b.status === "booked" && b.date > today && b.staffId === single.staffId && b.id !== single.id)!;
+    const other = state.bookings.find((b) => b.status === "booked" && b.date > addDays(today, 1) && b.staffId === single.staffId && b.id !== single.id)!;
     const proposal = propose(`Move ${fullName(owner)} to ${other.date} at ${formatTime(other.start)}`);
     expect(["choose", "message"]).toContain(proposal.kind);
     if (proposal.kind === "choose") {

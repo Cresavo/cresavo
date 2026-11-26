@@ -100,7 +100,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
     <>
       <SkipLink />
       <Sidebar state={state} pathname={pathname} role={role} />
-      <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
+      <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text flex-wrap justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:px-2 lg:hidden">
         <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-target min-w-target items-center px-1 max-[374px]:px-0">
           <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
@@ -306,13 +306,14 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               href={item.href}
               data-help={item.href}
               aria-current={active ? "page" : undefined}
-              className={cx("relative flex min-h-16 min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
+              className={cx("studio-tab relative flex min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
               <span className={cx("studio-tab-icon flex h-7 w-12 items-center justify-center max-[299px]:w-9", active && "text-on-action")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
-              {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}
-              <span className="max-[299px]:sr-only">{t(item.label)}</span>
+              {/* At 200 % zoom or with large text on a phone five labels cannot fit side by side: icons only, the label
+                  stays the accessible name (studio.css measures the tab against the text size). */}
+              <span className="studio-tab-label max-[299px]:sr-only">{t(item.label)}</span>
               {badge > 0 && (
                 <span className="studio-highlight absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full px-1 text-center text-minimum font-semibold leading-normal">
                   {badge}

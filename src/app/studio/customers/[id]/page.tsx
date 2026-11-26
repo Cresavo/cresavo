@@ -90,13 +90,14 @@ export default function CustomerPage() {
           <Card surface="raised" className="space-y-4 p-5">
             <div className="flex items-center gap-4">
               <Avatar name={fullName(customer)} size="xl" />
-              <div className="min-w-0 space-y-2">
-                <p className="truncate text-lg font-semibold">{fullName(customer)}</p>
+              <div className="min-w-0 flex-1 space-y-2">
+                <p className="break-words text-lg font-semibold">{fullName(customer)}</p>
                 <div className="flex flex-wrap gap-2">
                   {customer.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}
                   {customer.waitlist && state.modules.waitlist && <Tag>{t("customer.waitlist")}</Tag>}
                 </div>
               </div>
+              {!viewer && <div className="shrink-0 self-start"><CustomerRights customer={customer} /></div>}
             </div>
             <CustomerSummary customer={customer} />
             <div className="text-sm">
@@ -144,7 +145,6 @@ export default function CustomerPage() {
             <Fact label={t("customer.lastVisit")} value={s.lastVisit ? agoText(s.lastVisit, today) : "–"} />
             <Fact label={t("customer.usually")} value={favorite?.name ?? "–"} />
           </div>
-          {!viewer && <CustomerRights customer={customer} />}
         </div>
 
         <div className="min-w-0 space-y-5">
@@ -214,7 +214,7 @@ function Fact({ label, value }: { label: string; value: string }) {
   return (
     <Card className="p-4">
       <p className="text-xs text-text-secondary">{label}</p>
-      <p className="mt-1 truncate font-semibold">{value}</p>
+      <p className="mt-1 break-words font-semibold">{value}</p>
     </Card>
   );
 }

@@ -36,8 +36,8 @@ type Mode = "details" | "move" | "cancel" | "giftcard" | "register";
 
 const CANCEL_REASONS: MessageKey[] = ["cancel.reason.customer", "cancel.reason.ill", "cancel.reason.salon", "cancel.reason.other"];
 
-/** Booking details with move and cancel flows. Mount it with `key={bookingId}`. */
-export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { bookingId: string; onClose: () => void; initialMode?: Mode }) {
+/** Booking details with move and cancel flows. Mount it with `key={bookingId}`. `dock`: see `Sheet`. */
+export function BookingSheet({ bookingId, onClose, initialMode = "details", dock }: { bookingId: string; onClose: () => void; initialMode?: Mode; dock?: boolean }) {
   const { state, today, minutes, target } = useStudio();
   const [run, pending] = useCommit();
   const clock = useSalonNow();
@@ -122,6 +122,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     return (
       <Sheet
         open
+        dock={dock}
         onClose={onClose}
         title={t("move.title", { name })}
         description={`${service?.name} · ${formatDuration(booking.duration)} · ${staff.firstName}`}
@@ -164,6 +165,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
     return (
       <Sheet
         open
+        dock={dock}
         onClose={onClose}
         title={t(salonCancellation ? "protection.salonCancel" : "cancel.title")}
         description={`${name} · ${when}`}
@@ -202,6 +204,7 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
   return (
     <Sheet
       open
+      dock={dock}
       onClose={onClose}
       title={name}
       description={`${service?.name} · ${formatDuration(booking.duration)}`}
@@ -272,13 +275,13 @@ export function BookingSheet({ bookingId, onClose, initialMode = "details" }: { 
         )}
         {customer?.note && !booking.visitFor && (
           <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-text">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-warning">{t("booking.note")}</p>
+            <p className="mb-1 text-xs font-semibold text-warning">{t("booking.note")}</p>
             {customer.note}
           </div>
         )}
         {lastJournal && (
           <div className="rounded-lg bg-surface-2 px-4 py-3 text-sm">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">{t("booking.lastAdvice")}</p>
+            <p className="mb-1 text-xs font-semibold text-text-secondary">{t("booking.lastAdvice")}</p>
             {lastJournal.advice}
             <JournalRead customerId={booking.customerId} />
           </div>

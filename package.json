@@ -45,7 +45,7 @@
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "@vercel/analytics": "2.0.1",
-    "lucide-react": "1.73.0",
+    "lucide-react": "1.77.0",
     "luxon": "^3.7.2",
     "next": "^16.4.6",
     "pg": "8.23.1",
@@ -61,17 +61,17 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "autoprefixer": "^10.0.0",
-    "axe-core": "4.14.0",
+    "autoprefixer": "^10.7.0",
+    "axe-core": "4.14.1",
     "eslint": "^10.15.0",
     "eslint-config-next": "^16.4.6",
-    "fake-indexeddb": "6.2.7",
+    "fake-indexeddb": "6.2.8",
     "postcss": "^8.5.33",
     "prisma": "7.10.1",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "overrides": {
     "@prisma/config": {
