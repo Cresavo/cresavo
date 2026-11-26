@@ -52,11 +52,12 @@ function Transcript({ lines }: { lines: readonly TranscriptLine[] }) {
   );
 }
 
-function MajaMark({ ringing }: { ringing: boolean }) {
+function MajaMark({ ringing, compact }: { ringing: boolean; compact?: boolean }) {
   return (
     <div
       className={cx(
-        "flex size-24 items-center justify-center rounded-full bg-action-bg text-h1 font-medium text-text",
+        "flex shrink-0 items-center justify-center rounded-full bg-action-bg font-medium text-text",
+        compact ? "size-16 text-h2" : "size-24 text-h1",
         ringing && "maja-ring",
       )}
       aria-hidden
@@ -112,17 +113,21 @@ export function RingScreen({
   const handover = (live ? call.handoverReason : ended ? call.record.handoverReason : undefined) ?? "";
   const canRetry = !(call.phase === "failed" && (call.reason === "closed" || call.reason === "daily-limit"));
 
+  const compact = Boolean(showBooking || outcome === "handover");
+
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 sm:max-w-lg">
       <audio ref={speaker} autoPlay playsInline hidden />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto py-4 text-center">
-        <div className="mt-auto" aria-hidden />
-        <div className="flex flex-col items-center gap-5">
-        <MajaMark ringing={ringing} />
+        {!compact && <div className="mt-auto" aria-hidden />}
+        <div className={cx("flex w-full flex-col", compact ? "items-stretch gap-6" : "items-center gap-5")}>
+        <div className={cx("flex", compact ? "items-center gap-3 text-left" : "flex-col items-center gap-5")}>
+        <MajaMark ringing={ringing} compact={compact} />
         <div className="space-y-1">
           <h1 className="text-h2 font-medium">{t("webCall.maja")}</h1>
           <p className="text-body text-text-secondary">{t("webCall.role", { salon: salon.salonName })}</p>
+        </div>
         </div>
         {waveActive && <CallVisualizer levels={levels} active={waveActive} muted={muted} />}
         {live && (
