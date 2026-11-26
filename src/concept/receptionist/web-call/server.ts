@@ -4,7 +4,7 @@ import { realtimeSession } from "../realtime-config";
 import { webCallLimits, webCallModel, webCallQuota } from "./config";
 import type { CallLedger } from "./ledger";
 import { webCallInstructions, type WebCallSalon } from "./persona";
-import type { CallLimits } from "../limits";
+import { estimateResponseCost, ratesFor, type CallLimits, type RealtimeUsage } from "../limits";
 
 // The server half of the public web call. The browser sends its WebRTC offer
 // here; this server adds the session (model, rules, tools) and exchanges the
@@ -66,7 +66,7 @@ export function callIdFrom(location: string | null): string | null {
 export type Refusal = "rate_limited" | "session_limited" | "daily_limit" | "provider_unavailable";
 
 export type StartResult =
-  | { ok: true; callId: string; sdp: string; limits: CallLimits; model: string; deadline: number }
+  | { ok: true; callId: string; sdp: string; limits: CallLimits; model: string; deadline: number; instructions: string }
   | { ok: false; error: Refusal; retryAfter?: number };
 
 export interface StartOptions {
@@ -93,16 +93,17 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
   const { ledger, secret } = options;
   const ip = await ledger.take(ledgerKey(secret, "ip", options.client), quota.perIpPerHour, HOUR, now());
   if (!ip.ok) return { ok: false, error: "rate_limited", retryAfter: ip.retryAfter };
-  const session = await ledger.take(ledgerKey(secret, "sid", options.session), quota.perSessionPerHour, HOUR, now());
-  if (!session.ok) return { ok: false, error: "session_limited", retryAfter: session.retryAfter };
+  const page = await ledger.take(ledgerKey(secret, "sid", options.session), quota.perSessionPerHour, HOUR, now());
+  if (!page.ok) return { ok: false, error: "session_limited", retryAfter: page.retryAfter };
   const day = await ledger.take("day", quota.perDay, DAY, now());
   if (!day.ok) return { ok: false, error: "daily_limit", retryAfter: day.retryAfter };
 
   const model = webCallModel(env);
   const limits = webCallLimits(env);
+  const session = webCallSession(input.salon, model);
   const form = new FormData();
   form.set("sdp", input.sdp);
-  form.set("session", JSON.stringify(webCallSession(input.salon, model)));
+  form.set("session", JSON.stringify(session));
   let response: Response;
   try {
     response = await (options.fetch ?? fetch)(REALTIME_CALLS, {
@@ -134,7 +135,7 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
     await hangUp(callId, options.apiKey, options.fetch);
     throw error;
   }
-  return { ok: true, callId, sdp, limits, model, deadline };
+  return { ok: true, callId, sdp, limits, model, deadline, instructions: session.instructions };
 }
 
 /** Ends a call at OpenAI. True when OpenAI took it, or the call was already over. */
@@ -186,6 +187,88 @@ export async function hangUpAll(options: { apiKey: string; ledger: CallLedger; f
 export async function enforceDeadline(callId: string, deadline: number, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void> }): Promise<void> {
   const sleep = options.sleep ?? ((ms) => new Promise<void>((resolve) => { setTimeout(resolve, ms).unref?.(); }));
   await sleep(Math.max(0, deadline - (options.now ?? Date.now)()));
+  await endWithRetries(callId, options, sleep);
+}
+
+/** The parts of a WebSocket the supervisor uses; the global WebSocket satisfies it. */
+export interface SidebandSocket {
+  addEventListener(type: "message", listener: (event: { data: unknown }) => void): void;
+  addEventListener(type: "open" | "close" | "error", listener: () => void): void;
+  close(): void;
+}
+
+/** Opens the server's own connection to a running call ("sideband"), authenticated with the API key. */
+export function openSideband(callId: string, apiKey: string): SidebandSocket {
+  const url = `wss://api.openai.com/v1/realtime?call_id=${encodeURIComponent(callId)}`;
+  // Node's WebSocket (undici) takes request headers in its init object.
+  const Socket = WebSocket as unknown as new (url: string, init: { headers: Record<string, string> }) => SidebandSocket;
+  return new Socket(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+}
+
+export type SupervisorEnd = "deadline" | "cost" | "tampered" | "closed";
+
+export interface SuperviseOptions {
+  apiKey: string;
+  ledger: CallLedger;
+  limits: CallLimits;
+  model: string;
+  /** The instructions this server gave the call; a session that reports others was changed by the client. */
+  instructions: string;
+  fetch?: typeof fetch;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  connect?: (callId: string, apiKey: string) => SidebandSocket;
+}
+
+/**
+ * Watches a running call from the server until it is over, and ends it when
+ * it reaches its deadline, when the estimated cost reaches the ceiling (from
+ * the usage OpenAI reports to the server, not the browser), or when the
+ * session's instructions are changed by the client. If the server's own
+ * connection cannot be opened, the deadline still holds. Scheduled with
+ * `after()` by the route that started the call.
+ */
+export async function superviseCall(callId: string, deadline: number, options: SuperviseOptions): Promise<SupervisorEnd> {
+  const sleep = options.sleep ?? ((ms) => new Promise<void>((resolve) => { setTimeout(resolve, ms).unref?.(); }));
+  const now = options.now ?? Date.now;
+  const rates = ratesFor(options.model);
+  let cost = 0;
+  let resolveEnd: (why: SupervisorEnd) => void = () => undefined;
+  const ended = new Promise<SupervisorEnd>((resolve) => { resolveEnd = resolve; });
+  let socket: SidebandSocket | undefined;
+  try {
+    socket = (options.connect ?? openSideband)(callId, options.apiKey);
+    socket.addEventListener("message", (message) => {
+      let event: { type?: string; response?: { usage?: RealtimeUsage }; session?: { instructions?: unknown } };
+      try {
+        event = JSON.parse(String(message.data));
+      } catch {
+        return;
+      }
+      if (event.type === "response.done") {
+        cost += estimateResponseCost(event.response?.usage, rates);
+        if (cost >= options.limits.maxCostUsd) resolveEnd("cost");
+      }
+      if (event.type === "session.updated" && typeof event.session?.instructions === "string" && event.session.instructions !== options.instructions) resolveEnd("tampered");
+    });
+    socket.addEventListener("close", () => resolveEnd("closed"));
+    socket.addEventListener("error", () => undefined);
+  } catch {
+    socket = undefined;
+  }
+  const why = await Promise.race([ended, sleep(Math.max(0, deadline - now())).then(() => "deadline" as const)]);
+  // Whatever ended the watch, the call is hung up: a call that already ended answers 404, which counts as done.
+  // The sideband closing early fails closed: the call ends rather than running unwatched.
+  await endWithRetries(callId, options, sleep);
+  try {
+    socket?.close();
+  } catch {
+    // Already closed.
+  }
+  return why;
+}
+
+async function endWithRetries(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }, sleep: (ms: number) => Promise<void>) {
   // A failed hang-up is tried again a few times here; after that the sweeps keep trying.
   for (const pause of [0, 2_000, 5_000, 10_000]) {
     if (pause) await sleep(pause);

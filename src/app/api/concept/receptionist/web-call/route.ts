@@ -1,14 +1,14 @@
 import { after } from "next/server";
 import { verifyPageToken } from "@/concept/receptionist/web-call/page-token";
 import { cleanupRuntime, webCallRuntime } from "@/concept/receptionist/web-call/runtime";
-import { enforceDeadline, hangUpAll, MAX_OFFER_BYTES, startWebCall, sweepOverdue, webCallInput } from "@/concept/receptionist/web-call/server";
+import { hangUpAll, MAX_OFFER_BYTES, startWebCall, superviseCall, sweepOverdue, webCallInput } from "@/concept/receptionist/web-call/server";
 import { withRequestLog } from "@/concept/server/logger";
 import { fromSameOrigin } from "@/concept/server/same-origin";
 import { readCapped, UNVERIFIED_CLIENT, waitlistClientKey } from "@/concept/site/waitlist-server";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// The route stays alive after answering to hang the call up at its hard limit (4 minutes by default).
+// The route stays alive after answering to watch the call and hang it up at its limits (4 minutes by default).
 export const maxDuration = 300;
 
 /** Work that runs after the answer is sent; outside a request scope (tests, scripts) it simply runs. */
@@ -53,7 +53,9 @@ export const POST = withRequestLog("/api/concept/receptionist/web-call", async (
     await sweepOverdue(runtime);
     const started = await startWebCall(input.data, { ...runtime, client, session: token.session });
     if (!started.ok) return refuse(started.error, started.error === "provider_unavailable" ? 502 : 429, started.retryAfter);
-    later(() => enforceDeadline(started.callId, started.deadline, runtime).catch(() => undefined));
+    // The server watches the call itself: deadline, cost ceiling from OpenAI's own usage reports, tampering.
+    later(() => superviseCall(started.callId, started.deadline, { ...runtime, limits: started.limits, model: started.model, instructions: started.instructions })
+      .then((why) => console.log(JSON.stringify({ level: "info", msg: "web_call_ended", why })), () => undefined));
     return Response.json({ callId: started.callId, sdp: started.sdp, limits: started.limits, model: started.model }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     // The ledger could not be reached: no call starts without its limits.

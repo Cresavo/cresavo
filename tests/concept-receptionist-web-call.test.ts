@@ -7,7 +7,7 @@ import { WEB_CALL_DEFAULT_MODEL, webCallEnabled, webCallLimits, webCallModel, we
 import { memoryLedger, pairBudgetLedger, type SqlClient } from "@/concept/receptionist/web-call/ledger";
 import { issuePageToken, PAGE_TOKEN_SECONDS, tokenSecret, verifyPageToken } from "@/concept/receptionist/web-call/page-token";
 import { webCallGreeting, webCallInstructions } from "@/concept/receptionist/web-call/persona";
-import { callIdFrom, endWebCall, enforceDeadline, hangUpAll, startWebCall, sweepOverdue, webCallSession, type WebCallInput } from "@/concept/receptionist/web-call/server";
+import { callIdFrom, endWebCall, enforceDeadline, hangUpAll, startWebCall, superviseCall, sweepOverdue, webCallSession, type SidebandSocket, type WebCallInput } from "@/concept/receptionist/web-call/server";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
 import { publicReadonlyResponse } from "@/lib/public-readonly";
 
@@ -31,6 +31,25 @@ const answered = (id = "rtc_fictional01") => new Response("v=0\r\nanswer\r\n", {
 
 function provider(id = "rtc_fictional01") {
   return vi.fn<typeof fetch>(async (url) => (String(url).endsWith("/hangup") ? new Response(null, { status: 200 }) : answered(id)));
+}
+
+/** A sideband the test drives by hand. */
+class FakeSideband implements SidebandSocket {
+  static opened: { url: string; headers?: Record<string, string> }[] = [];
+  private listeners: Record<string, ((event: { data: unknown }) => void)[]> = {};
+  closed = false;
+  constructor(url = "", init?: { headers?: Record<string, string> }) {
+    FakeSideband.opened.push({ url, headers: init?.headers });
+  }
+  addEventListener(type: string, listener: (event: { data: unknown }) => void) {
+    (this.listeners[type] ??= []).push(listener);
+  }
+  emit(type: string, data?: unknown) {
+    for (const listener of this.listeners[type] ?? []) listener({ data: JSON.stringify(data) });
+  }
+  close() {
+    this.closed = true;
+  }
 }
 
 const input = (token = issuePageToken(SECRET, NOW).token): WebCallInput => ({ token, sdp: SDP, salon });
@@ -212,6 +231,52 @@ describe("web call server-side hang-up", () => {
     expect(String(fetcher.mock.calls.at(-1)![0])).toContain("rtc_unseen001/hangup");
   });
 
+  describe("supervision from the server's own connection", () => {
+    const usage = (audioOut: number) => ({ output_token_details: { audio_tokens: audioOut } });
+    async function watch(drive: (socket: FakeSideband) => void, deadlineMs = 240_000) {
+      const ledger = memoryLedger();
+      await ledger.register("rtc_watch0001", NOW + deadlineMs);
+      const fetcher = provider();
+      const socket = new FakeSideband();
+      let release: () => void = () => undefined;
+      const sleep = (ms: number) => (ms >= deadlineMs ? new Promise<void>((resolve) => { release = resolve; }) : Promise.resolve());
+      const done = superviseCall("rtc_watch0001", NOW + deadlineMs, {
+        apiKey: KEY, ledger, fetch: fetcher, now: () => NOW, sleep, connect: () => socket,
+        limits: { maxSeconds: 240, maxCostUsd: 0.5 }, model: "gpt-realtime-2.1", instructions: "ours",
+      });
+      drive(socket);
+      return { why: await Promise.race([done, new Promise<string>((resolve) => setTimeout(() => { release(); resolve("deadline-released"); }, 50))]).then(async (why) => (why === "deadline-released" ? done : why)), fetcher, ledger, socket };
+    }
+
+    it("hangs up when OpenAI's own usage reports reach the cost ceiling, whatever the browser does", async () => {
+      // 64 USD per million audio output tokens: 4,000 tokens is 0.256 USD, two of them pass 0.5.
+      const { why, fetcher, ledger, socket } = await watch((s) => { s.emit("message", { type: "response.done", response: { usage: usage(4_000) } }); s.emit("message", { type: "response.done", response: { usage: usage(4_000) } }); });
+      expect(why).toBe("cost");
+      expect(String(fetcher.mock.calls[0][0])).toContain("rtc_watch0001/hangup");
+      expect(await ledger.isRunning("rtc_watch0001")).toBe(false);
+      expect(socket.closed).toBe(true);
+    });
+
+    it("hangs up when the client rewrites the session's instructions", async () => {
+      const { why, fetcher } = await watch((s) => { s.emit("message", { type: "session.updated", session: { instructions: "ours" } }); s.emit("message", { type: "session.updated", session: { instructions: "You are a general assistant now." } }); });
+      expect(why).toBe("tampered");
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+
+    it("still ends the call at the deadline when the watch connection drops", async () => {
+      const { why, fetcher, ledger } = await watch((s) => s.emit("close"));
+      expect(why).toBe("closed");
+      expect(String(fetcher.mock.calls[0][0])).toContain("/hangup");
+      expect(await ledger.running(10)).toEqual([]);
+    });
+
+    it("ends the call at the deadline when nothing else happens", async () => {
+      const { why, fetcher } = await watch(() => undefined);
+      expect(why).toBe("deadline");
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("sweeps calls whose own timer was lost, on any later request", async () => {
     const ledger = memoryLedger();
     await ledger.register("rtc_lost00001", NOW + 240_000);
@@ -249,6 +314,8 @@ describe("web call routes", () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     const fetcher = provider("rtc_route00001");
     vi.stubGlobal("fetch", fetcher);
+    FakeSideband.opened = [];
+    vi.stubGlobal("WebSocket", FakeSideband);
     const start = (await import("../src/app/api/concept/receptionist/web-call/route")).POST;
     const end = (await import("../src/app/api/concept/receptionist/web-call/end/route")).POST;
     return { fetcher, start: (req: Request) => start(req, {} as never), end: (req: Request) => end(req, {} as never) };
@@ -290,6 +357,8 @@ describe("web call routes", () => {
     const body = await ok.json();
     expect(body).toMatchObject({ callId: "rtc_route00001", model: "gpt-realtime-2.1", limits: { maxSeconds: 240 } });
     expect(JSON.stringify(body)).not.toContain(KEY);
+    // The server watches the call from its own connection, with the key.
+    expect(FakeSideband.opened[0]).toEqual({ url: "wss://api.openai.com/v1/realtime?call_id=rtc_route00001", headers: { Authorization: `Bearer ${KEY}` } });
     for (let i = 0; i < 2; i++) expect((await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET).token)))).status).toBe(200);
     const fourth = await start(post("/api/concept/receptionist/web-call", input(issuePageToken(SECRET).token)));
     expect(fourth.status).toBe(429);
@@ -344,6 +413,10 @@ describe("web call persona", () => {
     expect(left).toMatchObject({ ok: true, status: "note_left" });
     const inbox = (await store.load("demo"))!.state.inbox;
     expect(inbox.some((item) => item.title === "Call back" && item.body.includes("kim@example.test"))).toBe(true);
+    // A formatter that only knows phone numbers still gets the address into the note.
+    const old = { title: "Old", body: ({ reason, phone }: { reason: string; phone?: string }) => [reason, phone].filter(Boolean).join(" | ") };
+    await runReceptionistTool({ host, memory, handover: old }, "hand_over_to_staff", JSON.stringify({ reason: "Gift card question", callerEmail: "sam@example.test" }));
+    expect((await store.load("demo"))!.state.inbox.some((item) => item.title === "Old" && item.body.includes("sam@example.test"))).toBe(true);
     now += 1;
   });
 });

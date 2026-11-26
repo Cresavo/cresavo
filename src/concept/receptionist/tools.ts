@@ -281,8 +281,11 @@ async function handOver(host: ReceptionistHost, view: SalonView, memory: CallMem
   const address = input.callerEmail && EMAIL.test(input.callerEmail.trim()) ? input.callerEmail.trim().toLowerCase() : undefined;
   // A note without a number or address the staff can reach would be a call-back promise nobody can keep.
   if (!number && !address) return refuse("needs_phone", "Ask for a phone number or an e-mail address the staff can reach the caller on, read it back, then call hand_over_to_staff again with callerPhone or callerEmail. If the caller would rather not give one, do not promise a call back; suggest calling again during opening hours.");
+  // A formatter written before e-mail was accepted still gets the address into the note.
+  const worded = text.body({ reason, caller, phone: number, email: address });
+  const body = address && !worded.includes(address) ? `${worded}\n${address}` : worded;
   const committed = await host.commit(
-    { type: "inbox/add", item: { kind: "message", fromName: caller, date: view.clock.today, time: view.clock.minutes, title: text.title, body: text.body({ reason, caller, phone: number, email: address }), read: false, handled: false } },
+    { type: "inbox/add", item: { kind: "message", fromName: caller, date: view.clock.today, time: view.clock.minutes, title: text.title, body, read: false, handled: false } },
     idempotencyKey(memory),
   );
   if (!committed.ok) return refuse("note_failed", "The note could not be saved. Ask the caller to call again during opening hours.");
