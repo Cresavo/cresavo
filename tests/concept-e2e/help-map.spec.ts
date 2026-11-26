@@ -46,8 +46,12 @@ for (const entry of HELP_MAP) {
     await page.goto(start);
     for (const step of openers) {
       const { all, preferred } = anchor(page, { ...step, prefer: entry.prefer });
-      const target = preferred && await preferred.count() ? preferred.first() : all.first();
-      await expect(target, `${entry.id}: step ${step.id}`).toBeVisible({ timeout: 15000 });
+      // Wait for the page to draw before choosing: a slow page has no visits yet, and the first visit is not the one.
+      await expect(all.first(), `${entry.id}: step ${step.id}`).toBeVisible({ timeout: 15000 });
+      // Visits are tagged with what their sheet offers; like the guide, open only one that offers the action.
+      const tagged = preferred && await all.first().evaluate((element) => element.hasAttribute("data-help-state"));
+      const target = tagged ? preferred.first() : all.first();
+      await expect(target, `${entry.id}: step ${step.id} offering ${entry.prefer}`).toBeVisible({ timeout: 15000 });
       await target.click();
     }
     const shown = anchor(page, entry).all;
