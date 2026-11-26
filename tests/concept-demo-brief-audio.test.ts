@@ -9,6 +9,7 @@ import {
   setVocabulary,
 } from "@/concept/i18n";
 import { packOf } from "@/concept/packs";
+import { publicSalonView } from "@/concept/booking/public-projection";
 import { openingFor } from "@/concept/data/slots";
 import { dayBookings } from "@/concept/selectors";
 import { eveningRecap } from "@/concept/summary/day";
@@ -96,6 +97,9 @@ describe("recorded demo brief clips", () => {
     const saturday = createDemoState("2026-11-21");
     expect(openingFor(saturday.salon, "2026-11-22")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(saturday.salon, "2026-11-29")).toBeNull();
+    const publicSaturday = publicSalonView(saturday, new Date("2026-11-21T09:00:00+01:00"));
+    expect(openingFor(publicSaturday.salon, "2026-11-22")).toEqual({ open: 9 * 60, close: 18 * 60 });
+    expect(openingFor(publicSaturday.salon, "2026-11-29")).toBeNull();
     const friday = createDemoState("2026-11-20");
     expect(openingFor(friday.salon, "2026-11-21")).toEqual({ open: 9 * 60, close: 18 * 60 });
     expect(openingFor(friday.salon, "2026-11-28")).toEqual({ open: 10 * 60, close: 15 * 60 });

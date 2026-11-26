@@ -521,7 +521,6 @@ function pinStandardDemoDueBack(state: DemoState, today: DateKey) {
     const finished = state.bookings
       .filter((b) => b.customerId === row.customer.id && b.status === "completed")
       .sort((a, b) => b.date.localeCompare(a.date) || b.start - a.start)[0];
-    if (finished && diffDays(today, addDays(finished.date, 26 * 7)) >= 0) finished.date = addDays(today, -14);
     state.journals.push({
       id: `j-eko-due-${index + 1}`,
       customerId: row.customer.id,
