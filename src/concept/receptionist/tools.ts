@@ -59,7 +59,7 @@ const inputs = {
   find_booking: z.object({ callerName: name, callerPhone: phone }).strict(),
   move_appointment: z.object({ bookingId: field.id, date: field.date, time: field.time, confirmed: z.boolean() }).strict(),
   cancel_appointment: z.object({ bookingId: field.id, confirmed: z.boolean() }).strict(),
-  hand_over_to_staff: z.object({ reason: z.string().trim().min(3).max(300), callerName: name.optional(), callerPhone: phone }).strict(),
+  hand_over_to_staff: z.object({ reason: z.string().trim().min(3).max(300), callerName: name.optional(), callerPhone: phone, confirmed: z.boolean() }).strict(),
   end_call: z.object({}).strict(),
 } as const;
 
@@ -72,7 +72,7 @@ const descriptions: Record<ReceptionistToolName, string> = {
   find_booking: "Look up the caller's upcoming bookings. Needs the name and the phone number the booking was made with. Required before moving or cancelling.",
   move_appointment: "Move one of the caller's bookings (found with find_booking) to a new day and time with the same staff member. First confirmed=false to get the read-back, then confirmed=true after the caller said yes.",
   cancel_appointment: "Cancel one of the caller's bookings (found with find_booking). First confirmed=false to get the read-back, then confirmed=true after the caller said yes.",
-  hand_over_to_staff: "Leave a note for the staff to call the caller back; needs the caller's phone number (a call back needs a number, never an e-mail address). Use it whenever you are unsure, the caller asks for a person, or a tool says a request needs the staff.",
+  hand_over_to_staff: "Leave a note for the staff to call the caller back; needs the caller's phone number (a call back needs a number, never an e-mail address). First confirmed=false: the result is the number to read back once; after the caller's yes, the same details with confirmed=true. Give a short neutral reason (\"Question about a gift card\"), never health details. Use it whenever you are unsure, the caller asks for a person, or a tool says a request needs the staff.",
   end_call: "Hang up. Call it only after you have said goodbye.",
 };
 
@@ -315,6 +315,8 @@ async function handOver(host: ReceptionistHost, view: SalonView, memory: CallMem
   // A call back needs a number the staff can call; an e-mail address cannot be called.
   const { phone, refusal } = checkPhone(view.state, input.callerPhone);
   if (refusal) return refusal;
+  // The staff can only call back on the right number: the caller hears it once and says yes first.
+  if (!confirmedBy(memory, "hand_over_to_staff", input)) return needsConfirmation({ phone, phoneSpoken: { sv: spokenPhone(phone, "sv"), en: spokenPhone(phone, "en") } });
   const body = text.body({ reason, caller, phone });
   const committed = await host.commit(
     { type: "inbox/add", item: { kind: "message", fromName: caller, date: view.clock.today, time: view.clock.minutes, title: text.title, body, read: false, handled: false } },

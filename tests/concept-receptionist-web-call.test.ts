@@ -562,7 +562,7 @@ describe("web call persona", () => {
     expect(rules).toMatch(/Only call get_salon_info if something you need is not there \(or there is no such note\), and never announce it/);
     expect(rules).toMatch(/noll sjuttio, tre fyrtiofem, sextisju åttio/);
     expect(rules).toMatch(/Read it back once, in the final read-back/);
-    expect(rules).toMatch(/Never drop a leading 0/);
+    expect(rules).toMatch(/never dropping a leading 0, a country code or a digit/);
     expect(rules).toMatch(/native Swedish receptionist/);
     expect(rules).toMatch(/say treatment names in Swedish/);
     expect(rules).toMatch(/A call back needs a phone number, nothing else/);
@@ -612,11 +612,12 @@ describe("web call persona", () => {
     const call = (args: object) => runReceptionistTool({ host, memory, handover }, "hand_over_to_staff", JSON.stringify(args));
     // No number, or an e-mail address instead of one: no note, and the schema has no e-mail field at all.
     expect(await call({ reason: "Wants a colour consultation" })).toMatchObject({ ok: false, error: "invalid_arguments" });
-    expect(await call({ reason: "Wants a colour consultation", callerPhone: "070-123 45 67", callerEmail: "kim@example.test" })).toMatchObject({ ok: false, error: "invalid_arguments" });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "070-123 45 67", callerEmail: "kim@example.test", confirmed: false })).toMatchObject({ ok: false, error: "invalid_arguments" });
     expect(JSON.stringify(receptionistToolSchemas().find((tool) => tool.name === "hand_over_to_staff"))).not.toMatch(/callerEmail/);
     // A number heard without its 0 is asked again, not saved.
-    expect(await call({ reason: "Wants a colour consultation", callerPhone: "123456789" })).toMatchObject({ ok: false, error: "phone_missing_zero" });
-    expect(await call({ reason: "Wants a colour consultation", callerPhone: "0123456789" })).toMatchObject({ ok: true, status: "note_left" });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "123456789", confirmed: true })).toMatchObject({ ok: false, error: "phone_missing_zero" });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "0123456789", confirmed: false })).toMatchObject({ status: "needs_confirmation", readBack: { phone: "0123456789" } });
+    expect(await call({ reason: "Wants a colour consultation", callerPhone: "0123456789", confirmed: true })).toMatchObject({ ok: true, status: "note_left" });
     expect((await store.load("demo"))!.state.inbox.some((item) => item.title === "Call back" && item.body.includes("0123456789"))).toBe(true);
     now += 1;
   });

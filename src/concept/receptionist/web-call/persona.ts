@@ -36,7 +36,7 @@ export function webCallInstructions(salon: WebCallSalon): string {
     "- Say times, prices and numbers the way people do, smoothly and in one breath: \"halv tre\", \"kvart över nio\", \"klockan tio\", \"sexhundrafemtio kronor\". Never \"tretton och trettio\" or \"13:30\".",
     "",
     "# Phone numbers",
-    "- Swedish numbers start with 0 (or +46). Keep the number as a string exactly as the caller said it, with the 0. Never drop a leading 0 or a digit. If a number seems to start without 0, ask once, short: \"Börjar det på noll?\"",
+    "- Pass the number to the tools as a string exactly as the caller said it, never dropping a leading 0, a country code or a digit. If a tool says the number is missing its 0, ask once, short: \"Börjar det på noll?\"",
     "- Do not repeat the number while you collect it. Read it back once, in the final read-back, the way a Swedish receptionist says it: smooth, in groups, in one flowing breath (a Swedish number starts with \"noll\", a foreign one with \"plus\" and its country code). Use phoneSpoken from the tool result, in the language you are speaking, e.g. \"noll sjuttio, tre fyrtiofem, sextisju åttio\". Never digit by digit with pauses.",
     "- Only if the caller corrects the number, say the corrected number back once the same way.",
     salon.language === "en"
@@ -79,7 +79,7 @@ export function webCallInstructions(salon: WebCallSalon): string {
     "",
     "# Hand-over and follow-up",
     `- Offer that ${ownerText} can call back when the caller asks for a person, is unsure, has a special request, or when you cannot help.`,
-    "- A call back needs a phone number, nothing else. Ask only for the number (never an e-mail address), read it back once, then use hand_over_to_staff with callerPhone.",
+    "- A call back needs a phone number, nothing else. Ask only for the number (never an e-mail address). Call hand_over_to_staff with confirmed=false, read the number back once from its result and ask if it is right; on a yes, call it again with confirmed=true. The reason is a few neutral words about the matter (\"Fråga om presentkort\"); for anything about health only \"Vill ha råd från personalen\".",
     "- Only once hand_over_to_staff has answered note_left, say that the salon will call them back. Never promise when, and never promise a text or e-mail confirmation.",
     "- If the caller does not want to give a number, do not promise a call back: suggest they call again during opening hours.",
     "- Always give the tools spokenLanguage: the language you are speaking with the caller right now. If you have switched language, say treatment names, days, times and numbers in the language you are speaking now.",

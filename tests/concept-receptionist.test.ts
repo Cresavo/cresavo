@@ -217,7 +217,11 @@ describe("receptionist tools", () => {
     const { host, state } = salon();
     const memory = newCallMemory("call-a");
     const before = (await state()).inbox.length;
-    expect(await run(host, memory, "hand_over_to_staff", { reason: "Wants to talk about a complaint", callerName: "Robin Vale", callerPhone: "070-174 06 42" })).toMatchObject({ status: "note_left" });
+    const note = { reason: "Wants to talk about a complaint", callerName: "Robin Vale", callerPhone: "070-174 06 42" };
+    // The number is read back first; nothing is saved before the caller's yes.
+    expect(await run(host, memory, "hand_over_to_staff", { ...note, confirmed: false })).toMatchObject({ status: "needs_confirmation", readBack: { phone: "0701740642", phoneSpoken: { sv: "noll sjuttio, ett sjuttiofyra, noll sex fyrtiotvå" } } });
+    expect((await state()).inbox).toHaveLength(before);
+    expect(await run(host, memory, "hand_over_to_staff", { ...note, confirmed: true })).toMatchObject({ status: "note_left" });
     const inbox = (await state()).inbox;
     expect(inbox).toHaveLength(before + 1);
     expect(inbox[0]).toMatchObject({ kind: "message", title: "Call back", fromName: "Robin Vale", read: false });
@@ -230,7 +234,7 @@ describe("receptionist tools", () => {
     const memory = newCallMemory("call-a");
     const before = (await state()).inbox.length;
     for (const callerPhone of [undefined, "12"]) {
-      const input = { reason: "Wants to talk about a complaint", callerName: "Robin Vale", ...(callerPhone ? { callerPhone } : {}) };
+      const input = { reason: "Wants to talk about a complaint", callerName: "Robin Vale", confirmed: true, ...(callerPhone ? { callerPhone } : {}) };
       const output = await run(host, memory, "hand_over_to_staff", input);
       expect(output).toMatchObject({ ok: false });
       expect(output).not.toMatchObject({ status: "note_left" });
