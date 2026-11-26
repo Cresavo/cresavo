@@ -121,8 +121,8 @@ function Frame({ children, slug, widget, switchLanguage }: {
             )}
             <span className="min-w-0">{state?.salon.name}</span>
           </Link>
-          {/* Keep language and My bookings on one row. A full-width select with a larger max at `sm` used to be measured at 6rem and then laid out at 7rem, which wrapped the link from 640px. */}
-          <div className="ml-auto flex max-w-full flex-nowrap items-center justify-end gap-1">
+          {/* A full-width select with a larger max at `sm` used to be measured at 6rem and then laid out at 7rem, which wrapped My bookings from 640px. A fixed 6rem field keeps the row together at normal sizes; the group can still wrap when text is enlarged. */}
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
             {switchLanguage && (
               <div className="w-24 max-w-full shrink-0">
                 <Select

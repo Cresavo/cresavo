@@ -27,7 +27,6 @@ describe("the booking frame for a live salon opened with capitals in its address
     const html = render();
     expect(html).toContain("Fictional content");
     expect(html).toContain("<select");
-    expect(html).toContain("flex-nowrap");
     expect(html).toContain("w-24");
     expect(html).not.toContain("sm:max-w-28");
   });
