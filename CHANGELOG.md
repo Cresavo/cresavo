@@ -100,6 +100,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **The salon homepages no longer repeat the booking instruction.** Before a treatment is chosen, the "Boka tid" section keeps its intro with the phone number and one underlined link to the treatments, placed right under it.
 - **The Swedish Recorded readings card shows both Elin buttons.** The card no longer hides a recording when the live brief wording differs from the script, so translated product names such as “Fotkräm med 10 % karbamid” do not remove “Morgonbrief”. On the standard Salong Eko demo both the morning and evening recordings stay available in English and Swedish. The audio is unchanged. English and Swedish.
 - **The booking header keeps language and My bookings on one row from 640px.** The language field has a fixed 6rem width, so it no longer grows at `sm` after the row was measured, which had been wrapping the link and making the header two rows tall.
 

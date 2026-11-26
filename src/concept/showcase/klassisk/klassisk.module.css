@@ -150,6 +150,8 @@
 .bookingPhoto { display: none; }
 .flow { min-height: 0; min-width: 0; background: transparent; }
 .booking[data-empty] .bookingPhoto { display: none; }
+/* Nothing chosen yet: the link to the price list sits right under the intro instead of alone in the wide column. */
+.booking[data-empty] .bookingGrid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 @media (min-width: 960px) {
   .booking[data-empty] { padding-block: 64px; }
   .booking { scroll-margin-top: 76px; }

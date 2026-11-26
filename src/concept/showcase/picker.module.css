@@ -1,7 +1,7 @@
 /* A typographic treatment list for the standalone booking page, and the short
    homepage prompt before a treatment is chosen. Inherits the site's type. */
 .lead { margin: 0; max-width: 30em; color: var(--text-secondary, inherit); }
-.link { color: inherit; font-weight: 500; text-underline-offset: 4px; }
+.link { color: inherit; font-weight: 500; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .root { display: grid; gap: 8px; }
 .list { margin: 0; padding: 0; list-style: none; }
 .item {

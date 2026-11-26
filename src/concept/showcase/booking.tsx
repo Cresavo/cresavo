@@ -146,7 +146,6 @@ function Flow({ listTreatments, sharePath }: { listTreatments: boolean; sharePat
     if (listTreatments) return <TreatmentPicker onPick={book} />;
     return (
       <p className={p.lead}>
-        Välj en behandling i listan så visar vi första lediga tid.{" "}
         <a className={p.link} href={`#${menuAnchor}`}>Till behandlingarna</a>
       </p>
     );

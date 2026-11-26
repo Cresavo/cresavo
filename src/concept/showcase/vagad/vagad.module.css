@@ -143,6 +143,8 @@
 /* Schibsted's tabular colon sits wide ("13 : 30"); its own figures read better in times and prices. */
 .root .flow, .root .flow :global(.tabular-nums) { font-variant-numeric: normal; }
 .booking[data-empty] { padding-block: 56px; }
+/* Nothing chosen yet: the link to the price list sits right under the intro instead of alone in the wide column. */
+.booking[data-empty] .bookingGrid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
 @media (min-width: 960px) {
   .booking[data-empty] { padding-block: 72px; }
   .bookingGrid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; }

@@ -56,6 +56,9 @@ describe("the showcase salon sites", () => {
       expect(html, name).not.toMatch(/Get started|Kom igång/);
       expect(html, name).not.toContain("Berätta vad du vill boka");
       expect(html, name).toContain("Till behandlingarna");
+      // The section's own intro already says how to book: the empty booking adds the link, not a second instruction.
+      expect(html, name).not.toContain("Välj en behandling i listan");
+      expect(html.match(/Välj behandling/g), name).toHaveLength(1);
     }
   });
 
