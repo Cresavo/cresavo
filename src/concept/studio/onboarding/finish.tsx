@@ -53,21 +53,31 @@ export function SetupFinish({ progress, titleRef }: { progress: ReactNode; title
 /** Treatment rows in the booking page (the divided list under each category). */
 const TREATMENT_ROW = 'section[id^="treatments-"] .divide-y > div';
 
-/** Height of the page's own blocks, not the iframe viewport, so a shorter step can shrink the frame. */
+/**
+ * Height of the booking page's own blocks. The shell is `min-h-dvh` with a `flex-1` main, so
+ * `scrollHeight` follows the iframe and cannot shrink; the main's children still can.
+ */
 function contentHeight(doc: Document): number {
-  const win = doc.defaultView;
-  const body = doc.body;
-  if (!body) return 0;
-  const scrollY = win?.scrollY ?? 0;
-  let bottom = 0;
-  for (const child of body.children) {
-    bottom = Math.max(bottom, child.getBoundingClientRect().bottom + scrollY);
+  const main = doc.querySelector("main");
+  const root = main?.parentElement ?? doc.body;
+  if (!root) return 0;
+  let height = 0;
+  for (const child of root.children) {
+    if (child.tagName === "STYLE") continue;
+    height += child === main ? innerHeight(main) : child.getBoundingClientRect().height;
   }
-  if (win) {
-    const style = win.getComputedStyle(body);
-    bottom += (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.marginBottom) || 0);
-  }
-  return Math.ceil(bottom);
+  return Math.ceil(height);
+}
+
+function innerHeight(el: Element): number {
+  const kids = [...el.children];
+  if (!kids.length) return 0;
+  const top = Math.min(...kids.map(child => child.getBoundingClientRect().top));
+  const bottom = Math.max(...kids.map(child => child.getBoundingClientRect().bottom));
+  const style = el.ownerDocument.defaultView?.getComputedStyle(el);
+  const pad = style ? (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) : 0;
+  const border = style ? (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0) : 0;
+  return Math.max(0, bottom - top) + pad + border;
 }
 
 /** Prefer the full page; if a cap would cut a row, end at the last complete edge that fits. */
@@ -100,6 +110,7 @@ function SetupPreview({ src, title }: { src: string; title: string }) {
     const node = frame.current;
     if (!node) return;
     let observer: ResizeObserver | undefined;
+    let mutations: MutationObserver | undefined;
 
     const measure = () => {
       try {
@@ -119,11 +130,24 @@ function SetupPreview({ src, title }: { src: string; title: string }) {
       measure();
       try {
         const doc = node.contentDocument;
-        if (!doc?.documentElement || typeof ResizeObserver === "undefined") return;
+        if (!doc?.documentElement) return;
         observer?.disconnect();
-        observer = new ResizeObserver(measure);
-        observer.observe(doc.documentElement);
-        if (doc.body) observer.observe(doc.body);
+        mutations?.disconnect();
+        if (typeof ResizeObserver !== "undefined") {
+          observer = new ResizeObserver(measure);
+          const watch = () => {
+            const main = doc.querySelector("main");
+            for (const el of [doc.documentElement, doc.body, main, ...(main ? [...main.children] : [])]) {
+              if (el) observer!.observe(el);
+            }
+          };
+          watch();
+          const main = doc.querySelector("main");
+          if (main && typeof MutationObserver !== "undefined") {
+            mutations = new MutationObserver(() => { watch(); measure(); });
+            mutations.observe(main, { childList: true, subtree: true });
+          }
+        }
       } catch { /* Same as measure. */ }
     };
 
@@ -134,6 +158,7 @@ function SetupPreview({ src, title }: { src: string; title: string }) {
       node.removeEventListener("load", onLoad);
       window.removeEventListener("resize", measure);
       observer?.disconnect();
+      mutations?.disconnect();
     };
   }, [src]);
 
