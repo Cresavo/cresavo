@@ -15,9 +15,8 @@
 
 import { pairingDatabaseUrl } from "../../../../scripts/pairing-config.mjs";
 
-export type Take = { ok: true } | { ok: false; retryAfter: number };
-/** A rolling use can be given back when a later limit refuses the same call. */
-export type RollingTake = { ok: true; giveBack(): Promise<void> } | { ok: false; retryAfter: number };
+/** A use can be given back when a later limit refuses the same call, or OpenAI never started it. */
+export type Take = { ok: true; giveBack(): Promise<void> } | { ok: false; retryAfter: number };
 
 export interface CallLedger {
   readonly kind: "pairing-db" | "memory";
@@ -28,7 +27,7 @@ export interface CallLedger {
    * limits, so three calls just before the hour and three just after are still six in an hour, and refused.
    * Kept as `limit` slots that each hold the moment their use expires; a use claims a free or expired slot.
    */
-  takeRolling(bucket: string, limit: number, periodMs: number, now: number): Promise<RollingTake>;
+  takeRolling(bucket: string, limit: number, periodMs: number, now: number): Promise<Take>;
   /** Records a running call, the moment it must end, and (hashed) the page session that started it. */
   register(callId: string, deadline: number, owner?: string): Promise<void>;
   /** Whether `owner` is the page session that started the call. */
@@ -63,7 +62,10 @@ export function memoryLedger(): CallLedger {
       const current = counters.get(key) ?? { count: 0, until };
       if (current.count >= limit) return { ok: false, retryAfter: Math.max(1, Math.ceil((until - now) / 1000)) };
       counters.set(key, { count: current.count + 1, until });
-      return { ok: true };
+      return { ok: true, giveBack: async () => {
+        const counter = counters.get(key);
+        if (counter && counter.count > 0) counter.count -= 1;
+      } };
     },
     async takeRolling(bucket, limit, periodMs, now) {
       const live = (uses.get(bucket) ?? []).filter((until) => until > now);
@@ -118,7 +120,10 @@ export function pairBudgetLedger(db: () => SqlClient): CallLedger {
         INSERT INTO "PairBudget" ("key", "count", "expiresAt") VALUES (${key}, 1, ${new Date(until)})
         ON CONFLICT ("key") DO UPDATE SET "count" = "PairBudget"."count" + 1
         WHERE "PairBudget"."count" < ${limit} RETURNING "count"`;
-      return rows.length > 0 ? { ok: true } : { ok: false, retryAfter: Math.max(1, Math.ceil((until - now) / 1000)) };
+      if (rows.length === 0) return { ok: false, retryAfter: Math.max(1, Math.ceil((until - now) / 1000)) };
+      return { ok: true, giveBack: async () => {
+        await db().$queryRaw`UPDATE "PairBudget" SET "count" = "count" - 1 WHERE "key" = ${key} AND "count" > 0 RETURNING "key"`;
+      } };
     },
     async takeRolling(bucket, limit, periodMs, now) {
       // One row per slot; a slot is claimed only when it is new or its use has expired, in one atomic statement.

@@ -93,7 +93,9 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
     let responding = false;
     let transport: WebCall | undefined;
     let acceptedId: string | undefined;
-    const send = (event: Record<string, unknown> & { type: string }) => transport?.send(event);
+    // Events from before the connection is handed over (the data channel can open first) wait here, not get lost.
+    const early: (Record<string, unknown> & { type: string })[] = [];
+    const send = (event: Record<string, unknown> & { type: string }) => (transport ? transport.send(event) : void early.push(event));
 
     const onEvent = (event: ServerEvent & { item_id?: string }) => {
       if (!session) return;
@@ -180,6 +182,7 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
     }
     const call = session;
     const line = transport;
+    early.splice(0).forEach((event) => line.send(event));
     const timer = window.setInterval(() => {
       const step = call.tick();
       step.send.forEach((sent) => line.send(sent));

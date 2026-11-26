@@ -170,6 +170,15 @@ describe("web call limits", () => {
     expect(webCallQuota({ PHONE_RECEPTIONIST_WEB_DAILY: "5000" }).perDay).toBe(30);
   });
 
+  it("gives the slots back when OpenAI never started the call", async () => {
+    const ledger = memoryLedger();
+    const down = vi.fn<typeof fetch>(async () => new Response("busy", { status: 503 }));
+    for (let i = 0; i < 5; i++) expect(await start(ledger, "203.0.113.9", "outage", down, { PHONE_RECEPTIONIST_WEB_DAILY: "2" })).toMatchObject({ ok: false, error: "provider_unavailable" });
+    // After the outage the same page, address and day still have every call.
+    expect(await start(ledger, "203.0.113.9", "outage", provider(), { PHONE_RECEPTIONIST_WEB_DAILY: "2" })).toMatchObject({ ok: true });
+    expect(await start(ledger, "203.0.113.9", "outage", provider(), { PHONE_RECEPTIONIST_WEB_DAILY: "2" })).toMatchObject({ ok: true });
+  });
+
   it("caps a call at four minutes and uses gpt-realtime-2.1 unless told otherwise", () => {
     expect(webCallLimits({}).maxSeconds).toBe(240);
     expect(webCallLimits({ PHONE_RECEPTIONIST_MAX_SECONDS: "900" }).maxSeconds).toBe(240);

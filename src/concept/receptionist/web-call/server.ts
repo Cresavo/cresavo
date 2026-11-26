@@ -105,6 +105,8 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
     return { ok: false, error: "daily_limit", retryAfter: day.retryAfter };
   }
 
+  // Nothing was started at OpenAI: the call costs no one a slot (a provider outage must not use up the day).
+  const giveBack = async () => { await Promise.all([ip.giveBack(), page.giveBack(), day.giveBack()]).catch(() => undefined); };
   const model = webCallModel(env);
   const limits = webCallLimits(env);
   const session = webCallSession(input.salon, model);
@@ -120,18 +122,23 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
+    await giveBack();
     return { ok: false, error: "provider_unavailable" };
   }
   // The provider's message could quote the request; nothing of it is passed on or logged.
-  if (!response.ok) return { ok: false, error: "provider_unavailable" };
+  if (!response.ok) {
+    await giveBack();
+    return { ok: false, error: "provider_unavailable" };
+  }
   const callId = callIdFrom(response.headers.get("location"));
   const sdp = await response.text().catch(() => "");
   if (!callId) {
-    // Without the id the server could not end this call, so it is not handed to the browser.
+    // Without the id the server could not end this call, so it is not handed to the browser. A call may exist
+    // at OpenAI that only its own limits end, so its slots stay taken.
     return { ok: false, error: "provider_unavailable" };
   }
   if (!sdp.startsWith("v=0")) {
-    await hangUp(callId, options.apiKey, options.fetch);
+    if (await hangUp(callId, options.apiKey, options.fetch)) await giveBack();
     return { ok: false, error: "provider_unavailable" };
   }
   const deadline = now() + limits.maxSeconds * 1000;
