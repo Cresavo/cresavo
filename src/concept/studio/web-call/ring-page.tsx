@@ -2,7 +2,6 @@
 
 import { useMemo, useRef } from "react";
 import { Phone, PhoneOff } from "lucide-react";
-import { useLocale } from "@/app/components/locale-provider";
 import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
 import type { MessageKey } from "../../i18n";
@@ -123,10 +122,10 @@ function CallPanel({ token, salon, maxSeconds }: { token: string; salon: WebCall
 export function RingPage({ token, status }: { token: string | null; status: WebCallStatus }) {
   const { state } = useStudio();
   const workspace = useActiveWorkspace();
-  const language = useLocale();
   const salonName = state.salon.name;
   const ownerName = ownerOf(state);
-  const salon = useMemo<WebCallSalon>(() => ({ salonName, language, ownerName }), [salonName, language, ownerName]);
+  // Maja answers in Swedish, like the salon; she switches to English when the caller speaks English.
+  const salon = useMemo<WebCallSalon>(() => ({ salonName, language: "sv", ownerName }), [salonName, ownerName]);
   return (
     <div className="mx-auto w-full max-w-form space-y-6">
       <PageHeader title={t("webCall.title", { salon: salonName })} subtitle={t("webCall.subtitle", { owner: ownerName || t("webCall.ownerFallback") })} tools={false} />

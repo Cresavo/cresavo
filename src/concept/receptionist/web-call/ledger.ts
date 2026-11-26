@@ -25,7 +25,9 @@ export interface CallLedger {
   register(callId: string, deadline: number): Promise<void>;
   /** Running calls whose deadline has passed, oldest first. */
   overdue(now: number, max: number): Promise<string[]>;
-  /** Marks a call as ended. True when it was still running (so the caller should hang it up). */
+  /** Whether the call is registered and not yet ended. */
+  isRunning(callId: string): Promise<boolean>;
+  /** Marks a call as ended, once OpenAI confirmed the hang-up. True when it was still running. */
   finish(callId: string): Promise<boolean>;
   /** Every call still running. Used when the kill switch is off. */
   running(max: number): Promise<string[]>;
@@ -56,6 +58,9 @@ export function memoryLedger(): CallLedger {
     },
     async overdue(now, max) {
       return [...calls].filter(([, c]) => c.running && c.deadline <= now).sort((a, b) => a[1].deadline - b[1].deadline).slice(0, max).map(([id]) => id);
+    },
+    async isRunning(callId) {
+      return calls.get(callId)?.running === true;
     },
     async finish(callId) {
       const call = calls.get(callId);
@@ -98,6 +103,11 @@ export function pairBudgetLedger(db: () => SqlClient): CallLedger {
         SELECT "key" FROM "PairBudget" WHERE "key" LIKE ${CALL_PREFIX + "%"} AND "count" = 1 AND "expiresAt" <= ${new Date(now + KEEP_MS)}
         ORDER BY "expiresAt" LIMIT ${max}`;
       return rows.map((row) => row.key.slice(CALL_PREFIX.length));
+    },
+    async isRunning(callId) {
+      const rows = await db().$queryRaw<{ key: string }[]>`
+        SELECT "key" FROM "PairBudget" WHERE "key" = ${CALL_PREFIX + callId} AND "count" = 1`;
+      return rows.length > 0;
     },
     async finish(callId) {
       const rows = await db().$queryRaw<{ key: string }[]>`

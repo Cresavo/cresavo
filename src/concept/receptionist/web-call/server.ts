@@ -127,7 +127,13 @@ export async function startWebCall(input: WebCallInput, options: StartOptions): 
     return { ok: false, error: "provider_unavailable" };
   }
   const deadline = now() + limits.maxSeconds * 1000;
-  await ledger.register(callId, deadline);
+  try {
+    await ledger.register(callId, deadline);
+  } catch (error) {
+    // A call the ledger does not know could never be swept or switched off: end it now.
+    await hangUp(callId, options.apiKey, options.fetch);
+    throw error;
+  }
   return { ok: true, callId, sdp, limits, model, deadline };
 }
 
@@ -146,9 +152,16 @@ export async function hangUp(callId: string, apiKey: string, call: typeof fetch 
   }
 }
 
-/** Marks a call over and hangs it up if it was still running. */
-export async function endWebCall(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }): Promise<void> {
-  if (await options.ledger.finish(callId)) await hangUp(callId, options.apiKey, options.fetch);
+/**
+ * Hangs up a running call and marks it over once OpenAI confirmed. A failed
+ * hang-up leaves the call marked running, so the deadline task and every later
+ * sweep try again. Returns true when the call is over.
+ */
+export async function endWebCall(callId: string, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch }): Promise<boolean> {
+  if (!(await options.ledger.isRunning(callId))) return true;
+  if (!(await hangUp(callId, options.apiKey, options.fetch))) return false;
+  await options.ledger.finish(callId);
+  return true;
 }
 
 /**
@@ -171,7 +184,11 @@ export async function hangUpAll(options: { apiKey: string; ledger: CallLedger; f
 
 /** Waits until the call's deadline, then ends it. Scheduled with `after()` by the route that started the call. */
 export async function enforceDeadline(callId: string, deadline: number, options: { apiKey: string; ledger: CallLedger; fetch?: typeof fetch; now?: () => number; sleep?: (ms: number) => Promise<void> }): Promise<void> {
-  const wait = Math.max(0, deadline - (options.now ?? Date.now)());
-  await (options.sleep ?? ((ms) => new Promise<void>((resolve) => { setTimeout(resolve, ms).unref?.(); })))(wait);
-  await endWebCall(callId, options);
+  const sleep = options.sleep ?? ((ms) => new Promise<void>((resolve) => { setTimeout(resolve, ms).unref?.(); }));
+  await sleep(Math.max(0, deadline - (options.now ?? Date.now)()));
+  // A failed hang-up is tried again a few times here; after that the sweeps keep trying.
+  for (const pause of [0, 2_000, 5_000, 10_000]) {
+    if (pause) await sleep(pause);
+    if (await endWebCall(callId, options).catch(() => false)) return;
+  }
 }

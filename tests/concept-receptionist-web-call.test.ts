@@ -188,6 +188,30 @@ describe("web call server-side hang-up", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps a call whose hang-up failed marked running, so it is tried again", async () => {
+    const ledger = memoryLedger();
+    await ledger.register("rtc_retry0001", NOW);
+    let fail = 2;
+    const fetcher = vi.fn<typeof fetch>(async () => (fail-- > 0 ? new Response(null, { status: 500 }) : new Response(null, { status: 200 })));
+    const pauses: number[] = [];
+    await enforceDeadline("rtc_retry0001", NOW, { apiKey: KEY, ledger, fetch: fetcher, now: () => NOW, sleep: async (ms) => { pauses.push(ms); } });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(pauses).toEqual([0, 2_000, 5_000]);
+    expect(await ledger.isRunning("rtc_retry0001")).toBe(false);
+    // Still failing after the retries: the sweep finds it again.
+    await ledger.register("rtc_retry0002", NOW);
+    const down = vi.fn<typeof fetch>(async () => { throw new Error("network"); });
+    await enforceDeadline("rtc_retry0002", NOW, { apiKey: KEY, ledger, fetch: down, now: () => NOW, sleep: async () => undefined });
+    expect(await ledger.overdue(NOW + 1, 10)).toEqual(["rtc_retry0002"]);
+  });
+
+  it("hangs up a call it could not register, so none runs unseen", async () => {
+    const ledger = { ...memoryLedger(), register: async () => { throw new Error("database down"); } };
+    const fetcher = provider("rtc_unseen001");
+    await expect(startWebCall(input(), { apiKey: KEY, secret: SECRET, ledger, client: "c", session: "s", env: {}, fetch: fetcher, now: () => NOW })).rejects.toThrow();
+    expect(String(fetcher.mock.calls.at(-1)![0])).toContain("rtc_unseen001/hangup");
+  });
+
   it("sweeps calls whose own timer was lost, on any later request", async () => {
     const ledger = memoryLedger();
     await ledger.register("rtc_lost00001", NOW + 240_000);

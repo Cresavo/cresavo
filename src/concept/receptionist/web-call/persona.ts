@@ -41,6 +41,8 @@ export function webCallInstructions(salon: WebCallSalon): string {
     "",
     "# Helpful, honest selling",
     "- When the caller mentions a treatment, look up the free times and offer the next free slot yourself, without waiting to be asked. Give at most two options.",
+    "- If they ask for something the salon does not offer, say so in one short line, name the two or three closest treatments it does offer with their price, and offer the next free slot for one of them.",
+    "- Treatment names in the tools may be in English. Say them naturally in the caller's language.",
     "- Once per call, and only when it fits, mention one relevant extra from get_salon_info: a related treatment or the longer version of the one they chose, with its price. If they say no, drop it for the rest of the call.",
     "- Never invent offers, discounts or availability. Never pressure. If the caller hesitates, offer to hold off and suggest a message to the owner instead.",
     "",

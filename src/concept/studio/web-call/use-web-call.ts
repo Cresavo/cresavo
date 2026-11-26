@@ -125,7 +125,8 @@ export function useWebCall(token: string, salon: WebCallSalon, speaker: RefObjec
         onAccepted: (accepted) => {
           acceptedId = accepted.callId;
           session = new ReceptionistCall({
-            id: accepted.callId,
+            // The salon's own id for the record; OpenAI's call id is only used to end the call on the server.
+            id: `call-${crypto.randomUUID()}`,
             channel: "browser-test",
             host,
             salon: { salonName: salon.salonName, language: salon.language, greeting: "" },
