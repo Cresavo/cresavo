@@ -2,6 +2,8 @@ import { morningBrief, type Brief } from "../../assistant/briefs";
 import { matchesStandardDemoDay } from "../../data/generate";
 import type { DateKey, DemoState } from "../../data/types";
 import { getActiveLocale } from "../../i18n";
+import { dayBookings } from "../../selectors";
+import { eveningRecap } from "../../summary/day";
 
 // Pre-rendered Elin readings of the default Salong Eko demo brief, in English
 // and Swedish. The facts are the same on any weekday, written relative to
@@ -110,29 +112,50 @@ function isStandardDemo(today: string, generatedFor: string) {
   return generatedFor === today;
 }
 
-function matchesRecordedMorning(brief: Brief, items: MorningItems) {
+function matchesRecordedMorning(
+  brief: Brief,
+  items: MorningItems,
+  options: { allowTranslatedStockNames?: boolean } = {},
+) {
   const live = brief.items.filter((item) => !item.id.startsWith("holiday-"));
   if (live.length !== items.length) return false;
   return live.every((item, i) => {
     const [id, text] = items[i];
-    if (item.text !== text) return false;
-    return id.endsWith("-") ? item.id.startsWith(id) : item.id === id;
+    const sameId = id.endsWith("-") ? item.id.startsWith(id) : item.id === id;
+    if (!sameId) return false;
+    if (options.allowTranslatedStockNames && item.id.startsWith("stock-")) return true;
+    return item.text === text;
   });
 }
 
+function matchesRecordedEvening(
+  recap: { summary: string; highlights: string[] },
+  clips: LocaleClips,
+) {
+  return recap.summary === clips.eveningSummary && sameLines(recap.highlights, clips.eveningHighlights);
+}
 
-/** Morning and evening Elin clips for the Recorded readings card. Offered when this is still the pinned Salong Eko demo day, in the Studio language, without requiring the live wording to match the recorded script (product names are translated in the view). */
+
+/** Morning and evening Elin clips for the Recorded readings card. Offered when this is still the pinned Salong Eko demo day and the live facts still match the recording, allowing translated product names in the morning stock lines. */
 export function standardDemoRecordingClips(
   state: DemoState,
   today: string,
   generatedFor: string,
-): { morningUrl: string; eveningUrl: string } | null {
+): { morningUrl: string | null; eveningUrl: string | null } | null {
   if (generatedFor !== today) return null;
   if (state.pack !== "foot-massage" || state.industry) return null;
   if (!matchesStandardDemoDay(state.bookings, today)) return null;
   const clips = clipsForLocale();
   if (!clips) return null;
-  return { morningUrl: clips.morningUrl, eveningUrl: clips.eveningUrl };
+  const morning = morningBrief(state, { today, minutes: 9 * 60 });
+  const lastEnd = Math.max(0, ...dayBookings(state, today).map((booking) => booking.start + booking.duration));
+  const evening = eveningRecap(state, { today, minutes: lastEnd });
+  const morningUrl = matchesRecordedMorning(morning, clips.morningItems, { allowTranslatedStockNames: true })
+    ? clips.morningUrl
+    : null;
+  const eveningUrl = matchesRecordedEvening(evening, clips) ? clips.eveningUrl : null;
+  if (!morningUrl && !eveningUrl) return null;
+  return { morningUrl, eveningUrl };
 }
 
 /** Live morning readings stop at noon: the clip greets with “God morgon” / “Good morning”, while the live card then uses the daytime title. The recorded-readings card still passes 09:00 so it can play later. */
@@ -160,9 +183,7 @@ export function eveningBriefClipUrl(
   if (!isStandardDemo(clock.today, generatedFor)) return null;
   const clips = clipsForLocale();
   if (!clips) return null;
-  if (recap.summary !== clips.eveningSummary) return null;
-  if (!sameLines(recap.highlights, clips.eveningHighlights)) return null;
-  return clips.eveningUrl;
+  return matchesRecordedEvening(recap, clips) ? clips.eveningUrl : null;
 }
 
 /** The 09:00 brief when it still matches the recording, so the card and Elin stay in step after free slots or a cancellation drop off later in the day. */

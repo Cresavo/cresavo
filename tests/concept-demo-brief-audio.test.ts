@@ -185,6 +185,12 @@ describe("recorded demo brief clips", () => {
     expect(standardDemoRecordingClips(base, "2026-11-26", base.generatedFor)).toBeNull();
     const edited = { ...base, bookings: base.bookings.filter((booking) => booking.date !== today) };
     expect(standardDemoRecordingClips(edited, today, edited.generatedFor)).toBeNull();
+    swedishDemo();
+    const restocked = {
+      ...swedish,
+      stock: swedish.stock.map((item) => item.id === "urea-cream" ? { ...item, inStock: 99 } : item),
+    };
+    expect(standardDemoRecordingClips(restocked, today, restocked.generatedFor)?.morningUrl ?? null).toBeNull();
   });
 
   it("opens only the demo's tomorrow when that weekday is normally closed or shorter", () => {
