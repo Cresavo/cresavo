@@ -86,7 +86,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
   if (!state) return <LoadingScreen calendar={pathname.startsWith("/studio/calendar")} />;
   if (removed || pathname === WELCOME_PATH || isSetup) {
     return (
-      <>
+      <div className={isSetup ? "setup-guide" : undefined}>
         <SkipLink />
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
           <Wordmark className="w-28" />
@@ -94,7 +94,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </header>
         <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
-      </>
+      </div>
     );
   }
   return (

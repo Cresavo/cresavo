@@ -39,7 +39,13 @@ export const STYLES = ["boxed", "lined", "soft"] as const;
 export type PageStyle = (typeof STYLES)[number];
 
 /** Photos from `public/demo` the page can use. */
-export const PHOTOS = { salon: "/demo/salon.webp", massage: "/demo/massage.webp", hair: "/demo/hair.webp", barber: "/demo/barber.webp", nails: "/demo/nails.webp" } as const;
+export const PHOTOS = {
+  salon: "/demo/salon.webp", massage: "/demo/massage.webp", hair: "/demo/hair.webp", barber: "/demo/barber.webp", nails: "/demo/nails.webp",
+  /** Licence-safe example covers used by guided setup (Pexels; see onboarding-demo/covers/SOURCES.md). */
+  exampleHair: "/demo/example-hair.webp", exampleBeauty: "/demo/example-beauty.webp", exampleNails: "/demo/example-nails.webp",
+  exampleLashes: "/demo/example-lashes.webp", exampleMassage: "/demo/example-massage.webp", exampleSkin: "/demo/example-skin.webp",
+  exampleFeet: "/demo/example-feet.webp",
+} as const;
 export type PhotoId = keyof typeof PHOTOS;
 export const PHOTO_IDS = Object.keys(PHOTOS) as PhotoId[];
 

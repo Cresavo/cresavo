@@ -78,6 +78,10 @@ for (const language of ["sv", "en"] as const) {
       await expect(types.getByRole("radio", { name: language === "sv" ? "Klinik" : "Clinic" })).toHaveCount(0);
       await types.getByRole("radio", { name: m("setup.nails"), exact: true }).click();
       await expect(types.getByRole("radio", { name: m("setup.nails"), exact: true })).toHaveAttribute("aria-checked", "true");
+      await expect(types.getByRole("radio", { name: m("setup.nails"), exact: true }).locator("img")).toBeVisible();
+      for (const type of ["hair", "beauty", "nails", "lashes", "massage", "skin"] as const) {
+        await expect(types.getByRole("radio", { name: m(`setup.${type}`), exact: true }).locator("img")).toBeVisible();
+      }
       await frame(0);
       await next();
 
@@ -131,6 +135,9 @@ for (const language of ["sv", "en"] as const) {
       await page.getByRole("button", { name: m("page.palette.forest") }).click();
       await expect(page.getByRole("button", { name: m("page.palette.forest") })).toHaveAttribute("aria-pressed", "true");
       await expect(page.getByRole("figure").getByText("Studio Vide")).toBeVisible();
+      await expect(page.getByRole("figure").locator("img.setup-cover")).toBeVisible();
+      await expect(page.getByRole("button", { name: m("page.palette.rose") })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: m("page.palette.sky") })).toHaveCount(0);
       // A light palette in the preview must not turn the studio's own dark theme light.
       if (language === "en") expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).not.toBe("light");
       await frame(4);
@@ -138,7 +145,9 @@ for (const language of ["sv", "en"] as const) {
 
       await expect(page.getByRole("heading", { name: m("setup.ready") })).toBeVisible();
       await step(6);
-      await expect(page.frameLocator(`iframe[title="${m("setup.previewTitle")}"]`).getByRole("heading", { name: "Studio Vide", level: 1 })).toBeVisible();
+      const preview = page.frameLocator(`iframe[title="${m("setup.previewTitle")}"]`);
+      await expect(preview.getByRole("heading", { name: "Studio Vide", level: 1 })).toBeVisible();
+      await expect(preview.getByRole("img", { name: m("booking.heroAlt", { name: "Studio Vide" }) })).toBeVisible();
       await previewEndsCleanly(page, m("setup.previewTitle"));
       // The salon lives in this browser: the owner tries the page, nothing offers its address to share.
       await expect(page.getByRole("link", { name: m("setup.testBooking") })).toHaveAttribute("href", "/boka/studio-vide#book");

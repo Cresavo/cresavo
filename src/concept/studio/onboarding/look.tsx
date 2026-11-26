@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useId, useRef, useSyncExternalStore } from "react";
-import { ImagePlus, Leaf } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import { themeAttributes } from "../../booking/page-root";
 import { t } from "../../i18n";
 import { formatDuration, formatMoney } from "../../i18n/format";
-import { SETUP_ACCENTS, type SalonDraft } from "../../onboarding/salon";
-import { DEFAULT_THEME, PALETTES } from "../../page/theme";
+import { SETUP_ACCENTS, setupCover, type SalonDraft } from "../../onboarding/salon";
+import { DEFAULT_THEME, PALETTES, PHOTOS } from "../../page/theme";
 import { Button } from "../../ui/button";
 import { Chip, Input } from "../../ui/controls";
 import { cx } from "../../ui/cx";
@@ -80,18 +80,22 @@ function LookPreview({ draft, name }: { draft: SalonDraft; name: string }) {
   const { className, style, "data-corners": corners, "data-style": layout, "data-fonts": fonts } = themeAttributes(theme);
   const attributes = { style, "data-corners": corners, "data-style": layout, "data-fonts": fonts };
   const first = draft.treatments[0];
+  const cover = PHOTOS[setupCover(draft.industry)];
+  const mark = monogram(name);
   return <figure className="space-y-2">
     <figcaption className="text-meta text-text-secondary">{t("setup.preview")}</figcaption>
     <div {...attributes} className={cx(className, "overflow-hidden rounded-lg bg-bg text-text ring-1 ring-hairline")}>
-      <div className="flex min-h-14 items-center gap-3 border-b border-hairline bg-surface px-4 font-semibold tracking-tight">
+      {/* The cover is a stock file in /demo; a logo is a small data URL made in this browser. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={cover} alt="" className="setup-cover h-36 w-full object-cover sm:h-44" />
+      <div className="flex min-h-14 items-center gap-3 px-4 font-semibold tracking-tight">
         {draft.logo
-          // A small data URL made in this browser; nothing for the image optimiser to do.
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={draft.logo} alt={t("pageEditor.logo.alt")} className="h-8 w-auto max-w-32 rounded-sm object-contain" />
-          : <span aria-hidden className="flex size-8 items-center justify-center rounded-sm bg-action text-on-action"><Leaf size={16} /></span>}
+          : <span aria-hidden className="flex size-8 items-center justify-center rounded-sm bg-action text-sm font-semibold tracking-wide text-on-action">{mark}</span>}
         <span className="min-w-0 break-words">{name}</span>
       </div>
-      {first && <div className="flex items-center gap-3 px-4 py-4">
+      {first && <div className="flex items-center gap-3 px-4 pb-4 pt-1">
         <span className="min-w-0 flex-1 break-words">
           <span className="block text-body font-medium">{first.name}</span>
           <span className="block text-meta text-text-secondary">{formatDuration(first.duration)} · {formatMoney(first.price, draft.currency, draft.language)}</span>
@@ -100,4 +104,12 @@ function LookPreview({ draft, name }: { draft: SalonDraft; name: string }) {
       </div>}
     </div>
   </figure>;
+}
+
+/** One or two letters from the salon name, used when there is no logo. */
+function monogram(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toLocaleUpperCase();
+  const compact = parts[0] ?? "";
+  return (compact.slice(0, 2) || "S").toLocaleUpperCase();
 }
