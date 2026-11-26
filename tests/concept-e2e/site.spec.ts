@@ -40,7 +40,7 @@ test("the homepage says who it is for and shows the product in each language", a
     await expect(page.getByText(copy["home.hero.kicker"], { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy["home.hero.heading"]);
     await expect(page.getByRole("heading", { level: 2, name: copy["home.product.heading"] })).toBeVisible();
-    for (const label of ["home.book.label", "home.today.label", "home.card.label", "home.call.label", "home.next.label"] as const) {
+    for (const label of ["home.book.label", "home.today.label", "home.calendar.label", "home.card.label", "home.call.label", "home.next.label"] as const) {
       const panel = page.getByRole("figure", { name: copy[label] });
       await panel.scrollIntoViewIfNeeded();
       await expect(panel).toBeVisible();
@@ -135,18 +135,34 @@ test("the dot fields size from their host and never grow", async ({ page }) => {
   await expect(page.locator("canvas")).toHaveCount(1);
 });
 
-test("the client card's tabs follow the arrow keys and the questions open from the keyboard", async ({ page }) => {
+test("the product pictures are the demo in the page's language, theme and width", async ({ page }) => {
+  // The picture the visitor actually sees in a figure: the one CSS leaves displayed, as the browser chose it.
+  const shown = (label: string) => page.getByRole("figure", { name: label }).locator("img").evaluateAll((images: HTMLImageElement[]) =>
+    images.filter((img) => img.checkVisibility()).map((img) => img.currentSrc && new URL(img.currentSrc).pathname));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  const today = page.getByRole("figure", { name: site["home.today.label"] });
+  await expect(today.locator("img").first()).toHaveAttribute("loading", "eager");
+  await expect.poll(() => shown(site["home.today.label"])).toEqual(["/site/landing/en-today-1280-dark.webp"]);
+  await page.getByRole("button", { name: site["home.theme"] }).click();
+  await expect.poll(() => shown(site["home.today.label"])).toEqual(["/site/landing/en-today-1280-light.webp"]);
+  const call = page.getByRole("figure", { name: site["home.call.label"] });
+  await call.scrollIntoViewIfNeeded();
+  await expect(call.locator("img").first()).toHaveAttribute("loading", "lazy");
+  await expect.poll(() => shown(site["home.call.label"])).toEqual(["/site/landing/en-call-1280-light.webp"]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/sv");
+  await expect.poll(() => shown(sv["home.today.label"])).toEqual(["/site/landing/sv-today-390-light.webp"]);
+  // The booking page has one look in both themes.
+  const book = page.getByRole("figure", { name: sv["home.book.label"] });
+  await book.scrollIntoViewIfNeeded();
+  await expect.poll(() => shown(sv["home.book.label"])).toEqual(["/site/landing/sv-booking-390.webp"]);
+});
+
+test("the questions open from the keyboard", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  const card = page.getByRole("figure", { name: site["home.card.label"] });
-  await card.scrollIntoViewIfNeeded();
-  const overview = card.getByRole("tab", { name: site["home.card.overview"] });
-  await overview.click();
-  await page.keyboard.press("ArrowRight");
-  const history = card.getByRole("tab", { name: site["home.card.history"] });
-  await expect(history).toBeFocused();
-  await expect(history).toHaveAttribute("aria-selected", "true");
-  await expect(card.getByRole("tabpanel")).toContainText(site["home.card.earlier"]);
   const question = page.locator("#questions summary", { hasText: site["faq.import"] });
   await question.focus();
   await page.keyboard.press("Enter");

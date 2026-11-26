@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocale } from "@/concept/i18n";
 import { reduce } from "@/concept/actions";
 import { runTask } from "@/concept/ai/run-task";
 import { buildImportRows, cleanImportedCustomer, decodeImportFile, guessMapping, importFitsServer, maxRowsForServer, MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseBirthday, parseCsv, readImportFile, summarizeImport } from "@/concept/customers/csv";
@@ -26,12 +27,26 @@ function scenario(visits: Partial<Booking>[], customer: Partial<Customer> = {}):
 }
 
 describe("customer summary", () => {
+  afterEach(() => setLocale("en"));
+
   it("phrases the facts as one line, the way the owner would say it", () => {
     expect(summarizeFallback(facts)).toBe("Regular since 2024, foot care every 6 weeks, sensitive skin, prefers Anna, afternoons.");
   });
   it("leaves out what is not known", () => {
     expect(summarizeFallback({ ...facts, regular: false, service: null, intervalWeeks: null, traits: [], prefersStaff: null, timeOfDay: null, visits: 0 })).toBe("Customer since 2024, no visits yet.");
     expect(summarizeFallback({ ...facts, prefersStaff: null, traits: [] })).toBe("Regular since 2024, foot care every 6 weeks, prefers afternoons.");
+  });
+  it("uses the Studio's language for the same facts", () => {
+    setLocale("sv");
+    expect(summarizeFallback(facts)).toBe("Stamkund sedan 2024, foot care var 6:e vecka, sensitive skin, föredrar Anna, eftermiddagar.");
+    expect(summarizeFallback({ ...facts, regular: false, service: null, intervalWeeks: null, traits: [], prefersStaff: null, timeOfDay: null, visits: 0 })).toBe("Kund sedan 2024, inga besök än.");
+  });
+  it("keeps the requested language even when the process locale differs", async () => {
+    setLocale("en");
+    expect(summarizeFallback(facts, "sv")).toBe("Stamkund sedan 2024, foot care var 6:e vecka, sensitive skin, föredrar Anna, eftermiddagar.");
+    const { output, log } = await runTask("summarize-customer", { ...facts, language: "sv" }, { env: {} });
+    expect(output.summary).toBe("Stamkund sedan 2024, foot care var 6:e vecka, sensitive skin, föredrar Anna, eftermiddagar.");
+    expect(log.source).toBe("rules");
   });
   it("derives habits from finished visits only", () => {
     const visits = [0, 42, 84, 126].map((offset) => ({ date: addDays("2026-05-04", offset) }));
