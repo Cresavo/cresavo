@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 
 export const axeTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
 
+/** @returns {string} */
 export function axeSource() {
   const candidates = [process.env.QA_AXE, "axe-core/axe.min.js"].filter(Boolean);
   const require = createRequire(import.meta.url);
