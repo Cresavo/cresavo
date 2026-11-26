@@ -1,9 +1,14 @@
 // The part of the booking address the business picks: `<slug>.<product domain>`
-// and `/boka/<slug>`. One checker is used by Settings, the reducer and the
-// host resolver, so a name that is refused in one place is refused everywhere.
+// and `/boka/<slug>`. Settings and the reducer use the same checker, so a name
+// that is refused for a new address is refused in both places. The host resolver
+// still serves a subdomain when a business already holds a newly reserved name
+// that is only a product path, not a platform host.
 
 export const SLUG_MIN = 3;
 export const SLUG_MAX = 30;
+
+/** Public product paths. New businesses may not take these names, but an existing booking subdomain keeps working: the pages live at `/own-domain` and `/showcase/...` on the product domain, not at these subdomains. */
+export const PRODUCT_PATH_SLUGS: readonly string[] = ["own-domain", "showcase"];
 
 /** Names that belong to the product itself or are commonly used for infrastructure. */
 export const RESERVED_SLUGS: readonly string[] = [
@@ -14,7 +19,7 @@ export const RESERVED_SLUGS: readonly string[] = [
   "webmaster", "hostmaster", "noreply", "info", "welcome", "landing", "widget", "me", "gift", "unknown-address",
   "inbox", "email", "web", "site", "home", "about", "legal", "privacy", "terms", "pricing", "press", "jobs", "careers",
   "partners", "developers", "auth", "sso", "get", "try", "beta", "sandbox", "coming-soon",
-  "own-domain", "showcase",
+  ...PRODUCT_PATH_SLUGS,
 ];
 
 export type SlugProblem = "empty" | "short" | "long" | "characters" | "edges" | "reserved" | "taken";

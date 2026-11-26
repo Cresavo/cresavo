@@ -100,6 +100,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- **Reserving `/own-domain` and `/showcase` as salon names does not take an existing booking address offline.** New businesses still cannot choose those names. A subdomain that already used one of them keeps resolving, because the product pages live as paths on the product domain, not at those subdomains.
+
 - **Showcase confirmation stays on the salon site.** After a booking on `/showcase/salong-klassisk/boka` or `/showcase/salong-vagad/boka` (and on the salon homepages), the receipt keeps the site's colours and type, every action stays on that site (none lead to `/boka/salong-eko`), and calendar text is Swedish.
 
 - **Back in the booking steps returns to the treatment list.** On the standalone booking page, the first Back after choosing a treatment shows the list again, not the engine’s empty search.

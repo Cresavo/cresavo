@@ -1,6 +1,6 @@
 import { DEMO_DIRECTORY } from "./directory";
 import { productDomain } from "./address";
-import { checkSlug } from "./slug";
+import { checkSlug, PRODUCT_PATH_SLUGS } from "./slug";
 
 // One place that turns a request's host into a business. The proxy asks it
 // for every request; the tests pin the rules.
@@ -53,6 +53,10 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
     const label = host.slice(0, -product.length - 1);
     const check = checkSlug(label);
     if (check.ok) return { kind: "business", slug: check.slug, via: "subdomain" };
+    const slug = label.trim().toLowerCase();
+    if (check.problem === "reserved" && PRODUCT_PATH_SLUGS.includes(slug)) {
+      return { kind: "business", slug, via: "subdomain" };
+    }
     return { kind: "unknown", reason: check.problem === "reserved" ? "reserved" : "invalid" };
   }
   return { kind: "unknown", reason: "not-connected" };

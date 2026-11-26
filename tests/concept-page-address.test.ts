@@ -95,11 +95,11 @@ describe("host resolution", () => {
     expect(routeHost("salong-eko.cresavo.com", "/showcase/salong-klassisk", directory, "cresavo.com")).toEqual({ action: "rewrite", path: UNKNOWN_PATH });
   });
 
-  it("keeps the new page names from salons", () => {
+  it("keeps the new page names from new salons, without taking an existing subdomain", () => {
     for (const label of ["own-domain", "showcase"]) {
       expect(RESERVED_SLUGS).toContain(label);
       expect(checkSlug(label)).toEqual({ ok: false, problem: "reserved" });
-      expect(resolveHost(`${label}.cresavo.com`, directory, "cresavo.com")).toEqual({ kind: "unknown", reason: "reserved" });
+      expect(resolveHost(`${label}.cresavo.com`, directory, "cresavo.com")).toEqual({ kind: "business", slug: label, via: "subdomain" });
     }
   });
 
