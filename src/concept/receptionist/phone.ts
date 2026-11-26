@@ -100,11 +100,11 @@ function group(digits: string, language: Locale): string {
   return words.join(" ");
 }
 
-/** How many digits the country code has (ITU zones: +1 and +7 one digit, +2xx, +35x, +42x … three, others two). */
+/** How many digits the country code has: +1 and +7 one, the listed two-digit codes two, the rest three. */
 function countryCodeLength(digits: string): number {
   if (/^[17]/.test(digits)) return 1;
-  if (/^(2[1-689]|3[578]|42|5[09]|6[789]|8[0578]|9[679])/.test(digits)) return 3;
-  return 2;
+  // The two-digit codes of zones 2-9 (ITU-T E.164); every other code there has three digits.
+  return /^(20|27|3[0-469]|4[013-9]|5[1-8]|6[0-6]|8[1246]|9[0-58])/.test(digits) ? 2 : 3;
 }
 
 /** Splits digits into groups of three, the last of two to four ("345 6780", said "tre fyrtiofem, sextiosju åttio"). */

@@ -555,8 +555,10 @@ describe("web call persona", () => {
 
   it("sounds like a person: one filler at most, plain words, numbers in groups", () => {
     const rules = webCallInstructions(salon);
-    expect(rules).toMatch(/Never more than one such phrase per turn/);
-    expect(rules).toMatch(/never one after a tool has answered/);
+    expect(rules).toMatch(/Never the same one twice in a row in a call, never more than one per turn/);
+    expect(rules).toMatch(/Mm, låt mig titta/);
+    expect(rules).toMatch(/Vary short acknowledgements/);
+    expect(rules).toMatch(/none after a tool has answered/);
     expect(rules).toMatch(/Only call get_salon_info if something you need is not there \(or there is no such note\), and never announce it/);
     expect(rules).toMatch(/noll sjuttio, tre fyrtiofem, sextisju åttio/);
     expect(rules).toMatch(/Read it back once, in the final read-back/);

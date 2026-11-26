@@ -151,7 +151,7 @@ function salonInfo(view: SalonView) {
   const hours = Array.from({ length: 7 }, (_, offset) => {
     const date = addDays(clock.today, offset);
     const open = openingFor(state.salon, date);
-    return { date, day: dayText(state, date), open: open ? `${formatTime(open.open)}-${formatTime(open.close)}` : "closed" };
+    return { date, day: dayText(state, date), open: open ? `${formatTime(open.open)}-${formatTime(open.close)}` : language(state) === "sv" ? "stängt" : "closed" };
   });
   return {
     ok: true,

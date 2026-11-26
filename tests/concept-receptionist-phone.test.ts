@@ -54,6 +54,8 @@ describe("caller phone numbers", () => {
     expect(spokenPhone("0701050607", "sv")).toBe("noll sjuttio, ett noll fem, noll sex noll sju");
     expect(spokenPhone("+12125550123", "en")).toBe("plus one, two twelve, five fifty-five, zero one twenty-three");
     expect(spokenPhone("+358401234567", "sv")).toBe("plus tre femtioåtta, fyra noll ett, två trettiofyra, fem sextiosju");
+    expect(spokenPhone("+27211234567", "en")).toBe("plus twenty-seven, two eleven, two thirty-four, five sixty-seven");
+    expect(spokenPhone("+35312345678", "en")).toMatch(/^plus three fifty-three, /);
     expect(spokenPhone("2125550123", "en")).toBe("two twelve, five fifty-five, zero one twenty-three");
     expect(spokenPhone("0709876543", "en")).toBe("zero seventy, nine eighty-seven, sixty-five forty-three");
     expect(spokenPhone("+442079460958", "sv")).toBe("plus fyrtiofyra, två noll sju, nio fyrtiosex, noll nio femtioåtta");
