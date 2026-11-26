@@ -22,7 +22,7 @@ const noSubscribe = () => () => undefined;
 export function DemoBriefRecordings() {
   const { state, today, minutes } = useStudio();
   const readings = useMemo(() => {
-    const clips = standardDemoRecordingClips(state, today, state.generatedFor);
+    const clips = standardDemoRecordingClips(state, today, state.generatedFor, minutes);
     const morning = morningBrief(state, { today, minutes: 9 * 60 });
     const lastEnd = Math.max(0, ...dayBookings(state, today).map((booking) => booking.start + booking.duration));
     const evening = eveningRecap(state, { today, minutes: Math.max(minutes, lastEnd) });

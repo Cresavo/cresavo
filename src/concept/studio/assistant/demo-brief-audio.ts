@@ -1,7 +1,7 @@
 import { morningBrief, type Brief } from "../../assistant/briefs";
 import { matchesStandardDemoDay } from "../../data/generate";
 import type { DateKey, DemoState } from "../../data/types";
-import { getActiveLocale } from "../../i18n";
+import { getActiveLocale, t, translate, type MessageKey } from "../../i18n";
 import { dayBookings } from "../../selectors";
 import { eveningRecap } from "../../summary/day";
 
@@ -112,6 +112,18 @@ function isStandardDemo(today: string, generatedFor: string) {
   return generatedFor === today;
 }
 
+const STOCK_NAME_KEYS = {
+  "urea-cream": "fixture.eko.stock.urea-cream",
+  "massage-oil-neutral": "fixture.eko.stock.massage-oil-neutral",
+} as const satisfies Record<string, MessageKey>;
+
+function allowedStockTexts(stockId: string, recordedText: string) {
+  const key = STOCK_NAME_KEYS[stockId as keyof typeof STOCK_NAME_KEYS];
+  if (!key) return [recordedText];
+  const names = [translate("en", key), translate("sv", key)];
+  return [...new Set([recordedText, ...names.map((name) => t("brief.lowStock", { name }))])];
+}
+
 function matchesRecordedMorning(
   brief: Brief,
   items: MorningItems,
@@ -123,9 +135,16 @@ function matchesRecordedMorning(
     const [id, text] = items[i];
     const sameId = id.endsWith("-") ? item.id.startsWith(id) : item.id === id;
     if (!sameId) return false;
-    if (options.allowTranslatedStockNames && item.id.startsWith("stock-")) return true;
+    if (options.allowTranslatedStockNames && item.id.startsWith("stock-")) {
+      return allowedStockTexts(item.id.slice("stock-".length), text).includes(item.text);
+    }
     return item.text === text;
   });
+}
+
+function hasLaterBookingNotice(recorded: Brief, live: Brief) {
+  const recordedIds = new Set(recorded.items.map((item) => item.id));
+  return live.items.some((item) => item.id.startsWith("notice-") && !recordedIds.has(item.id));
 }
 
 function matchesRecordedEvening(
@@ -136,11 +155,12 @@ function matchesRecordedEvening(
 }
 
 
-/** Morning and evening Elin clips for the Recorded readings card. Offered when this is still the pinned Salong Eko demo day and the live facts still match the recording, allowing translated product names in the morning stock lines. */
+/** Morning and evening Elin clips for the Recorded readings card. Offered when this is still the pinned Salong Eko demo day and the live facts still match the recording, allowing the known English and Swedish product names in the morning stock lines. */
 export function standardDemoRecordingClips(
   state: DemoState,
   today: string,
   generatedFor: string,
+  minutes: number,
 ): { morningUrl: string | null; eveningUrl: string | null } | null {
   if (generatedFor !== today) return null;
   if (state.pack !== "foot-massage" || state.industry) return null;
@@ -148,11 +168,14 @@ export function standardDemoRecordingClips(
   const clips = clipsForLocale();
   if (!clips) return null;
   const morning = morningBrief(state, { today, minutes: 9 * 60 });
+  const live = minutes === 9 * 60 ? morning : morningBrief(state, { today, minutes });
   const lastEnd = Math.max(0, ...dayBookings(state, today).map((booking) => booking.start + booking.duration));
   const evening = eveningRecap(state, { today, minutes: lastEnd });
-  const morningUrl = matchesRecordedMorning(morning, clips.morningItems, { allowTranslatedStockNames: true })
-    ? clips.morningUrl
-    : null;
+  const morningUrl =
+    !hasLaterBookingNotice(morning, live) &&
+    matchesRecordedMorning(morning, clips.morningItems, { allowTranslatedStockNames: true })
+      ? clips.morningUrl
+      : null;
   const eveningUrl = matchesRecordedEvening(evening, clips) ? clips.eveningUrl : null;
   if (!morningUrl && !eveningUrl) return null;
   return { morningUrl, eveningUrl };
