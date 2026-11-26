@@ -264,6 +264,25 @@
   .mCall .momentText h3 { font-size: clamp(36px, 3vw, 44px); }
 }
 
+/* ---------- receptionist: a recorded demo call, the words beside a plain player ---------- */
+/* The video carries the screenshots' hairline and radius itself; nothing frames it. No entrance motion. */
+.reception { padding: var(--sec) 0; border-top: 1px solid var(--line); }
+.receptionIn { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.receptionText h2 { margin-bottom: 14px; }
+.receptionText p { color: var(--muted); max-width: 30em; text-wrap: pretty; }
+.receptionFig { min-width: 0; }
+.receptionVideo { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: 12px; background: var(--sunk); }
+.receptionNote { margin-top: 12px; font-size: 15px; color: var(--muted); }
+@media (min-width: 600px) {
+  .receptionIn { gap: 32px; }
+  .receptionText h2 { margin-bottom: 18px; }
+  .receptionVideo { border-radius: 16px; }
+}
+@media (min-width: 1000px) {
+  .receptionIn { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); column-gap: clamp(40px, 5vw, 72px); align-items: start; }
+  .receptionText p { font-size: 18px; }
+}
+
 /* ---------- manifesto: three plain statements ---------- */
 .manifesto { padding: var(--sec) 0; border-top: 1px solid var(--line); }
 .mfLine { font-family: var(--serif); font-weight: 400; font-synthesis: none; font-size: 36px; line-height: 1.06; letter-spacing: -.01em; text-wrap: balance; padding: 10px 0; }

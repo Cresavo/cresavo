@@ -10,6 +10,7 @@ import { HomeHeader } from "./home-header";
 import { Closing, Founder, HomeFooter, Manifesto, NextStep, OpenSource, Pricing, Questions, Status } from "./home-sections";
 import { Icon } from "./icons";
 import { ProductShot, type Shot } from "./product-shot";
+import { Receptionist } from "./receptionist";
 import { useHomeTheme } from "./use-home-theme";
 import h from "./home.module.css";
 import l from "../landing.module.css";
@@ -116,6 +117,7 @@ export function HomePage({ links, waitlist, waitlistOpen, origin }: ProductSiteP
           <ProductShot shot={SHOTS.today} label={site["home.today.label"]} className={h.showcase} eager />
         </div>
         <Product />
+        <Receptionist />
         <Manifesto />
         <OpenSource />
         <NextStep />
