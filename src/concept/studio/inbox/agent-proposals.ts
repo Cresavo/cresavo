@@ -4,16 +4,30 @@ import { useEffect, useState } from "react";
 import { dispatchWithLog } from "../../store";
 import type { AgentProposal } from "../../tools/agent-proposal";
 import { PUBLIC_DEMO } from "../../ai/api-client";
+import { decisionOutbox, type AgentDecision } from "./agent-decisions";
 
 // Proposals from outside AIs (MCP) live on the server; the studio's data lives
 // in the browser. The Inbox polls the server, and an approval applies the
 // change here through the normal dispatch (logged as the assistant via MCP)
-// before telling the server the outcome.
+// before telling the server the outcome. The decision is kept in the browser
+// and sent again on each poll until the server stops listing the proposal, so
+// a failed request never offers the same proposal for a second approval.
 
 // Each poll is a server invocation. The public demo closes the concept MCP, so it
 // polls rarely; a local studio still sees new proposals within seconds.
 const POLL_MS = PUBLIC_DEMO ? 60_000 : 15_000;
 const ENDPOINT = "/api/concept/proposals";
+
+const outbox = decisionOutbox(() => (typeof window === "undefined" ? undefined : window.localStorage));
+
+async function sendDecision(id: string, decision: AgentDecision) {
+  const response = await fetch(`${ENDPOINT}/${encodeURIComponent(id)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ decision }),
+  });
+  if (!response.ok) throw new Error(`Decision request failed with ${response.status}`);
+}
 
 async function fetchPending(): Promise<AgentProposal[]> {
   const response = await fetch(ENDPOINT, { cache: "no-store" });
@@ -24,15 +38,20 @@ async function fetchPending(): Promise<AgentProposal[]> {
 /** Pending proposals, refreshed every few seconds while the page is visible. */
 export function useAgentProposals(enabled = true) {
   const [proposals, setProposals] = useState<AgentProposal[]>([]);
-  const [decided, setDecided] = useState<string[]>([]);
+  const [, setDecisions] = useState(0);
 
   useEffect(() => {
     if (!enabled) return;
     let active = true;
     const load = () => {
       if (document.visibilityState !== "visible") return;
+      const listedAt = Date.now();
       fetchPending().then(
-        (next) => active && setProposals(next),
+        (next) => {
+          if (!active) return;
+          setProposals(next);
+          void outbox.reconcile(next.map((p) => p.id), listedAt, sendDecision);
+        },
         () => undefined,
       );
     };
@@ -44,18 +63,12 @@ export function useAgentProposals(enabled = true) {
     };
   }, [enabled]);
 
-  /** Applies or declines a proposal and returns the resulting log ID, if any. */
+  /** Applies or declines a proposal once and returns the resulting log ID, if any. */
   const decide = (proposal: AgentProposal, approve: boolean) => {
-    const logId = approve ? dispatchWithLog(proposal.action, { actor: "ai", source: "mcp" }) : null;
-    const decision = !approve ? "declined" : logId !== false ? "approved" : "failed";
-    setDecided((ids) => [...ids, proposal.id]);
-    void fetch(`${ENDPOINT}/${encodeURIComponent(proposal.id)}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decision }),
-    }).catch(() => undefined);
+    const logId = outbox.decide(proposal.id, approve, () => dispatchWithLog(proposal.action, { actor: "ai", source: "mcp" }), sendDecision);
+    setDecisions((count) => count + 1);
     return logId;
   };
 
-  return { proposals: enabled ? proposals.filter((p) => !decided.includes(p.id)) : [], decide };
+  return { proposals: enabled ? outbox.undecided(proposals) : [], decide };
 }
