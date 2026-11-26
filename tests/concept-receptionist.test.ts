@@ -256,8 +256,21 @@ describe("receptionist call session", () => {
     expect(session.open()).toEqual([{ type: "response.create", response: { instructions: expect.stringContaining("Hej och välkommen till Salong Eko, det är Maja") } }]);
   });
 
+  it("gives her the salon's own facts once, with the first event, so she need not look them up", async () => {
+    const { session } = call();
+    const first = await session.handle({ type: "session.updated" });
+    expect(first.send).toHaveLength(1);
+    const note = JSON.stringify(first.send[0]);
+    expect(note).toContain("use these directly, without get_salon_info");
+    expect(note).toContain(today);
+    expect(note).toMatch(/basic-foot-care: [^;]+, \d+ min, \d+/);
+    expect(note).toMatch(/anna = Anna[^,]* \(owner\)/);
+    expect((await session.handle({ type: "session.updated" })).send).toEqual([]);
+  });
+
   it("runs a tool call and asks for the next reply", async () => {
     const { session } = call();
+    await session.handle({ type: "session.updated" });
     const step = await session.handle(toolCall("get_salon_info", {}));
     expect(step.hangUp).toBeUndefined();
     expect(step.send.map((event) => event.type)).toEqual(["conversation.item.create", "response.create"]);

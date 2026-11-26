@@ -1,5 +1,6 @@
 import type { Clock } from "../finance/types";
 import { plainText } from "./actions";
+import { salonFactsNote } from "./facts";
 import type { ReceptionistHost } from "./host";
 import { openingInstruction, type InstructionInput } from "./instructions";
 import { estimateResponseCost, WRAP_UP_COST_SHARE, WRAP_UP_SECONDS, type CallLimits, type Rates, type RealtimeUsage } from "./limits";
@@ -67,6 +68,7 @@ export class ReceptionistCall {
   private cost = 0;
   private reported = false;
   private wrappingUp = false;
+  private primed = false;
   private ended: CallEnd | undefined;
   private endedAt: number | undefined;
 
@@ -145,6 +147,21 @@ export class ReceptionistCall {
   /** One server event in, the client events to send out. */
   async handle(event: ServerEvent): Promise<Step> {
     if (this.ended) return { send: [] };
+    const facts = await this.factsOnce();
+    const step = await this.handleEvent(event);
+    return facts ? { ...step, send: [facts, ...step.send] } : step;
+  }
+
+  // In the browser the tools run on the studio's own data. Its facts go in once, with the first event
+  // (while she greets), so she can answer from them instead of looking them up mid-call.
+  private async factsOnce(): Promise<ClientEvent | undefined> {
+    if (this.primed || this.options.channel !== "browser-test") return undefined;
+    this.primed = true;
+    const view = await this.options.host.read().catch(() => null);
+    return view ? systemNote(salonFactsNote(view)) : undefined;
+  }
+
+  private async handleEvent(event: ServerEvent): Promise<Step> {
     switch (event.type) {
       case "conversation.item.input_audio_transcription.completed":
         this.say("caller", event.transcript);

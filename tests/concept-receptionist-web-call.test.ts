@@ -6,7 +6,6 @@ import { newCallMemory, runReceptionistTool } from "@/concept/receptionist/tools
 import { WEB_CALL_DEFAULT_MODEL, webCallEnabled, webCallLimits, webCallModel, webCallQuota } from "@/concept/receptionist/web-call/config";
 import { memoryLedger, pairBudgetLedger, type SqlClient } from "@/concept/receptionist/web-call/ledger";
 import { issuePageToken, PAGE_TOKEN_SECONDS, tokenSecret, verifyPageToken } from "@/concept/receptionist/web-call/page-token";
-import { demoSalonFacts } from "@/concept/receptionist/web-call/facts";
 import { webCallGreeting, webCallInstructions } from "@/concept/receptionist/web-call/persona";
 import { realtimeKey } from "@/concept/receptionist/server/config";
 import type { CallReport } from "@/concept/receptionist/web-call/report";
@@ -578,16 +577,6 @@ describe("web call persona", () => {
     expect(rules).toMatch(/do not sell/);
   });
 
-  it("gives Maja today's date and the salon's facts up front, after the cacheable rules", () => {
-    const facts = demoSalonFacts(new Date("2026-11-26T19:00:00Z"));
-    expect(facts).toContain("2026-11-26");
-    expect(facts).toMatch(/basic-foot-care: [^;]+, \d+ min, \d+/);
-    expect(facts).toMatch(/anna = Anna[^,]* \(owner\)/);
-    expect(demoSalonFacts(new Date("2026-11-26T19:05:00Z"))).toContain("2026-11-26");
-    const session = webCallSession(salon, "gpt-realtime-2.1", facts);
-    expect(session.instructions.endsWith(facts)).toBe(true);
-    expect(session.instructions.startsWith(webCallSession(salon, "gpt-realtime-2.1").instructions.slice(0, 2000))).toBe(true);
-  });
 
   it("asks again rather than guess when a caller in a car or on a bad line is unclear", () => {
     const rules = webCallInstructions(salon);
