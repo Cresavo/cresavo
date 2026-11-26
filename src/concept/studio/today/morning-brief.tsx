@@ -43,15 +43,18 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 /**
  * The day at a glance for the owner: rules pick and phrase the items from the salon's own data (no model, no cost),
  * and a button reads them aloud. On the standard Salong Eko demo, when the on-screen facts still match the recording, it plays a static Elin clip in the Studio language (English or Swedish); otherwise it uses the browser's speech synthesis. It only ever speaks when that button is pressed.
- * Once the day's last booking is over the evening summary takes over, unless the morning recording still matches, so both readings can be heard on the same visit.
+ * The card always shows the live brief. On the unedited demo the morning recording still plays later in the day if only time-sensitive lines have changed, and the card stays if that recording is still available after closing.
  */
 export function MorningBrief({ className }: { className?: string }) {
   const { state, today, minutes } = useStudio();
   const brief = useMemo(() => {
-    const rules = standardDemoMorningBrief(state, today, state.generatedFor, minutes) ?? morningBrief(state, { today, minutes });
+    const rules = morningBrief(state, { today, minutes });
     return { ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") };
   }, [state, today, minutes]);
-  const clip = morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
+  const recorded = standardDemoMorningBrief(state, today, state.generatedFor, minutes);
+  const clip = recorded
+    ? morningBriefClipUrl(recorded, { today, minutes: 9 * 60 }, state.generatedFor)
+    : morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
   const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);
   const [speaking, setSpeaking] = useState(false);
   // The utterance this card started, so a stale end from an earlier one does not reset the button.

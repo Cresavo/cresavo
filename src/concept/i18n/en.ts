@@ -2966,6 +2966,7 @@ const messages = {
   "booking.donePackageToast": "{name} marked as done. Package: {left}.",
 
   "summary.title": "Evening summary",
+  "summary.demoPreviewTitle": "Evening summary at closing",
 
   "feed.title": "Calendar subscription",
   "feed.text": "Add {name}'s work calendar to Google or Apple Calendar. It is read-only and shows treatments and first names, no contact details. Keep the link private.",

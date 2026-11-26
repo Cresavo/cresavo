@@ -2891,6 +2891,7 @@ const messages = {
   "packages.giftCardInstead": "Betalar du besöket med presentkort finns klippet kvar till nästa gång.",
   "booking.donePackageToast": "Besöket för {name} är klart. Klippkort: {left}.",
   "summary.title": "Kvällssammanfattning",
+  "summary.demoPreviewTitle": "Kvällssammanfattning vid stängning",
   "feed.title": "Kalenderprenumeration",
   "feed.text": "Lägg till arbetskalendern för {name} i Google Kalender eller Apple Kalender. Den är skrivskyddad och visar behandlingar och förnamn. Håll länken privat.",
   "feed.copy": "Kopiera kalenderlänken",

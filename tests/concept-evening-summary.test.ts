@@ -121,6 +121,6 @@ describe("evening summary card", () => {
     const source = readFileSync(new URL("../src/concept/studio/today/evening-summary.tsx", import.meta.url), "utf8");
     expect(source).not.toMatch(/runAiTask|isAiConfigured/);
     expect(source.match(/\bspeak\(/g)).toHaveLength(1);
-    expect(source).toMatch(/const toggle = useCallback\(\(\) => \{[\s\S]*speak\(eveningSpeech\(recap\)/);
+    expect(source).toMatch(/const toggle = useCallback\(\(\) => \{[\s\S]*speak\(eveningSpeech\((?:recap|shown)\)/);
   });
 });
