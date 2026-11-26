@@ -2927,6 +2927,7 @@ const messages = {
   "summary.title": "Kvällssammanfattning",
   "feed.title": "Kalenderprenumeration",
   "feed.text": "Lägg till arbetskalendern för {name} i Google Kalender eller Apple Kalender. Den är skrivskyddad och visar behandlingar och förnamn. Håll länken privat.",
+  "feed.sample": "I demon visar länken exempelschemat som finns på servern. Bokningar och ändringar du gör här, i den här webbläsaren, syns inte i den.",
   "feed.copy": "Kopiera kalenderlänken",
   "feed.copied": "Kalenderlänken kopierades",
   "feed.how": "I Google Kalender väljer du Andra kalendrar och sedan Från webbadress. I Apple Kalender väljer du Arkiv och sedan Ny kalenderprenumeration.",
