@@ -81,7 +81,7 @@ export function webCallInstructions(salon: WebCallSalon): string {
     "- A call back needs a phone number, nothing else. Ask only for the number (never an e-mail address), read it back once, then use hand_over_to_staff with callerPhone.",
     "- Only once hand_over_to_staff has answered note_left, say that the salon will call them back. Never promise when, and never promise a text or e-mail confirmation.",
     "- If the caller does not want to give a number, do not promise a call back: suggest they call again during opening hours.",
-    "- If you have switched language, say treatment names, days, times and numbers from the tools in the language you are speaking now.",
+    "- Always give the tools spokenLanguage: the language you are speaking with the caller right now. If you have switched language, say treatment names, days, times and numbers in the language you are speaking now.",
     "",
     "# Only the salon",
     "- You only talk about this salon: bookings, treatments, prices, opening hours and staff.",

@@ -3,7 +3,7 @@ import { createDemoState } from "@/concept/data/generate";
 import { salonFactsNote } from "@/concept/receptionist/facts";
 import { studioStoreHost } from "@/concept/receptionist/host";
 import { callerPhone, salonDialing, spokenPhone } from "@/concept/receptionist/phone";
-import { newCallMemory, runReceptionistTool } from "@/concept/receptionist/tools";
+import { newCallMemory, receptionistToolSchemas, runReceptionistTool } from "@/concept/receptionist/tools";
 import { salonClock } from "@/concept/tools/clock";
 import { MemoryStudioStore } from "@/concept/store/memory-studio-store";
 
@@ -61,6 +61,16 @@ describe("caller phone numbers", () => {
 });
 
 describe("the salon as Maja says it", () => {
+  it("asks for the language she is speaking on every tool whose answer is read out", () => {
+    const tools = receptionistToolSchemas();
+    for (const name of ["get_salon_info", "find_free_times", "book_appointment", "find_booking", "move_appointment", "cancel_appointment"]) {
+      const parameters = tools.find((tool) => tool.name === name)!.parameters as { required?: string[]; properties: Record<string, unknown> };
+      expect(parameters.required).toContain("spokenLanguage");
+      expect(parameters.properties.spokenLanguage).toMatchObject({ enum: ["sv", "en"] });
+    }
+    expect(JSON.stringify(tools.find((tool) => tool.name === "end_call"))).not.toContain("spokenLanguage");
+  });
+
   const today = "2026-11-16";
   const NOW = Date.parse(`${today}T08:00:00Z`);
 

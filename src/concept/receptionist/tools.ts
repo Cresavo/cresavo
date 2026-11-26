@@ -85,7 +85,10 @@ export function receptionistToolSchemas() {
   return (Object.keys(inputs) as ReceptionistToolName[]).map((tool) => {
     const parameters = { ...(z.toJSONSchema(inputs[tool]) as Record<string, unknown>) };
     delete parameters.$schema;
-    if (SPOKEN_TOOLS.has(tool)) parameters.properties = { ...(parameters.properties as Record<string, unknown>), spokenLanguage: SPOKEN_LANGUAGE };
+    if (SPOKEN_TOOLS.has(tool)) {
+      parameters.properties = { ...(parameters.properties as Record<string, unknown>), spokenLanguage: SPOKEN_LANGUAGE };
+      parameters.required = [...((parameters.required as string[] | undefined) ?? []), "spokenLanguage"];
+    }
     return { type: "function" as const, name: tool, description: descriptions[tool], parameters };
   });
 }
