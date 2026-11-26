@@ -33,6 +33,7 @@
     "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts",
     "qa": "node qa/run-all.mjs",
     "test:concept": "playwright test --config playwright.concept.config.ts",
+    "test:receptionist": "playwright test --config playwright.receptionist.config.ts",
     "concept:mcp-demo": "node --env-file-if-exists=.env --import tsx scripts/concept-mcp-demo.mts"
   },
   "dependencies": {

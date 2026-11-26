@@ -13,16 +13,22 @@ let answer: Answer = "loading";
 let asked = false;
 const listeners = new Set<() => void>();
 
+async function read(): Promise<Answer> {
+  try {
+    const response = await fetch("/api/concept/receptionist", { cache: "no-store" });
+    return response.ok ? ((await response.json()) as ReceptionistStatus) : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 function ask() {
   if (asked) return;
   asked = true;
-  fetch("/api/concept/receptionist", { cache: "no-store" })
-    .then((response) => (response.ok ? (response.json() as Promise<ReceptionistStatus>) : "unknown" as const))
-    .catch(() => "unknown" as const)
-    .then((status) => {
-      answer = status;
-      listeners.forEach((listener) => listener());
-    });
+  void read().then((status) => {
+    answer = status;
+    listeners.forEach((listener) => listener());
+  });
 }
 
 function subscribe(listener: () => void) {
