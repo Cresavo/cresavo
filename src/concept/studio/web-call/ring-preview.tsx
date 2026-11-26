@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { CallRecord } from "../../receptionist/types";
 import { PREVIEW_HANDOVER, PREVIEW_LINES } from "./ring-preview-lines";
 import { useStudio } from "../use-studio";
 import { ownerOf } from "./ring-page";
 import { RingScreen } from "./ring-screen";
+import { SILENT_LEVELS, type CallLevels } from "./use-call-audio";
 import type { WebCallState } from "./use-web-call";
 
 // Mocked call states for screenshots. No realtime session, no paid API call.
@@ -33,6 +34,7 @@ function RingPreviewBody() {
   const shot = params?.get("shot") ?? "idle";
   const { state } = useStudio();
   const speaker = useRef<HTMLAudioElement>(null);
+  const previewLevels = useRef<CallLevels>(SILENT_LEVELS);
   const salonName = state.salon.name;
   const ownerName = ownerOf(state);
   const salon = useMemo(() => ({ salonName, language: "sv" as const, ownerName }), [salonName, ownerName]);
@@ -40,6 +42,13 @@ function RingPreviewBody() {
   const bookingId = booked?.id;
   const textDefault = shot === "live-text" || shot === "ended-text";
   const [showText, setShowText] = useState(textDefault);
+  useEffect(() => {
+    previewLevels.current = shot.startsWith("live")
+      ? { maja: 0.55, caller: 0.25, bins: null }
+      : shot === "ringing"
+        ? { maja: 0.2, caller: 0, bins: null }
+        : SILENT_LEVELS;
+  }, [shot]);
 
   let call: WebCallState = { phase: "idle" };
   if (shot === "ringing") call = { phase: "starting" };
@@ -66,7 +75,7 @@ function RingPreviewBody() {
         call={call}
         muted={false}
         showText={showText}
-        levels={{ maja: shot.startsWith("live") ? 0.55 : shot === "ringing" ? 0.2 : 0, caller: shot.startsWith("live") ? 0.25 : 0, bins: null }}
+        levels={previewLevels}
         instant
         speaker={speaker}
         onStart={() => undefined}

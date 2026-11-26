@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { showToast } from "../../ui/toast";
 import type { DemoState } from "../../data/types";
 import { t } from "../../i18n";
 import type { WebCallSalon } from "../../receptionist/web-call/persona";
 import type { WebCallStatus } from "../../receptionist/web-call/runtime";
-import { useActiveWorkspace } from "../../store";
-import { ButtonLink } from "../../ui/button";
+import { switchSalon, useActiveWorkspace } from "../../store";
+import { Button, ButtonLink } from "../../ui/button";
 import { FriendlyNotice, friendlyMessage } from "../../ui/friendly-message";
 import { useStudio } from "../use-studio";
 import { RingScreen } from "./ring-screen";
@@ -44,6 +45,7 @@ function CallPanel({ token, salon, ownerName, maxSeconds, state }: { token: stri
     speaker,
     microphone,
     ringing: call.phase === "starting",
+    active: call.phase === "starting" || call.phase === "live",
     muted,
   });
   return (
@@ -77,7 +79,21 @@ export function RingPage({ token, status }: { token: string | null; status: WebC
   if (workspace !== "demo") {
     return (
       <div className="mx-auto w-full max-w-md px-4 py-8">
-        <FriendlyNotice message={friendlyMessage({ what: "webCall.problem.own.what", next: "webCall.problem.own.next" })} />
+        <FriendlyNotice
+          message={friendlyMessage({ what: "webCall.problem.own.what", next: "webCall.problem.own.next" })}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void switchSalon("demo").then((ok) => {
+                  if (!ok) showToast(t("setup.switchFailed"));
+                });
+              }}
+            >
+              {t("webCall.switchToDemo")}
+            </Button>
+          }
+        />
       </div>
     );
   }

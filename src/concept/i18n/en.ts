@@ -3631,6 +3631,7 @@ const messages = {
   "webCall.problem.page-expired.next": "Reload the page and call again.",
   "webCall.problem.own.what": "Calls only work with the sample salon for now.",
   "webCall.problem.own.next": "Switch to the sample salon to try it. Your own salon is not changed.",
+  "webCall.switchToDemo": "Switch to the sample salon",
   "webCall.monogram": "M",
   "webCall.ogHeading": "Call Maja",
   "webCall.role": "Receptionist at {salon}",

@@ -90,7 +90,7 @@ export function RingScreen({
   call: WebCallState;
   muted: boolean;
   showText: boolean;
-  levels: CallLevels;
+  levels: RefObject<CallLevels>;
   instant?: boolean;
   speaker: RefObject<HTMLAudioElement | null>;
   onStart: () => void;
@@ -124,14 +124,7 @@ export function RingScreen({
           <h1 className="text-h2 font-medium">{t("webCall.maja")}</h1>
           <p className="text-body text-text-secondary">{t("webCall.role", { salon: salon.salonName })}</p>
         </div>
-        {waveActive && (
-        <CallVisualizer
-          majaLevel={live ? levels.maja : ringing ? 0.22 : 0}
-          callerLevel={live && !muted ? levels.caller : 0}
-          bins={live ? levels.bins : null}
-          active={waveActive}
-        />
-        )}
+        {waveActive && <CallVisualizer levels={levels} active={waveActive} muted={muted} />}
         {status && (
           <p role="status" className="text-body tabular-nums" aria-label={live ? t("webCall.clockLabel", { elapsed: callClock(call.seconds), limit: callClock(call.maxSeconds) }) : undefined}>
             {status}

@@ -3542,6 +3542,7 @@ const messages = {
   "webCall.problem.page-expired.next": "Ladda om sidan och ring igen.",
   "webCall.problem.own.what": "Samtal fungerar bara med exempelsalongen än så länge.",
   "webCall.problem.own.next": "Byt till exempelsalongen för att prova. Din egen salong ändras inte.",
+  "webCall.switchToDemo": "Byt till exempelsalongen",
   "webCall.monogram": "M",
   "webCall.ogHeading": "Ring Maja",
   "webCall.role": "Receptionist hos {salon}",

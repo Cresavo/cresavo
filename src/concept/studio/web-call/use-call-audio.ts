@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { rmsLevel, smoothLevel } from "./call-levels";
 
 // Live WebAudio levels for the call visualizer, and a short, quiet ring
 // while the call is connecting. The ring is skipped when the microphone is
 // muted, when the visitor prefers reduced motion, or in screenshot previews.
+// Levels stay on a ref so the visualizer can read them each frame without
+// rerendering the call screen.
 
 export interface CallLevels {
   maja: number;
@@ -13,23 +15,24 @@ export interface CallLevels {
   bins: Uint8Array | null;
 }
 
-const SILENT: CallLevels = { maja: 0, caller: 0, bins: null };
+export const SILENT_LEVELS: CallLevels = { maja: 0, caller: 0, bins: null };
 
 export function useCallAudio({
   speaker,
   microphone,
   ringing,
+  active,
   muted,
   preview,
 }: {
   speaker: RefObject<HTMLAudioElement | null>;
   microphone: MediaStream | null;
   ringing: boolean;
+  active: boolean;
   muted: boolean;
   preview?: boolean;
-}) {
-  const [levels, setLevels] = useState<CallLevels>(SILENT);
-  const levelsRef = useRef<CallLevels>(SILENT);
+}): RefObject<CallLevels> {
+  const levels = useRef<CallLevels>(SILENT_LEVELS);
 
   useEffect(() => {
     if (preview) return;
@@ -64,7 +67,10 @@ export function useCallAudio({
   }, [muted, preview, ringing]);
 
   useEffect(() => {
-    if (preview || typeof AudioContext === "undefined") return;
+    if (preview || !active || typeof AudioContext === "undefined") {
+      levels.current = SILENT_LEVELS;
+      return;
+    }
     const ctx = new AudioContext();
     void ctx.resume();
     const majaAnalyser = ctx.createAnalyser();
@@ -104,13 +110,12 @@ export function useCallAudio({
       majaAnalyser.getByteTimeDomainData(majaTime);
       callerAnalyser.getByteTimeDomainData(callerTime);
       majaAnalyser.getByteFrequencyData(majaBins);
-      const next: CallLevels = {
-        maja: smoothLevel(levelsRef.current.maja, rmsLevel(majaTime)),
-        caller: smoothLevel(levelsRef.current.caller, rmsLevel(callerTime)),
-        bins: new Uint8Array(majaBins),
+      const previous = levels.current;
+      levels.current = {
+        maja: smoothLevel(previous.maja, rmsLevel(majaTime)),
+        caller: smoothLevel(previous.caller, rmsLevel(callerTime)),
+        bins: majaBins,
       };
-      levelsRef.current = next;
-      setLevels(next);
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
@@ -121,9 +126,9 @@ export function useCallAudio({
       majaSource?.disconnect();
       callerSource?.disconnect();
       void ctx.close();
-      levelsRef.current = SILENT;
+      levels.current = SILENT_LEVELS;
     };
-  }, [microphone, preview, speaker]);
+  }, [active, microphone, preview, speaker]);
 
   return levels;
 }

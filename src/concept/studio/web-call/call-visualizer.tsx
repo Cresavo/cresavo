@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
+import type { CallLevels } from "./use-call-audio";
 import { cx } from "../../ui/cx";
 
 // A calm, token-coloured bar wave for the call with Maja.
@@ -16,16 +17,14 @@ import { cx } from "../../ui/cx";
 const BARS = 28;
 
 export function CallVisualizer({
-  majaLevel,
-  callerLevel,
-  bins,
+  levels,
   active,
+  muted,
   className,
 }: {
-  majaLevel: number;
-  callerLevel: number;
-  bins?: Uint8Array | null;
+  levels: RefObject<CallLevels>;
   active: boolean;
+  muted?: boolean;
   className?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -55,6 +54,10 @@ export function CallVisualizer({
       const gap = 3;
       const barWidth = Math.max(2, (width - gap * (BARS - 1)) / BARS);
       const mid = height / 2;
+      const current = levels.current;
+      const majaLevel = current?.maja ?? 0;
+      const callerLevel = muted ? 0 : current?.caller ?? 0;
+      const bins = current?.bins;
       const energy = Math.max(majaLevel, callerLevel * 0.7);
 
       for (let i = 0; i < BARS; i += 1) {
@@ -84,7 +87,7 @@ export function CallVisualizer({
 
     frame = window.requestAnimationFrame(draw);
     return () => window.cancelAnimationFrame(frame);
-  }, [active, bins, callerLevel, majaLevel]);
+  }, [active, levels, muted]);
 
   return (
     <canvas
