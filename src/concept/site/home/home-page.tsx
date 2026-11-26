@@ -42,9 +42,6 @@ function Hero({ demo, booking, tint }: { demo: string; booking: string; tint: st
           <a className={h.textLink} href={booking}>{site["home.hero.booking"]}</a>
         </div>
       </div>
-      <div className={h.wrap}>
-        <ProductShot shot={SHOTS.today} label={site["home.today.label"]} className={h.showcase} eager />
-      </div>
     </section>
   );
 }
@@ -115,6 +112,9 @@ export function HomePage({ links, waitlist, waitlistOpen, origin }: ProductSiteP
       <HomeHeader demo={demo} theme={theme} onTheme={toggle} />
       <main id="main">
         <Hero demo={demo} booking={booking} tint={tint} />
+        <div className={h.wrap}>
+          <ProductShot shot={SHOTS.today} label={site["home.today.label"]} className={h.showcase} eager />
+        </div>
         <Product />
         <Manifesto />
         <OpenSource />

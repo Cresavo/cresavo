@@ -158,9 +158,14 @@
 .fallback { animation: appear .3s 1.2s both; }
 [data-ready] > .fallback { display: none; }
 @keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fallback { animation: none; }
+}
 
 /* ---------- hero: left on phones, a centred stack under the wordmark from 600 px ---------- */
-.hero { padding: 8px 0 var(--sec); }
+/* Same opening as the previous start page: the dotted wordmark has room to gather, then the copy.
+   The Today screenshot follows the section, so it stays near the fold without shrinking the field. */
+.hero { padding: 8px 0 28px; }
 .dotStage { height: 88px; }
 .dotStage .fallback { position: absolute; left: 50%; top: 50%; width: min(88vw, 1040px); max-height: 86%; transform: translate(-50%, -50%); fill: var(--wordmark); }
 .heroCopy { display: flex; flex-direction: column; align-items: flex-start; }
@@ -169,7 +174,7 @@
 .heroCta { flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 24px; width: 100%; max-width: 420px; }
 .heroCta .btn { width: 100%; }
 @media (min-width: 600px) {
-  .hero { padding-top: clamp(12px, 1.6vw, 24px); }
+  .hero { padding-bottom: clamp(56px, 6vw, 80px); padding-top: clamp(12px, 1.6vw, 24px); }
   .dotStage { height: clamp(110px, 10vw + 36px, 180px); }
   .heroCopy { margin-top: clamp(4px, 1vw, 14px); align-items: center; text-align: center; }
   .kicker { font-size: 15px; margin-bottom: 20px; }
@@ -191,9 +196,9 @@
 .root[data-theme="dark"] .shotLight { display: none; }
 .root[data-theme="dark"] .shotDark { display: block; }
 
-/* Today, right under the hero's links: the product is in the first view on a desktop and on a phone. */
-.showcase { margin-top: 32px; }
-@media (min-width: 600px) { .showcase { margin: clamp(40px, 4vw, 56px) auto 0; max-width: 1120px; } }
+/* Today, just after the hero: still in the first scroll on a phone, and just under the fold on a desktop. */
+.showcase { margin-top: 8px; }
+@media (min-width: 600px) { .showcase { margin: 0 auto; max-width: 1120px; } }
 
 /* ---------- section scaffolding ---------- */
 .root section { position: relative; }
