@@ -98,6 +98,18 @@ export function ownerViewHref(rawHost: string | null | undefined, protocol = "ht
   return `${underProduct ? protocol : "https:"}//demo.${product}${port ? `:${port}` : ""}/studio`;
 }
 
+/** Swedish aliases such as cresavo.se are only a door to the Swedish product site. Known public paths keep their page (so /own-domain becomes /sv/own-domain); anything else lands on the Swedish home. */
+const SWEDISH_SITE_PAGES = new Set(["/privacy", "/about", "/own-domain"]);
+
+export function swedishAliasPath(pathname: string): string {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  const unprefixed = path === "/sv" ? "/" : path.startsWith("/sv/") ? path.slice(3) : path;
+  if (unprefixed === "/" ) return "/sv";
+  if (SWEDISH_SITE_PAGES.has(unprefixed)) return `/sv${unprefixed}`;
+  if (unprefixed === "/showcase" || unprefixed.startsWith("/showcase/")) return unprefixed;
+  return "/sv";
+}
+
 /** Public booking pages live at the root of a business's own address; everything else stays on the product host. */
 const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon"];
 const BOOKING_PATHS = /^\/(?:me|gift|widget|booking\/[^/]+)\/?$/;
@@ -112,8 +124,7 @@ export function routeHost(rawHost: string | null | undefined, pathname: string, 
   const resolution = resolveHost(rawHost, directory, product);
   if (resolution.kind === "app" || resolution.kind === "site") {
     if (resolution.kind === "site" && resolution.site === "swedish-alias") {
-      const privacy = /^\/(?:sv\/)?privacy\/?$/.test(pathname);
-      return { action: "redirect", targetHost: product, path: privacy ? "/sv/privacy" : "/sv" };
+      return { action: "redirect", targetHost: product, path: swedishAliasPath(pathname) };
     }
     const root = pathname === "/" || pathname === "";
     if (resolution.kind === "site" && resolution.site === "demo" && (root || pathname === COMING_SOON_PATH)) {

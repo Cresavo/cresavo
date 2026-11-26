@@ -105,12 +105,18 @@ it("keeps links local when a product domain is unset and forwarding is untrusted
   expect(routed("/", headers).get("X-Robots-Tag")).toBe("noindex, nofollow");
 });
 
-it("permanently redirects the Swedish aliases to the configured HTTPS product origin", () => {
+it("permanently redirects the Swedish aliases to the configured HTTPS product origin, keeping the page", () => {
   vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", "cresavo.se, www.cresavo.se");
   for (const host of ["cresavo.se", "www.cresavo.se"]) {
-    const response = proxy(new NextRequest("http://localhost/privacy?source=demo", { headers: { host } }));
-    expect(response.status).toBe(308);
-    expect(response.headers.get("location")).toBe("https://cresavo.com/sv/privacy?source=demo");
+    const privacy = proxy(new NextRequest("http://localhost/privacy?source=demo", { headers: { host } }));
+    expect(privacy.status).toBe(308);
+    expect(privacy.headers.get("location")).toBe("https://cresavo.com/sv/privacy?source=demo");
+    const own = proxy(new NextRequest("http://localhost/own-domain", { headers: { host } }));
+    expect(own.status).toBe(308);
+    expect(own.headers.get("location")).toBe("https://cresavo.com/sv/own-domain");
+    const home = proxy(new NextRequest("http://localhost/", { headers: { host } }));
+    expect(home.status).toBe(308);
+    expect(home.headers.get("location")).toBe("https://cresavo.com/sv");
   }
 });
 
