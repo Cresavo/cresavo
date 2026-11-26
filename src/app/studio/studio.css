@@ -179,6 +179,11 @@ body:has(.studio-root) .demo-banner {
   outline-offset: 2px;
 }
 
+/* The tab bar reaches the screen's edges: its ring is drawn inside the tab so no side is cut off. */
+.studio-root [data-tab-bar] [data-tour-active] {
+  outline-offset: -2px;
+}
+
 /* "Show me": a solid dot beside the target and a plain caption card, like the tour's. Both are fixed to the
    viewport; the dot travels to the next target, and jumps there with reduced motion. */
 .studio-show-me-dot {
