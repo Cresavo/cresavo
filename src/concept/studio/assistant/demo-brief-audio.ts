@@ -65,12 +65,15 @@ function matchesRecordedMorning(brief: Brief) {
 
 /**
  * When the Elin morning clip will play, drop the changing holiday line so the card shows the same facts as the recording.
- * If the other facts differ, the live brief is left alone, holiday included, and the browser reads it.
+ * If the clip is not eligible, the live brief is left alone, holiday included, and the browser reads it.
  */
-export function recordedMorningBrief(brief: Brief): Brief {
-  const items = brief.items.filter((item) => !item.id.startsWith("holiday-"));
-  if (items.length === brief.items.length || !matchesRecordedMorning(brief)) return brief;
-  return { ...brief, items };
+export function recordedMorningBrief(
+  brief: Brief,
+  clock: { today: string; minutes: number },
+  generatedFor: string,
+): Brief {
+  if (!morningBriefClipUrl(brief, clock, generatedFor)) return brief;
+  return { ...brief, items: brief.items.filter((item) => !item.id.startsWith("holiday-")) };
 }
 
 /** The morning Elin clip, or null when the live brief no longer matches the recording. */

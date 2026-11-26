@@ -49,7 +49,8 @@ export function MorningBrief({ className }: { className?: string }) {
   const { state, today, minutes } = useStudio();
   const brief = useMemo(() => {
     const rules = morningBrief(state, { today, minutes });
-    return recordedMorningBrief({ ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") });
+    const titled = { ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") };
+    return recordedMorningBrief(titled, { today, minutes }, state.generatedFor);
   }, [state, today, minutes]);
   const clip = morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
   const speakable = useSyncExternalStore(noSubscribe, () => canPlaySpeech(clip), () => false);

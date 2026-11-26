@@ -114,11 +114,12 @@ describe("recorded demo brief clips", () => {
     swedishDemo();
     const brief = morningBrief(base, morningClock);
     expect(brief.items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
-    const shown = recordedMorningBrief(brief);
+    const shown = recordedMorningBrief(brief, morningClock, base.generatedFor);
     expect(shown.items.some((item) => item.id.startsWith("holiday-"))).toBe(false);
     expect(morningBriefClipUrl(shown, morningClock, base.generatedFor)).toBe(MORNING_BRIEF_CLIP);
+    expect(recordedMorningBrief(brief, { today, minutes: 12 * 60 }, base.generatedFor).items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
     const edited = { ...brief, items: brief.items.filter((item) => item.id !== "gaps") };
-    expect(recordedMorningBrief(edited).items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    expect(recordedMorningBrief(edited, morningClock, base.generatedFor).items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
     expect(morningBriefClipUrl(edited, morningClock, base.generatedFor)).toBeNull();
   });
 
