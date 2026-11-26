@@ -36,6 +36,8 @@ export async function connectBrowserCall(options: { clientSecret: string; speake
   const { clientSecret, speaker, handlers, signal } = options;
   if (typeof RTCPeerConnection === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new BrowserCallError("unsupported");
 
+  // Ended before it got this far: do not open a microphone prompt for a call nobody is waiting for.
+  if (signal?.aborted) throw new BrowserCallError("connection");
   let microphone: MediaStream;
   try {
     microphone = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
