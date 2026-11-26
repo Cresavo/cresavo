@@ -5,6 +5,8 @@ export type CalendarCapability = "push" | "pull" | "incremental-sync" | "idempot
 export interface CalendarEvent {
   /** Our stable id for the booking; adapters derive the provider's idempotent id from it. */
   id: string;
+  /** The provider's id from an earlier push of this booking. Set it when the booking changes so the event is updated, not duplicated. */
+  providerEventId?: string;
   title: string;
   description?: string;
   location?: string;

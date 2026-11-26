@@ -195,6 +195,24 @@ describe("Microsoft Graph calendar", () => {
     expect(result).toMatchObject({ ok: true, value: { providerEventId: "AAMkAG" } });
   });
 
+  it("updates the pushed event in place when a booking moves, instead of creating a second one", async () => {
+    const { fetch, calls } = scriptedFetch(token, { status: 200, body: { id: "AAMkAG" } });
+    const moved = { id: "b-123", providerEventId: "AAMkAG", title: "Haircut", start: "2026-11-18T11:00:00Z", end: "2026-11-18T11:45:00Z", timeZone: "Europe/Stockholm" };
+    const result = await calendar(fetch).pushEvent("primary", moved);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toMatchObject({ method: "PATCH", url: "https://graph.microsoft.com/v1.0/users/owner%40salon.example/events/AAMkAG" });
+    const body = JSON.parse(calls[1].body);
+    expect(body).toMatchObject({ subject: "Haircut", start: { dateTime: "2026-11-18T11:00:00", timeZone: "UTC" }, end: { dateTime: "2026-11-18T11:45:00", timeZone: "UTC" } });
+    expect(body).not.toHaveProperty("transactionId");
+    expect(result).toMatchObject({ ok: true, value: { providerEventId: "AAMkAG" } });
+  });
+
+  it("refuses an unsafe provider event id before any request", async () => {
+    const { fetch, calls } = scriptedFetch(token);
+    expect(await calendar(fetch).pushEvent("primary", { id: "b-123", providerEventId: "../me", title: "Haircut", start: "2026-11-18T11:00:00Z", end: "2026-11-18T11:45:00Z", timeZone: "UTC" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(calls).toHaveLength(0);
+  });
+
   it("refuses to pull a secondary calendar instead of returning the primary one", async () => {
     const { fetch, calls } = scriptedFetch(token);
     expect(await calendar(fetch).pullEvents({ calendarId: "staff-erik", from: "2026-11-18T00:00:00Z", to: "2026-11-25T00:00:00Z" })).toMatchObject({ ok: false, error: { code: "not_supported" } });

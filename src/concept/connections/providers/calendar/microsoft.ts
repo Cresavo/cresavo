@@ -1,6 +1,7 @@
 // Microsoft Graph v1.0 calendar events over plain fetch.
 // Sources (checked 2026-11):
 // - Create event: https://learn.microsoft.com/en-us/graph/api/user-post-events?view=graph-rest-1.0
+// - Update event (PATCH): https://learn.microsoft.com/en-us/graph/api/event-update?view=graph-rest-1.0
 // - Event resource (transactionId): https://learn.microsoft.com/en-us/graph/api/resources/event?view=graph-rest-1.0
 // - dateTimeTimeZone: https://learn.microsoft.com/en-us/graph/api/resources/datetimetimezone?view=graph-rest-1.0
 // - Delta (calendarView/delta, deltaLink, 410 reset): https://learn.microsoft.com/en-us/graph/api/event-delta?view=graph-rest-1.0,
@@ -41,22 +42,23 @@ export function microsoftCalendar(options: { oauth: OAuthClient; user: string; f
     info: definition.info,
     async pushEvent(calendarId, event) {
       if (!configured()) return fail(connectionError("calendar", PROVIDER, "not_configured"));
-      if (!SAFE_SEGMENT.test(calendarId) || !event.id || !isUtc(event.start) || !isUtc(event.end) || !isBefore(event.start, event.end) || !isTimeZone(event.timeZone) || !event.title.trim()) {
+      const update = event.providerEventId;
+      if (!SAFE_SEGMENT.test(calendarId) || !event.id || (update !== undefined && !SAFE_SEGMENT.test(update)) || !isUtc(event.start) || !isUtc(event.end) || !isBefore(event.start, event.end) || !isTimeZone(event.timeZone) || !event.title.trim()) {
         return fail(connectionError("calendar", PROVIDER, "invalid_input"));
       }
-      const path = calendarId === "primary" ? `${GRAPH}/users/${user}/events` : `${GRAPH}/users/${user}/calendars/${encodeURIComponent(calendarId)}/events`;
-      const result = await authed(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: event.title,
-          body: { contentType: "text", content: event.description ?? "" },
-          start: { dateTime: wall(event.start), timeZone: "UTC" },
-          end: { dateTime: wall(event.end), timeZone: "UTC" },
-          ...(event.location ? { location: { displayName: event.location } } : {}),
-          transactionId: graphTransactionId(event.id),
-        }),
-      });
+      const fields = {
+        subject: event.title,
+        body: { contentType: "text", content: event.description ?? "" },
+        start: { dateTime: wall(event.start), timeZone: "UTC" },
+        end: { dateTime: wall(event.end), timeZone: "UTC" },
+        location: { displayName: event.location ?? "" },
+      };
+      const headers = { "Content-Type": "application/json" };
+      // transactionId only deduplicates a retried create; Graph never updates through it. A booking pushed before is patched by its event id.
+      const create = calendarId === "primary" ? `${GRAPH}/users/${user}/events` : `${GRAPH}/users/${user}/calendars/${encodeURIComponent(calendarId)}/events`;
+      const result = update
+        ? await authed(`${GRAPH}/users/${user}/events/${encodeURIComponent(update)}`, { method: "PATCH", headers, body: JSON.stringify(fields) })
+        : await authed(create, { method: "POST", headers, body: JSON.stringify({ ...fields, transactionId: graphTransactionId(event.id) }) });
       if (!result.ok) return fail(result.error);
       const id = text(field(result.data, "id"));
       return id ? ok({ providerEventId: id }, "delivered", null, id) : fail(connectionError("calendar", PROVIDER, "unknown"));
