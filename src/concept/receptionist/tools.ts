@@ -11,7 +11,7 @@ import { bookableServices, findService, fullName } from "../selectors";
 import { field } from "../tools/define";
 import { plainText } from "./actions";
 import type { ReceptionistHost, SalonView } from "./host";
-import { callerPhone, spokenPhone } from "./phone";
+import { callerPhone, spokenPhone, usesTrunkZero } from "./phone";
 import type { CallOutcome } from "./types";
 import type { Locale } from "@/lib/locale";
 
@@ -100,8 +100,8 @@ const refuse = (error: string, hint: string): Output => ({ ok: false, error, hin
 const language = (state: DemoState) => state.localization.language;
 
 /** What the phone tools say about a number they cannot use, so she asks again instead of storing a wrong one. */
-function checkPhone(raw: string): { phone: string; refusal?: undefined } | { phone?: undefined; refusal: Output } {
-  const checked = callerPhone(raw);
+function checkPhone(state: DemoState, raw: string): { phone: string; refusal?: undefined } | { phone?: undefined; refusal: Output } {
+  const checked = callerPhone(raw, usesTrunkZero(state.salon.phone));
   if (checked.ok) return { phone: checked.phone };
   return { refusal: checked.reason === "missing_zero"
     ? refuse("phone_missing_zero", "Swedish numbers start with 0 (or +46), and this one does not. You probably missed the first digit. Ask once, short, if the number starts with noll, then read the whole number back digit by digit in groups.")
@@ -207,7 +207,7 @@ async function book(host: ReceptionistHost, view: SalonView, memory: CallMemory,
   if (!wanted.staffIds.includes(input.staffId as StaffId)) return refuse("unknown_staff", "Use a staffId from find_free_times.");
   if (!bookable(view, input.date)) return refuse("day_out_of_range", `Bookings can be made from today up to ${PUBLIC_WINDOW_DAYS} days ahead.`);
   const callerName = plainText(input.callerName, 80);
-  const { phone, refusal } = checkPhone(input.callerPhone);
+  const { phone, refusal } = checkPhone(view.state, input.callerPhone);
   if (refusal) return refusal;
   const staffId = input.staffId as StaffId;
   const start = toMinutes(input.time);
@@ -310,7 +310,7 @@ async function handOver(host: ReceptionistHost, view: SalonView, memory: CallMem
   const reason = plainText(input.reason, 300);
   const caller = input.callerName ? plainText(input.callerName, 80) : undefined;
   // A call back needs a number the staff can call; an e-mail address cannot be called.
-  const { phone, refusal } = checkPhone(input.callerPhone);
+  const { phone, refusal } = checkPhone(view.state, input.callerPhone);
   if (refusal) return refusal;
   const body = text.body({ reason, caller, phone });
   const committed = await host.commit(

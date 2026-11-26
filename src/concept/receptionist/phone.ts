@@ -13,7 +13,16 @@ export type CallerPhone = { ok: true; phone: string } | { ok: false; reason: "mi
 
 const INPUT = /^\+?[\d\s().-]+$/;
 
-export function callerPhone(raw: string): CallerPhone {
+/** True for a salon with a Swedish number (0… or +46…): its callers' national numbers start with 0. */
+export function usesTrunkZero(salonPhone: string): boolean {
+  return /^\s*(?:\+\s*46|0046|0)/.test(salonPhone);
+}
+
+/**
+ * The caller's number as it is kept. With `trunkZero` (a Swedish salon) a national number must start with 0;
+ * elsewhere (no 0 in front, as in the US) a bare national number is kept as said.
+ */
+export function callerPhone(raw: string, trunkZero = true): CallerPhone {
   const said = raw.trim();
   if (!INPUT.test(said)) return { ok: false, reason: "unclear" };
   let digits = said.replace(/\D/g, "");
@@ -27,7 +36,7 @@ export function callerPhone(raw: string): CallerPhone {
     const code = DROP_ZERO.find((candidate) => digits.startsWith(candidate));
     phone = `+${code && digits[code.length] === "0" ? code + digits.slice(code.length + 1) : digits}`;
   }
-  else if (digits.startsWith("0")) phone = digits;
+  else if (digits.startsWith("0") || !trunkZero) phone = digits;
   else return { ok: false, reason: digits.length >= 6 ? "missing_zero" : "unclear" };
   const count = phone.replace(/\D/g, "").length;
   const wanted = phone.startsWith("+") ? count >= 7 && count <= 15 : count >= 7 && count <= 11;
