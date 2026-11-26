@@ -1,5 +1,5 @@
-import type { Brief } from "../../assistant/briefs";
-import type { DateKey } from "../../data/types";
+import { morningBrief, type Brief } from "../../assistant/briefs";
+import type { DateKey, DemoState } from "../../data/types";
 import { getActiveLocale } from "../../i18n";
 
 // Pre-rendered Elin readings of the default Salong Eko demo brief, in English
@@ -143,4 +143,10 @@ export function eveningBriefClipUrl(
   if (recap.summary !== clips.eveningSummary) return null;
   if (!sameLines(recap.highlights, clips.eveningHighlights)) return null;
   return clips.eveningUrl;
+}
+
+/** The 09:00 brief when it still matches the recording, so the card and Elin stay in step after free slots or a cancellation drop off later in the day. */
+export function standardDemoMorningBrief(state: DemoState, today: string, generatedFor: string): Brief | null {
+  const brief = morningBrief(state, { today, minutes: 9 * 60 });
+  return morningBriefClipUrl(brief, { today, minutes: 9 * 60 }, generatedFor) ? brief : null;
 }

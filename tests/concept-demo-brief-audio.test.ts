@@ -30,6 +30,7 @@ import {
   RECORDED_MORNING_ITEMS_EN,
   eveningBriefClipUrl,
   morningBriefClipUrl,
+  standardDemoMorningBrief,
 } from "@/concept/studio/assistant/demo-brief-audio";
 import {
   canPlaySpeech,
@@ -215,6 +216,26 @@ describe("recorded demo brief clips", () => {
     expect(
       morningBriefClipUrl(withoutGaps, morningClock, base.generatedFor),
     ).toBeNull();
+  });
+
+  it("keeps the morning recording after free slots and the cancellation drop off", () => {
+    swedishDemo();
+    const later = morningBrief(base, { today, minutes: 15 * 60 });
+    expect(later.items.some((item) => item.id.startsWith("cancel-"))).toBe(false);
+    expect(morningBriefClipUrl(later, { today, minutes: 15 * 60 }, base.generatedFor)).toBeNull();
+    const recorded = standardDemoMorningBrief(base, today, base.generatedFor);
+    expect(recorded).not.toBeNull();
+    expect(morningBriefClipUrl(recorded!, { today, minutes: 18 * 60 }, base.generatedFor)).toBe(
+      MORNING_BRIEF_CLIP,
+    );
+    englishDemo();
+    expect(
+      morningBriefClipUrl(
+        standardDemoMorningBrief(base, today, base.generatedFor)!,
+        { today, minutes: 18 * 60 },
+        base.generatedFor,
+      ),
+    ).toBe(MORNING_BRIEF_CLIP_EN);
   });
 
   it("offers the evening clip for the matching Studio language", () => {

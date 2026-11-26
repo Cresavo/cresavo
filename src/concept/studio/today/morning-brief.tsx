@@ -9,7 +9,7 @@ import { summaryDue } from "../../summary/day";
 import { Button } from "../../ui/button";
 import { Section } from "../../ui/card";
 import { BriefList } from "../assistant/brief-list";
-import { morningBriefClipUrl } from "../assistant/demo-brief-audio";
+import { morningBriefClipUrl, standardDemoMorningBrief } from "../assistant/demo-brief-audio";
 import { canPlaySpeech, speak, stopSpeaking } from "../assistant/speak";
 import { useStudio } from "../use-studio";
 
@@ -48,7 +48,7 @@ export function MorningBriefView({ brief, speakable, speaking, onToggle, classNa
 export function MorningBrief({ className }: { className?: string }) {
   const { state, today, minutes } = useStudio();
   const brief = useMemo(() => {
-    const rules = morningBrief(state, { today, minutes });
+    const rules = standardDemoMorningBrief(state, today, state.generatedFor) ?? morningBrief(state, { today, minutes });
     return { ...rules, title: t(minutes < 12 * 60 ? "brief.morning" : "brief.day") };
   }, [state, today, minutes]);
   const clip = morningBriefClipUrl(brief, { today, minutes }, state.generatedFor);
