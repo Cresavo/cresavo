@@ -125,7 +125,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
         <p className="text-meta text-text-secondary">{t(suggested ? "booking.nextAvailable" : "booking.yourVisit")}</p>
         <h2 className="text-h2 font-semibold">{service.name}</h2>
         <p aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-body">
-          <CalendarCheck size={16} className="shrink-0 text-action" />
+          <CalendarCheck size={16} className="shrink-0 text-action" aria-hidden />
           {formatDayLong(slot.date)}, {formatTime(slot.start)}–{formatTime(slot.start + service.duration)}
         </p>
         <p className="flex items-center gap-2 text-meta text-text-secondary">
@@ -153,7 +153,7 @@ export function DetailsStep({ state, now, serviceId, slot, contact, suggested, t
             </>
           ) : <RememberContact checked={remember} onChange={chooseRemember} />}
         </div>
-        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} demo={!book} />
+        <BookingSummary slot={slot} terms={terms} now={now} phone={state.salon.phone} packagesEnabled={moduleEnabled(state.modules, "packages")} />
         <div className="space-y-2">
           <Button type="submit" size="lg" className="w-full" disabled={pending || !ready || (!!book && !validEmail)}>
             {t(terms.depositMinor ? "protection.continue" : "booking.confirm")}

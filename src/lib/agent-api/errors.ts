@@ -3,6 +3,7 @@
 export const agentApiErrors = {
   unauthorized: { status: 401, message: "A valid API key is required." },
   forbidden_scope: { status: 403, message: "This API key lacks the required scope." },
+  forbidden_origin: { status: 403, message: "Origin refused." },
   forbidden_business: { status: 403, message: "This API key is not authorised for that business." },
   business_not_found: { status: 404, message: "Business not found." },
   service_not_found: { status: 404, message: "Service not found." },

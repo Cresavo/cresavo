@@ -14,26 +14,19 @@
   --on-plum: light-dark(#ffffff, #1f1819);
   --unfilled: light-dark(#776d70, #8f8687);
   --text-2: light-dark(#4a4145, #e8e0dd);
-  --dim: light-dark(#e9e3de, #100e0f);
   --uline: light-dark(rgb(70 48 59 / 0.35), rgb(242 177 132 / 0.4));
   --sh-2: light-dark(rgb(42 35 38 / 0.26), rgb(0 0 0 / 0.55));
-  --sh-3: light-dark(rgb(42 35 38 / 0.3), rgb(0 0 0 / 0.6));
   --dot-main: light-dark(#46303b, #fbf5f0);
   --dot-ink: light-dark(#2a2326, #bcb3b1);
   --dot-acc: light-dark(#e9a06f, #f2b184);
   --wordmark: light-dark(#46303b, #fbf5f0);
   --line: light-dark(#e6ded8, #383234);
   --line-2: light-dark(#d9cfc8, #4a4244);
-  --apricot: #f2b184;
-  --erik: light-dark(#6e7b3b, #b7c47e);
-  --erik-bg: light-dark(#eef0e1, #252a1d);
-  --erik-bd: light-dark(#dce1c4, #3b4229);
   --anna: light-dark(#3f6b8a, #93b6d4);
   --anna-bg: light-dark(#e9eff5, #1e2833);
   --anna-bd: light-dark(#d2dee9, #2f4052);
   --serif: var(--font-display, "Instrument Serif"), "Iowan Old Style", Georgia, serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --r: 12px;
   --wrap: 1200px;
   --gut: 20px;
   --sec: 64px;
@@ -165,8 +158,13 @@
 .fallback { animation: appear .3s 1.2s both; }
 [data-ready] > .fallback { display: none; }
 @keyframes appear { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .fallback { animation: none; }
+}
 
 /* ---------- hero: left on phones, a centred stack under the wordmark from 600 px ---------- */
+/* Same opening as the previous start page: the dotted wordmark has room to gather, then the copy.
+   The Today screenshot follows the section, so it stays near the fold without shrinking the field. */
 .hero { padding: 8px 0 28px; }
 .dotStage { height: 88px; }
 .dotStage .fallback { position: absolute; left: 50%; top: 50%; width: min(88vw, 1040px); max-height: 86%; transform: translate(-50%, -50%); fill: var(--wordmark); }
@@ -184,6 +182,23 @@
   .heroCta { flex-direction: row; align-items: center; justify-content: center; gap: 28px; max-width: none; margin-top: clamp(24px, 2.6vw, 34px); }
   .heroCta .btn { width: auto; }
 }
+
+/* ---------- product screenshots ---------- */
+/* A screenshot of the demo on the page's one surface level: a hairline and a radius, no shadow or chrome.
+   Light and dark pictures follow the page: the system's scheme, or the visitor's pinned choice. */
+.shot { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); min-width: 0; }
+.shot img { width: 100%; height: auto; }
+.shotDark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .root:not([data-theme="light"]) .shotLight { display: none; }
+  .root:not([data-theme="light"]) .shotDark { display: block; }
+}
+.root[data-theme="dark"] .shotLight { display: none; }
+.root[data-theme="dark"] .shotDark { display: block; }
+
+/* Today, just after the hero: still in the first scroll on a phone, and just under the fold on a desktop. */
+.showcase { margin-top: 8px; }
+@media (min-width: 600px) { .showcase { margin: 0 auto; max-width: 1120px; } }
 
 /* ---------- section scaffolding ---------- */
 .root section { position: relative; }
@@ -213,6 +228,7 @@
 /* The phone call: a short closing beat on its own band. */
 .mCall { margin-top: 64px; padding: 48px 0 var(--sec); background: var(--surface); border-top: 1px solid var(--line); }
 .mCall .momentText h3 { font-size: 30px; }
+.callShot { max-width: 576px; }
 
 @media (min-width: 600px) {
   .moment { padding-top: 80px; }
@@ -246,6 +262,25 @@
   .mCallIn { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); column-gap: clamp(40px, 6vw, 96px); align-items: center; }
   .mCall .momentText { order: 2; }
   .mCall .momentText h3 { font-size: clamp(36px, 3vw, 44px); }
+}
+
+/* ---------- receptionist: a recorded demo call, the words beside a plain player ---------- */
+/* The video carries the screenshots' hairline and radius itself; nothing frames it. No entrance motion. */
+.reception { padding: var(--sec) 0; border-top: 1px solid var(--line); }
+.receptionIn { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.receptionText h2 { margin-bottom: 14px; }
+.receptionText p { color: var(--muted); max-width: 30em; text-wrap: pretty; }
+.receptionFig { min-width: 0; }
+.receptionVideo { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid var(--line); border-radius: 12px; background: var(--sunk); }
+.receptionNote { margin-top: 12px; font-size: 15px; color: var(--muted); }
+@media (min-width: 600px) {
+  .receptionIn { gap: 32px; }
+  .receptionText h2 { margin-bottom: 18px; }
+  .receptionVideo { border-radius: 16px; }
+}
+@media (min-width: 1000px) {
+  .receptionIn { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); column-gap: clamp(40px, 5vw, 72px); align-items: start; }
+  .receptionText p { font-size: 18px; }
 }
 
 /* ---------- manifesto: three plain statements ---------- */

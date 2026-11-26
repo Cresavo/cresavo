@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays, formatTime } from "../../src/concept/data/dates";
-import { englishDemoState, salonState } from "./fixtures";
+import { continueAndPay, englishDemoState, salonState } from "./fixtures";
 import { createDemoState } from "../../src/concept/data/generate";
 import { freeStarts } from "../../src/concept/data/slots";
 import type { DemoState } from "../../src/concept/data/types";
@@ -22,12 +22,13 @@ const errors = new WeakMap<Page, string[]>();
 async function state(page: Page): Promise<DemoState> {
   return salonState(page) as Promise<DemoState>;
 }
-/** Quick commands go through the assistant panel: the button on phones, Ctrl+K (the keyboard shortcut) from tablet width. */
+/** Quick commands go through the assistant panel: the button on phones, Ctrl+K twice (Search, then the assistant) from tablet width. */
 async function command(page: Page, text: string) {
   if (page.viewportSize()!.width < 640) await page.getByRole("button", { name: ASSISTANT.name, exact: true }).locator("visible=true").click();
   const message = page.getByRole("textbox", { name: "Message" });
   // The shortcut only works once the studio has hydrated: press until the panel is there.
   if (page.viewportSize()!.width >= 640) await expect(async () => {
+    await page.keyboard.press("Control+K");
     await page.keyboard.press("Control+K");
     await expect(message).toBeVisible({ timeout: 1000 });
   }).toPass();
@@ -68,7 +69,7 @@ test("a customer books online and the booking appears in the studio", async ({ p
   await page.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
   await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 12");
-  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await continueAndPay(page);
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
 
   await page.goto("/studio/customers");
@@ -80,6 +81,43 @@ test("a customer books online and the booking appears in the studio", async ({ p
   expect(booking.status).toBe("booked");
   await page.goto("/studio/inbox");
   await expect(page.getByText(/Nova Demo/).first()).toBeVisible();
+});
+
+test("a booking paid on the phone page lands in the studio already open in another tab, and New since last time opens it", async ({ context, page }) => {
+  await page.goto("/studio");
+  const bell = page.getByRole("button", { name: /^New since last time/ });
+  await expect(bell).toHaveAccessibleName("New since last time");
+
+  const phone = await context.newPage();
+  await phone.goto("/boka/salong-eko");
+  const ask = phone.getByRole("textbox", { name: /What would you like to book/ });
+  await ask.fill("Foot care day after tomorrow with Anna");
+  await ask.press("Enter");
+  await phone.getByRole("button", { name: /until \d\d:\d\d/ }).first().click();
+  await phone.getByLabel("Your name", { exact: true }).fill("Nova Demo");
+  await phone.getByLabel("Mobile number").fill("070-000 99 14");
+  await continueAndPay(phone);
+  await expect(phone.getByRole("heading", { name: "You are booked" })).toBeVisible();
+  const booking = (await state(phone)).bookings.at(-1)!;
+  expect(booking.protection?.deposit).toBeTruthy();
+  await phone.close();
+
+  // The studio follows the other tab's save: one calm toast, and the bell says there is something new.
+  const toast = page.getByText(/^New booking: Nova, /);
+  await expect(toast).toHaveCount(1);
+  await expect(bell).toHaveAccessibleName("New since last time: 1 new");
+  await bell.click();
+  const recap = page.getByRole("dialog", { name: "New since last time" });
+  const row = recap.getByRole("button", { name: /Nova booked/ });
+  await expect(row).toContainText(/Paid /);
+  await row.click();
+  await expect(page).toHaveURL(new RegExp(`/studio/calendar\\?booking=${booking.id}$`));
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Nova Demo" })).toBeVisible();
+  await expect(bell).toHaveAccessibleName("New since last time");
+  expect((await state(page)).inbox.find((item) => item.bookingId === booking.id && item.event === "booked")?.read).toBe(true);
+  // Opened once, it does not toast again after a reload.
+  await page.reload();
+  await expect(page.getByText(/^New booking: Nova, /)).toHaveCount(0);
 });
 
 test("a customer books for someone else and the studio shows the guest and the contact", async ({ page }) => {
@@ -94,9 +132,9 @@ test("a customer books for someone else and the studio shows the guest and the c
   await who.getByRole("radio", { name: "For someone else" }).click();
   await page.getByLabel("Your name", { exact: true }).fill("Nova Demo");
   await page.getByLabel("Mobile number").fill("070-000 99 13");
-  await expect(page.getByRole("button", { name: "Confirm booking", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continue to deposit", exact: true })).toBeDisabled();
   await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
-  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await continueAndPay(page);
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
   await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
   await expect(page.getByText(/The visit is for Elsa Demo\./)).toBeVisible();
@@ -134,14 +172,21 @@ test("a visit for someone else names the visitor to the booker and keeps the boo
   await page.getByLabel("Your name", { exact: true }).fill(fullName(contact));
   await page.getByLabel("Mobile number").fill(contact.phone);
   await page.getByLabel("Name of the person visiting").fill("Elsa Demo");
-  await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
+  await continueAndPay(page);
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
   const booking = (await state(page)).bookings.at(-1)!;
   expect(booking).toMatchObject({ customerId: contact.id, visitFor: "Elsa Demo" });
 
   await page.goto(`/boka/salong-eko/me?ref=${contact.id}`);
   await expect(page.getByText("Visit for Elsa Demo")).toBeVisible();
-  await page.getByRole("button", { name: "Cancel booking", exact: true }).first().click();
+  // This customer can already have an earlier upcoming visit in the demo (today's
+  // evening booking). The first Cancel booking would open that one, not Elsa's.
+  const visit = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Coming up", exact: true }) })
+    .getByText("Visit for Elsa Demo", { exact: true })
+    .locator("xpath=ancestor::*[.//button[normalize-space()='Cancel booking']][1]");
+  await visit.getByRole("button", { name: "Cancel booking", exact: true }).click();
   const cancel = page.getByRole("dialog");
   await expect(cancel.getByText(/Visit for Elsa Demo\./)).toBeVisible();
   await cancel.getByRole("button", { name: "Keep booking" }).click();
@@ -183,6 +228,36 @@ test("a journal entry typed after a visit is structured and saved", async ({ pag
   await expect(page.getByText("Journal entry saved")).toBeVisible();
   await expect.poll(async () => (await state(page)).journals.filter(j => j.customerId === customer.id).length)
     .toBe(initial.journals.filter(j => j.customerId === customer.id).length + 1);
+});
+
+/** One second of silent 8 kHz mono WAV: a real, playable, invented recording. */
+function silentWav(): Buffer {
+  const samples = 8000;
+  const wav = Buffer.alloc(44 + samples * 2);
+  wav.write("RIFF", 0); wav.writeUInt32LE(36 + samples * 2, 4); wav.write("WAVEfmt ", 8);
+  wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(8000, 24);
+  wav.writeUInt32LE(16000, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write("data", 36); wav.writeUInt32LE(samples * 2, 40);
+  return wav;
+}
+
+test("an uploaded recording is checked, kept for playback and its typed text structured", async ({ page }) => {
+  const initial = createDemoState(today);
+  const customer = initial.customers.find(c => initial.bookings.some(b => b.customerId === c.id && b.status === "completed"))!;
+  await page.goto(`/studio/customers/${customer.id}`);
+  await page.getByRole("radio", { name: /^Journal/ }).click();
+  await page.getByRole("button", { name: "Dictate entry", exact: true }).click();
+  const upload = page.getByLabel("Upload recording");
+  await upload.setInputFiles({ name: "visit.m4a", mimeType: "audio/mp4", buffer: Buffer.from("MZ not a recording") });
+  await expect(page.getByText(/That file is not a recording that can be kept/)).toBeVisible();
+  await upload.setInputFiles({ name: "visit.wav", mimeType: "audio/wav", buffer: silentWav() });
+  await expect(page.getByRole("heading", { name: "Recent recordings" })).toBeVisible();
+  await expect(page.getByText(/^Uploaded /)).toBeVisible();
+  await expect(page.getByText("Transcription of uploaded recordings comes with the server version.", { exact: false })).toBeVisible();
+  await page.getByLabel("What happened").fill("Did the usual foot care. Recommend cream every evening.");
+  await page.getByRole("button", { name: "Structure entry", exact: true }).click();
+  await expect(page.getByLabel("Treatment", { exact: true })).not.toHaveValue("");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Journal entry saved")).toBeVisible();
 });
 
 test("a campaign goes from a Today suggestion to published", async ({ page }) => {
@@ -352,6 +427,7 @@ test("switches, segmented options, assistant composer buttons and the booking he
   await page.goto("/studio/more/settings");
   await expect(page.getByRole("radio").first()).toBeVisible();
   for (const h of await heights("[role=radiogroup] [role=radio]")) expect(h).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Control+K");
   await page.keyboard.press("Control+K");
   await page.getByRole("textbox", { name: "Message" }).fill("hello");
   for (const h of await heights("dialog form button, dialog [data-sheet-header] button")) expect(h).toBeGreaterThanOrEqual(44);

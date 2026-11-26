@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 import { reduce } from "@/concept/actions";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts } from "@/concept/data/slots";
 import { readBoundedJson } from "@/lib/owner-http";
 import { actionTooLarge } from "@/lib/owner-actions/parse";
@@ -12,7 +13,7 @@ import { cleanSignOff } from "@/concept/campaigns/channels";
 import { ownerAction } from "@/lib/owner-store";
 
 const today = "2026-11-16";
-const base = createDemoState(today);
+const base = payAtSalon(createDemoState(today));
 const service = base.services[0];
 const customer = base.customers[0];
 const at = { date: today, time: 600 };

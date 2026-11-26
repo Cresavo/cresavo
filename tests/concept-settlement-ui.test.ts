@@ -14,7 +14,7 @@ const day = "2026-11-17";
 const clock = { today: day, minutes: 600, instant: Date.parse(day + "T09:00:00Z") };
 let state = createDemoState(day);
 vi.mock("@/concept/studio/use-studio", () => ({ useStudio: () => ({ state, ...clock }) }));
-vi.mock("@/concept/store", () => ({ usePublicDemo: () => state }));
+vi.mock("@/concept/store", () => ({ usePublicDemo: () => state, targetOf: () => ({ workspace: "demo", epoch: "test" }) }));
 vi.mock("@/concept/use-now", () => ({ useSalonNow: () => clock }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams({ ref: state.customers[0].id }) }));
 
@@ -40,6 +40,13 @@ it("links both a refunded cancellation and a decided no-show from the customer's
   const html = renderToStaticMarkup(createElement(MyBookings));
   for (const id of ["refunded", "missed"]) expect(html).toContain(`href="${bookingPage(state.salon.slug, id)}"`);
   expect(html).not.toContain(bookingPage(state.salon.slug, "unsettled"));
+});
+
+it("keeps Add to calendar and Directions on an upcoming visit in My Bookings", () => {
+  const html = renderToStaticMarkup(createElement(MyBookings));
+  expect(html).toContain(t("booking.calendarFile"));
+  expect(html).toContain(t("booking.directions"));
+  expect(html).toContain(t("booking.googleCalendar"));
 });
 
 it("offers the customer-requested reason when a protected booking is cancelled on time", () => {

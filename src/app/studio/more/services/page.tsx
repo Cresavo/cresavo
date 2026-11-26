@@ -36,15 +36,15 @@ export default function ServicesPage() {
             <Button variant="ghost" size="sm" className="aria-pressed:bg-surface-2" aria-pressed={showMoveButtons} onClick={() => setShowMoveButtons((current) => !current)}>
               {t("services.reorder")}
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => setOpen({ kind: "categories" })}>{t("services.categories")}</Button>
-            <Button size="sm" icon={<Plus size={18} />} onClick={() => setOpen({ kind: "add" })}>{t("services.add")}</Button>
+            <Button data-help-id="services.categories" variant="secondary" size="sm" onClick={() => setOpen({ kind: "categories" })}>{t("services.categories")}</Button>
+            <Button data-help-id="services.add" size="sm" icon={<Plus size={18} />} onClick={() => setOpen({ kind: "add" })}>{t("services.add")}</Button>
           </>
         )
       }
     >
       {!canEdit && <Notice tone="info" className="mb-5">{t("services.readOnly")}</Notice>}
       {empty ? <EmptyState icon={<Plus size={22} />} title={t("setup.empty.treatments")}
-        action={canEdit && <Button onClick={() => setOpen({ kind: "add" })}>{t("services.add")}</Button>} /> : <TreatmentList
+        action={canEdit && <Button data-help-id="services.add" onClick={() => setOpen({ kind: "add" })}>{t("services.add")}</Button>} /> : <TreatmentList
         state={state}
         canEdit={canEdit}
         showMoveButtons={canEdit && showMoveButtons}

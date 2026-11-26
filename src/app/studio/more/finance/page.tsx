@@ -11,6 +11,7 @@ import { AccountantExport } from "@/concept/studio/finance/accountant-export";
 import { AccountingSection } from "@/concept/studio/finance/accounting-section";
 import { BookingPayments } from "@/concept/studio/finance/booking-payments";
 import { AddCost, CostsSection } from "@/concept/studio/finance/costs-section";
+import { DailyReport } from "@/concept/studio/finance/daily-report";
 import { OverviewSection } from "@/concept/studio/finance/overview-section";
 import { MorePage } from "@/concept/studio/more/more-page";
 import { useStudio } from "@/concept/studio/use-studio";
@@ -46,6 +47,7 @@ export default function FinancePage() {
           <>
             <OverviewSection />
             <BookingPayments state={state} />
+            <DailyReport />
             <CostsSection />
             <AccountingSection />
           </>

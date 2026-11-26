@@ -12,15 +12,16 @@ export function isGuestValid({ name, phone }: GuestInput): boolean {
   return name.trim().length >= 2 && withinGuestLimits({ name, phone }) && isMobilePhone(phone);
 }
 
-/** Name and mobile number: the only things a first-time booker has to type. */
+/** Name and mobile number: the only things a first-time booker has to type. With `staffEntry` the salon types
+    someone else's details, so the browser must not fill in the owner's own. */
 export function GuestFields({ value, onChange, staffEntry = false, disabled = false }: { value: GuestInput; onChange: (next: GuestInput) => void; staffEntry?: boolean; disabled?: boolean }) {
   return (
     <div className="space-y-4">
       <Field label={t(staffEntry ? "newBooking.customerName" : "booking.yourName")}>
-        <TextInput required={!staffEntry} disabled={disabled} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete="name" maxLength={GUEST_NAME_MAX} placeholder={t("booking.namePlaceholder")} />
+        <TextInput required={!staffEntry} disabled={disabled} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} autoComplete={staffEntry ? "off" : "name"} autoCapitalize="words" maxLength={GUEST_NAME_MAX} placeholder={t("booking.namePlaceholder")} />
       </Field>
       <Field label={t(staffEntry ? "newBooking.customerPhone" : "booking.yourPhone")} hint={staffEntry ? undefined : t("booking.phoneHint")}>
-        <TextInput required={!staffEntry} disabled={disabled} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete="tel" maxLength={GUEST_PHONE_MAX} placeholder={t("booking.phonePlaceholder")} />
+        <TextInput required={!staffEntry} disabled={disabled} value={value.phone} onChange={(e) => onChange({ ...value, phone: e.target.value })} type="tel" inputMode="tel" autoComplete={staffEntry ? "off" : "tel"} maxLength={GUEST_PHONE_MAX} placeholder={t("booking.phonePlaceholder")} />
       </Field>
     </div>
   );

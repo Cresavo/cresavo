@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { DemoAction } from "./actions";
+import { audioScope, forgetCustomerAudio, forgetSalonAudio, retryForgottenAudio } from "./journals/audio-store";
 import { toKey } from "./data/dates";
 import { createDemoState, type BusinessSetup } from "./data/generate";
 import { migrateState } from "./data/migrate";
@@ -15,7 +16,7 @@ import { publicView } from "./selectors";
 import { purgeExpired } from "./trash/trash";
 import { getActiveLocale, setVocabulary } from "./i18n";
 import { salonCopy } from "./i18n/salon-eko-copy";
-import { checkNewSlug, createSalon, suggestedSlug, type SalonDraft } from "./onboarding/salon";
+import { checkNewSlug, createSalon, hoursValid, suggestedSlug, type SalonDraft } from "./onboarding/salon";
 import { setupOf } from "./onboarding/setup";
 import { parseLastUse, trialExpired } from "./onboarding/trial";
 import { getPack } from "./packs";
@@ -66,6 +67,7 @@ function initialize() {
     if (selection === "own" || selection === "demo") active = selection;
   } catch { /* The selection still lasts for this tab. */ }
   expireIdleTrial(Date.now(), false);
+  void retryForgottenAudio().catch(() => {});
 }
 
 function storageKey(workspace: Workspace) {
@@ -78,6 +80,29 @@ const removalListeners = new Set<(workspace: Workspace) => void>();
 function salonRemoved(workspace: Workspace) {
   forgetDemoSends(workspace);
   removalListeners.forEach(listener => listener(workspace));
+}
+
+/** Drops journal recordings of one salon lifetime, or of the whole workspace when it has no successor. */
+function forgetJournalAudio(workspace: Workspace, epoch?: string) {
+  void forgetSalonAudio(workspace, epoch).catch(() => {});
+}
+
+function generatedForOf(document: unknown): string | undefined {
+  return document && typeof document === "object" && !Array.isArray(document) && typeof (document as { generatedFor?: unknown }).generatedFor === "string"
+    ? (document as { generatedFor: string }).generatedFor
+    : undefined;
+}
+
+/** The audio lifetime of a saved salon, used when this tab has not held it in memory (a fresh load). */
+function audioEpochFromSaved(workspace: Workspace, lifetime: string | undefined, document: unknown): string | undefined {
+  const day = generatedForOf(document);
+  if (workspace === "demo" && day) return `${lifetime ?? "legacy"}:${day}`;
+  return lifetime;
+}
+
+function forgetExpiredRecordings(workspace: Workspace, state: DemoState, customerIds: string[]) {
+  const scope = audioScope({ workspace, epoch: epochOf(workspace, state) }, state.salon);
+  for (const id of customerIds) void forgetCustomerAudio(id, scope).catch(() => {});
 }
 
 /** Called when a workspace's salon is deleted (trial expiry, "Delete now", another tab) or replaced (a new sample business). */
@@ -181,8 +206,10 @@ function removeOwnSalon(announce: boolean) {
     window.localStorage.removeItem(lastUseKey());
     window.localStorage.removeItem(epochKey("own"));
   } catch { /* Nothing more to remove. */ }
+  const previous = snapshots.own.state ? epochOf("own", snapshots.own.state) : snapshots.own.epoch;
   snapshots.own = {};
   salonRemoved("own");
+  forgetJournalAudio("own", previous);
   if (active === "own") {
     active = "demo";
     try { window.sessionStorage.setItem(SELECTION_KEY, "demo"); }
@@ -241,16 +268,15 @@ function today() {
   return toKey(new Date());
 }
 
-/** Set by `load` when a customer's 30 days in the trash were over and `purgeExpired` erased them. */
-let erasedOnLoad = false;
+/** Customer ids set by `load` when their 30 days in the trash were over and `purgeExpired` erased them. */
+let erasedOnLoad: string[] = [];
 /** Set by `load` when there was no usable document and it made a new sample business. */
 let createdOnLoad = false;
 
-const customerBundles = (state: DemoState) => state.trash.filter((entry) => entry.kind === "customer").length;
-
 function purge(state: DemoState): DemoState {
+  const before = new Set(state.trash.filter((entry) => entry.kind === "customer").map((entry) => entry.customer.id));
   const next = purgeExpired(state, today());
-  if (customerBundles(next) < customerBundles(state)) erasedOnLoad = true;
+  erasedOnLoad = [...before].filter((id) => !next.trash.some((entry) => entry.kind === "customer" && entry.customer.id === id));
   return next;
 }
 
@@ -292,14 +318,16 @@ function refresh(workspace: Workspace) {
   const before = snapshot.state ? epochOf(workspace, snapshot.state) : undefined;
   if (raw === snapshot.raw && snapshot.unsaved && snapshot.state) {
     // Only the day changed, and the salon here was never saved: today's sample of that salon, same lifetime.
+    const previous = epochOf(workspace, snapshot.state);
     snapshot.state = load(snapshot.state, workspace);
     keep(snapshot.state, snapshot.epoch);
     salonRemoved(workspace);
+    if (!snapshot.state || epochOf(workspace, snapshot.state) !== previous) forgetJournalAudio(workspace, previous);
     return true;
   }
   snapshot.raw = raw;
   snapshot.unsaved = false;
-  erasedOnLoad = false;
+  erasedOnLoad = [];
   createdOnLoad = false;
   let document: unknown = null;
   snapshot.epoch = undefined;
@@ -309,13 +337,20 @@ function refresh(workspace: Workspace) {
   } catch {
     // A corrupt snapshot falls back to fresh demo data.
   }
+  const previous = before ?? audioEpochFromSaved(workspace, snapshot.epoch, document);
   snapshot.state = load(document, workspace);
   // A sample business made because there was no document is a new salon, never the "legacy" one before it.
   if (createdOnLoad) snapshot.epoch = newEpoch();
   keep(snapshot.state, snapshot.epoch);
-  if (erasedOnLoad && snapshot.state) persistErasure(workspace, raw, snapshot.state);
+  if (erasedOnLoad.length && snapshot.state) {
+    persistErasure(workspace, raw, snapshot.state);
+    forgetExpiredRecordings(workspace, snapshot.state, erasedOnLoad);
+  }
   // Gone, or another lifetime (a replacement from another tab, a new day's sample): records of the earlier salon end.
-  if (had && (!snapshot.state || epochOf(workspace, snapshot.state) !== before)) salonRemoved(workspace);
+  if (previous && (!snapshot.state || epochOf(workspace, snapshot.state) !== previous)) {
+    if (had) salonRemoved(workspace);
+    forgetJournalAudio(workspace, previous);
+  }
   snapshot.version = raw && snapshot.state ? { day: snapshot.state.generatedFor, seq: snapshot.state.seq } : undefined;
   return true;
 }
@@ -618,7 +653,9 @@ export async function startBusiness(setup?: BusinessSetup): Promise<void> {
     refreshFromStorage();
     const next = createDemoState(today(), setup);
     next.seq = Math.max(next.seq, (snapshots.demo.state?.seq ?? 0) + 1, (required?.seq ?? 0) + 1);
+    const previous = snapshots.demo.state ? epochOf("demo", snapshots.demo.state) : snapshots.demo.epoch;
     salonRemoved("demo");
+    forgetJournalAudio("demo", previous);
     // The new lifetime goes into the same write as the new salon, or stays with it in memory.
     snapshots.demo.epoch = newEpoch();
     return setState(next);
@@ -641,7 +678,7 @@ export async function switchSalon(to: Workspace, draft?: SalonDraft) {
     if (snapshots[to].state && draft) return false;
     if (!snapshots[to].state) {
       if (to !== "own" || !draft) return false;
-      if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok) return false;
+      if (!checkNewSlug(draft.slug || suggestedSlug(draft), workspaceSlug("demo")).ok || !hoursValid(draft.hours)) return false;
       const now = new Date();
       const next = createSalon(today(), draft, { examplesAfter: now.getHours() * 60 + now.getMinutes() });
       const epoch = newEpoch();

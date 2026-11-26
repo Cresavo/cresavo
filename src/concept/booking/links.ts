@@ -12,6 +12,10 @@ export const myBookingsFor = (slug: string, customerId: string) => `${myBookings
 export const rebookLink = (slug: string, serviceId: string, staffId?: string) =>
   `${bookingHome(slug)}?${new URLSearchParams({ service: serviceId, ...(staffId && { staff: staffId }) })}#book`;
 
+/** A plain map search for the business's address (no embed, no third-party script); the map app finds the route and the time. */
+export const mapLink = (address: string, area = "") =>
+  `https://www.openstreetmap.org/search?query=${encodeURIComponent([address, area].filter(Boolean).join(", ").replace(/\s+·\s+.*$/, ""))}`;
+
 type SharedCard = Pick<GiftCard, "code" | "amount" | "recipient" | "message">;
 
 /** The printable card as a link. It carries only what is printed on the card, never the balance: that is checked against the business's records. */

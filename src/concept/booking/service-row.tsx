@@ -1,7 +1,9 @@
+import Image from "next/image";
 import { WithStaff } from "./with-staff";
 import { CircleDot, Dumbbell, Footprints, Hand, HandHeart, Palette, Scissors, Stethoscope, Users, type LucideIcon } from "lucide-react";
 import type { DemoState, Service } from "../data/types";
 import { formatDuration, formatMoney } from "../i18n/format";
+import { PHOTOS, type PhotoId } from "../page/theme";
 import { ListRow } from "../ui/list-row";
 import { ServiceInfo } from "./service-info";
 
@@ -19,6 +21,8 @@ const CATEGORY_ICON: Partial<Record<string, LucideIcon>> = {
   recovery: HandHeart,
 };
 
+const photoOf = (image: string | undefined) => (image && image in PHOTOS ? PHOTOS[image as PhotoId] : undefined);
+
 export function ServiceIcon({ category }: { category: Service["category"] }) {
   const Icon = CATEGORY_ICON[category] ?? CircleDot;
   return (
@@ -31,7 +35,9 @@ export function ServiceIcon({ category }: { category: Service["category"] }) {
 export function ServiceChoice({ service, staff, onClick }: { service: Service; staff: DemoState["staff"]; onClick: () => void }) {
   const people = staff.filter((s) => service.staffIds.includes(s.id));
   const row = (className?: string) => (
-    <ListRow className={className} title={service.name} leading={<ServiceIcon category={service.category} />} onClick={onClick}
+    <ListRow className={className} title={service.name} leading={photoOf(service.image)
+      ? <span className="relative size-14 shrink-0 overflow-hidden rounded-md bg-surface-2"><Image src={photoOf(service.image)!} alt="" fill sizes="52px" className="object-cover" /></span>
+      : <ServiceIcon category={service.category} />} onClick={onClick}
       meta={<>
         <span className="block">{service.description}</span>
         <span className="mt-1 block">{formatDuration(service.duration)} · <strong>{formatMoney(service.price)}</strong> · <WithStaff people={people} /></span>

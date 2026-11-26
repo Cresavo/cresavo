@@ -25,7 +25,8 @@ export function ActionFailure({ failure, audience = "studio" }: {
   }, [requestId, reason]);
   return (
     <div className="w-full space-y-1 rounded-md bg-surface text-sm text-text">
-      <Notice tone="danger" role="alert">
+      {/* A failed action can be tried again: a calm warning, never alarm red. The reference is for support, not an error code. */}
+      <Notice tone="warning" role="alert">
         <span className="block">{failure.message ?? t(reason)}</span>
         <span className="mt-1 block">{t(audience === "booking" ? "reference.salonHint" : "reference.supportHint")} <code className="select-all font-mono font-semibold">{reference}</code></span>
       </Notice>

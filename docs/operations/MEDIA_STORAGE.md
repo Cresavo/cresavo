@@ -116,3 +116,25 @@ photo can still show a customer or a colleague. The studio asks owners to
 get permission first and to delete a photo when the person in it asks. This
 is an operational note, not legal wording; the processing agreement and the
 privacy notice need a lawyer's review for this.
+
+## Journal recordings
+
+Journal audio exists only in the concept demo. Recordings and uploaded audio
+files (m4a, mp3, wav, webm, ogg, flac, recognised from their bytes, at most
+20 MB and ten minutes) stay in the browser's own `concept-journal-audio`
+IndexedDB database, five per customer, and are never uploaded. Demo and
+trial recordings are kept per salon lifetime; a signed-in account salon's
+recordings are keyed by its address so they remain after sign-out. Live
+speech-to-text uses the browser's Speech Recognition API, as dictation
+already did; some browsers may process that speech off-device. Forcing
+`processLocally` is a later production decision (it can fail when the
+language is not on the device).
+
+Before real customers, the recommendation is the photo library's store with
+a `journal-audio/<tenant>/<id>` prefix: private, encrypted, in the EU,
+uploaded straight to storage with a short-lived, size-capped URL rather than
+through a function, embedded metadata (GPS, device, time) removed before the
+file is kept, and playable only by staff who may open that customer's
+journal. Recorded treatments can be health data, so the Article 9 basis,
+the customer information and `docs/legal/DPIA_JOURNAL.md` need a lawyer's
+review first.

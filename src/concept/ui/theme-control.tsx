@@ -8,7 +8,8 @@ import { parseTheme, pinThemeColor, studioChrome, THEME_STORAGE_KEY, THEMES, typ
 
 const EVENT = "ui-theme-change";
 
-function setTheme(theme: ThemePreference) {
+/** Applies and saves a theme choice; every control on the page follows. */
+export function setTheme(theme: ThemePreference) {
   document.documentElement.dataset.theme = theme;
   pinThemeColor(studioChrome(theme));
   try {
@@ -24,7 +25,7 @@ const subscribe = (listener: () => void) => {
   return () => window.removeEventListener(EVENT, listener);
 };
 
-function useThemePreference(): ThemePreference {
+export function useThemePreference(): ThemePreference {
   return useSyncExternalStore(subscribe, () => parseTheme(document.documentElement.dataset.theme), () => "system");
 }
 

@@ -3,6 +3,7 @@ import type { Industry } from "../onboarding/salon";
 import type { BusinessLocalization } from "../i18n/business";
 import type { Backdrop } from "../campaigns/poster-engine/backdrops";
 import type { ReminderSettings } from "../booking/reminders";
+import type { CallRecord, ReceptionistSettings } from "../receptionist/types";
 // Data model for the clickable demo. No database: everything is generated
 // deterministically in `generate.ts` and kept in the browser (see `../store.ts`).
 
@@ -55,6 +56,8 @@ export interface Salon {
   orgNumber: string;
   /** Opening hours per weekday (0 = Sunday), minutes from midnight. null = closed. */
   hours: Record<number, { open: number; close: number } | null>;
+  /** One-off opening hours that replace the weekday template for that date only. */
+  openings?: { date: DateKey; open: number; close: number }[];
   /** The lunch break on long days; null = no break. */
   lunch: Interval | null;
   closures: Closure[];
@@ -315,6 +318,8 @@ export interface SlotSuggestion {
   start: number;
 }
 
+export type InboxEvent = "booked" | "cancelled" | "moved";
+
 export interface InboxItem {
   /** Simulated booking delivery; never an outgoing network request. */
   delivery?: { channel: "sms" | "email"; kind: "confirmation" | "reminder" | "cancellation" | "moved"; slot: string };
@@ -330,6 +335,11 @@ export interface InboxItem {
   read: boolean;
   handled: boolean;
   bookingId?: string;
+  /** What a customer did to `bookingId` on the booking page: the studio's "New since last time" and its toast list these. */
+  event?: InboxEvent;
+  /** The visit's day and start as they stood for this event, so a later move does not rewrite earlier notices. */
+  visitDate?: DateKey;
+  visitStart?: number;
   /** Practitioner requested by a customer joining the waiting list. */
   requestedStaffId?: StaffId;
   reviewId?: string;
@@ -559,4 +569,8 @@ export interface DemoState {
   journalAccess?: JournalAccess[];
   /** Optional: salons that never set it keep journal entries until the owner decides. */
   privacy?: PrivacySettings;
+  /** The phone receptionist's settings. Optional: off until the owner sets it up. */
+  receptionist?: ReceptionistSettings;
+  /** Calls the phone receptionist took, newest first. */
+  receptionistCalls?: CallRecord[];
 }

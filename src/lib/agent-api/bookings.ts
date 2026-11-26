@@ -14,7 +14,7 @@ import { assertCurrentAgent, lockMandate } from "./mandates";
 import { assertMandatedBooking } from "./mandate-policy";
 import { proposalHash } from "./proposals";
 import { placeForStaff } from "./place";
-import { assertCustomerChannelBinding } from "./customer-channel-lab";
+import { assertEmailCodeBinding } from "./email-code-consent";
 
 import { createPartnerAgentBooking } from "./partner-bookings";
 import { nativeBookingProvider } from "./provider/native";
@@ -177,7 +177,7 @@ export async function createAgentBooking(principal: AgentPrincipal, rawKey: stri
             if (!proposal || proposal.status !== "approved" || proposal.mandateId !== mandate.id ||
                 proposal.proposalHash !== mandate.proposalHash || proposalHash(proposal) !== mandate.proposalHash)
               throw new AgentApiError("mandate_denied");
-            assertCustomerChannelBinding(proposal, mandate, input.customer);
+            assertEmailCodeBinding(proposal, mandate, input.customer);
           }
           if (await tx.agentBooking.findUnique({ where: { mandateId: input.mandateId! } }))
             throw new AgentApiError("mandate_denied");
@@ -235,6 +235,18 @@ export async function getBookingV1(principal: AgentPrincipal, bookingId: string)
   return { apiVersion: API_VERSION, booking: await bookingView(await ownedBooking(principal, bookingId), principal.businessId) };
 }
 
+/**
+ * Direct agent cancellation has no customer approval, so both transports refuse it (ADR 7).
+ * Another client's or salon's booking still answers booking_not_found.
+ */
+export async function refuseDirectCancel(principal: AgentPrincipal, bookingId: string): Promise<never> {
+  assertWritable();
+  if (!principal.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");
+  await ownedBooking(principal, bookingId);
+  throw new AgentApiError("mandate_denied");
+}
+
+/** Executes a cancellation. Reserved for an approved cancellation proposal; no transport calls it directly. */
 export async function cancelBookingV1(principal: AgentPrincipal, bookingId: string) {
   assertWritable();
   if (!principal.scopes.includes("bookings:write")) throw new AgentApiError("forbidden_scope");

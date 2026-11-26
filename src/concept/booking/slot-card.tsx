@@ -30,7 +30,7 @@ export function SlotCard({ slot, service, staff, today, onPick }: SlotCardProps)
       }
       title={day === formatDayShort(slot.date) ? day : `${day} · ${formatDayShort(slot.date)}`}
       meta={<>
-        {person && <span className="block"><WithStaff people={[person]} /></span>}
+        {person && <span className="mb-1 block text-text"><WithStaff people={[person]} size="sm" /></span>}
         {formatDuration(service.duration)} · {formatMoney(service.price)}
       </>}
       trailing={<ChevronRight size={20} className="shrink-0 text-text-secondary" aria-hidden />}

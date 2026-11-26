@@ -6,9 +6,11 @@ import { bookingMessage } from "../../src/concept/booking/messages";
 import { openSlots } from "../../src/concept/booking/suggest";
 import { BRAND } from "../../src/concept/brand";
 import type { DemoState } from "../../src/concept/data/types";
-import { englishDemoState, fixtureText, salonState } from "./fixtures";
+import { englishDemoState, fixtureText, payingAtSalon, salonState } from "./fixtures";
 
-const fixture = englishDemoState("2026-11-17");
+// These journeys confirm without paying and then change the visit online, so the salon lets customers
+// pay at the salon. Paying when booking (the default) is covered in journeys, quick-wins and no-show-deposits.
+const fixture = payingAtSalon(englishDemoState("2026-11-17"));
 const copy = fixtureText(fixture);
 
 const errors = new WeakMap<Page, string[]>();
@@ -37,8 +39,9 @@ async function startBooking(page: Page) {
   await page.getByLabel("Mobile number").fill("070-000 99 11");
   await page.getByRole("button", { name: "Confirm booking", exact: true }).click();
   await expect(page.getByRole("heading", { name: "You are booked" })).toBeVisible();
-  // White-label: the confirmation carries a neutral demo notice, never the platform's name (#27).
-  await expect(page.getByText(/^Fictional demo: confirmations are simulated/)).toBeVisible();
+  // White-label: the confirmation never names the platform (#27), and it no longer
+  // carries a disclaimer line on the receipt.
+  await expect(page.getByText(/^Fictional demo: confirmations are simulated/)).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain(BRAND.name);
 }
 
@@ -490,7 +493,7 @@ test("the confirmation link moves the same visit, exports its new time and enfor
   const google = new URL((await page.getByRole("link", { name: "Google Calendar" }).getAttribute("href"))!);
   expect(google.hostname).toBe("calendar.google.com");
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: /Download calendar file/ }).click();
+  await page.getByRole("button", { name: "Add to calendar" }).click();
   const file = await download;
   expect(file.suggestedFilename()).toBe(`salong-eko-${moved.date}.ics`);
   const contents = await file.createReadStream();

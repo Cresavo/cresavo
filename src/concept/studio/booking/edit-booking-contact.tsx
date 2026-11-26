@@ -55,7 +55,7 @@ export function EditBookingContact({ booking, save }: { booking: Booking; save: 
       >
         <div className="space-y-4">
           <Field label={t("booking.contact.email")} hint={t("booking.contact.emailHint")} error={invalid ? t("booking.contact.invalid") : undefined}>
-            <TextInput type="email" value={email} maxLength={254} autoComplete="off" onChange={(e) => setEmail(e.target.value)} />
+            <TextInput type="email" inputMode="email" value={email} maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           {hasReason && (
             <Field label={t("booking.contact.reason")}>

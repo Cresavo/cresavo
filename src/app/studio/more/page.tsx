@@ -3,11 +3,11 @@
 import { ChevronRight } from "lucide-react";
 import { t } from "@/concept/i18n";
 import { ADVANCED_NAV, moreMenu, type NavItem } from "@/concept/studio/nav";
+import { InstallRow } from "@/concept/studio/install/install-row";
 import { PageHeader } from "@/concept/studio/page-header";
 import { useStudio } from "@/concept/studio/use-studio";
 import { Card, Section } from "@/concept/ui/card";
 import { ListRow } from "@/concept/ui/list-row";
-import { ThemeControl } from "@/concept/ui/theme-control";
 
 function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
   return (
@@ -16,7 +16,7 @@ function MenuGroup({ title, items }: { title: string; items: NavItem[] }) {
         {items.map((item) => {
           const Icon = item.icon;
           return (
-            <ListRow key={item.href} href={item.href} help={item.href} title={t(item.label)}
+            <ListRow key={item.href} href={item.href} help={item.href} helpId={item.helpId} title={t(item.label)}
               meta={item.description && t(item.description)}
               leading={<Icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}
               trailing={<ChevronRight size={18} aria-hidden className="shrink-0 text-text-secondary" />} />
@@ -37,11 +37,14 @@ export default function MorePage() {
         <MenuGroup title={t("nav.section.business")} items={menu.business} />
         <MenuGroup title={t("nav.section.settings")} items={menu.settings} />
       </div>
+      {/* Add to the home screen: a quiet row where this browser can install the studio, nothing where it cannot. */}
+      <InstallRow className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2" />
       {/* Advanced: one quiet row at the end, for what most salons never need. */}
       <ul aria-label={t("nav.advanced")} className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <li>
           <ListRow
             href={ADVANCED_NAV.href}
+            helpId={ADVANCED_NAV.helpId}
             title={t(ADVANCED_NAV.label)}
             meta={ADVANCED_NAV.description && t(ADVANCED_NAV.description)}
             leading={<ADVANCED_NAV.icon size={22} aria-hidden className="shrink-0 text-text-secondary" />}
@@ -49,13 +52,6 @@ export default function MorePage() {
           />
         </li>
       </ul>
-      {/* On phones the theme control lives in More. On desktop it lives in the sidebar. */}
-      <Card className="mt-6 lg:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <span className="font-medium">{t("theme.label")}</span>
-          <ThemeControl compact />
-        </div>
-      </Card>
     </>
   );
 }

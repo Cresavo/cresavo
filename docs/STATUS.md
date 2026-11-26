@@ -24,19 +24,23 @@ Start with the [demo and product tour](../README.md) or see the
   custom-domain setup. Live domain changes are disabled until owner and
   domain ownership can be verified on the server.
 - Owners can now set up a separate browser-local salon from Today or Settings, try their own booking page and switch back to the sample business. A first-run checklist and a short demo tour guide the first visit.
+- Help in the studio has Show me: a question in Swedish or English finds the place on the device (a help map of more than a hundred Studio places, checked against the source and the browser) and a guide points the way step by step. It opens pages for the owner but never presses a button that changes data. Error and missing-setup messages follow [FRIENDLY_ERRORS](design/FRIENDLY_ERRORS.md).
 - The studio and booking flow support Swedish and English, with a separate business language for confirmations and customer messages. Salong Eko’s sample data and the studio help follow the selected language. The built-in assistant understands common Swedish commands for bookings, prices, stock, campaigns and booking-page design.
 - The legacy booking engine uses Prisma and PostgreSQL. The web workspace,
   provider API and local owner MCP share its booking rules, including
   idempotency and protection against double-booking. It is being replaced by
   the studio's rules behind `StudioStore` and gets no new booking rules
-  ([ADR 1](design/ARCHITECTURE_DECISIONS.md)). The public agent gateway lives
-  in the separate [`Cresavo/gateway`](https://github.com/Cresavo/gateway) repository.
+  ([ADR 1](design/ARCHITECTURE_DECISIONS.md)). Customers' agents will reach
+  Cresavo salons through the app's own MCP; the separate
+  [`Cresavo/gateway`](https://github.com/Cresavo/gateway) stays an optional
+  entry for other booking systems ([ADR 7](design/ARCHITECTURE_DECISIONS.md)).
 - The concept demo includes the November QA fixes for booking and caller
   flows, same-origin tab synchronization, assistant lookups and host feedback.
   Booking undo checks availability, and the customer time picker shows salon
   contacts when no days are open. The QA runner is available through `npm run qa`.
 - The product page shows three everyday moments from the demo, a short founder note with a link to the full story, the status of each part, pricing and practical questions about switching. Its tour includes five workflow films (recorded in English) and an offline booking sample. While the waiting list stores nothing, the page shows no sign-up form.
-- The browser demo supports versioned cancellation rules, simulated deposit checkout and owner decisions on late cancellations and no-shows. Bookings and Finance show payments and refunds. [Feature design](design/NO_SHOW_DEPOSITS.md).
+- The browser demo supports versioned cancellation rules, simulated deposit checkout and owner decisions on late cancellations and no-shows. Paying the full price when booking is the default; a salon can let customers pay at the salon, for all or some treatments. The studio shows new online bookings, cancellations and moves under "New since last time" and as a toast while it is open. Bookings and Finance show payments and refunds. [Feature design](design/NO_SHOW_DEPOSITS.md).
+- A demo register in the booking sheet takes the remaining payment by card, Swish or cash (with change), issues DEMO-numbered receipts with VAT per rate and feeds a daily report in Finance. The sample salon's customer can also pay on their own phone from a QR code (card or Swish, simulated); the paid mark lives in server memory, so it is a demo flow, not a payment integration. Only browser demo salons get it, and its receipts never reach the bookkeeping export. A certified register is not built ([#70](https://github.com/Cresavo/cresavo/issues/70)).
 - Owners can drag to reorder treatments and categories in the studio and undo
   each move. The booking-page editor supports dragging sections in its draft.
 - Campaign posters (roadmap stage 1, November 2026) are drawn on the server

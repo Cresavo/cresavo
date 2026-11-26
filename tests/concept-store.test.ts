@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { addDays, toKey } from "@/concept/data/dates";
 import { freeStarts, needOf } from "@/concept/data/slots";
 
@@ -106,7 +107,7 @@ it("reloads another tab's booking and rejects a stale attempt for the same slot"
 
 it("refuses a public booking when another tab takes the slot before the save", async () => {
   const today = toKey(new Date());
-  const base = { ...createDemoState(today), bookings: [] };
+  const base = payAtSalon({ ...createDemoState(today), bookings: [] });
   const service = base.services.find((item) => item.id === "medical-foot-care")!;
   const staffId = service.staffIds[0];
   const need = { serviceId: service.id, duration: service.duration };

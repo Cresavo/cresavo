@@ -5,6 +5,7 @@ import type { CheckoutHold } from "@/concept/booking/protection";
 import { eraseCustomer } from "@/concept/customers/erase";
 import { customerExport } from "@/concept/customers/export";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts } from "@/concept/data/slots";
 import type { DemoState } from "@/concept/data/types";
 import { packageFor, visitsLeft } from "@/concept/packages/packages";
@@ -16,7 +17,7 @@ import { packageFor, visitsLeft } from "@/concept/packages/packages";
 
 const today = "2026-11-16";
 const date = "2026-11-24";
-const state = createDemoState(today);
+const state = payAtSalon(createDemoState(today));
 const guest = { name: "Lisa Berg", phone: "073-555 01 02", at: { date: today, time: 600 } };
 const notice = { title: "New online booking", body: "Fictional" };
 const need = { serviceId: "medical-foot-care", duration: 60 };

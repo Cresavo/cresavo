@@ -1,14 +1,15 @@
 import { Mail, MapPin, Phone, Star } from "lucide-react";
-import { weekday } from "../data/dates";
+import { dateInWeek, weekday, WEEK_ORDER } from "../data/dates";
+import { openingFor } from "../data/slots";
 import type { DemoState, Review } from "../data/types";
 import { t, tc, words } from "../i18n";
 import { formatDate, formatTime } from "../i18n/format";
 import { Card, Section } from "../ui/card";
 import { cx } from "../ui/cx";
 import type { Now } from "../use-now";
+import { mapLink } from "./links";
 import { publicName, recentReviews, reviewSummary } from "./reviews";
-
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+import { SalonHomeRow } from "./salon-home";
 
 /** The week at a glance, today in bold, with the lunch break as a note under it. */
 export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
@@ -19,7 +20,7 @@ export function OpeningHours({ state, now }: { state: DemoState; now: Now }) {
       <Card className="px-4 py-2">
         <dl className="divide-y divide-hairline text-meta">
           {WEEK_ORDER.map((day) => {
-            const hours = state.salon.hours[day];
+            const hours = openingFor(state.salon, dateInWeek(now.today, day));
             return (
               <div key={day} className={cx("flex items-center justify-between py-2", day === todayIndex && "font-semibold")}>
                 <dt>{words.weekdays[day]}</dt>
@@ -39,7 +40,6 @@ const linkClass = "font-medium text-action underline-offset-2 hover:underline";
 /** Address with a plain link to a map (no embed, no third-party script), and how to reach the business. */
 export function FindUs({ state }: { state: DemoState }) {
   const { salon } = state;
-  const mapLink = `https://www.openstreetmap.org/search?query=${encodeURIComponent(`${salon.address}, ${salon.area.split(" · ")[0]}`)}`;
   return (
     <Section title={t("booking.findUs")}>
       <Card id="find-us" className="scroll-mt-4 divide-y divide-hairline px-4 text-meta">
@@ -48,7 +48,7 @@ export function FindUs({ state }: { state: DemoState }) {
           <address className="min-w-0 flex-1 not-italic">
             <span className="block">{salon.address}</span>
             <span className="block text-text-secondary">{salon.area}</span>
-            <a href={mapLink} target="_blank" rel="noopener noreferrer" className={cx(linkClass, "mt-1 inline-flex min-h-11 items-center")}>
+            <a href={mapLink(salon.address, salon.area)} target="_blank" rel="noopener noreferrer" className={cx(linkClass, "mt-1 inline-flex min-h-11 items-center")}>
               {t("booking.openMap")}
             </a>
           </address>
@@ -61,6 +61,7 @@ export function FindUs({ state }: { state: DemoState }) {
           <Mail aria-hidden size={16} className="shrink-0 text-text-secondary" />
           <span className={cx(linkClass, "min-w-0 [overflow-wrap:anywhere]")}>{salon.email}</span>
         </a>
+        <SalonHomeRow name={salon.name} />
       </Card>
     </Section>
   );

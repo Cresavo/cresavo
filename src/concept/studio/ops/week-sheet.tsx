@@ -10,7 +10,8 @@ import { useStudio } from "../use-studio";
 import { DayRow, TimeRange } from "./day-row";
 import { dispatchWithUndoToast } from "../log/undo-toast";
 
-
+/** What a day off's folded times hold until the day is turned on and takes the salon's hours. */
+const FALLBACK = { start: 9 * 60, end: 17 * 60 };
 /** The weekly template: hours per weekday, or a day off. Starts from the salon's opening hours. */
 export function WeekSheet({ person, onClose }: { person: Staff; onClose: () => void }) {
   const { state } = useStudio();
@@ -47,7 +48,7 @@ export function WeekSheet({ person, onClose }: { person: Staff; onClose: () => v
               off={opening ? t("calendar.off") : t("calendar.closed")}
               onToggle={() => opening && setWeek({ ...week, [d]: shift ? null : { start: opening.open, end: opening.close } })}
             >
-              {shift && <TimeRange label={name} from={shift.start} to={shift.end} onChange={(start, end) => setWeek({ ...week, [d]: { start, end } })} />}
+              <TimeRange label={name} from={(shift ?? FALLBACK).start} to={(shift ?? FALLBACK).end} onChange={(start, end) => setWeek({ ...week, [d]: { start, end } })} />
             </DayRow>
           );
         })}

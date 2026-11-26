@@ -7,6 +7,7 @@ import { formatMinor, PaymentSummary } from "../../booking/policy-summary";
 import { feeMinor, settleFee, termsOf } from "../../booking/protection";
 import type { Booking, DemoState } from "../../data/types";
 import { locale, t } from "../../i18n";
+import { cancelPendingPayment } from "../../register/ledger";
 import { targetOf } from "../../store";
 import { commitAction } from "../../store/commit";
 import { useCommit } from "../../ui/use-commit";
@@ -40,7 +41,9 @@ export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking
         return currentRole() === "owner" && current?.date === booking.date && current.start === booking.start && current.staffId === booking.staffId;
       },
     }).catch(() => null);
-    if (!result?.ok) showActionFailure("booking.visitChanged");
+    if (!result?.ok) return showActionFailure("booking.visitChanged");
+    // The decision closes the visit, so a payment waiting at the register has nothing left to take.
+    if (!(await cancelPendingPayment(target, booking.id))) showActionFailure("register.failed");
   });
   return <div className="space-y-3">
     <PaymentSummary state={state} booking={booking} />
@@ -52,10 +55,7 @@ export function FeeDecisionPanel({ state, booking }: { state: DemoState; booking
     {role === "owner" && incident && (open ? <div className="space-y-3 rounded-md bg-surface-2 p-4">
       <h3 className="font-semibold">{t(incident === "noshow" ? "status.noshow" : "protection.late")}</h3>
       <p>{t("protection.proposal", { fee: money(fee), extra: money(settlement.additional), refund: money(settlement.refund) })}</p>
-      <div className="flex flex-wrap items-center gap-2">
-        <DemoBadge short />
-        <p className="text-meta">{t("protection.simulated")}</p>
-      </div>
+      <DemoBadge short />
       <Button variant={booking.status === "booked" ? "secondary" : "primary"} disabled={pending} onClick={() => decide("charge")}>{t("protection.charge")}</Button>
       <Field label={t("protection.reason")}><TextInput maxLength={200} value={reason} onChange={e => setReason(e.target.value)} /></Field>
       <Button variant="secondary" disabled={!reason.trim() || pending} onClick={() => decide("waive")}>{t("protection.waive")}</Button>

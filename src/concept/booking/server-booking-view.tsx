@@ -1,20 +1,31 @@
 "use client";
 
-import { CalendarCheck, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatTime } from "../i18n/format";
 import { useServerSalon } from "../server-salon";
 import { ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
+import { Bone, SkeletonCard, SkeletonGroup } from "../ui/feedback";
 import { captureLinkToken } from "./link-token";
 import { bookingHome } from "./links";
+import { PublicCalendarActions } from "./booking-actions";
 import { ManageBooking } from "./manage-booking";
 import type { PublicBookingView } from "./public-booking-view";
+import { VisitTicket } from "./visit-ticket";
 
 type Loaded = { state: "loading" } | { state: "missing" } | { state: "link-needed" } | { state: "ready"; view: PublicBookingView; token: string };
 
 const TITLES = { booked: "booking.confirmation.title", completed: "booking.confirmation.completed", cancelled: "booking.confirmation.cancelled", noshow: "booking.confirmation.noshow" } as const;
+
+/** A booking while it loads: the heading and the ticket, as quiet blocks. */
+export function BookingSkeleton() {
+  return (
+    <SkeletonGroup className="mx-auto max-w-lg space-y-5">
+      <Bone className="mx-auto h-8 w-2/3" />
+      <SkeletonCard lines={3} />
+    </SkeletonGroup>
+  );
+}
 
 /**
  * A booking on a salon's own page, for the holder of the link in the
@@ -37,7 +48,7 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
   }, [slug, id]);
 
   const back = <ButtonLink href={bookingHome(slug)}>{t("booking.notFound.action")}</ButtonLink>;
-  if (loaded.state === "loading") return <p role="status" className="text-center text-text-secondary">{t("bookingView.loading")}</p>;
+  if (loaded.state === "loading") return <BookingSkeleton />;
   if (loaded.state !== "ready") {
     return (
       <Card className="mx-auto max-w-lg space-y-4 p-6 text-center">
@@ -48,23 +59,20 @@ export function ServerBookingView({ slug, id }: { slug: string; id: string }) {
     );
   }
   const { view } = loaded;
+  // The salon's own address and area when its page is loaded, else the line the booking link carries.
+  const place: { name?: string; address: string; area?: string } = salon?.salon.address ? salon.salon : { address: view.salon.address };
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <h1 className="text-center text-h1 font-semibold tracking-tight">{t(TITLES[view.status])}</h1>
-      <Card className="space-y-4 p-5">
-        <div>
-          <p className="text-h3 font-semibold">{view.treatment}</p>
-          <p className="mt-1 flex items-center gap-2 text-body">
-            <CalendarCheck size={16} className="shrink-0 text-action" />
-            {formatDayLong(view.date)}, {formatTime(view.start)}–{formatTime(view.start + view.duration)}
-          </p>
-        </div>
-        <p className="text-meta text-text-secondary">{t("booking.withStaff", { name: view.staffFirstName })} · {formatDuration(view.duration)}</p>
-        <p className="flex items-start gap-2 text-meta text-text-secondary">
-          <MapPin size={16} className="mt-1 shrink-0" />
-          {[salon?.salon.name, view.salon.address].filter(Boolean).join(", ")}
-        </p>
-      </Card>
+      <VisitTicket
+        treatment={view.treatment}
+        date={view.date}
+        start={view.start}
+        duration={view.duration}
+        staff={<p className="text-body font-medium">{t("booking.withStaff", { name: view.staffFirstName })}</p>}
+        place={place}
+      />
+      {view.status === "booked" && <PublicCalendarActions slug={slug} id={id} view={view} />}
       <ManageBooking slug={slug} id={id} token={loaded.token} view={view} onChanged={(changed) => setLoaded({ ...loaded, view: changed })} />
       <ButtonLink href={bookingHome(slug)} variant="secondary">{t("booking.backToSalon")}</ButtonLink>
     </div>

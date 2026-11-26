@@ -76,7 +76,7 @@ export function PageEditor() {
             {buttons("responsive")}
           </>}>
             <div className="space-y-6">
-              <Block title={t("pageEditor.templates.title")}><TemplatePicker page={draft} onPick={(id) => setDraft((current) => applyTemplate(current, id))} /></Block>
+              <div data-help-id="booking-page.editor"><Block title={t("pageEditor.templates.title")}><TemplatePicker page={draft} onPick={(id) => setDraft((current) => applyTemplate(current, id))} /></Block></div>
               <Block title={t("pageEditor.look.title")}><ThemeControls theme={draft.theme} onChange={theme} /></Block>
               <Block title={t("pageEditor.sections.title")}>
                 <SectionControls sections={visibleSections} reviewsEnabled={state.modules.reviews} instagram={draft.instagram} about={draft.about} name={state.salon.name}

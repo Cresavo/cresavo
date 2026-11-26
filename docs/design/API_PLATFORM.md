@@ -47,6 +47,7 @@ Regenerate after declaration changes with `node --import tsx scripts/api-parity-
 | core | booking-page-profile | planned | planned | available | planned |
 | core | inbox | available | propose | available | planned |
 | core | media-library | available | available | planned | planned |
+| core | phone-receptionist | planned | planned | planned | planned |
 | journal | journal | planned | planned | planned | planned |
 | stock | stock | planned | propose | available | planned |
 | campaigns | campaigns | planned | planned | available | planned |

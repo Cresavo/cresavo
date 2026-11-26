@@ -12,6 +12,11 @@ export function toKey(date: Date): DateKey {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+/** A real calendar day written as YYYY-MM-DD. */
+export function isDateKey(value: string): value is DateKey {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && toKey(fromKey(value)) === value;
+}
+
 export function fromKey(key: DateKey): Date {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d, 12);
@@ -36,6 +41,11 @@ export function weekday(key: DateKey): number {
 export function startOfWeek(key: DateKey): DateKey {
   const wd = weekday(key);
   return addDays(key, wd === 0 ? -6 : 1 - wd);
+}
+
+/** The calendar date of weekday `day` (0 = Sunday) in the week that contains `today`. */
+export function dateInWeek(today: DateKey, day: number): DateKey {
+  return addDays(startOfWeek(today), day === 0 ? 6 : day - 1);
 }
 
 export function monthKey(key: DateKey): string {

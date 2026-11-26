@@ -45,7 +45,7 @@ export function ReviewForm({ state, booking, now, variant = "secondary" }: {
       </fieldset>
       <Field label={t("customerReview.text")}><TextArea aria-label={t("customerReview.text")} value={text} maxLength={2000} required onChange={event => setText(event.target.value)} /></Field>
       <p className="text-meta text-text-secondary">{t("customerReview.help")}</p>
-      {failed && <Notice tone="danger" role="alert">{t("customerReview.failed")}</Notice>}
+      {failed && <Notice tone="warning" role="alert">{t("customerReview.failed")}</Notice>}
       <Button type="submit" variant={variant} disabled={!rating || !text.trim()}>{t("customerReview.submit")}</Button>
     </form>
   );

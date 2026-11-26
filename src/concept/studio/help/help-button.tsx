@@ -19,6 +19,7 @@ export function HelpButton({ compact = false }: { compact?: boolean }) {
       <Button variant="tertiary" size="sm"
         type="button"
         data-help="help-button"
+        data-help-id="shell.help"
         onClick={() => setOpen(true)}
         aria-label={compact ? t("help.button") : undefined}
         className={cx("relative text-text-secondary hover:text-text", compact && "size-target !p-0")}

@@ -16,6 +16,8 @@ const policy = z.strictObject({
   freeHours: policyNumber,
   latePercent: policyNumber,
   noShowPercent: policyNumber,
+  payAtSalonDefault: z.boolean(),
+  payAtSalon: z.record(id, z.boolean()).refine((choices) => Object.keys(choices).length <= MAX_DEPOSITS, "Too many treatments"),
   deposits: z.record(id, policyNumber).refine((deposits) => Object.keys(deposits).length <= MAX_DEPOSITS, "Too many deposits"),
   newCustomersOnly: z.boolean(),
   exemptServices: idList(),

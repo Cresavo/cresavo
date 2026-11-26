@@ -23,8 +23,8 @@ export default function LogPage() {
           onChange={setTab}
           options={[
             { value: "activity", label: t("log.tab.activity") },
-            { value: "trash", label: `${t("log.tab.trash")}${state.trash.length ? ` (${state.trash.length})` : ""}`, help: "log-tab-trash" },
-            { value: "tickets", label: `${t("log.tab.tickets")}${state.tickets.length ? ` (${state.tickets.length})` : ""}` },
+            { value: "trash", label: `${t("log.tab.trash")}${state.trash.length ? ` (${state.trash.length})` : ""}`, help: "log-tab-trash", helpId: "log.trash" },
+            { value: "tickets", label: `${t("log.tab.tickets")}${state.tickets.length ? ` (${state.tickets.length})` : ""}`, helpId: "log.tickets" },
           ]}
         />
         {tab === "activity" && <ActivityList />}

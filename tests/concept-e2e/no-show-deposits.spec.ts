@@ -38,6 +38,10 @@ test("owner configures a deposit and the customer resumes checkout by simulated 
   const treatment = page.getByLabel(label("protection.treatment"));
   const rules = page.locator("form").filter({ has: treatment });
   await treatment.selectOption(service.id);
+  // The demo takes the full price when booking; a smaller deposit is the advanced choice under it.
+  await expect(rules.getByRole("switch", { name: label("protection.payAtSalon"), exact: true })).toHaveAttribute("aria-checked", "false");
+  await expect(rules.getByText(label("protection.dueFull", { amount: formatMinor(service.price * 100, currency) }))).toBeVisible();
+  await rules.getByText(label("protection.smallerDeposit")).click();
   await rules.getByLabel(label("protection.depositInput", { currency })).fill("150");
   await expect(rules.getByText(label("protection.due", { deposit, balance }))).toBeVisible();
   await rules.getByRole("button", { name: label("common.save"), exact: true }).click();
@@ -58,7 +62,7 @@ test("owner configures a deposit and the customer resumes checkout by simulated 
   expect(pending.checkoutHolds).toHaveLength(1);
   const [hold] = pending.checkoutHolds;
   await expect(flow.getByText(freeUntilText(hold, hold.terms.freeHours, Date.parse(day + "T10:00:00+01:00")))).toBeVisible();
-  await expect(flow.getByText(label("protection.simulated"))).toBeVisible();
+  await expect(flow.getByText(label("protection.simulated"))).toHaveCount(0);
   await page.reload();
   await flow.getByRole("radio", { name: label("protection.swish") }).check();
   await flow.getByRole("button", { name: label("protection.pay", { amount: deposit }) }).click();
@@ -76,7 +80,8 @@ test("owner reviews and charges the no-show fee once and sees it in Finance", as
   const initial = englishDemoState(day);
   const label = labels(initial);
   const service = initial.services[0];
-  const terms = quote({ ...initial.cancellationPolicy, noShowPercent: 50 }, service, initial.localization.currency, true);
+  // A visit booked to be paid at the salon: no deposit, so the whole fee is charged.
+  const terms = quote({ ...initial.cancellationPolicy, noShowPercent: 50, payAtSalonDefault: true }, service, initial.localization.currency, true);
   const visit = { ...initial.bookings[0], date: day, start: 540, status: "booked" as const, serviceId: service.id, price: service.price,
     protection: { terms },
   };

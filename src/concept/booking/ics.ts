@@ -11,6 +11,81 @@ export function icsTimestamp(date: Date): string {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+
+/** Hours before the visit while a free-cancellation deadline is still on the public view; otherwise unknown. */
+export function freeHoursFromDeadline(date: string, start: number, freeUntil?: { date: string; time: number }): number | undefined {
+  if (!freeUntil) return undefined;
+  const hours = Math.round(visitTime({ date, start }).diff(visitTime({ date: freeUntil.date, start: freeUntil.time })).as("hours"));
+  return hours > 0 ? hours : undefined;
+}
+
+/** The fields a booking-link page already has: no customer, notes, price or the internal booking id. */
+export interface PublicCalendarVisit {
+  id: string;
+  treatment: string;
+  date: string;
+  start: number;
+  duration: number;
+  staffFirstName: string;
+  salon: { name: string; slug: string; address: string; area?: string };
+  language?: Locale;
+  freeHours?: number;
+}
+
+function publicEventDetails(visit: PublicCalendarVisit) {
+  const language = visit.language ?? "en";
+  const start = visitTime(visit);
+  return {
+    start: icsTimestamp(start.toJSDate()),
+    end: icsTimestamp(start.plus({ minutes: visit.duration }).toJSDate()),
+    title: visit.salon.name
+      ? translate(language, "booking.calendarTitle", { service: visit.treatment, salon: visit.salon.name })
+      : visit.treatment,
+    location: [visit.salon.name, visit.salon.address, visit.salon.area?.split(" · ")[0]].filter(Boolean).join(", "),
+  };
+}
+
+export function publicGoogleCalendarLink(visit: PublicCalendarVisit): string {
+  const event = publicEventDetails(visit);
+  const query = new URLSearchParams({
+    action: "TEMPLATE", text: event.title, dates: `${event.start}/${event.end}`,
+    stz: SALON_TIMEZONE, etz: SALON_TIMEZONE, location: event.location,
+  });
+  return `https://calendar.google.com/calendar/r/eventedit?${query}`;
+}
+
+/** A one-event calendar file from the public booking-link fields, with a reminder one hour before. */
+export function buildPublicIcs(input: PublicCalendarVisit & { createdAt: string }): string {
+  const event = publicEventDetails(input);
+  const { id, salon, staffFirstName, createdAt, language = "en", freeHours } = input;
+  const description = freeHours
+    ? translate(language, "booking.ics.description", { staff: staffFirstName, hours: freeHours })
+    : translate(language, "booking.ics.descriptionShort", { staff: staffFirstName });
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Booking//Appointment//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${id}@${salon.slug}.example`,
+    `DTSTAMP:${createdAt}`,
+    `DTSTART:${event.start}`,
+    `DTEND:${event.end}`,
+    `SUMMARY:${escape(event.title)}`,
+    `DESCRIPTION:${escape(description)}`,
+    `LOCATION:${escape(event.location)}`,
+    "BEGIN:VALARM",
+    "TRIGGER:-PT1H",
+    "ACTION:DISPLAY",
+    `DESCRIPTION:${escape(translate(language, "booking.calendarReminder"))}`,
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+    "",
+  ].join("\r\n");
+}
+
+
 interface CalendarVisit {
   booking: Booking;
   service: Service;

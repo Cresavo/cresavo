@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { reduce, type DemoAction } from "@/concept/actions";
-import { DEFAULT_POLICY, feeMinor, paymentBalance, quote, settleFee } from "@/concept/booking/protection";
+import { DEFAULT_POLICY, feeMinor, paymentBalance, policyRequiresOnlinePayment, quote, requiresOnlinePayment, settleFee } from "@/concept/booking/protection";
 import { changeRule, deadline, visitTime } from "@/concept/booking/policy";
 import { salonCancellationOnly } from "@/concept/booking/settlement";
 import { checkoutReference, resumeCheckout } from "@/concept/booking/deposit-checkout";
@@ -51,6 +51,30 @@ describe("quoted cancellation terms", () => {
     const booking = { date: "2026-10-26", start: 150, status: "booked" as const };
     expect(changeRule(booking, "2026-10-25", 150, Date.parse("2026-10-25T02:30:00+02:00"))).toBe("free");
     expect(changeRule(booking, "2026-10-25", 150, Date.parse("2026-10-25T02:31:00+01:00"))).toBe("late");
+  });
+
+  it("takes the full price by default, nothing for a treatment paid at the salon, and a smaller deposit when one is set", () => {
+    const [first, second] = state.services;
+    const full = (s: typeof first) => quote(DEFAULT_POLICY, s, "SEK", true).depositMinor;
+    expect(full(first)).toBe(first.price * 100);
+    const atSalon = { ...DEFAULT_POLICY, payAtSalonDefault: true, payAtSalon: { [second.id]: false } };
+    expect(quote(atSalon, first, "SEK", true).depositMinor).toBe(0);
+    expect(quote(atSalon, second, "SEK", true).depositMinor).toBe(second.price * 100);
+    const one = { ...DEFAULT_POLICY, payAtSalon: { [first.id]: true }, deposits: { [second.id]: 5000 } };
+    expect(quote(one, first, "SEK", true).depositMinor).toBe(0);
+    expect(quote(one, second, "SEK", true).depositMinor).toBe(5000);
+    expect(quote({ ...one, newCustomersOnly: true }, second, "SEK", false).depositMinor).toBe(0);
+    expect(quote({ ...DEFAULT_POLICY, exemptServices: [first.id] }, first, "SEK", true).depositMinor).toBe(0);
+  });
+
+  it("refuses rules without a payment choice, or with one that is not true or false", () => {
+    const changed = (policy: object) => reduce(state, { type: "salon/policy", policy: policy as typeof DEFAULT_POLICY });
+    const { payAtSalonDefault: _d, ...noDefault } = state.cancellationPolicy;
+    void _d;
+    expect(changed(noDefault)).toBe(state);
+    expect(changed({ ...state.cancellationPolicy, payAtSalon: { [service.id]: "yes" } })).toBe(state);
+    expect(changed({ ...state.cancellationPolicy, payAtSalon: { "s-unknown": true } })).toBe(state);
+    expect(changed({ ...state.cancellationPolicy, payAtSalon: { [service.id]: true } }).cancellationPolicy.payAtSalon).toEqual({ [service.id]: true });
   });
 
   it("rounds once in minor units, caps deposits and applies exemptions", () => {
@@ -296,3 +320,17 @@ describe("booking protection actions", () => {
     expect(recallGuest(initial.salon.slug)).toEqual(optedIn ? { name: hold.guest.name, phone: hold.guest.phone, customerId } : undefined);
   });
 });
+
+describe("hosted prepay", () => {
+  const service = { id: "medical-foot-care", price: 795 };
+  it("treats the product default, and a treatment opted out of pay-at-the-salon, as requiring a payment at booking, even before any treatment exists", () => {
+    expect(policyRequiresOnlinePayment(DEFAULT_POLICY)).toBe(true);
+    expect(policyRequiresOnlinePayment({ payAtSalonDefault: true, payAtSalon: {} })).toBe(false);
+    expect(policyRequiresOnlinePayment({ payAtSalonDefault: true, payAtSalon: { [service.id]: false } })).toBe(true);
+    expect(requiresOnlinePayment(DEFAULT_POLICY, [service], "SEK")).toBe(true);
+    expect(requiresOnlinePayment({ ...DEFAULT_POLICY, payAtSalonDefault: true }, [service], "SEK")).toBe(false);
+    expect(requiresOnlinePayment({ ...DEFAULT_POLICY, payAtSalon: { [service.id]: true } }, [service], "SEK")).toBe(false);
+    expect(requiresOnlinePayment(DEFAULT_POLICY, [], "SEK")).toBe(false);
+  });
+});
+

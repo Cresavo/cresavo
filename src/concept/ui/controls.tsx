@@ -7,7 +7,7 @@ import { cx } from "./cx";
 
 interface SegmentedProps<T extends string> {
   value: T;
-  options: { value: T; label: string; icon?: ReactNode; content?: ReactNode; count?: number; /** Name for the Help button's "Show me". */ help?: string }[];
+  options: { value: T; label: string; icon?: ReactNode; content?: ReactNode; count?: number; /** Name for the Help button's "Show me". */ help?: string; /** Help-map id. */ helpId?: string }[];
   onChange: (value: T) => void;
   label: string;
   className?: string;
@@ -15,12 +15,14 @@ interface SegmentedProps<T extends string> {
   fit?: boolean;
   /** Bare options with a short line under the selected one, for a utility such as the theme switch. */
   quiet?: boolean;
+  /** Help-map id for the whole group. */
+  helpId?: string;
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label, className, fit, quiet }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ value, options, onChange, label, className, fit, quiet, helpId }: SegmentedProps<T>) {
   const selectedIndex = options.findIndex(option => option.value === value);
   return (
-    <div className={cx("inline-block w-fit min-w-0 max-w-full overflow-x-auto align-middle", !quiet && "rounded-md bg-surface-2 p-1", className)}>
+    <div data-help-id={helpId} className={cx("inline-block w-fit min-w-0 max-w-full overflow-x-auto align-middle", !quiet && "rounded-md bg-surface-2 p-1", className)}>
       <div role="radiogroup" aria-label={label} data-unselected={selectedIndex < 0 || undefined} data-fit={fit || undefined} data-quiet={quiet || undefined} className="ui-segments" style={{
         "--segment-count": Math.max(1, options.length), "--segment-index": selectedIndex,
       } as CSSProperties}>
@@ -34,6 +36,7 @@ export function Segmented<T extends string>({ value, options, onChange, label, c
             aria-label={o.icon || o.content ? (o.count === undefined ? o.label : `${o.label} ${o.count}`) : undefined}
             title={o.icon ? o.label : undefined}
             data-help={o.help}
+            data-help-id={o.helpId}
             onClick={() => onChange(o.value)}
             onKeyDown={(event) => {
               const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
@@ -63,7 +66,7 @@ export { Segmented as SegmentedControl };
 
 interface ChoiceCardsProps<T extends string> {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; /** Optional cover photo shown above the label. */ image?: string }[];
   onChange: (value: T) => void;
   label: string;
 }
@@ -93,11 +96,17 @@ export function ChoiceCards<T extends string>({ value, options, onChange, label 
               onChange(options[next].value);
             }}
             className={cx(
-              "ui-press flex min-h-16 items-center justify-center rounded-lg px-3 py-2 text-center text-body font-medium ring-inset",
+              "ui-press flex min-h-16 items-center justify-center rounded-lg text-center text-body font-medium ring-inset",
+              o.image ? "flex-col overflow-hidden p-0 text-left" : "px-3 py-2",
               checked ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-1 ring-input-border hover:bg-surface-2",
             )}
           >
-            {o.label}
+            {o.image && (
+              // A static file from /demo; nothing for the image optimiser to do.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={o.image} alt="" className="setup-cover h-24 w-full object-cover" />
+            )}
+            <span className={o.image ? "px-3 py-2" : undefined}>{o.label}</span>
           </button>
         );
       })}
@@ -110,15 +119,18 @@ interface ChipProps {
   onClick: () => void;
   children: ReactNode;
   count?: number;
+  /** Layout only, such as `flex-1` in a row of equal chips. */
+  className?: string;
 }
 
-export function Chip({ active, onClick, children, count }: ChipProps) {
+export function Chip({ active, onClick, children, count, className }: ChipProps) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
       className={cx(
+        className,
         "inline-flex w-fit min-h-target min-w-target max-w-full items-center gap-2 rounded-full px-3 text-left text-body font-medium ring-1 ring-inset [overflow-wrap:anywhere]",
         active ? "bg-action-bg text-text ring-2 ring-action" : "bg-surface text-text ring-hairline hover:bg-surface-2",
       )}

@@ -28,7 +28,7 @@ export function PrepaidPage({ tab: initial = "giftcards" }: { tab?: PrepaidTab }
       title={title}
       subtitle={giftCards ? tc("giftcards.subtitle", state.giftCards.length) : tc("packages.subtitle", state.packages.length)}
       module="giftcards"
-      actions={<Button icon={<Plus size={18} />} onClick={() => setSelling(true)}>{t(giftCards ? "giftcards.sell" : "packages.sell")}</Button>}
+      actions={<Button data-help-id="giftcards.sell" icon={<Plus size={18} />} onClick={() => setSelling(true)}>{t(giftCards ? "giftcards.sell" : "packages.sell")}</Button>}
     >
       <Tabs
         label={title}

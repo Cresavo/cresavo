@@ -1,14 +1,22 @@
 import { formatTime } from "../i18n/format";
+import { openingFor } from "../data/slots";
 import Image from "next/image";
 import { Clock, Star } from "lucide-react";
-import { openingFor } from "../data/slots";
 import type { DemoState } from "../data/types";
 import { t, tc } from "../i18n";
 import { PHOTOS, type PhotoId } from "../page/theme";
 import type { Now } from "../use-now";
 import { Badge } from "../ui/badge";
 import { buttonClass } from "../ui/button";
+import { openStatus, type OpenStatus } from "./open-status";
 import { reviewSummary } from "./reviews";
+
+/** "Open now until 18:00", "Closing soon, until 18:00", "Closed for lunch until 13:00" or "Closed now". */
+export function openStatusText(status: OpenStatus): string {
+  if (status.kind === "closed") return t("booking.closedNow");
+  const key = ({ open: "booking.openNow", closingSoon: "booking.closingSoon", lunch: "booking.lunchNow" } as const)[status.kind];
+  return t(key, { until: formatTime(status.until) });
+}
 
 interface HeroProps {
   state: DemoState;
@@ -23,7 +31,8 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
   const { salon } = state;
   const { average, count } = reviewSummary(state.modules.reviews ? state.reviews : []);
   const hours = openingFor(salon, now.today);
-  const open = !!hours && now.minutes >= hours.open && now.minutes < hours.close;
+  const status = openStatus(salon, now.today, now.minutes);
+  const open = status.kind === "open" || status.kind === "closingSoon";
   const image = (sizes: string) => <Image src={PHOTOS[photo]} alt={t("booking.heroAlt", { name: salon.name })} fill loading="eager" fetchPriority="high" sizes={sizes} className="object-cover" />;
   const facts = (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-text-secondary">
@@ -45,7 +54,7 @@ export function Hero({ state, now, variant, photo }: HeroProps) {
           {/* On a phone the opening status is a line of its own, so no separator is left dangling. */}
           {salon.address && <span aria-hidden className="hidden sm:inline">·</span>}
           <Badge icon={Clock} tone={open ? "accent" : "neutral"} className="w-full sm:w-auto">
-            {open ? t("booking.openNow", { until: formatTime(hours.close) }) : t("booking.closedNow")}
+            {openStatusText(status)}
           </Badge>
         </>
       )}

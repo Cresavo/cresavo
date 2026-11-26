@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { BellRing, CalendarDays } from "lucide-react";
-import { addDays, fromKey } from "../data/dates";
+import { addDays, monthKey } from "../data/dates";
 import { openingFor } from "../data/slots";
 import type { DateKey, DemoState, StaffId } from "../data/types";
 import { t } from "../i18n";
-import { dayChipLabel, formatDayLong, formatTime } from "../i18n/format";
+import { formatDayLong, formatTime } from "../i18n/format";
 import { Button } from "../ui/button";
-import { SegmentedControl, Select } from "../ui/controls";
+import { Select } from "../ui/controls";
 import { EmptyState } from "../ui/empty-state";
+import { MonthGrid } from "../ui/month-grid";
 import { openSlots, type Clock, type OpenSlot } from "./suggest";
 
 const DAYS_SHOWN = 14;
@@ -65,11 +66,12 @@ export function OtherTimes({ state, serviceId, staffId, clock, selected, onPick,
   );
 }
 
-/** Two rows: pick a day, then a time. Full days say so and offer the waiting list. */
+/** A month to pick the day from, with that day's times beside it (under it when narrow). Full days say so and offer the waiting list. */
 export function TimePicker({ state, serviceId, staffId, clock, onPick, onWaitlist, ignoreId, disabled }: TimePickerProps) {
   const days = useMemo(() => availableDays(state, serviceId, clock, staffId, ignoreId), [state, serviceId, clock, staffId, ignoreId]);
   const [chosen, setChosen] = useState<DateKey>();
   const selected = days.find((d) => d.date === chosen) ?? days.find((d) => d.slots.length) ?? days[0];
+  const [shown, setShown] = useState<string>();
 
   if (!selected) {
     const { phone, email } = state.salon;
@@ -83,53 +85,66 @@ export function TimePicker({ state, serviceId, staffId, clock, onPick, onWaitlis
     );
   }
 
+  const byDate = new Map(days.map((day) => [day.date, day.slots]));
+  const first = monthKey(days[0].date);
+  const last = monthKey(days[days.length - 1].date);
+  const month = shown && shown >= first && shown <= last ? shown : monthKey(selected.date);
+  const availability = (slots: OpenSlot[]) => slots.length ? t("booking.times", { count: slots.length }) : t("booking.full");
+
   return (
-    <div className="space-y-4">
-      <SegmentedControl label={t("booking.pickDay")} value={selected.date} onChange={setChosen} options={days.map(({ date, slots }) => {
-        const day = dayChipLabel(date, clock.today);
-        const number = fromKey(date).getDate();
-        const availability = slots.length ? t("booking.times", { count: slots.length }) : t("booking.full");
-        return {
-          value: date,
-          label: `${day} ${number} ${availability}`,
-          content: <span className="flex flex-col py-2 text-meta">
-            <span>{day}</span>
-            <span className="text-h3 font-semibold">{number}</span>
-            <span>{availability}</span>
-          </span>,
-        };
-      })} />
+    <div className="ui-day-time">
+      <div className="ui-day-time-layout">
+        <MonthGrid
+          month={month}
+          today={clock.today}
+          selected={selected.date}
+          label={t("booking.pickDay")}
+          minMonth={first}
+          maxMonth={last}
+          onMonth={setShown}
+          onSelect={(date) => { setChosen(date); setShown(monthKey(date)); }}
+          info={(date) => {
+            const slots = byDate.get(date);
+            return slots ? { mark: slots.length > 0, note: availability(slots) } : { disabled: true };
+          }}
+        />
 
-      <p className="text-meta font-medium">{formatDayLong(selected.date)}</p>
+        <div className="min-w-0 space-y-3">
+          <p aria-live="polite" className="text-body font-medium first-letter:uppercase">
+            {formatDayLong(selected.date)}
+            <span className="ml-2 text-meta font-normal text-text-secondary">{availability(selected.slots)}</span>
+          </p>
 
-      {selected.slots.length ? (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {selected.slots.map((slot) => (
-            <Button
-              key={slot.start}
-              variant="secondary"
-              size="sm"
-              onClick={() => onPick(slot)}
-              disabled={disabled}
-              className="flex-col !gap-1 !px-2"
-            >
-              {ignoreId ? <>
-                {t("booking.move.confirm", { when: formatTime(slot.start) })}
-                <span className="text-meta text-text-secondary">{state.staff.find(person => person.id === slot.staffId)?.firstName}</span>
-              </> : formatTime(slot.start)}
-            </Button>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-3 rounded-lg bg-surface-2 p-4">
-          <p className="text-body">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
-          {state.modules.waitlist && (
-            <Button icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
-              {t("booking.notifyMe")}
-            </Button>
+          {selected.slots.length ? (
+            <div className="ui-slot-grid gap-2">
+              {selected.slots.map((slot) => (
+                <Button
+                  key={slot.start}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onPick(slot)}
+                  disabled={disabled}
+                  className="flex-col !gap-1 !px-2"
+                >
+                  {ignoreId ? <>
+                    {t("booking.move.confirm", { when: formatTime(slot.start) })}
+                    <span className="text-meta text-text-secondary">{state.staff.find(person => person.id === slot.staffId)?.firstName}</span>
+                  </> : formatTime(slot.start)}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-lg bg-surface-2 p-4">
+              <p className="text-body">{t("booking.dayFull", { day: formatDayLong(selected.date) })}</p>
+              {state.modules.waitlist && (
+                <Button icon={<BellRing size={16} />} onClick={() => onWaitlist(selected.date)}>
+                  {t("booking.notifyMe")}
+                </Button>
+              )}
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

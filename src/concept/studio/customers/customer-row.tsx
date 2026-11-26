@@ -18,7 +18,7 @@ interface CustomerRowProps {
 export function CustomerRow({ customer, stats, today, late, due }: CustomerRowProps) {
   const nextBooking = stats?.nextBooking;
   return (
-    <ListRow href={`/studio/customers/${customer.id}`}
+    <ListRow href={`/studio/customers/${customer.id}`} helpId="customers.row"
       title={<span className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 break-words">{fullName(customer)}</span>
         {late && <Badge tone="warn">{t("customers.badge.late")}</Badge>}

@@ -111,7 +111,7 @@ sandbox check passes.
 | `GATEWAY_SERVICE_TOKEN` | One shared 32-byte random, lowercase hex secret for these two projects only. |
 
 The gateway's `SALON_ORIGIN` is `https://sandbox.cresavo.com`. Use its existing
-remote-mode and shared-limit settings. Never enable the consent/SMS/OAuth lab,
+remote-mode and shared-limit settings. Never enable the consent lab, customer agent OAuth (`AGENT_OAUTH`),
 owner pairing, read-only product demo, or live providers in the sandbox project.
 The sandbox recognizes only its custom domain for browser and provider
 traffic. The reset endpoint also accepts the exact Vercel production hostname

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { sandboxConfig } from "@/lib/agent-api/sandbox/config";
+import { SANDBOX_INCOMPATIBLE_FLAGS, SANDBOX_INCOMPATIBLE_SETTINGS, sandboxConfig } from "@/lib/agent-api/sandbox/config";
 import { letAiBookGuide } from "@/app/let-ai-book/guide";
 import { proxy } from "@/proxy";
 
@@ -32,10 +32,20 @@ it("limits the sealed profile to its actual production project and caps hosted s
   expect(() => sandboxConfig({ ...hosted, NEXT_PUBLIC_CONCEPT_PUBLIC_DEMO: "1" })).toThrow();
   expect(() => sandboxConfig({ ...hosted, DATABASE_URL: hosted.DATABASE_URL.replace("verify-full", "require") })).toThrow();
   expect(() => sandboxConfig({ ...hosted, DATABASE_URL: hosted.DATABASE_URL + "&ssl=false" })).toThrow();
-  for (const [key, value] of Object.entries(hosted)) vi.stubEnv(key, value);
+  // proxy() and sandboxConfig() read process.env. A developer machine may have
+  // an AI key or other incompatible setting in the environment; the sealed
+  // hosted profile must be tested without those leftovers, or the proxy returns 503.
+  const applyHosted = () => {
+    for (const key of [...SANDBOX_INCOMPATIBLE_FLAGS, ...SANDBOX_INCOMPATIBLE_SETTINGS]) vi.stubEnv(key, undefined);
+    for (const [key, value] of Object.entries(hosted)) vi.stubEnv(key, value);
+  };
+  applyHosted();
   try {
     const origin = hosted.BOOKING_SANDBOX_ORIGIN;
     const req = (path: string) => new NextRequest(origin + path, { headers: { host: new URL(origin).host } });
+    vi.stubEnv(SANDBOX_INCOMPATIBLE_SETTINGS[0], "synthetic-not-a-secret");
+    expect(proxy(req("/")).status).toBe(503);
+    applyHosted();
     expect(proxy(req("/")).headers.get("location")).toBe(origin + "/sandbox?lang=sv");
     expect(proxy(req("/admin")).status).toBe(404);
     expect(proxy(req("/api/pairing/sweep")).status).toBe(404);

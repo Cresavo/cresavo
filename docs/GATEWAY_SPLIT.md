@@ -19,9 +19,9 @@ dependencies, and no code is imported between the checkouts.
 
 | Entry point | Where | Who uses it | Status |
 | --- | --- | --- | --- |
-| Gateway REST v1 and MCP (`/api/v1/*`, `/api/v1/mcp`) | `Cresavo/gateway` | Customers' agents | The intended public entry. Not hosted yet |
-| Provider API `/api/v1` | This repository, `src/app/api/v1` | The gateway in split mode; direct clients in standalone mode | Local and sandbox |
-| Embedded HTTP MCP `/api/v1/mcp` | This repository | Direct agents in standalone mode | Returns 404 in split mode. Build new customer tools in the gateway |
+| Embedded HTTP MCP `/api/v1/mcp` | This repository | Customers' agents booking at Cresavo salons | The intended public entry ([ADR 7](design/ARCHITECTURE_DECISIONS.md)). Needs the gateway's transport controls and OAuth before public use. Returns 404 in split mode |
+| Provider API `/api/v1` | This repository, `src/app/api/v1` | Direct clients; the gateway in split mode | Local and sandbox |
+| Gateway REST v1 and MCP (`/api/v1/*`, `/api/v1/mcp`) | `Cresavo/gateway` | Other booking systems that implement the provider contract | Optional and not hosted for Cresavo |
 | Owner MCP `/mcp/owner` | This repository, OAuth pairing | The owner's own assistant | Flag-controlled pairing preview, see [CONNECT_AI_ASSISTANT](CONNECT_AI_ASSISTANT.md) |
 | Concept demo MCP `/api/concept/mcp` | This repository, shared demo bearer token | An assistant trying the in-memory Salong Eko copy on a local concept server | Local only; returns 403 on the public read-only demo |
 | Local MCP server (stdio) | This repository, `npm run mcp` | A local assistant on the owner's machine | Local, against a disposable database |
@@ -41,20 +41,38 @@ mode and scopes. The salon checks access to each operation or booking object
 again. It keeps atomic mandate use and conflict protection even when the
 connection to the gateway breaks.
 
-## Limits of the separate lab channel
+## Customer consent: the one-time e-mail code
 
-The fixed synthetic contact shares the ordinary limit of 3 bookings per day per
-business across all clients. Spread trials over several days or use a new test
-database; do not raise or bypass the quota to get green results. The customer
-receipt is a secret, and the client must not have the server's file access, not
-even through the same uid. The operator deletes the receipt; the server has no
-automatic cleanup. A failed delivery can leave a pending row until its TTL
-expires, without the agent receiving any token or mandate.
+Customer consent has one profile (ADR 7, issue #187). A proposal gives the agent
+`approvalRequired: true`, `approvalDelivery: "customer-email-code"` and a
+`consentUrl` that carries no secret, so the link may be shown to the person,
+also through an assistant. On that page the customer types their own address,
+receives a six-digit code there and approves or declines with it: the link alone
+decides nothing. A code lives 600 seconds, five wrong tries lock it, a new code
+can be sent once a minute and at most five times per proposal. Only the
+address's digest and a mask are stored. At booking, the customer's address must
+be the one that returned the code, or the result is `mandate_denied`.
+`get_proposal` repeats `consentUrl` while the proposal is pending, and asks an
+MCP client on the 2026-07-28 protocol that declares URL elicitation on the
+request to open the page for the person. Clients on the 2025 protocol always get
+the ordinary answer: a stateless server cannot see what they declared at
+`initialize`.
 
-Grok verified local synthetic use on `721d445`/`f9b8506`, not real identity. The
-later gateway docs commit `1617de1` exposes existing proposals in the gateway's
-own OpenAPI; the provider and gateway docs are separate files. The product code
-was unchanged.
+Consent runs only as a local lab (`BOOKING_CONSENT_LAB=1`): loopback origin, a
+guarded `_test` database and no cloud marker. It accepts only `@example.test`
+addresses and delivers to a process-local inbox. For a proof that runs the salon
+in another process, the operator sets `BOOKING_CONSENT_INBOX_DIR` to a private
+directory it created in the system temp folder (prefix `booking-consent-inbox-`,
+mode 0700); the newest code for each proposal is written there as
+`<proposalId>.json` (mode 0600). Treat the code as a one-time credential: no raw
+receipts in Git, logs, model prompts or screenshots. The client must not have
+the server's file access, not even through the same uid, and there is no HTTP or
+MCP reader for the inbox. Real delivery through the e-mail outbox and real
+customer identification remain open decisions.
+
+The bearer approval link (`approvalUrl`), the separate synthetic channel and the
+SMS code lab were removed in migration `20261125090000_email_code_only`. Older
+rows keep their delivery and mandate values; no new row can use them.
 
 ## Run the acceptance proof locally
 
@@ -240,36 +258,32 @@ uses the account's ordinary model quota. No API key, new service or automatic CI
 model run is introduced. The flag is refused in CI before any services start.
 Ordinary `test:pair` keeps its earlier behaviour.
 
-The current native proof uses `BOOKING_CONSENT_DELIVERY=separate-lab`. The
-runner creates its own private temporary directory with the prefix
-`booking-consent-inbox-`, gives its address only to the salon and the test
-operator, and cleans it up in `finally`. Neither the agent process nor the
-gateway receives the directory. The migration
-`20261116100000_separate_customer_channel` is required: it adds a nullable
-delivery profile and a narrow synthetic `verifiedVia` value. Historical
-migrations and PostgreSQL's overlap protection do not change.
+The runner creates its own private temporary directory with the prefix
+`booking-consent-inbox-`, gives its address only to the salon
+(`BOOKING_CONSENT_INBOX_DIR`) and the test operator, and cleans it up in
+`finally`. Neither the agent process nor the gateway receives the directory.
 
 The proof starts a local consent lab in the salon, protected by the test
 database guard. It then:
 
 1. Codex reads services and availability through the gateway's real HTTP MCP.
    It chooses a massage with Anna on the next weekday, 30 minutes, at most
-   450 SEK, and creates a proposal. The answer contains `approvalRequired=true`
-   and `approvalDelivery=separate-synthetic-customer`, with no URL or token,
-   contact or directory address. No booking or mandate may exist at that point.
+   450 SEK, and creates a proposal. The answer contains `approvalRequired=true`,
+   `approvalDelivery=customer-email-code` and a `consentUrl` with no fragment or
+   query. No booking or mandate may exist at that point.
 2. A separate negative HTTP check requires `400 mandate_required` without a mandate.
-3. The test operator receives the link through the separate local customer
-   inbox, outside HTTP and MCP. A separate automated synthetic customer opens it
-   in Chromium and approves exactly the service, staff, location, time and
-   price. The existing UI creates the server mandate. An HTTP attempt outside
-   the approved time must give `403 mandate_denied`.
+3. An automated synthetic customer opens the consent link in Chromium and types
+   their address. A decision without the code must give `403`. The customer
+   sends the code, the operator reads it from the private inbox, outside HTTP
+   and MCP, and the customer approves exactly the service, staff, location, time
+   and price. HTTP attempts outside the approved time or with another customer
+   address must give `403 mandate_denied`.
 4. Codex gets the same business context and proposal id in a new client run,
    reads the approval and books. It repeats the same payload and key and reads
    the status. Requirements: two successful create calls, the same id, one
-   booking row and the right mandate link. The customer is the server's
-   immutable v1 fixture `Separat Demokund`, `separate-customer@example.test`.
-   The agent cannot change the contact or choose another recipient through
-   JSON. The profile follows the proposal across a configuration change.
+   booking row and the right mandate link. The customer is the synthetic
+   `Syntetisk Kodkund`, `codex-customer@example.test`, the address that returned
+   the code. Neither the code nor the inbox reaches the agent.
 5. An ordinary individual admin sign-in and a calendar click open the same
    booking id. The proof's own keys are revoked before only its own fixtures
    are cleaned up.
@@ -277,31 +291,10 @@ database guard. It then:
 This proves a real model-driven Codex CLI, not ChatGPT's mobile or web
 interface. The customer approval is automated with an invented identity. It
 does not prove real customer authentication, pilot readiness or that a human
-clicked. The secret in the customer inbox must be treated as a one-time
-credential: no raw receipts or links in Git, logs, model prompts or
-screenshots. POSIX requires a private directory (0700), and the receipt is
-created exclusively with 0600. Windows ACLs are not independently qualified;
-the test claims no isolation from anyone who already has the server's file
-system or database access. There is no HTTP or MCP reader for the inbox.
-
-A historical recheck on `13e0179` confirmed the legacy lab's limit: whoever
-received the link through MCP could open it in a new browser without a customer
-sign-in and approve. That the agent's Authorization header is refused on the
-customer route, or that an approve MCP tool is missing, therefore does not
-guarantee separate customer approval. The OTP lab requires a code, but simulated
-delivery and a client-chosen phone number prove no intended customer. See the
-current identity assessment in [PRIVACY_SECURITY](PRIVACY_SECURITY.md).
-
-Compatibility: without `BOOKING_CONSENT_DELIVERY`, the older local lab contract,
-also called `legacy-agent-link`, still applies. It must not be described as
-independent customer approval. The new profile is opt-in and cannot be chosen
-by the agent. It refuses to combine with simulated OTP, cloud markers, an unsafe
-directory or a non-local origin or test database. An old pending lab-link
-approval is refused once `separate-lab` is enabled; the new profile's customer
-binding cannot be downgraded by switching the setting back later. A delivery
-failure gives no mandate and no fallback to handing the link to the agent; an
-already saved pending proposal can remain until it expires. This is not a
-production queue or a guaranteed delivery service.
+clicked. POSIX requires a private directory (0700), and the code receipt is
+written with 0600. Windows ACLs are not independently qualified; the test claims
+no isolation from anyone who already has the server's file system or database
+access. See the current identity assessment in [PRIVACY_SECURITY](PRIVACY_SECURITY.md).
 
 The client gets a temporary business key in its process environment and only
 six named MCP tools. The database address, session secret and service key are
@@ -319,11 +312,9 @@ provider's data retention. Use only synthetic catalogue and booking data.
 Two separate client runs keep the approval outside the agent. The business id
 must be kept between them: it is not currently part of the `get_proposal`
 response. The agent should stop and ask if it is missing, not guess. REST and
-MCP use the same domain logic. In the new server-chosen profile the legacy field
-`approvalUrl` is left out; otherwise the old tool names and booking contract
-remain. See `agent-api-v1.openapi.yaml`. Real recipients, identification and
-delivery need a later decision, not new customer registers or real messages in
-this proof.
+MCP use the same domain logic. See `agent-api-v1.openapi.yaml`. Real recipients,
+identification and delivery need a later decision, not new customer registers or
+real messages in this proof.
 
 See the official documentation for [Codex HTTP MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
 and [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).

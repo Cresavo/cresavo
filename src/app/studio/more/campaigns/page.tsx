@@ -24,7 +24,7 @@ export default function CampaignsPage() {
 
   if (state.industry && !state.campaigns.length) {
     return <MorePage title={t("nav.campaigns")} module="campaigns">
-      <EmptyState icon={<Megaphone size={22} />} title={t("setup.empty.campaigns")} action={<ButtonLink href="/studio/more/campaigns/new">{t("campaigns.new")}</ButtonLink>} />
+      <EmptyState icon={<Megaphone size={22} />} title={t("setup.empty.campaigns")} action={<ButtonLink href="/studio/more/campaigns/new" helpId="campaigns.new">{t("campaigns.new")}</ButtonLink>} />
     </MorePage>;
   }
 
@@ -34,8 +34,8 @@ export default function CampaignsPage() {
       subtitle={t("campaigns.subtitle")}
       module="campaigns"
       actions={<>
-        <ButtonLink href={PHOTOS_PAGE} variant="secondary" icon={<Images size={18} />}>{t("photos.title")}</ButtonLink>
-        <ButtonLink href="/studio/more/campaigns/new" icon={<Plus size={18} />}>{t("campaigns.new")}</ButtonLink>
+        <ButtonLink href={PHOTOS_PAGE} helpId="campaigns.photos" variant="secondary" icon={<Images size={18} />}>{t("photos.title")}</ButtonLink>
+        <ButtonLink href="/studio/more/campaigns/new" helpId="campaigns.new" icon={<Plus size={18} />}>{t("campaigns.new")}</ButtonLink>
       </>}
     >
       <div className="space-y-8">

@@ -1,20 +1,19 @@
 import { timingSafeEqual } from "node:crypto";
 import { auditContext, recordAudit } from "./audit";
 import { isPublicReadonly, readonlyForbidden } from "../public-readonly";
-import { fixtureStaff } from "../public-fixtures";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { z, ZodError } from "zod";
 import { db } from "../db";
 import { DEMO_BUSINESS_ID } from "../config";
 import { DomainError } from "../errors";
+import { checkAgentAddress } from "./address-limits";
 import { checkRateLimit } from "../rate-limit";
 import { getBookingProvider, type BookingProvider } from "./provider";
 import { sandboxRequested } from "./sandbox/config";
 import { parseDay, ZONE } from "../time";
 import { dateSchema } from "../validation";
 import { AgentApiError, agentApiErrors, type AgentApiErrorCode } from "./errors";
-import { discoveryOrigin } from "./discovery";
 import { DEMO_LOCATION_ID, placeForStaff } from "./place";
 import {
   assertBusinessAccess,
@@ -28,7 +27,7 @@ export const MAX_RANGE_DAYS = 14;
 
 // Closed synthetic business allowlist; provider registration cannot widen it.
 // Every request is checked against the credential business (OWASP API1 / BOLA).
-const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
+export const BUSINESSES: Record<string, { id: string; name: string; timeZone: string; locationId: string }> = {
   "lab-partner": { id: "lab-partner", name: "Synthetic partner lab", timeZone: ZONE, locationId: DEMO_LOCATION_ID },
   [DEMO_BUSINESS_ID]: {
     id: DEMO_BUSINESS_ID,
@@ -42,11 +41,9 @@ const id = z.string().trim().min(1).max(128);
 
 const headers = { "Cache-Control": "no-store", "X-Booking-Lab-Api": API_VERSION };
 
+// The shared REST and MCP entry takes agent keys only; OAuth lives on each salon's MCP resource.
 function authChallenge(code: AgentApiErrorCode) {
-  let metadata = "";
-  try { metadata = `, resource_metadata="${discoveryOrigin()}/.well-known/oauth-protected-resource"`; }
-  catch { /* Invalid operator configuration: never fall back to request headers. */ }
-  return `Bearer realm="booking-lab-agent-api"${metadata}${code === "forbidden_scope" ? ', error="insufficient_scope"' : ""}`;
+  return `Bearer realm="booking-lab-agent-api"${code === "forbidden_scope" ? ', error="insufficient_scope"' : ""}`;
 }
 
 export function agentErrorResponse(code: AgentApiErrorCode, retryAfter?: number) {
@@ -155,7 +152,10 @@ async function agentRouteInternal(
   }
   let principal: AgentPrincipal | null = null;
   try {
+    await checkAgentAddress(request.headers, route === "POST /api/v1/proposals" ? "proposal" : route === "POST /api/v1/bookings" ? "booking" : undefined);
     principal = await authenticateAgent(request.headers, db, scope);
+    // A customer agent's OAuth token is bound to its salon's MCP resource, not to REST.
+    if (principal.grantId) throw new AgentApiError("unauthorized");
     await checkRateLimit("agent-api", `client:${principal.clientId}`);
     const result = await handler(principal, new URL(request.url).searchParams, request);
     const status = result instanceof Created ? 201 : 200;
@@ -177,16 +177,6 @@ export function business(principal: AgentPrincipal, value: unknown) {
   const found = BUSINESSES[requested.data];
   if (!found) throw new AgentApiError("business_not_found");
   return found;
-}
-
-export async function activeStaff() {
-  if (isPublicReadonly()) return fixtureStaff();
-  return db.staff.findMany({
-    where: { businessId: DEMO_BUSINESS_ID, active: true },
-    select: { id: true, name: true, serviceIds: true },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-    take: 100,
-  });
 }
 
 export function serviceView(

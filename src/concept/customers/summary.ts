@@ -1,5 +1,7 @@
 import { diffDays } from "../data/dates";
 import type { Customer, DemoState } from "../data/types";
+import { getActiveLocale, translate, type MessageKey } from "../i18n";
+import type { Locale } from "@/lib/locale";
 import { findService } from "../selectors";
 
 // The customer card's one-line summary. The facts are computed here from the
@@ -60,14 +62,21 @@ export function buildCustomerFacts(state: DemoState, customer: Customer): Custom
   };
 }
 
-/** Rule-based summary: the facts as one short line. */
-export function summarizeFallback(facts: CustomerFacts): string {
-  const preferences = [facts.prefersStaff, facts.timeOfDay].filter(Boolean).join(", ");
+const TIME_OF_DAY: Record<TimeOfDay, MessageKey> = {
+  mornings: "customer.summary.mornings",
+  afternoons: "customer.summary.afternoons",
+  evenings: "customer.summary.evenings",
+};
+
+/** Rule-based summary: the facts as one short line, in the given language (or the Studio's current one). */
+export function summarizeFallback(facts: CustomerFacts, lang: Locale = getActiveLocale()): string {
+  const time = facts.timeOfDay ? translate(lang, TIME_OF_DAY[facts.timeOfDay]) : null;
+  const preferences = [facts.prefersStaff, time].filter(Boolean).join(", ");
   const parts = [
-    `${facts.regular ? "Regular" : "Customer"} since ${facts.sinceYear}`,
-    facts.service && facts.intervalWeeks ? `${facts.service.toLowerCase()} every ${facts.intervalWeeks} weeks` : facts.visits ? null : "no visits yet",
+    translate(lang, facts.regular ? "customer.summary.regularSince" : "customer.summary.customerSinceYear", { year: String(facts.sinceYear) }),
+    facts.service && facts.intervalWeeks ? translate(lang, "customer.summary.everyWeeks", { service: facts.service.toLowerCase(), weeks: facts.intervalWeeks }) : facts.visits ? null : translate(lang, "customer.summary.noVisits"),
     ...facts.traits,
-    preferences ? `prefers ${preferences}` : null,
+    preferences ? translate(lang, "customer.summary.prefers", { preferences }) : null,
   ];
   return `${parts.filter(Boolean).join(", ")}.`;
 }

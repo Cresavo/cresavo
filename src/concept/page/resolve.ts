@@ -1,6 +1,6 @@
 import { DEMO_DIRECTORY } from "./directory";
 import { productDomain } from "./address";
-import { checkSlug } from "./slug";
+import { checkSlug, PRODUCT_PATH_SLUGS } from "./slug";
 
 // One place that turns a request's host into a business. The proxy asks it
 // for every request; the tests pin the rules.
@@ -53,6 +53,10 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
     const label = host.slice(0, -product.length - 1);
     const check = checkSlug(label);
     if (check.ok) return { kind: "business", slug: check.slug, via: "subdomain" };
+    const slug = label.trim().toLowerCase();
+    if (check.problem === "reserved" && PRODUCT_PATH_SLUGS.includes(slug)) {
+      return { kind: "business", slug, via: "subdomain" };
+    }
     return { kind: "unknown", reason: check.problem === "reserved" ? "reserved" : "invalid" };
   }
   return { kind: "unknown", reason: "not-connected" };
@@ -61,12 +65,14 @@ export function resolveHost(rawHost: string | null | undefined, directory: Direc
 export const UNKNOWN_PATH = "/unknown-address";
 export const COMING_SOON_PATH = "/coming-soon";
 
-/** The product site's public pages (home and about, in both languages), which search engines may index. The front door can also arrive at its rewritten path on an internal host. */
+/** The product site's public pages, in both languages, which search engines may index. The front door can also arrive at its rewritten path on an internal host. */
+const PRODUCT_PAGES = new Set(["/", "/sv", "/about", "/sv/about", "/own-domain", "/sv/own-domain", COMING_SOON_PATH]);
+
 export function isProductHome(rawHost: string | null | undefined, pathname: string): boolean {
   const host = normalizeHost(rawHost);
   const resolution = resolveHost(host);
   if (resolution.kind === "site" && resolution.site === "apex") {
-    return pathname === "/" || pathname === "/sv" || pathname === "/about" || pathname === "/sv/about" || pathname === COMING_SOON_PATH;
+    return PRODUCT_PAGES.has(pathname);
   }
   return (pathname === COMING_SOON_PATH || pathname === "/sv") &&
     Boolean(process.env.NEXT_PUBLIC_CONCEPT_PRODUCT_DOMAIN) && (!host || LOCAL_HOSTS.has(host));
@@ -92,6 +98,18 @@ export function ownerViewHref(rawHost: string | null | undefined, protocol = "ht
   return `${underProduct ? protocol : "https:"}//demo.${product}${port ? `:${port}` : ""}/studio`;
 }
 
+/** Swedish aliases such as cresavo.se are only a door to the Swedish product site. Known public paths keep their page (so /own-domain becomes /sv/own-domain); anything else lands on the Swedish home. */
+const SWEDISH_SITE_PAGES = new Set(["/privacy", "/about", "/own-domain"]);
+
+export function swedishAliasPath(pathname: string): string {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  const unprefixed = path === "/sv" ? "/" : path.startsWith("/sv/") ? path.slice(3) : path;
+  if (unprefixed === "/" ) return "/sv";
+  if (SWEDISH_SITE_PAGES.has(unprefixed)) return `/sv${unprefixed}`;
+  if (unprefixed === "/showcase" || unprefixed.startsWith("/showcase/")) return unprefixed;
+  return "/sv";
+}
+
 /** Public booking pages live at the root of a business's own address; everything else stays on the product host. */
 const PUBLIC_PREFIXES = ["/_next/", "/demo/", "/tenant/", "/favicon"];
 const BOOKING_PATHS = /^\/(?:me|gift|widget|booking\/[^/]+)\/?$/;
@@ -106,8 +124,7 @@ export function routeHost(rawHost: string | null | undefined, pathname: string, 
   const resolution = resolveHost(rawHost, directory, product);
   if (resolution.kind === "app" || resolution.kind === "site") {
     if (resolution.kind === "site" && resolution.site === "swedish-alias") {
-      const privacy = /^\/(?:sv\/)?privacy\/?$/.test(pathname);
-      return { action: "redirect", targetHost: product, path: privacy ? "/sv/privacy" : "/sv" };
+      return { action: "redirect", targetHost: product, path: swedishAliasPath(pathname) };
     }
     const root = pathname === "/" || pathname === "";
     if (resolution.kind === "site" && resolution.site === "demo" && (root || pathname === COMING_SOON_PATH)) {

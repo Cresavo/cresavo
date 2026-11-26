@@ -8,7 +8,8 @@ import { t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
 import { salonClock } from "../tools/clock";
 import { Button } from "../ui/button";
-import { Input } from "../ui/controls";
+import { ChoiceCards } from "../ui/controls";
+import { StatusDot } from "../ui/feedback";
 import { useCommit } from "../ui/use-commit";
 import { showActionFailure } from "../ui/toast";
 import { type CheckoutHold, type DemoMethod } from "./protection";
@@ -56,6 +57,7 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
 }) {
   const [method, setMethod] = useState<DemoMethod>("card");
   const [run, pending] = useCommit();
+  const [paying, setPaying] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, []);
   useEffect(() => {
@@ -66,7 +68,9 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
     return () => window.clearTimeout(timer);
   }, [hold, target]);
   const pay = () => run(async () => {
+    setPaying(true);
     const paid = await commitHold(target, { type: "online/pay", id: hold.id, method });
+    setPaying(false);
     // The saved state is this payment's: its newest booking is the one the hold became.
     const booked = paid?.state.bookings.at(-1);
     if (booked) onPaid(booked);
@@ -77,6 +81,7 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
     else showActionFailure("booking.visitChanged", undefined, "booking");
   });
   const expiry = salonClock(new Date(hold.expiresAt));
+  const methods = depositMethods(hold.terms.depositMinor, hold.terms.currency);
   return <div className="space-y-4">
     <h2 ref={heading} tabIndex={-1} className="text-h2 font-semibold">{t("protection.checkout")}</h2>
     <div className="booking-checkout">
@@ -86,18 +91,18 @@ export function DepositCheckout({ target, hold, serviceName, now, phone, package
       </div>
       <BookingSummary slot={hold} terms={hold.terms} now={now} phone={phone} packagesEnabled={packagesEnabled} />
       <div className="space-y-4">
-        <fieldset className="space-y-1">
-          <legend className="text-body font-medium">{t("protection.method")}</legend>
-          <div className="flex flex-wrap gap-4">
-            {depositMethods(hold.terms.depositMinor, hold.terms.currency).map(m =>
-              <label key={m} className="inline-flex min-h-target min-w-target cursor-pointer items-center gap-2 text-body">
-                <Input type="radio" name="deposit-method" checked={method === m} onChange={() => setMethod(m)} /> {t(`protection.${m}`)}
-              </label>)}
+        {/* The same choice as the phone pay page: one card per way to pay, right above the button, and none when there is only one. */}
+        {methods.length > 1 && <div className="space-y-2">
+          <p className="text-body font-medium">{t("protection.method")}</p>
+          <ChoiceCards label={t("protection.method")} value={method} onChange={setMethod}
+            options={methods.map(value => ({ value, label: t(`protection.${value}`) }))} />
+        </div>}
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={pending} loading={paying} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
+            <Button variant="tertiary" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
           </div>
-        </fieldset>
-        <div className="flex flex-wrap gap-2">
-          <Button disabled={pending} onClick={pay}>{t("protection.pay", { amount: formatMinor(hold.terms.depositMinor, hold.terms.currency) })}</Button>
-          <Button variant="tertiary" disabled={pending} onClick={release}>{t("common.cancel")}</Button>
+          <p role="status" className="flex min-h-[1lh] items-center gap-2 text-meta text-text-secondary">{paying && <><StatusDot kind="progress" />{t("pay.confirming")}</>}</p>
         </div>
       </div>
     </div>

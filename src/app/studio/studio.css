@@ -5,7 +5,8 @@
 .studio-root {
   --studio-bottom-nav: calc(2 * var(--space-8));
   font-family: var(--font-ui);
-  font-size: 16px;
+  /* The root size, so larger text in the browser or the phone reaches text without a size of its own. */
+  font-size: 1rem;
   font-feature-settings: "cv11", "ss01";
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
@@ -39,13 +40,54 @@
   --ui-action-hover: #ffc29b;
   --ui-action-text: #211820;
   --ui-action-bg: light-dark(#66445e, #3a2f33);
-  --ui-focus: #f5bd97;
+  --ui-focus: var(--ui-text);
   /* The selected menu row is a faint white wash with white text; hover is the same wash, weaker. No accent colour. */
   --studio-nav-selected: rgb(255 255 255 / 0.07);
   --studio-nav-hover: rgb(255 255 255 / 0.04);
   --studio-nav-selected-text: #fff;
 }
 .studio-nav-link:hover { background: var(--studio-nav-hover); }
+
+/* The phone tab bar's one selection mark. It sits behind the icon of the open tab and slides to the next one, so
+   switching reads as one move; with reduced motion it jumps. The icon's ink changes with it, at the same pace. */
+.studio-tab-indicator {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+  width: calc(100% / var(--tab-count));
+  transform: translateX(calc(var(--tab-index) * 100%));
+  transition: transform var(--dur-2) var(--ease-out);
+  pointer-events: none;
+}
+.studio-tab-icon { transition: color var(--dur-2) var(--ease-out); }
+/* A tab label needs about four times the root text size ("Customers"). With large text the tab is narrower than
+   that, so the bar shows icons only and the label stays the link's accessible name, as at 200 % zoom. */
+.studio-tab { container-type: inline-size; }
+/* The bar's height is in pixels like its spacing tokens, so larger text grows the tab only as far as its icon and label
+   need, without an empty band under the icons once the labels are hidden. */
+.studio-tab { min-height: calc(var(--touch-target) + var(--space-5)); }
+@container (max-width: 4rem) {
+  .studio-tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* With the booking panel docked beside it, the calendar's column is narrower than the window says: the staff
+   filter moves into the options panel again, so Day and Week stay readable on the toolbar row. */
+body:has(.ui-sheet[data-docked][open]) .studio-calendar-staff { display: none; }
+body:has(.ui-sheet[data-docked][open]) .studio-calendar-staff-menu { display: block; }
+/* Calendar: the month drops down from the heading and folds back up into it. A vertical swipe on the heading or
+   the month is the gesture, so it does not scroll the page there. */
+.studio-swipe { touch-action: pan-x pinch-zoom; }
+.studio-month-reveal { animation: studio-month-in var(--dur-3) var(--ease-out) both; }
+.studio-month-reveal[data-closing] { animation: studio-month-out var(--dur-2) var(--ease-in) both; }
+@keyframes studio-month-in { from { opacity: 0; transform: translateY(calc(-1 * var(--space-3))); } }
+@keyframes studio-month-out { to { opacity: 0; transform: translateY(calc(-1 * var(--space-3))); } }
+@media (prefers-reduced-motion: reduce) {
+  .studio-month-reveal { animation-name: ui-fade; animation-duration: 80ms !important; }
+  .studio-month-reveal[data-closing] { animation-name: ui-fade-out; }
+}
+@media (max-width: 299.98px) { .studio-tab-indicator { align-items: center; padding-top: 0; } }
 .studio-nav-link.studio-nav-active { background: var(--studio-nav-selected); color: var(--studio-nav-selected-text); }
 
 body:has(.studio-root) {
@@ -103,10 +145,23 @@ body:has(.studio-root) .demo-banner {
   margin: 0;
 }
 
+/* Focus is a thin ring in the page's own ink, close around the control and following its corners: high contrast
+   on every ground, never the accent. Surfaces that change the ink (the plum chrome, a tenant page) re-declare it. */
+.studio-root { --ui-focus: var(--ui-text); }
 .studio-root :focus-visible {
   outline: 2px solid var(--ui-focus);
   outline-offset: 2px;
 }
+/* A bare text link has no corners of its own; a rounded class still wins. */
+:where(.studio-root a:focus-visible) { border-radius: var(--radius-xs); }
+/* A full-width row draws its ring just inside its own edge, so it does not run into the rows beside it. */
+.studio-root .ui-row:focus-visible { outline-offset: -2px; }
+/* A page title that takes focus after a step change is read out, but it is not a control, so it has no ring. */
+.studio-root h1[tabindex="-1"]:focus-visible { outline: none; }
+
+/* Headings break into even lines; running text avoids a single word on its last line. Utilities still override. */
+:where(.studio-root) :where(h1, h2, h3) { text-wrap: balance; }
+:where(.studio-root) :where(p, li, dd, figcaption) { text-wrap: pretty; }
 
 .studio-root .ui-composer-input:focus-visible { outline: none; }
 
@@ -118,25 +173,56 @@ body:has(.studio-root) .demo-banner {
   display: none;
 }
 
-/* "Show me" from the Help button: a pulsing ring around the element. Drawn
-   inside the element so a scrolling parent such as the sidebar cannot clip it. */
-.studio-root .help-highlight {
-  outline: 3px solid var(--ui-focus);
-  outline-offset: -3px;
-  background-color: var(--ui-action-bg);
-  border-radius: var(--radius-md);
-  animation: help-pulse 1.1s ease-in-out 4;
-}
-
-@keyframes help-pulse {
-  50% {
-    outline-color: color-mix(in srgb, var(--ui-focus) 30%, transparent);
-  }
-}
-
+/* The first-visit tour and "Show me" mark their target with the same clean ring (ui/highlight.ts). */
 .studio-root [data-tour-active] {
   outline: 2px solid var(--ui-action);
   outline-offset: 2px;
+}
+
+/* The tab bar reaches the screen's edges: its ring is drawn inside the tab so no side is cut off. */
+.studio-root [data-tab-bar] [data-tour-active] {
+  outline-offset: -2px;
+}
+
+/* "Show me": a solid dot beside the target and a plain caption card, like the tour's. Both are fixed to the
+   viewport; the dot travels to the next target, and jumps there with reduced motion. */
+.studio-show-me-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-toast);
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--ui-action);
+  box-shadow: 0 0 0 2px var(--ui-surface);
+  pointer-events: none;
+  transition: transform var(--dur-3) var(--ease-out);
+}
+
+.studio-show-me-origin {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.studio-show-me-card {
+  position: fixed;
+  z-index: var(--z-toast);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius-lg);
+  border-left: 2px solid var(--ui-action);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: var(--elevation-sheet);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-show-me-dot { transition: none; }
 }
 
 /* Rows that share one surface are separated by a straight line; only the surface is rounded. */
@@ -157,14 +243,32 @@ body:has(.studio-root) .demo-banner {
 }
 
 .studio-calendar-day { --calendar-column-width: calc(3 * var(--space-8) + var(--space-4)); }
+/* A week column is a little wider than a touch target, so a first name such as "Susanne" fits beside a colleague's
+   column; below that the grid scrolls sideways rather than crushing the names. */
+.studio-calendar-week { --calendar-column-width: calc(var(--touch-target) + 4 * var(--space-1)); }
 
-/* Lunch reads the same in the day and week grids: a faint tint with sparse lines,
-   so it is clearly not free time and never louder than a booking. */
-.studio-calendar-lunch {
-  background:
-    repeating-linear-gradient(135deg, transparent 0 9px, var(--ui-hairline) 9px 10px),
-    color-mix(in srgb, var(--ui-surface-2) 70%, transparent);
+/* Lunch reads the same in the day and week grids: a soft wash, clearly not free time and never louder than a booking. */
+.studio-calendar-lunch { background: var(--ui-surface-2); }
+/* The one "Lunch" word spans every working column of the day, so it sits above the washes of the later columns,
+   and bookings sit above it: a booking over lunch is never painted over. The now-line stays under both. */
+.studio-calendar-lunch-label { z-index: 1; }
+.studio-calendar-booking { z-index: 2; }
+
+/* The week's day number. Today is a filled circle in the page's own ink, like a chosen day in the month: neutral, so
+   it never reads as the red now-line or as an error. */
+.studio-week-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  margin-top: 2px;
+  border-radius: var(--radius-pill);
+  font-size: var(--type-body);
+  font-weight: 500;
+  color: var(--ui-text);
 }
+.studio-today-mark { background: var(--ui-text); color: var(--ui-bg); font-weight: 600; }
 
 .studio-month-grid { min-width: calc(7 * var(--touch-target) + 2 * var(--space-1)); }
 
@@ -181,8 +285,93 @@ body:has(.studio-root) .demo-banner {
 /* The save row under the phone preview rests just above the bottom navigation. */
 .studio-page-preview-actions { position: sticky; bottom: calc(var(--studio-bottom-nav) + var(--space-2) + env(safe-area-inset-bottom)); }
 
+/* Booking rules Save stays just above the tab bar, including the home indicator. */
+.studio-sticky-save {
+  position: sticky;
+  bottom: calc(var(--studio-bottom-nav) + env(safe-area-inset-bottom));
+  z-index: var(--z-sticky);
+  margin-inline: -1rem;
+  padding: var(--space-3) var(--space-4);
+  background: var(--ui-surface);
+}
+
 @media (min-width: 1024px) {
   .studio-content { padding-bottom: var(--space-12); }
+  .studio-sticky-save { bottom: 0; }
   .studio-preview-frame { height: max(34rem, calc(100dvh - 14rem)); }
   .studio-page-editor { --action-layout-height: max(20rem, calc(100dvh - 2 * var(--space-12))); }
 }
+
+/* The theme wave (src/concept/ui/theme-wave.ts): during a theme switch the old page stays still underneath and the
+   new one is revealed through a sliding SVG mask. Nothing in the layout moves; only the colours change. */
+:root[data-theme-transition]::view-transition-old(root),
+:root[data-theme-transition]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+:root[data-theme-transition="wave"]::view-transition-new(root) {
+  -webkit-mask: var(--theme-wave) no-repeat;
+  mask: var(--theme-wave) no-repeat;
+  /* A softer ease-out than --ease-out: quick off the toggle, then settling over the far side for the full second. */
+  animation: studio-theme-wave 1s cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes studio-theme-wave {
+  from { -webkit-mask-position: var(--theme-wave-from); mask-position: var(--theme-wave-from); }
+  to { -webkit-mask-position: var(--theme-wave-to); mask-position: var(--theme-wave-to); }
+}
+/* Reduced motion: a short plain crossfade instead. */
+:root[data-theme-transition="fade"]::view-transition-new(root) {
+  animation: ui-fade 200ms linear both;
+}
+
+/* Loading another Studio or booking page as a whole document (a reload, a sign-in, a link from an e-mail): one short,
+   damped crossfade instead of a white flash. Nothing travels and nothing is shared between the pages. Without a
+   wish for reduced motion only; the theme wave above keeps its own rules (it is not a navigation). */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+:root:not([data-theme-transition])::view-transition-old(root),
+:root:not([data-theme-transition])::view-transition-new(root) {
+  animation-duration: var(--dur-2);
+  animation-timing-function: var(--ease-out);
+}
+
+/* Setup: each question arrives with a short slide from the side it was reached from; nothing moves with reduced motion. */
+.setup-step { animation: setup-step-in var(--dur-2) var(--ease-out) both; }
+.setup-step[data-back] { animation-name: setup-step-back; }
+@keyframes setup-step-in { from { opacity: 0; transform: translateX(var(--space-3)); } }
+@keyframes setup-step-back { from { opacity: 0; transform: translateX(calc(-1 * var(--space-3))); } }
+.setup-preview { height: var(--setup-preview-height, 30rem); }
+@media (min-width: 64rem) {
+  .setup-preview {
+    height: var(--setup-preview-height, min(44rem, calc(100dvh - 8rem)));
+    max-height: min(44rem, calc(100dvh - 8rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) { .setup-step { animation: none; } }
+
+/* Guided setup only: warm ink and one sand accent, never the platform plum. */
+body:has(.setup-guide),
+.setup-guide {
+  --brand-wordmark: light-dark(#2c2622, #f3ebe3);
+  --ui-bg: light-dark(#f6f1ea, #1c1916);
+  --ui-surface: light-dark(#fffdf9, #2a2521);
+  --ui-surface-2: light-dark(#f3ebe3, #332e29);
+  --ui-text: light-dark(#2c2622, #f3ebe3);
+  --ui-text-secondary: light-dark(#6a5e55, #b5a89c);
+  --ui-border: light-dark(#8a7b6e, #8a7d72);
+  --ui-input-border: light-dark(#7a6b5e, #9a8c80);
+  --ui-action: light-dark(#7a5c3e, #c4a27a);
+  --ui-action-hover: light-dark(#624a32, #d4b48c);
+  --ui-action-text: light-dark(#fffdf9, #1c1916);
+  --ui-focus: light-dark(#2c2622, #f3ebe3);
+  --ui-action-bg: light-dark(#f0e6da, #3a332c);
+  --ui-hairline: light-dark(#e4d9ce, #3d3630);
+}
+body:has(.setup-guide) { background: var(--ui-bg); color: var(--ui-text); }
+
+.setup-cover { animation: setup-cover-in 450ms ease both; }
+@keyframes setup-cover-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .setup-cover { animation: none; } }
+

@@ -3,7 +3,7 @@
 import { Button } from "@/concept/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { ChevronDown, ExternalLink } from "lucide-react";
 import { AssistantHeaderButton, AssistantLauncher } from "./assistant/assistant-launcher";
 import { HelpButton } from "./help/help-button";
@@ -19,12 +19,22 @@ import { dispatch, markTrialUsed, useDemo, useTrialRemoved } from "../store";
 import { openSignedInSalon } from "../account/sync";
 import type { DemoState } from "../data/types";
 import { StaffAvatar } from "../ui/avatar";
+import { Bone, SkeletonGroup } from "../ui/feedback";
 import { cx } from "../ui/cx";
 import { parseTheme, pinThemeColor, studioChrome } from "../ui/theme";
-import { ThemeControl } from "../ui/theme-control";
+import { ThemeToggle } from "../ui/theme-toggle";
 import { showToast, Toaster } from "../ui/toast";
 import { Wordmark } from "../ui/wordmark";
+import { OfflineBanner } from "../ui/offline-banner";
+import { CONTENT_ID, SkipLink } from "../ui/skip-link";
+import { PageSilhouette } from "./page-loading";
+import { watchInstall } from "./install/install";
 import { QuickActions } from "./quick-actions";
+import { SearchButton } from "./search/search-button";
+import { SearchPalette } from "./search/search-palette";
+import { NoticesButton } from "./notices/notices-button";
+import { NoticeToasts } from "./notices/notice-toasts";
+import { ShowMePointer } from "./help/show-me-pointer";
 import { BUSINESS_NAV, isActivePath, MORE_TAB, moreMenu, PRIMARY_NAV, SETTINGS_NAV, type NavItem } from "./nav";
 import { TrialRemoved } from "./onboarding/trial-notice";
 import type { MessageKey } from "../i18n";
@@ -59,6 +69,8 @@ export function StudioShell({ children }: { children: ReactNode }) {
   const preview = state && role === "staff" ? staffViewer(state) : null;
   // A signed-in owner works in their salon on the server; everyone else keeps the browser salons.
   useEffect(() => { void openSignedInSalon(); }, []);
+  // The browser's offer to install the studio waits for the row under More instead of popping up.
+  useEffect(watchInstall, []);
   // The chrome follows the studio's saved theme, also when arriving by an in-app link from a booking page.
   useEffect(() => {
     const pin = () => pinThemeColor(studioChrome(parseTheme(document.documentElement.dataset.theme)));
@@ -71,34 +83,39 @@ export function StudioShell({ children }: { children: ReactNode }) {
   useStartPreset(!!state);
   // Opening a page counts as using the trial salon; it is removed after a day without use.
   useEffect(() => { if (own) markTrialUsed(); }, [own, pathname]);
-  if (!state) return <LoadingScreen />;
+  if (!state) return <LoadingScreen calendar={pathname.startsWith("/studio/calendar")} />;
   if (removed || pathname === WELCOME_PATH || isSetup) {
     return (
-      <>
+      <div className={isSetup ? "setup-guide" : undefined}>
+        <SkipLink />
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 lg:px-8">
           <Wordmark className="w-28" />
           {(isSetup || removed) && <StudioLanguageSwitch />}
         </header>
-        <main className="studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
+        <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target studio-content px-4 pt-4 lg:px-8">{removed ? <TrialRemoved /> : children}</main>
         <Toaster />
-      </>
+      </div>
     );
   }
   return (
     <>
+      <SkipLink />
       <Sidebar state={state} pathname={pathname} role={role} />
-      <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:flex-wrap max-[299px]:px-2 lg:hidden">
+      <header className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface text-text flex-wrap justify-between gap-2 px-4 max-[374px]:gap-1 max-[299px]:px-2 lg:hidden">
         <Link href="/studio" aria-label={t("shell.home")} className="-ml-1 flex min-h-target min-w-target items-center px-1 max-[374px]:px-0">
           <Wordmark label="" className="w-28 max-[374px]:w-24" />
         </Link>
         <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 max-[374px]:gap-0">
           <QuickActions role={role} assistant={state.modules.assistant} page={`/boka/${state.salon.slug}`} />
           {state.modules.assistant && <AssistantHeaderButton />}
+          <NoticesButton />
           <HelpButton compact />
+          <ThemeToggle />
         </div>
       </header>
       {/* Keep the last item clear of the tab bar. */}
-      <main className="studio-content lg:pb-12 lg:pl-64">
+      <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target studio-content lg:pb-12 lg:pl-64">
+        <OfflineBanner area="studio" className="lg:px-8" />
         {/* One frame for every page. On a desktop the content starts a fixed gutter from the sidebar and grows to a
             readable maximum; it is never centred in the space that is left, so pages do not float. The assistant
             and Help sit in each page's title row (PageHeader), on the same right edge as the content. */}
@@ -109,16 +126,47 @@ export function StudioShell({ children }: { children: ReactNode }) {
       </main>
       <BottomTabs state={state} pathname={pathname} role={role} />
       {state.modules.assistant && <AssistantLauncher />}
+      <SearchPalette />
+      <ShowMePointer />
+      <NoticeToasts />
       <Toaster />
     </>
   );
 }
 
-function LoadingScreen() {
+/**
+ * The first load: the studio's own chrome is already in place (masthead and tab bar on a phone, the sidebar on a
+ * desktop) with the page as a quiet silhouette, so nothing jumps when the salon arrives.
+ */
+function LoadingScreen({ calendar }: { calendar: boolean }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <Wordmark className="w-32 animate-pulse" />
-    </div>
+    <SkeletonGroup>
+      <aside aria-hidden className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col gap-3 bg-surface px-4 pb-3 pt-4 lg:flex">
+        <span className="flex min-h-target items-center px-3"><Wordmark label="" className="w-32" /></span>
+        <Bone className="mx-3 h-4 w-32" />
+        <div className="mt-6 space-y-5 px-3">
+          {PRIMARY_NAV.map((item) => <Bone key={item.href} className="h-4 w-28" />)}
+        </div>
+      </aside>
+      <header aria-hidden className="studio-chrome studio-safe-top flex min-h-14 items-center bg-surface px-4 lg:hidden">
+        <Wordmark label="" className="w-28" />
+      </header>
+      <main aria-hidden className="studio-content lg:pl-64">
+        <div className={PAGE_FRAME}>
+          <PageSilhouette calendar={calendar} />
+        </div>
+      </main>
+      <div aria-hidden className="fixed inset-x-0 bottom-0 border-t border-hairline bg-surface studio-safe-bottom lg:hidden">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
+          {[...PRIMARY_NAV, MORE_TAB].map((item) => (
+            <span key={item.href} className="flex min-h-16 flex-col items-center justify-center gap-2">
+              <Bone className="size-6 rounded-full" />
+              <Bone className="h-2 w-10" />
+            </span>
+          ))}
+        </div>
+      </div>
+    </SkeletonGroup>
   );
 }
 
@@ -129,6 +177,7 @@ function SidebarLink({ item, pathname, badge }: { item: NavItem; pathname: strin
     <Link
       href={item.href}
       data-help={item.href}
+      data-help-id={item.helpId}
       aria-current={active ? "page" : undefined}
       className={cx(
         "studio-nav-link flex min-h-target items-center gap-3 rounded-sm px-3 text-body transition-colors",
@@ -181,18 +230,20 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
   const tall = useTallScreen();
   const open = choice?.pathname === pathname ? choice.open : groupOf(pathname, tall);
   return (
-    <aside className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col bg-surface px-4 pb-3 pt-5 text-text lg:flex">
+    <aside className="studio-chrome fixed inset-y-0 left-0 hidden w-64 flex-col bg-surface px-4 pb-3 pt-4 text-text lg:flex">
       <Link href="/studio" aria-label={t("shell.home")} className="flex min-h-target items-center px-3">
         <Wordmark label="" className="w-32" />
       </Link>
-      <p className="mt-3 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
+      <p className="mt-2 truncate px-3 text-sm font-semibold">{state.salon.name}</p>
       {/* The page customers see is one click away from anywhere in the studio. */}
-      <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
+      <a href={`/boka/${state.salon.slug}`} target="_blank" rel="noreferrer" data-help-id="shell.view-page" className="flex min-h-target items-center gap-2 rounded-md px-3 text-meta text-text-secondary underline decoration-1 underline-offset-4 hover:text-text">
         {t("quick.viewPage")}
         <ExternalLink size={14} aria-hidden />
       </a>
-      <nav aria-label={t("shell.navigation")} className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-        <div className="space-y-1">
+      <SearchButton />
+      {/* The bar is hidden so a short window can still scroll with the wheel or keyboard, without the old grey gutter. */}
+      <nav aria-label={t("shell.navigation")} className="no-scrollbar mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+        <div>
           {PRIMARY_NAV.filter((item) => canOpen(role, item.href)).map((item) => (
             <SidebarLink key={item.href} item={item} pathname={pathname} badge={item.href === "/studio/inbox" ? unread : undefined} />
           ))}
@@ -200,7 +251,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
         {groups.map((group) => {
           const expanded = open === group.id;
           return (
-            <div key={group.id} className="pt-3">
+            <div key={group.id} className="pt-2">
               <Button variant="tertiary" size="sm" align="between"
                 type="button"
                 aria-expanded={expanded}
@@ -212,7 +263,7 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
                 <ChevronDown size={16} aria-hidden className={cx("transition-transform", expanded && "rotate-180")} />
               </Button>
               {expanded && (
-                <div id={`nav-${group.id}`} className="space-y-1 pt-1">
+                <div id={`nav-${group.id}`} className="pt-1">
                   {group.items.map((item) => (
                     <SidebarLink key={item.href} item={item} pathname={pathname} />
                   ))}
@@ -222,15 +273,12 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
           );
         })}
       </nav>
-      <div className="mt-4 space-y-2">
-        <div className="flex items-center gap-3 px-1">
-          <StaffAvatar person={person} size="md" />
-          <span className="min-w-0 flex-1 text-sm leading-tight">
-            <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
-            <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
-          </span>
-        </div>
-        <ThemeControl compact />
+      <div className="mt-3 flex items-center gap-3 px-1">
+        <StaffAvatar person={person} size="md" />
+        <span className="min-w-0 flex-1 text-sm leading-tight">
+          <span className="block truncate font-medium">{person.firstName} {person.lastName}</span>
+          <span className="block truncate text-xs text-text-secondary">{t(role === "staff" ? "shell.staffRole" : "shell.ownerRole")}</span>
+        </span>
       </div>
     </aside>
   );
@@ -239,12 +287,20 @@ function Sidebar({ state, pathname, role }: { state: DemoState; pathname: string
 function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: string; role: Role }) {
   const unread = unreadCount(state);
   const tabs = [...PRIMARY_NAV, MORE_TAB].filter((item) => canOpen(role, item.href));
+  const current = tabs.findIndex((item) => isActivePath(pathname, item.href));
   return (
     <nav
       aria-label={t("shell.navigation")}
+      data-tab-bar
       className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface studio-safe-bottom lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+      <div className="relative mx-auto grid max-w-lg" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {/* One mark for the whole bar that slides to the tab you open, so the move reads as one change. */}
+        {current >= 0 && (
+          <span aria-hidden className="studio-tab-indicator" style={{ "--tab-index": current, "--tab-count": tabs.length } as CSSProperties}>
+            <span className="h-7 w-12 rounded-full bg-action max-[299px]:w-9" />
+          </span>
+        )}
         {tabs.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
@@ -254,14 +310,16 @@ function BottomTabs({ state, pathname, role }: { state: DemoState; pathname: str
               key={item.href}
               href={item.href}
               data-help={item.href}
+              data-help-id={item.helpId}
               aria-current={active ? "page" : undefined}
-              className={cx("relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 text-xs", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
+              className={cx("studio-tab relative flex min-w-0 flex-col items-center gap-1 pt-2 text-xs max-[299px]:justify-center max-[299px]:pt-0", active ? "font-semibold text-text" : "font-medium text-text-secondary")}
             >
-              <span className={cx("flex h-7 w-12 items-center justify-center rounded-full transition-colors max-[299px]:w-9", active && "bg-action text-on-action")}>
+              <span className={cx("studio-tab-icon flex h-7 w-12 items-center justify-center max-[299px]:w-9", active && "text-on-action")}>
                 <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
               </span>
-              {/* At 200 % zoom on a phone five labels cannot fit side by side: icons only, the label stays the accessible name. */}
-              <span className="max-[299px]:sr-only">{t(item.label)}</span>
+              {/* At 200 % zoom or with large text on a phone five labels cannot fit side by side: icons only, the label
+                  stays the accessible name (studio.css measures the tab against the text size). */}
+              <span className="studio-tab-label max-[299px]:sr-only">{t(item.label)}</span>
               {badge > 0 && (
                 <span className="studio-highlight absolute left-1/2 top-1.5 ml-2 min-w-5 rounded-full px-1 text-center text-minimum font-semibold leading-normal">
                   {badge}

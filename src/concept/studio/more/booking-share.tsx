@@ -41,8 +41,8 @@ export function BookingShare() {
       <label className="block text-sm font-medium" htmlFor="booking-bio-link">{t("share.bio")}</label>
       <Input id="booking-bio-link" readOnly value={share.link} onFocus={event => event.target.select()} />
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" width="responsive" variant="secondary" onClick={copy}>{t(copied ? "common.copied" : "share.copyLink")}</Button>
-        <ButtonLink size="sm" width="responsive" href={share.link} variant="secondary">{t("share.open")}</ButtonLink>
+        <Button data-help-id="link.copy" size="sm" width="responsive" variant="secondary" onClick={copy}>{t(copied ? "common.copied" : "share.copyLink")}</Button>
+        <ButtonLink size="sm" width="responsive" href={share.link} helpId="link.open" variant="secondary">{t("share.open")}</ButtonLink>
       </div>
     </div>
   </Card>;

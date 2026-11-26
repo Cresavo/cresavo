@@ -1,22 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { CalendarPlus, ListChecks, Loader2, Mic } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarPlus, ListChecks, Loader2, Mic, Square, Upload } from "lucide-react";
 import { runAiTask } from "../../ai/api-client";
 import { useSpeech } from "../../command/use-speech";
 import { addDays } from "../../data/dates";
+import { probeDuration } from "../../journals/audio-duration";
+import { AUDIO_ACCEPT, checkAudioFile } from "../../journals/audio-file";
+import { audioScope, type JournalRecording } from "../../journals/audio-store";
+import { clipTranscript } from "../../journals/clip-transcript";
+import { currentTarget } from "../../store";
 import { openingFor } from "../../data/slots";
 import type { Customer, DateKey, Salon } from "../../data/types";
 import { t } from "../../i18n";
-import { Button } from "../../ui/button";
+import { Button, buttonClass } from "../../ui/button";
 import { Card } from "../../ui/card";
 import { Field, TextArea, TextInput } from "../../ui/controls";
 import { cx } from "../../ui/cx";
+import { StatusDot } from "../../ui/feedback";
 import { showToast } from "../../ui/toast";
 import { NewBookingSheet, type NewBookingPreset } from "../booking/new-booking-sheet";
 import { useStudio } from "../use-studio";
 import { suggestedWeeks } from "../../customers/next-visit";
 import { dispatchWithUndoToast } from "../log/undo-toast";
+import { formatClock, JournalRecordings, useRecordings } from "./journal-recordings";
+import { claim } from "./in-flight";
+import { useRecorder } from "./use-recorder";
 
 interface Structured {
   treatment: string;
@@ -34,32 +43,110 @@ function nextOpenDay(salon: Salon, date: DateKey): DateKey {
   return day;
 }
 
-/** Dictate or type what happened, let the AI sort it into fields, edit, save. */
+/** Hint under the text: what this browser can do with the voice, or what an uploaded recording still needs. */
+function transcriptHint(canRecord: boolean, canTranscribe: boolean, uploaded: boolean) {
+  if (uploaded) return t("journal.audio.uploadHint");
+  if (canRecord) return canTranscribe ? t("journal.audio.hint") : t("journal.audio.hintRecordOnly");
+  return canTranscribe ? t("journal.transcriptHint") : t("journal.transcriptHintTyping");
+}
+
+/**
+ * Dictate, record, upload or type what happened, let the AI sort the text into fields, edit, save. Recordings stay in
+ * this browser (`journals/audio-store`); only the text is ever structured.
+ */
 export function JournalDictation({ customer, onClose }: { customer: Customer; onClose: () => void }) {
   const { state, today } = useStudio();
   const [transcript, setTranscript] = useState("");
   const [fields, setFields] = useState<{ treatment: string; observations: string; advice: string; nextVisit: string; source: Source } | null>(null);
   const [busy, setBusy] = useState(false);
+  const structuring = useRef(false);
   const [booking, setBooking] = useState<NewBookingPreset | null>(null);
+  const [current, setCurrent] = useState<Pick<JournalRecording, "id" | "source">>();
+  const text = useRef(transcript);
+  const clipStart = useRef("");
+  useEffect(() => {
+    text.current = transcript;
+  });
+  const scope = audioScope(currentTarget() ?? { workspace: "demo", epoch: "legacy" }, state?.salon);
+  const { recordings, add, setTranscript: keepTranscript } = useRecordings(customer.id, scope);
   const speech = useSpeech({
     continuous: true,
-    onText: (spoken) => setTranscript((current) => [current.trim(), spoken].filter(Boolean).join(" ")),
+    onText: (spoken) => setTranscript((current) => {
+      const next = [current.trim(), spoken].filter(Boolean).join(" ");
+      text.current = next;
+      return next;
+    }),
   });
 
+  const keep = async (audio: Blob, source: JournalRecording["source"], mime: string, seconds: number) => {
+    const id = crypto.randomUUID();
+    try {
+      const dropped = await add({ id, customerId: customer.id, scope, createdAt: Date.now(), source, mime, seconds, transcript: source === "recorded" ? clipTranscript(text.current, clipStart.current) : undefined, bytes: await audio.arrayBuffer() });
+      setCurrent({ id, source });
+      if (dropped.length) showToast(t("journal.audio.oldestDropped"));
+      return id;
+    } catch {
+      showToast(t("journal.audio.saveFailed"));
+      return undefined;
+    }
+  };
+
+  const recorder = useRecorder({
+    onEnd: speech.stop,
+    onRecorded: (audio, seconds) => keep(audio, "recorded", audio.type, seconds),
+  });
+
+  const record = async () => {
+    if (recorder.recording) return recorder.stop();
+    if (!recorder.supported) return speech.toggle();
+    clipStart.current = text.current.trim();
+    if (await recorder.start()) speech.start();
+    else clipStart.current = "";
+  };
+
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    const check = await checkAudioFile(file, probeDuration);
+    if (!check.ok) return showToast(t(`journal.audio.rejected.${check.reason}`));
+    await keep(file, "uploaded", check.mime, check.seconds);
+  };
+
+  const use = (recording: JournalRecording) => {
+    setTranscript(recording.transcript ?? "");
+    setCurrent({ id: recording.id, source: recording.source });
+    // This is an existing clip, not a take started after earlier draft text.
+    clipStart.current = "";
+  };
+
   const structure = async () => {
-    speech.stop();
+    if (!claim(structuring)) return;
     setBusy(true);
     try {
-      const { output, log } = await runAiTask<Structured>("structure-journal", { transcript }, !!state.industry);
-      setFields({ treatment: output.treatment, observations: output.observations, advice: output.recommendation, nextVisit: output.nextVisit, source: log.source });
-    } catch {
-      showToast(t("journal.structureFailed"));
+      const recordedId = await recorder.stop();
+      await speech.stop();
+      const spoken = text.current.trim() || [transcript.trim(), speech.interim].filter(Boolean).join(" ");
+      if (spoken !== transcript) setTranscript(spoken);
+      const recorded = recordedId ?? (current?.source === "recorded" ? current.id : undefined);
+      if (recorded) {
+        const clip = clipTranscript(spoken, clipStart.current);
+        if (clip) void keepTranscript(recorded, clip).catch(() => {});
+      } else if (current?.id && current.source === "uploaded") {
+        void keepTranscript(current.id, spoken).catch(() => {});
+      }
+      try {
+        const { output, log } = await runAiTask<Structured>("structure-journal", { transcript: spoken }, !!state.industry);
+        setFields({ treatment: output.treatment, observations: output.observations, advice: output.recommendation, nextVisit: output.nextVisit, source: log.source });
+      } catch {
+        showToast(t("journal.structureFailed"));
+      }
     } finally {
+      structuring.current = false;
       setBusy(false);
     }
   };
 
   const weeks = fields ? suggestedWeeks(fields.nextVisit) : undefined;
+  const listening = recorder.recording || speech.listening;
 
   const save = (thenBook: boolean) => {
     if (!fields) return;
@@ -88,7 +175,7 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
       </div>
       {!fields ? (
         <>
-          <Field label={t("journal.transcript")} hint={speech.supported ? t("journal.transcriptHint") : t("journal.transcriptHintTyping")}>
+          <Field label={t("journal.transcript")} hint={transcriptHint(recorder.supported, speech.supported, current?.source === "uploaded")}>
             <TextArea
               value={speech.listening && speech.interim ? `${transcript} ${speech.interim}`.trim() : transcript}
               readOnly={speech.listening}
@@ -97,17 +184,31 @@ export function JournalDictation({ customer, onClose }: { customer: Customer; on
               className="min-h-32"
             />
           </Field>
+          {listening && (
+            <p role="status" className="flex items-center gap-2 text-meta text-text-secondary">
+              <StatusDot kind="progress" />
+              {recorder.recording ? t("journal.audio.recording") : t("journal.audio.listening")}
+              {recorder.recording && <span aria-hidden="true" className="tabular-nums">{formatClock(recorder.seconds)}</span>}
+            </p>
+          )}
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
-            {speech.supported && (
-              <Button variant="secondary" icon={<Mic size={18} />} aria-pressed={speech.listening} onClick={speech.toggle} className={cx(speech.listening && "animate-pulse")}>
-                {speech.listening ? t("journal.stopDictating") : t("journal.startDictating")}
+            <label className={cx(buttonClass("tertiary"), "cursor-pointer gap-2 focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2", recorder.recording && "pointer-events-none opacity-50")}>
+              <Upload size={18} aria-hidden />
+              {t("journal.audio.upload")}
+              <TextInput type="file" accept={AUDIO_ACCEPT} className="sr-only" disabled={recorder.recording}
+                onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; void upload(file); }} />
+            </label>
+            {(recorder.supported || speech.supported) && (
+              <Button variant="secondary" icon={listening ? <Square size={16} /> : <Mic size={18} />} aria-pressed={listening} onClick={() => void record()}>
+                {listening ? t(recorder.supported ? "journal.audio.stop" : "journal.stopDictating") : t(recorder.supported ? "journal.audio.record" : "journal.startDictating")}
               </Button>
             )}
             <Button disabled={!transcript.trim() || busy} icon={busy ? <Loader2 size={18} className="animate-spin" /> : <ListChecks size={18} />} onClick={structure}>
               {t("journal.structure")}
             </Button>
           </div>
+          <JournalRecordings recordings={recordings} currentId={current?.id} onUse={use} />
         </>
       ) : (
         <>

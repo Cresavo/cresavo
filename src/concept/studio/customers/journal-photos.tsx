@@ -25,7 +25,7 @@ export function JournalPhotoPair({ photos }: { photos?: JournalPhotos }) {
       {SLOTS.map((slot) => (
         <figure key={slot} className="space-y-1">
           {photos[slot] ? <Photo src={photos[slot]} slot={slot} /> : <div className="aspect-[4/3] rounded-md border border-dashed border-hairline" />}
-          <figcaption className="text-xs font-semibold uppercase tracking-wide text-text-secondary">{t(`journal.photo.${slot}`)}</figcaption>
+          <figcaption className="text-xs font-semibold text-text-secondary">{t(`journal.photo.${slot}`)}</figcaption>
         </figure>
       ))}
     </div>

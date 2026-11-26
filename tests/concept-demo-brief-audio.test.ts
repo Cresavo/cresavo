@@ -1,0 +1,549 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { reduce } from "@/concept/actions";
+import { morningBrief } from "@/concept/assistant/briefs";
+import { createDemoState } from "@/concept/data/generate";
+import { studioSalonCopy } from "@/concept/i18n/salon-eko-copy";
+import {
+  getActiveLocale,
+  getVocabulary,
+  setLocale,
+  setVocabulary,
+} from "@/concept/i18n";
+import { packOf } from "@/concept/packs";
+import { publicSalonView } from "@/concept/booking/public-projection";
+import { dateInWeek } from "@/concept/data/dates";
+import { openingFor, workWindow } from "@/concept/data/slots";
+import { getBusiness } from "@/concept/tools/read";
+import { dayBookings } from "@/concept/selectors";
+import { eveningRecap } from "@/concept/summary/day";
+import {
+  DEMO_BRIEF_DAY,
+  EVENING_BRIEF_CLIP,
+  EVENING_BRIEF_CLIP_EN,
+  MORNING_BRIEF_CLIP,
+  MORNING_BRIEF_CLIP_EN,
+  RECORDED_EVENING_HIGHLIGHTS,
+  RECORDED_EVENING_HIGHLIGHTS_EN,
+  RECORDED_EVENING_SUMMARY,
+  RECORDED_EVENING_SUMMARY_EN,
+  RECORDED_MORNING_ITEMS,
+  RECORDED_MORNING_ITEMS_EN,
+  eveningBriefClipUrl,
+  morningBriefClipUrl,
+  standardDemoMorningBrief,
+  standardDemoRecordingClips,
+} from "@/concept/studio/assistant/demo-brief-audio";
+import {
+  canPlaySpeech,
+  canSpeak,
+  speak,
+  stopSpeaking,
+} from "@/concept/studio/assistant/speak";
+
+const today = DEMO_BRIEF_DAY;
+const morningClock = { today, minutes: 9 * 60 };
+const base = createDemoState(today);
+const lastEnd = Math.max(
+  ...dayBookings(base, today).map(
+    (booking) => booking.start + booking.duration,
+  ),
+);
+const eveningClock = { today, minutes: lastEnd };
+
+const previousLocale = getActiveLocale();
+const previousVocabulary = getVocabulary();
+
+function swedishDemo() {
+  setLocale("sv");
+  setVocabulary(packOf(base).vocabulary);
+}
+
+function englishDemo() {
+  setLocale("en");
+  setVocabulary(packOf(base).vocabulary);
+}
+
+describe("recorded demo brief clips", () => {
+  afterEach(() => {
+    setLocale(previousLocale);
+    setVocabulary(previousVocabulary);
+    stopSpeaking();
+    vi.unstubAllGlobals();
+  });
+
+  it("still matches the standard Swedish Salong Eko demo, on any day", () => {
+    swedishDemo();
+    const brief = morningBrief(base, morningClock);
+    expect(brief.items.filter((item) => !item.id.startsWith("holiday-")).map((item) => item.text)).toEqual(
+      RECORDED_MORNING_ITEMS.map(([, text]) => text),
+    );
+    expect(brief.items[1].id).toMatch(/^cancel-/);
+    const recap = eveningRecap(base, eveningClock);
+    expect(recap.summary).toBe(RECORDED_EVENING_SUMMARY);
+    expect(recap.highlights).toEqual([...RECORDED_EVENING_HIGHLIGHTS]);
+    for (const day of [
+      "2026-11-16",
+      "2026-11-18",
+      "2026-11-21",
+      "2026-11-26",
+    ]) {
+      const state = createDemoState(day);
+      const morning = morningBrief(state, { today: day, minutes: 9 * 60 });
+      expect(
+        morningBriefClipUrl(
+          morning,
+          { today: day, minutes: 9 * 60 },
+          state.generatedFor,
+        ),
+      ).toBe(MORNING_BRIEF_CLIP);
+      const end = Math.max(
+        ...dayBookings(state, day).map(
+          (booking) => booking.start + booking.duration,
+        ),
+      );
+      const evening = eveningRecap(state, { today: day, minutes: end });
+      expect(
+        eveningBriefClipUrl(evening, { today: day }, state.generatedFor),
+      ).toBe(EVENING_BRIEF_CLIP);
+    }
+  });
+
+  it("still matches the standard English Salong Eko demo, on any day", () => {
+    englishDemo();
+    const brief = morningBrief(base, morningClock);
+    expect(brief.items.filter((item) => !item.id.startsWith("holiday-")).map((item) => item.text)).toEqual(
+      RECORDED_MORNING_ITEMS_EN.map(([, text]) => text),
+    );
+    const recap = eveningRecap(base, eveningClock);
+    expect(recap.summary).toBe(RECORDED_EVENING_SUMMARY_EN);
+    expect(recap.highlights).toEqual([...RECORDED_EVENING_HIGHLIGHTS_EN]);
+    for (const day of [
+      "2026-11-16",
+      "2026-11-18",
+      "2026-11-21",
+      "2026-11-26",
+    ]) {
+      const state = createDemoState(day);
+      const morning = morningBrief(state, { today: day, minutes: 9 * 60 });
+      expect(
+        morningBriefClipUrl(
+          morning,
+          { today: day, minutes: 9 * 60 },
+          state.generatedFor,
+        ),
+      ).toBe(MORNING_BRIEF_CLIP_EN);
+      expect(
+        morningBriefClipUrl(
+          morning,
+          { today: day, minutes: 15 * 60 },
+          state.generatedFor,
+        ),
+      ).toBeNull();
+      expect(
+        morningBriefClipUrl(
+          standardDemoMorningBrief(state, day, state.generatedFor, 15 * 60)!,
+          { today: day, minutes: 9 * 60 },
+          state.generatedFor,
+        ),
+      ).toBe(MORNING_BRIEF_CLIP_EN);
+      const end = Math.max(
+        ...dayBookings(state, day).map(
+          (booking) => booking.start + booking.duration,
+        ),
+      );
+      const evening = eveningRecap(state, { today: day, minutes: end });
+      expect(
+        eveningBriefClipUrl(evening, { today: day }, state.generatedFor),
+      ).toBe(EVENING_BRIEF_CLIP_EN);
+    }
+  });
+
+  it("offers both recorded readings when the Studio shows translated product names", () => {
+    swedishDemo();
+    const swedish = studioSalonCopy(base, "sv");
+    expect(swedish.stock.find((item) => item.id === "urea-cream")?.name).toBe(
+      "Fotkräm med 10 % karbamid",
+    );
+    expect(swedish.stock.find((item) => item.id === "massage-oil-neutral")?.name).toBe(
+      "Oparfymerad massageolja",
+    );
+    const brief = morningBrief(swedish, morningClock);
+    expect(brief.items.some((item) => item.text.includes("Fotkräm med 10 % karbamid"))).toBe(true);
+    expect(morningBriefClipUrl(brief, morningClock, swedish.generatedFor)).toBeNull();
+    expect(standardDemoMorningBrief(swedish, today, swedish.generatedFor, 9 * 60)).toBeNull();
+    expect(standardDemoRecordingClips(swedish, today, swedish.generatedFor, 9 * 60)).toEqual({
+      morningUrl: MORNING_BRIEF_CLIP,
+      eveningUrl: EVENING_BRIEF_CLIP,
+    });
+    englishDemo();
+    const english = studioSalonCopy(base, "en");
+    expect(standardDemoRecordingClips(english, today, english.generatedFor, 15 * 60)).toEqual({
+      morningUrl: MORNING_BRIEF_CLIP_EN,
+      eveningUrl: EVENING_BRIEF_CLIP_EN,
+    });
+    expect(standardDemoRecordingClips(base, "2026-11-26", base.generatedFor, 9 * 60)).toBeNull();
+    const edited = { ...base, bookings: base.bookings.filter((booking) => booking.date !== today) };
+    expect(standardDemoRecordingClips(edited, today, edited.generatedFor, 9 * 60)).toBeNull();
+    swedishDemo();
+    const restocked = {
+      ...swedish,
+      stock: swedish.stock.map((item) => item.id === "urea-cream" ? { ...item, inStock: 99 } : item),
+    };
+    expect(standardDemoRecordingClips(restocked, today, restocked.generatedFor, 9 * 60)?.morningUrl ?? null).toBeNull();
+    const renamed = {
+      ...swedish,
+      stock: swedish.stock.map((item) => item.id === "urea-cream" ? { ...item, name: "Custom cream" } : item),
+    };
+    expect(standardDemoRecordingClips(renamed, today, renamed.generatedFor, 9 * 60)?.morningUrl ?? null).toBeNull();
+    const cancelled = swedish.bookings.find((booking) => booking.date === today && booking.status === "cancelled")!;
+    const withNotice = {
+      ...swedish,
+      inbox: [
+        ...swedish.inbox,
+        {
+          id: "i-notice-cancel",
+          kind: "cancel" as const,
+          customerId: cancelled.customerId,
+          bookingId: cancelled.id,
+          date: today,
+          time: 16 * 60,
+          title: "Cancelled",
+          body: "",
+          read: false,
+          handled: false,
+          event: "cancelled" as const,
+          visitDate: today,
+          visitStart: cancelled.start,
+        },
+      ],
+    };
+    expect(standardDemoRecordingClips(withNotice, today, withNotice.generatedFor, 9 * 60)?.morningUrl).toBe(
+      MORNING_BRIEF_CLIP,
+    );
+    expect(standardDemoRecordingClips(withNotice, today, withNotice.generatedFor, 15 * 60)?.morningUrl ?? null).toBeNull();
+  });
+
+  it("opens only the demo's tomorrow when that weekday is normally closed or shorter", () => {
+    const saturday = createDemoState("2026-11-21");
+    expect(openingFor(saturday.salon, "2026-11-22")).toEqual({ open: 9 * 60, close: 18 * 60 });
+    expect(openingFor(saturday.salon, "2026-11-29")).toBeNull();
+    const publicSaturday = publicSalonView(saturday, new Date("2026-11-21T09:00:00+01:00"));
+    expect(openingFor(publicSaturday.salon, "2026-11-22")).toEqual({ open: 9 * 60, close: 18 * 60 });
+    expect(openingFor(publicSaturday.salon, "2026-11-29")).toBeNull();
+    expect(openingFor(publicSaturday.salon, dateInWeek("2026-11-21", 0))).toEqual({ open: 9 * 60, close: 18 * 60 });
+    const hours = (getBusiness.run({ state: saturday, clock: { today: "2026-11-21", minutes: 9 * 60 } }, {}) as { openingHours: { day: string; open: string | null; close: string | null }[] }).openingHours;
+    expect(hours.find((row) => row.day === "Sunday")).toEqual({ day: "Sunday", open: "09:00", close: "18:00" });
+    const friday = createDemoState("2026-11-20");
+    expect(openingFor(friday.salon, "2026-11-21")).toEqual({ open: 9 * 60, close: 18 * 60 });
+    expect(openingFor(friday.salon, "2026-11-28")).toEqual({ open: 10 * 60, close: 15 * 60 });
+    const pinned = friday.exceptions.find((e) => e.id.startsWith("e-eko-next-"));
+    expect(pinned).toBeDefined();
+    const edited = reduce(friday, { type: "salon/hours", hours: friday.salon.hours, lunch: friday.salon.lunch });
+    expect(edited.salon.openings).toBeUndefined();
+    expect(edited.exceptions.some((e) => e.id.startsWith("e-eko-today-") || e.id.startsWith("e-eko-next-"))).toBe(false);
+    expect(openingFor(edited.salon, "2026-11-21")).toEqual({ open: 10 * 60, close: 15 * 60 });
+    expect(workWindow(friday, pinned!.staffId, "2026-11-21")).toEqual({ start: 9 * 60, end: 18 * 60 });
+    expect(workWindow(edited, pinned!.staffId, "2026-11-21")).not.toEqual({ start: 9 * 60, end: 18 * 60 });
+  });
+
+  it("keeps an upcoming holiday on the card while the Elin clip can still play", () => {
+    swedishDemo();
+    const brief = morningBrief(base, morningClock);
+    expect(brief.items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBe(MORNING_BRIEF_CLIP);
+    const edited = { ...brief, items: brief.items.filter((item) => item.id !== "gaps") };
+    expect(edited.items.some((item) => item.id.startsWith("holiday-"))).toBe(true);
+    expect(morningBriefClipUrl(edited, morningClock, base.generatedFor)).toBeNull();
+  });
+
+  it("offers the morning clip for the matching Studio language before noon", () => {
+    swedishDemo();
+    const brief = morningBrief(base, morningClock);
+    expect(morningBriefClipUrl(brief, morningClock, base.generatedFor)).toBe(
+      MORNING_BRIEF_CLIP,
+    );
+    setLocale("en");
+    expect(
+      morningBriefClipUrl(brief, morningClock, base.generatedFor),
+    ).toBeNull();
+    swedishDemo();
+    expect(
+      morningBriefClipUrl(
+        brief,
+        { today, minutes: 15 * 60 },
+        base.generatedFor,
+      ),
+    ).toBeNull();
+    expect(
+      morningBriefClipUrl(
+        standardDemoMorningBrief(base, today, base.generatedFor, 15 * 60)!,
+        { today, minutes: 9 * 60 },
+        base.generatedFor,
+      ),
+    ).toBe(MORNING_BRIEF_CLIP);
+    expect(
+      morningBriefClipUrl(
+        brief,
+        { today: "2026-11-26", minutes: 9 * 60 },
+        base.generatedFor,
+      ),
+    ).toBeNull();
+    expect(morningBriefClipUrl(brief, morningClock, "2026-11-26")).toBeNull();
+    const withoutGaps = {
+      ...brief,
+      items: brief.items.filter((item) => item.id !== "gaps"),
+    };
+    expect(
+      morningBriefClipUrl(withoutGaps, morningClock, base.generatedFor),
+    ).toBeNull();
+  });
+
+  it("keeps the morning recording after free slots and the cancellation drop off", () => {
+    swedishDemo();
+    const later = morningBrief(base, { today, minutes: 15 * 60 });
+    expect(later.items.some((item) => item.id.startsWith("cancel-"))).toBe(false);
+    expect(morningBriefClipUrl(later, { today, minutes: 15 * 60 }, base.generatedFor)).toBeNull();
+    const recorded = standardDemoMorningBrief(base, today, base.generatedFor, 18 * 60);
+    expect(recorded).not.toBeNull();
+    expect(morningBriefClipUrl(recorded!, { today, minutes: 9 * 60 }, base.generatedFor)).toBe(
+      MORNING_BRIEF_CLIP,
+    );
+    englishDemo();
+    expect(
+      morningBriefClipUrl(
+        standardDemoMorningBrief(base, today, base.generatedFor, 18 * 60)!,
+        { today, minutes: 9 * 60 },
+        base.generatedFor,
+      ),
+    ).toBe(MORNING_BRIEF_CLIP_EN);
+  });
+
+  it("keeps a later booking-page cancellation notice instead of the recorded brief", () => {
+    swedishDemo();
+    const cancelled = base.bookings.find((booking) => booking.date === today && booking.status === "cancelled")!;
+    const withNotice = {
+      ...base,
+      inbox: [
+        ...base.inbox,
+        {
+          id: "i-notice-cancel",
+          kind: "cancel" as const,
+          customerId: cancelled.customerId,
+          bookingId: cancelled.id,
+          date: today,
+          time: 16 * 60,
+          title: "Cancelled",
+          body: "",
+          read: false,
+          handled: false,
+          event: "cancelled" as const,
+          visitDate: today,
+          visitStart: cancelled.start,
+        },
+      ],
+    };
+    const live = morningBrief(withNotice, { today, minutes: 15 * 60 });
+    expect(live.items.some((item) => item.id.startsWith("notice-"))).toBe(true);
+    expect(standardDemoMorningBrief(withNotice, today, withNotice.generatedFor, 15 * 60)).toBeNull();
+    expect(morningBriefClipUrl(live, { today, minutes: 15 * 60 }, withNotice.generatedFor)).toBeNull();
+  });
+
+  it("offers the evening clip for the matching Studio language", () => {
+    swedishDemo();
+    const recap = eveningRecap(base, eveningClock);
+    expect(eveningBriefClipUrl(recap, eveningClock, base.generatedFor)).toBe(
+      EVENING_BRIEF_CLIP,
+    );
+    setLocale("en");
+    expect(
+      eveningBriefClipUrl(recap, eveningClock, base.generatedFor),
+    ).toBeNull();
+    englishDemo();
+    expect(eveningBriefClipUrl(eveningRecap(base, eveningClock), eveningClock, base.generatedFor)).toBe(
+      EVENING_BRIEF_CLIP_EN,
+    );
+    swedishDemo();
+    expect(
+      eveningBriefClipUrl(recap, { today: "2026-11-26" }, base.generatedFor),
+    ).toBeNull();
+    expect(
+      eveningBriefClipUrl(
+        { ...recap, summary: "Dagens intäkter: 0 kr från 0 besök." },
+        eveningClock,
+        base.generatedFor,
+      ),
+    ).toBeNull();
+    const otherDay = createDemoState("2026-11-26");
+    const otherEnd = Math.max(
+      ...dayBookings(otherDay, "2026-11-26").map(
+        (booking) => booking.start + booking.duration,
+      ),
+    );
+    const other = eveningRecap(otherDay, {
+      today: "2026-11-26",
+      minutes: otherEnd,
+    });
+    expect(
+      eveningBriefClipUrl(
+        other,
+        { today: "2026-11-26" },
+        otherDay.generatedFor,
+      ),
+    ).toBe(EVENING_BRIEF_CLIP);
+  });
+
+  it("keeps the pre-rendered clips as small local mp3 files, with no runtime TTS in the source", () => {
+    const files = [
+      "morning-elin.mp3",
+      "evening-elin.mp3",
+      "morning-elin-en.mp3",
+      "evening-elin-en.mp3",
+    ].map((name) => new URL(`../public/demo/brief/${name}`, import.meta.url));
+    for (const file of files) {
+      expect(existsSync(file), file.pathname).toBe(true);
+      expect(statSync(file).size).toBeGreaterThan(50_000);
+      expect(statSync(file).size).toBeLessThan(400_000);
+    }
+    const source = [
+      readFileSync(
+        new URL(
+          "../src/concept/studio/assistant/demo-brief-audio.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFileSync(
+        new URL("../src/concept/studio/assistant/speak.ts", import.meta.url),
+        "utf8",
+      ),
+      readFileSync(
+        new URL(
+          "../src/concept/studio/today/morning-brief.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFileSync(
+        new URL(
+          "../src/concept/studio/today/evening-summary.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ].join("\n");
+    expect(source).not.toMatch(
+      /api\.elevenlabs|api\.openai|ELEVENLABS_API_KEY|OPENAI_API_KEY/,
+    );
+  });
+});
+
+describe("speech with a pre-rendered clip", () => {
+  class Utterance {
+    lang = "";
+    voice: unknown = null;
+    onend: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    constructor(public text: string) {}
+  }
+
+  let playClip: () => Promise<void> = () => Promise.resolve();
+
+  class FakeAudio {
+    static instances: FakeAudio[] = [];
+    onended: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    play = vi.fn(() => playClip());
+    pause = vi.fn();
+    load = vi.fn();
+    removeAttribute = vi.fn();
+    constructor(public src: string) {
+      FakeAudio.instances.push(this);
+    }
+  }
+
+  function mockWorld(
+    options: { speech?: boolean; play?: () => Promise<void> } = {},
+  ) {
+    FakeAudio.instances = [];
+    playClip = options.play ?? (() => Promise.resolve());
+    const spoken: Utterance[] = [];
+    const synth = {
+      cancel: vi.fn(),
+      speak: vi.fn((utterance: Utterance) => spoken.push(utterance)),
+      getVoices: () => [],
+    };
+    const window: Record<string, unknown> = { Audio: FakeAudio };
+    if (options.speech !== false) {
+      window.speechSynthesis = synth;
+      window.SpeechSynthesisUtterance = Utterance;
+    }
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("Audio", FakeAudio);
+    if (options.speech !== false)
+      vi.stubGlobal("SpeechSynthesisUtterance", Utterance);
+    return { synth, spoken };
+  }
+
+  afterEach(() => {
+    stopSpeaking();
+    vi.unstubAllGlobals();
+  });
+
+  it("plays the clip and does not start the browser voice", () => {
+    const { synth } = mockWorld();
+    const onEnd = vi.fn();
+    expect(speak("Morgonöversikt.", onEnd, MORNING_BRIEF_CLIP)).toBe(true);
+    expect(FakeAudio.instances).toHaveLength(1);
+    expect(FakeAudio.instances[0].src).toBe(MORNING_BRIEF_CLIP);
+    expect(FakeAudio.instances[0].play).toHaveBeenCalledTimes(1);
+    expect(synth.speak).not.toHaveBeenCalled();
+    FakeAudio.instances[0].onended?.();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the browser voice when the clip cannot be played", async () => {
+    const { spoken } = mockWorld({
+      play: () => Promise.reject(new Error("failed to play")),
+    });
+    const onEnd = vi.fn();
+    expect(speak("Morgonöversikt.", onEnd, MORNING_BRIEF_CLIP)).toBe(true);
+    await vi.waitFor(() => expect(spoken).toHaveLength(1));
+    expect(spoken[0].text).toBe("Morgonöversikt.");
+    expect(onEnd).not.toHaveBeenCalled();
+    spoken[0].onend?.();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the button stay when a clip is available, even without speech synthesis", () => {
+    mockWorld({ speech: false });
+    expect(canSpeak()).toBe(false);
+    expect(canPlaySpeech(null)).toBe(false);
+    expect(canPlaySpeech(MORNING_BRIEF_CLIP)).toBe(true);
+    expect(speak("Morgonöversikt.", undefined, MORNING_BRIEF_CLIP)).toBe(true);
+    expect(FakeAudio.instances).toHaveLength(1);
+  });
+
+  it("stops the clip when asked to stop", () => {
+    mockWorld();
+    speak("Morgonöversikt.", undefined, MORNING_BRIEF_CLIP);
+    const audio = FakeAudio.instances[0];
+    stopSpeaking();
+    expect(audio.pause).toHaveBeenCalled();
+    expect(audio.removeAttribute).toHaveBeenCalledWith("src");
+  });
+
+  it("tells the brief it has ended when later speech cuts the clip off", () => {
+    const { spoken } = mockWorld();
+    const onEnd = vi.fn();
+    expect(speak("Morgonöversikt.", onEnd, MORNING_BRIEF_CLIP)).toBe(true);
+    const audio = FakeAudio.instances[0];
+    expect(speak("Första kunden är Marie.")).toBe(true);
+    expect(audio.pause).toHaveBeenCalled();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(spoken).toHaveLength(1);
+    expect(spoken[0].text).toBe("Första kunden är Marie.");
+    spoken[0].onend?.();
+    expect(onEnd).toHaveBeenCalledTimes(1);
+  });
+});

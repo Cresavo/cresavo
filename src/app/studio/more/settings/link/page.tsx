@@ -10,7 +10,7 @@ export default function BookingLinkPage() {
     <SettingsSubPage title={t("settings.section.link")} subtitle={t("settings.section.link.description")}>
       <div className="space-y-6 md:max-w-form">
         <div id="share"><BookingShare /></div>
-        <BookingLinkSection />
+        <div data-help-id="link.address"><BookingLinkSection /></div>
       </div>
     </SettingsSubPage>
   );

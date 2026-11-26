@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { reduce } from "@/concept/actions";
-import { buildIcs, googleCalendarLink } from "@/concept/booking/ics";
+import { buildIcs, buildPublicIcs, freeHoursFromDeadline, googleCalendarLink, publicGoogleCalendarLink } from "@/concept/booking/ics";
 import { recallGuest, rememberGuest } from "@/concept/booking/guest";
 import { customerBookings, findCustomerByPhone, isMobilePhone, normalizePhone, phoneMatches } from "@/concept/booking/lookup";
 import { changeRule, freeCancellationDeadline } from "@/concept/booking/policy";
@@ -8,12 +8,13 @@ import { parseBookingRequest } from "@/concept/booking/request";
 import { openSlots, suggestSlots } from "@/concept/booking/suggest";
 import { addDays } from "@/concept/data/dates";
 import { createDemoState } from "@/concept/data/generate";
+import { payAtSalon } from "./helpers/pay-at-salon";
 import { freeStarts, isFree } from "@/concept/data/slots";
 
 // 2026-11-16 is a Monday.
 const today = "2026-11-16";
 const clock = { today, minutes: 9 * 60 };
-const state = createDemoState(today);
+const state = payAtSalon(createDemoState(today));
 
 describe("booking request wrapper", () => {
   it("reads the flagship sentence", () => {
@@ -262,4 +263,41 @@ describe("device contact consent", () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+it("builds a calendar file from the booking-link fields without a customer record", () => {
+  const visit = {
+    id: "ref-fictional",
+    treatment: "Cut and finish",
+    date: "2026-11-24",
+    start: 600,
+    duration: 60,
+    staffFirstName: "Anna",
+    salon: { name: "Salong Eko", slug: "salong-eko", address: "Dalagatan 34", area: "Stockholm · Vasastan" },
+    language: "en" as const,
+  };
+  const ics = buildPublicIcs({ ...visit, createdAt: "20261116T080000Z" });
+  expect(ics).toContain("SUMMARY:Cut and finish at Salong Eko");
+  expect(ics).toContain("LOCATION:Salong Eko\\, Dalagatan 34\\, Stockholm");
+  expect(ics).toContain("UID:ref-fictional@salong-eko.example");
+  expect(ics).toContain("TRIGGER:-PT1H");
+  expect(ics).toContain("With Anna.");
+  expect(ics).not.toContain("hours before");
+  expect(ics).not.toContain("lisa@");
+  expect(ics).not.toContain("Private note");
+  const withWindow = buildPublicIcs({
+    ...visit,
+    freeHours: 48,
+    createdAt: "20261116T080000Z",
+  });
+  expect(withWindow).toContain("until 48 hours before");
+  const google = new URL(publicGoogleCalendarLink(visit));
+  expect(google.searchParams.get("text")).toBe("Cut and finish at Salong Eko");
+  expect(google.searchParams.get("location")).toBe("Salong Eko, Dalagatan 34, Stockholm");
+});
+
+it("reads the cancellation window from the public free-until deadline", () => {
+  expect(freeHoursFromDeadline("2026-11-24", 600, { date: "2026-11-23", time: 600 })).toBe(24);
+  expect(freeHoursFromDeadline("2026-11-24", 600, { date: "2026-11-22", time: 600 })).toBe(48);
+  expect(freeHoursFromDeadline("2026-11-24", 600)).toBeUndefined();
 });

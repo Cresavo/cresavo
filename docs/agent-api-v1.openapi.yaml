@@ -4,8 +4,9 @@ info:
   version: "1.4.1-sandbox"
   description: |
     Sandbox API for AI agents on the synthetic Booking Lab demo salon (Salong Eko):
-    services, availability, booking with Idempotency-Key, booking status and
-    cancellation. The same tools are exposed over MCP (Streamable HTTP) at
+    services, availability, booking with Idempotency-Key and booking status.
+    Direct cancellation is refused until a cancellation can carry the customer's
+    approval. The same tools are exposed over MCP (Streamable HTTP) at
     /api/v1/mcp with the same key. Rescheduling is not part of v1.
     Every key belongs to one business plus a named agent and a responsible person.
     Ownership belongs to a stable client, not a credential: operator rotation
@@ -25,13 +26,12 @@ paths:
     post:
       summary: Propose an exact booking in an explicitly enabled local consent lab
       description: |
-        No booking or authority is created. In server-configured separate-lab mode,
-        approvalRequired=true and approvalDelivery=separate-synthetic-customer are
-        returned; no approval URL, bearer token, inbox path or customer contact is
-        returned. The operator delivers approval through a private local test inbox.
-        The fixed server-owned synthetic customer cannot be selected through JSON.
-        Legacy local labs may return approvalUrl; that mode proves no independent
-        customer identity. Neither mode is available for a real customer deployment.
+        No booking or authority is created. The answer carries approvalRequired=true,
+        approvalDelivery=customer-email-code and a consentUrl with no secret in it,
+        safe to show to the person. On that page the customer types their own address
+        and approves or declines with a one-time code sent there; the booking must
+        then use that address. The consent lab is not available for a real customer
+        deployment.
       requestBody:
         required: true
         content:
@@ -46,7 +46,6 @@ paths:
                 serviceVersion: { type: integer, minimum: 1 }
                 staffId: { type: string, minLength: 1, maxLength: 128 }
                 start: { type: string, format: date-time }
-                customerPhone: { type: string, maxLength: 32, description: Legacy simulated OTP lab only; rejected in separate-lab mode. }
       responses:
         "201": { description: Pending proposal, content: { application/json: { schema: { $ref: "#/components/schemas/ProposalResponse" } } } }
         "400": { $ref: "#/components/responses/Error" }
@@ -112,9 +111,8 @@ paths:
         The server checks client, business, service, staff, complete treatment interval,
         current price cap, expiry, revocation and one-booking use. confirmed=true alone
         grants no authority. No agent API or MCP tool issues mandates.
-        Separate-lab customer mandates additionally bind the immutable synthetic
-        name/email shown in the customer confirmation. Changing contact is denied,
-        including after switching server delivery configuration.
+        A customer mandate additionally binds the e-mail address that returned the
+        one-time code; a booking for another address is denied.
         The sandbox only accepts customer emails ending in @example.test. Retrying with the same
         Idempotency-Key and body returns the same booking (200, replayed=true). Engine limits apply:
         5 bookings per stable client per day, 3 per normalised customer email per day.
@@ -148,12 +146,13 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
   /api/v1/bookings/{id}/cancel:
     post:
-      summary: Cancel a booking created by this key (idempotent)
+      summary: Refused for now. Cancellation needs the customer's approval, so this answers 403 mandate_denied for this client's own booking.
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
-        "200": { description: Cancelled, content: { application/json: { schema: { $ref: "#/components/schemas/CancelResponse" } } } }
         "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /api/v1/live:
     get:
       summary: Public, read-only activity feed for /live (no auth, allow-listed fields only)
@@ -179,9 +178,9 @@ components:
       additionalProperties: false
       required: [proposal]
       properties:
-        approvalUrl: { type: string, description: Legacy local bearer-link lab only. Absent in separate-lab. }
         approvalRequired: { type: boolean, const: true }
-        approvalDelivery: { type: string, const: separate-synthetic-customer }
+        approvalDelivery: { type: string, const: customer-email-code }
+        consentUrl: { type: string, description: "The salon's consent page for this proposal, present while it is pending. It carries no secret: the customer approves with a one-time code sent to their own address, and the booking must use that address. Safe to show to the person." }
         proposal:
           type: object
           additionalProperties: false
@@ -307,12 +306,6 @@ components:
       properties:
         apiVersion: { type: string, const: v1 }
         replayed: { type: boolean }
-        booking: { $ref: "#/components/schemas/Booking" }
-    CancelResponse:
-      type: object
-      properties:
-        apiVersion: { type: string, const: v1 }
-        alreadyCancelled: { type: boolean }
         booking: { $ref: "#/components/schemas/Booking" }
     Error:
       type: object

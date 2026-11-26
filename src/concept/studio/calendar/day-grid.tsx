@@ -1,22 +1,23 @@
 "use client";
 
-import { formatTime } from "../../i18n/format";
-import type { DragEvent, MouseEvent } from "react";
+import { formatDayLong, formatTime } from "../../i18n/format";
+import { useState, type DragEvent, type MouseEvent } from "react";
+import { addDays } from "../../data/dates";
 import { lunchFor, openingFor, workWindow } from "../../data/slots";
 import type { DateKey, Interval, Staff } from "../../data/types";
 import { t, tc } from "../../i18n";
-import { accountRecordSettled } from "../../store";
 import { dayBookings } from "../../selectors";
 import { cx } from "../../ui/cx";
 import { Badge } from "../../ui/badge";
-import { showActionFailure, showToast } from "../../ui/toast";
+import { showToast } from "../../ui/toast";
 import type { OpenSheet } from "../booking/booking-sheets";
-import { commitWithUndoToast } from "../log/commit-toast";
 import { StaffDot } from "../staff-dot";
 import { useStudio } from "../use-studio";
 import { BookingBlock, DRAG_TYPE } from "./block";
+import { carriesBooking, useBookingDrop } from "./drop";
+import { LunchLabel, LunchWash, lunchSpan } from "./lunch";
 import { snapMinutes } from "./gap";
-import { calendarRange, calendarScale, HourLines, TimeAxis } from "./time-axis";
+import { calendarRange, calendarScale, HourLines, NowLine, TimeAxis, useTextScale } from "./time-axis";
 
 const PX_PER_MIN = 1.25;
 const WARNING_BLOCK_HEIGHT = 64;
@@ -30,7 +31,11 @@ function dayHeading(count: number, works: boolean) {
 
 /** One column per staff member for a single day. Tap a free spot to book, drag a booking to move it. */
 export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; staff: Staff[]; resourceId?: string; onOpen: (sheet: OpenSheet) => void }) {
-  const { state, today, minutes, target } = useStudio();
+  const { state, today, minutes } = useStudio();
+  const drop = useBookingDrop();
+  const text = useTextScale();
+  // While a booking is dragged, the header offers the day before and after, keeping the time.
+  const [dragging, setDragging] = useState(false);
   const hours = openingFor(state.salon, date)!;
   const lunch = lunchFor(state.salon, date);
   const { open, close } = hours;
@@ -42,12 +47,13 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
     }));
     return { person, shift, entries };
   });
+  const label = lunch && lunchSpan(columns.map(({ shift }) => shift !== null));
   const entries = columns.flatMap(column => column.entries);
   const { from, to } = calendarRange(open, close, entries.map(({ booking }) => booking));
   const scale = calendarScale(
-    calendarScale(PX_PER_MIN, entries.map(({ booking }) => booking)),
+    calendarScale(PX_PER_MIN * text, entries.map(({ booking }) => booking), 44 * text),
     entries.filter(({ misfit }) => misfit).map(({ booking }) => booking),
-    WARNING_BLOCK_HEIGHT,
+    WARNING_BLOCK_HEIGHT * text,
   );
   const height = (to - from) * scale;
   const minuteAt = (event: { clientY: number; currentTarget: Element }) =>
@@ -67,25 +73,19 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
   };
 
   const onDrop = (person: Staff) => (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const id = event.dataTransfer.getData(DRAG_TYPE);
-    const booking = state.bookings.find((b) => b.id === id);
-    // A booking a pending change made has only a provisional id until the server answers.
-    if (!booking || !accountRecordSettled("bookings", id)) return;
-    if (booking.staffId !== person.id) {
-      const name = state.staff.find((s) => s.id === booking.staffId)!.firstName;
-      showActionFailure("reference.sameStaffOnly", undefined, "studio", t("calendar.sameStaffOnly", { name }));
-      return;
-    }
-    const start = minuteAt(event);
-    const moved = target ? commitWithUndoToast(target, { type: "booking/move", id, date, start }, t("calendar.movedTo", { time: formatTime(start) })).then((result) => result.ok, () => false) : Promise.resolve(false);
-    void moved.then((ok) => { if (!ok) showActionFailure("calendar.slotTaken"); });
+    setDragging(false);
+    drop(event, person.id, date, minuteAt(event));
   };
 
   return (
-    <div className="studio-raised overflow-x-auto rounded-lg bg-surface">
+    <div className="overflow-x-auto"
+      onDragStart={(event) => {
+        // Changing the page inside dragstart can cancel the drag in Chromium, so the targets appear a frame later.
+        if (carriesBooking(event)) requestAnimationFrame(() => setDragging(true));
+      }} onDragEnd={() => setDragging(false)}>
       <div className="studio-calendar-grid studio-calendar-day" style={{ "--calendar-columns": columns.length } as React.CSSProperties}>
-        <div className="flex border-b border-hairline">
+        <div className="relative flex border-b border-hairline">
+          {dragging && <NextDayTargets date={date} onDrop={() => setDragging(false)} />}
           <div className="w-11 shrink-0" />
           {columns.map(({ person, shift, entries }) => (
             <div key={person.id} className="flex min-w-0 flex-1 flex-wrap items-center gap-2 px-3 py-3 text-body">
@@ -97,15 +97,16 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
             </div>
           ))}
         </div>
-        <div className="flex py-3 pr-1">
+        <div className="relative flex py-3 pr-1">
           <TimeAxis from={from} to={to} pxPerMin={scale} />
-          {columns.map(({ person, shift, entries }) => {
+          {date === today && <NowLine minutes={minutes} from={from} to={to} pxPerMin={scale} />}
+          {columns.map(({ person, shift, entries }, index) => {
             const works = shift !== null;
             return (
               <div
                 key={person.id}
                 onClick={shift ? onColumnClick(person, shift) : undefined}
-                onDragOver={(event) => works && event.preventDefault()}
+                onDragOver={(event) => works && carriesBooking(event) && event.preventDefault()}
                 onDrop={works ? onDrop(person) : undefined}
                 className={cx("relative min-w-0 flex-1 border-l border-hairline", works ? "cursor-copy" : "bg-surface-2/70")}
                 style={{ height }}
@@ -113,14 +114,8 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                 <HourLines from={from} to={to} pxPerMin={scale} />
                 {shift && shift.start > from && <div className="pointer-events-none absolute inset-x-0 top-0 bg-surface-2/70" style={{ height: (shift.start - from) * scale }} />}
                 {shift && shift.end < to && <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-surface-2/70" style={{ height: (to - shift.end) * scale }} />}
-                {lunch && works && (
-                  <div
-                    className="studio-calendar-lunch pointer-events-none absolute inset-x-0 flex items-center justify-center text-minimum text-text-secondary"
-                    style={{ top: (lunch.start - from) * scale, height: (lunch.end - lunch.start) * scale }}
-                  >
-                    <span className="rounded-sm bg-surface px-2">{t("calendar.lunch")}</span>
-                  </div>
-                )}
+                {lunch && works && <LunchWash lunch={lunch} from={from} scale={scale} />}
+                {lunch && label && label.first === index && <LunchLabel lunch={lunch} from={from} scale={scale} span={label.span} />}
                 {entries.map(({ booking, misfit }) => (
                   <BookingBlock
                     key={booking.id}
@@ -133,16 +128,48 @@ export function DayGrid({ date, staff, resourceId, onOpen }: { date: DateKey; st
                     onGapOpen={(start) => onOpen({ kind: "new", preset: { staffId: person.id, date, start } })}
                   />
                 ))}
-                {date === today && minutes > from && minutes < to && (
-                  <div className="pointer-events-none absolute inset-x-0 z-sticky border-t-2 border-danger" style={{ top: (minutes - from) * scale }}>
-                    <span className="absolute -left-1 -top-1 size-2 rounded-full bg-danger" />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The day before and the day after as drop targets over the column headings, shown only during a drag
+ * so they never shift the grid under the pointer. A booking dropped there keeps its time and staff member.
+ * A day already past is left empty: nothing can be booked there.
+ */
+function NextDayTargets({ date, onDrop }: { date: DateKey; onDrop: () => void }) {
+  const { state, today } = useStudio();
+  const drop = useBookingDrop();
+  const [over, setOver] = useState<DateKey | null>(null);
+  const days = [addDays(date, -1), addDays(date, 1)];
+  const onDropDay = (day: DateKey) => (event: DragEvent<HTMLDivElement>) => {
+    setOver(null);
+    onDrop();
+    const booking = state.bookings.find((b) => b.id === event.dataTransfer.getData(DRAG_TYPE));
+    if (booking) drop(event, booking.staffId, day, booking.start);
+  };
+  return (
+    <div className="absolute inset-0 z-sticky flex gap-2 bg-bg p-1">
+      {days.map((day, index) => day < today ? <div key={day} className="flex-1" /> : (
+        <div
+          key={day}
+          onDragOver={(event) => { if (!carriesBooking(event)) return; event.preventDefault(); setOver(day); }}
+          onDragLeave={() => setOver((current) => (current === day ? null : current))}
+          onDrop={onDropDay(day)}
+          className={cx(
+            "flex min-w-0 flex-1 items-center rounded-md px-3 text-meta",
+            index ? "justify-end text-right" : "justify-start",
+            over === day ? "bg-action-bg font-medium text-text" : "bg-surface-2 text-text-secondary",
+          )}
+        >
+          <span className="truncate">{t("calendar.dropOnDay", { day: formatDayLong(day) })}</span>
+        </div>
+      ))}
     </div>
   );
 }

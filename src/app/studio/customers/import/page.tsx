@@ -17,6 +17,7 @@ import { Button, buttonClass } from "@/concept/ui/button";
 import { Card, Section } from "@/concept/ui/card";
 import { Field, Input, Select } from "@/concept/ui/controls";
 import { EmptyState } from "@/concept/ui/empty-state";
+import { StatusDot } from "@/concept/ui/feedback";
 import { showToast } from "@/concept/ui/toast";
 
 const EXAMPLE = "/demo/customers-example.csv";
@@ -90,12 +91,12 @@ export default function ImportCustomersPage() {
         <Card className="space-y-4 p-5 md:max-w-form">
           <p className="text-sm text-text-secondary">{t("import.hint")} {t(workspace === "account" ? "import.privacyAccount" : "import.privacyLocal")}</p>
           <div className="flex flex-wrap gap-2">
-            <label className={`${buttonClass(table ? "secondary" : "primary", "md", "w-full sm:w-fit")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
+            <label data-help-id="import.file" className={`${buttonClass(table ? "secondary" : "primary", "md", "w-full sm:w-fit")} cursor-pointer focus-within:ring-2 focus-within:ring-action`}>
               <Upload size={18} />
               {t("import.pick")}
               <Input type="file" accept=".csv,text/csv" className="sr-only" onChange={onFile} />
             </label>
-            <Button variant="secondary" icon={<FileSpreadsheet size={18} />} onClick={useExample}>{t("import.useExample")}</Button>
+            <Button data-help-id="import.example" variant="secondary" icon={<FileSpreadsheet size={18} />} onClick={useExample}>{t("import.useExample")}</Button>
             <a href={EXAMPLE} download className={buttonClass("ghost")}>
               <Download size={18} />
               {t("import.downloadExample")}
@@ -149,7 +150,7 @@ export default function ImportCustomersPage() {
               {!fits && <p role="alert" className="text-sm text-danger">{t("import.tooLargeForServer", { rows: maxRowsForServer(ready) })}</p>}
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" onClick={() => setTable(null)}>{t("import.another")}</Button>
-                <Button width="responsive" disabled={!ready.length || !fits || importing} aria-busy={importing} onClick={runImport}>{importing ? t("import.saving") : tc("import.button", ready.length)}</Button>
+                <Button width="responsive" disabled={!ready.length || !fits || importing} aria-busy={importing} onClick={runImport}>{importing ? <><StatusDot kind="progress" />{t("import.saving")}</> : tc("import.button", ready.length)}</Button>
               </div>
             </Section>
           </>

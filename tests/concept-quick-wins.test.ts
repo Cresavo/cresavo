@@ -9,6 +9,7 @@ import { bookingMessage, type BookingMessageKind, type MessageChannel } from "@/
 import { MessagePreviews } from "@/concept/booking/message-previews";
 import { quote } from "@/concept/booking/protection";
 import { formatMinor } from "@/concept/booking/policy-summary";
+import { mapLink } from "@/concept/booking/links";
 import { TimePicker } from "@/concept/booking/time-picker";
 import { sellGiftCard } from "@/concept/giftcards/cards";
 import { t } from "@/concept/i18n";
@@ -61,6 +62,22 @@ function elements(tree: ReactNode): ReactElement<{ children?: ReactNode }>[] {
   );
 }
 
+/** Text of our own static markup. A tag parser, not a one-pass regex replace (CodeQL). */
+function textFromMarkup(markup: string) {
+  let text = "";
+  let i = 0;
+  while (i < markup.length) {
+    const open = markup.indexOf("<", i);
+    if (open === -1) return text + markup.slice(i);
+    text += markup.slice(i, open);
+    const close = markup.indexOf(">", open + 1);
+    if (close === -1) return text;
+    i = close + 1;
+  }
+  return text;
+}
+
+
 function propsOf<P>(tree: ReactNode, component: (props: P) => ReactNode): P[] {
   return elements(tree).filter(node => node.type === component).map(node => node.props as P);
 }
@@ -101,12 +118,12 @@ it("uses the fixture vocabulary in the summary and in the migration labels", () 
 it("retains the list price and qualifies salon payment when prepaid visits are available", () => {
   const summary = {
     slot: { ...booking, start: 900, date: now.today },
-    terms: quote(fixture.cancellationPolicy, { id: booking.serviceId, price: booking.price }, "EUR", true), now, phone: fixture.salon.phone,
+    terms: quote({ ...fixture.cancellationPolicy, payAtSalonDefault: true }, { id: booking.serviceId, price: booking.price }, "EUR", true), now, phone: fixture.salon.phone,
   };
   const price = formatMoney(booking.price, "EUR", "en");
   const withPackages = BookingSummary({ ...summary, packagesEnabled: true });
   const withoutPackages = BookingSummary({ ...summary, packagesEnabled: false });
-  const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => node.props.children);
+  const amounts = (tree: ReactNode) => elements(tree).filter(node => node.type === "dd").map(node => textFromMarkup(renderToStaticMarkup(node)));
   expect(amounts(withPackages)).toEqual([price, formatMoney(0, "EUR", "en"), price]);
   const deposit = BookingSummary({ ...summary, terms: { ...summary.terms, depositMinor: 12345 }, packagesEnabled: true });
   expect(amounts(deposit)).toEqual([price, formatMinor(12345, "EUR"), formatMinor(summary.terms.priceMinor - 12345, "EUR")]);
@@ -138,6 +155,27 @@ it.each([
   expect(html).toContain(copy("booking.me.rebook"));
   expect(html).not.toContain(copy("booking.confirmation.text"));
   expect(html).not.toContain(copy("booking.googleCalendar"));
+});
+
+it("shows an upcoming visit as label-value rows with the address on the map and Add to calendar as the one primary", () => {
+  vi.stubGlobal("window", { location: new URL("http://localhost:3000"), setTimeout: vi.fn() });
+  vi.mocked(usePublicDemo).mockReturnValue({ ...fixture, bookings: [booking] });
+  vi.mocked(useSalonNow).mockReturnValue(now);
+  const html = renderToStaticMarkup(createElement(Confirmation, { id: booking.id }));
+  for (const label of ["booking.ticket.date", "booking.ticket.time", "booking.ticket.place"] as const) expect(html).toContain(`>${copy(label)}</dt>`);
+  const map = mapLink(fixture.salon.address, fixture.salon.area);
+  expect(html.split(`href="${map.replace(/&/g, "&amp;")}"`)).toHaveLength(3);
+  expect(html).toContain(copy("booking.directions"));
+  expect(html).toContain(copy("booking.calendarFile"));
+  expect(html.match(/bg-action text-on-action/g)).toHaveLength(1);
+  expect(html).not.toMatch(/\d+ ?min (walk|drive)/);
+});
+
+it("builds the same map search when the area is already joined onto the address", () => {
+  // The booking-link contact list receives address and area already joined; a suffix like " · District" must still be dropped.
+  const expected = mapLink(fixture.salon.address, fixture.salon.area);
+  expect(mapLink([fixture.salon.address, fixture.salon.area].filter(Boolean).join(", "))).toBe(expected);
+  expect(expected).not.toContain(encodeURIComponent(" · "));
 });
 
 it("keeps each message kind's channel while showing the same localized body that is sent", () => {

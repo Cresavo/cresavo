@@ -38,14 +38,18 @@ const interval = (value: Interval | null | undefined): Interval | null => value 
 const week = (stored: Record<number, Interval | null> | undefined): Record<number, Interval | null> =>
   Object.fromEntries(WEEKDAYS.map((day) => [day, interval(stored?.[day])]));
 
-const salon = (stored: Salon, bookableUntil: DateKey): Salon => ({
-  name: text(stored.name), slug: text(stored.slug), tagline: text(stored.tagline), address: text(stored.address), area: text(stored.area),
-  phone: text(stored.phone), email: text(stored.email), orgNumber: "",
-  hours: Object.fromEntries(WEEKDAYS.map((day) => [day, stored.hours?.[day] ? { open: num(stored.hours[day].open), close: num(stored.hours[day].close) } : null])),
-  lunch: stored.lunch ? { start: num(stored.lunch.start), end: num(stored.lunch.end) } : null,
-  closures: (stored.closures ?? []).map((closure) => ({ id: text(closure.id), date: text(closure.date), name: "" })),
-  bookableUntil,
-});
+const salon = (stored: Salon, bookableUntil: DateKey): Salon => {
+  const openings = (stored.openings ?? []).map((item) => ({ date: text(item.date), open: num(item.open), close: num(item.close) })).filter((item) => item.date && item.close > item.open);
+  return {
+    name: text(stored.name), slug: text(stored.slug), tagline: text(stored.tagline), address: text(stored.address), area: text(stored.area),
+    phone: text(stored.phone), email: text(stored.email), orgNumber: "",
+    hours: Object.fromEntries(WEEKDAYS.map((day) => [day, stored.hours?.[day] ? { open: num(stored.hours[day].open), close: num(stored.hours[day].close) } : null])),
+    lunch: stored.lunch ? { start: num(stored.lunch.start), end: num(stored.lunch.end) } : null,
+    closures: (stored.closures ?? []).map((closure) => ({ id: text(closure.id), date: text(closure.date), name: "" })),
+    ...(openings.length ? { openings } : {}),
+    bookableUntil,
+  };
+};
 
 const offering = (stored: Service): Service => ({
   id: text(stored.id), name: text(stored.name), category: text(stored.category), staffIds: list(stored.staffIds) as StaffId[],
@@ -134,6 +138,8 @@ export function publicSalonView(state: DemoState, now: Date): DemoState {
     cancellationPolicy: {
       version: num(policy.version), freeHours: num(policy.freeHours), latePercent: num(policy.latePercent), noShowPercent: num(policy.noShowPercent),
       deposits: Object.fromEntries(Object.entries(policy.deposits ?? {}).filter(([id, amount]) => serviceIds.has(id) && typeof amount === "number").map(([id, amount]) => [id, num(amount)])),
+      payAtSalonDefault: policy.payAtSalonDefault === true,
+      payAtSalon: Object.fromEntries(Object.entries(policy.payAtSalon ?? {}).filter(([id, choice]) => serviceIds.has(id) && typeof choice === "boolean")),
       newCustomersOnly: policy.newCustomersOnly === true, exemptServices: list(policy.exemptServices).filter((id) => serviceIds.has(id)),
     },
     // Only the reviews switch is the customer's to see; the rest of the studio's modules stay off here.

@@ -6,8 +6,6 @@ import { nativeBookingProvider } from "../../src/lib/agent-api/provider/native";
 import { createMockPartnerProvider } from "../../src/lib/agent-api/provider/mock-partner";
 import { startMockPartnerServer } from "../../src/lib/agent-api/provider/mock-partner-server";
 import { authenticateAgent, createAgentApiKey, type AgentPrincipal } from "../../src/lib/agent-api/keys";
-import { clearLabOAuthBusinesses, registerLabOAuthBusiness } from "../../src/lib/agent-api/oauth/lab-business";
-import { verifyLabAccessToken } from "../../src/lib/agent-api/oauth/server";
 import { customerDecision, createProposal, getProposal } from "../../src/lib/agent-api/proposals";
 import { cancelBookingV1, createAgentBooking, getBookingV1, scopedIdempotencyKey } from "../../src/lib/agent-api/bookings";
 import { servicesV1, availabilityV1, agentRoute, Created } from "../../src/lib/agent-api/v1";
@@ -15,29 +13,28 @@ import { issueSyntheticMandate } from "../../src/lib/agent-api/mandates";
 import { readAudit } from "../../src/lib/agent-api/audit-read";
 import { AGENT_API_CHANNEL } from "../../src/lib/domain";
 import { POST as consent } from "../../src/app/consent/[id]/decision/route";
-import { accessToken, labRequest, origin } from "../helpers/oauth";
-import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
-import { CHANNEL_CUSTOMER } from "../../src/lib/agent-api/customer-channel-lab";
+import { labRequest, origin } from "../helpers/lab-request";
+import { deleteGrants, grantToken } from "../helpers/agent-grant";
+import { simulatedEmailCodeSender } from "../../src/lib/agent-api/email-code-consent";
 
 const clients: string[] = [];
-const oauthAuditClients: string[] = [];
+const oauthClients: string[] = [];
 let server: Awaited<ReturnType<typeof startMockPartnerServer>> | undefined;
 let provider: ReturnType<typeof createMockPartnerProvider>;
 beforeEach(async () => {
-  vi.stubEnv("BOOKING_CONSENT_LAB", "1"); vi.stubEnv("BOOKING_OAUTH_LAB", "1");
+  vi.stubEnv("BOOKING_CONSENT_LAB", "1");
   vi.stubEnv("BOOKING_PUBLIC_ORIGIN", origin); vi.stubEnv("BOOKING_RUNTIME", "local");
-  vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof");
+  vi.stubEnv("BOOKING_ADDRESS_SECRET", "synthetic-oauth-socket-proof"); vi.stubEnv("AGENT_OAUTH", "1");
   server = await startMockPartnerServer({ port: 0 });
   provider = createMockPartnerProvider({ baseUrl: server.baseUrl });
   registerLabBookingProvider("lab-partner", provider);
 });
 afterEach(async () => {
-  vi.restoreAllMocks(); clearLabBookingProviders(); clearLabOAuthBusinesses();
+  vi.restoreAllMocks(); clearLabBookingProviders();
   await server?.close(); server = undefined; vi.unstubAllEnvs();
 });
 afterAll(async () => {
+  await deleteGrants(oauthClients);
   const keys = await db.agentApiKey.findMany({ where: { clientId: { in: clients } } });
   await db.agentApiEvent.deleteMany({ where: { keyId: { in: keys.map(k => k.id) } } });
   // AgentAuditEvent is append-only (AGENT_AUDIT_APPEND_ONLY); do not delete it.
@@ -52,10 +49,9 @@ afterAll(async () => {
 async function actor(oauth = false, scopes = ["services:read", "availability:read", "bookings:read", "bookings:write"]) {
   let key: string;
   if (oauth) {
-    key = await accessToken(scopes.join(" "));
-    const token = verifyLabAccessToken(key, new Date())!;
-    registerLabOAuthBusiness(token.clientId, "lab-partner");
-    oauthAuditClients.push(token.clientId);
+    const grant = await grantToken("lab-partner", scopes);
+    key = grant.accessToken;
+    oauthClients.push(grant.oauthClientId);
   } else key = (await createAgentApiKey({ businessId: "lab-partner", agentName: "Synthetic partner client",
     ownerName: "Synthetic operator", ownerContact: "partner@example.test", scopes }, db)).key;
   const principal = await authenticateAgent(new Headers({ authorization: `Bearer ${key}` }), db, scopes[0] as "services:read");
@@ -71,40 +67,33 @@ async function payload(p: AgentPrincipal, index = 0) {
     staffId: slot.staff.id, start: slot.start };
 }
 type Payload = Awaited<ReturnType<typeof payload>>;
+const customerEmail = "partner-customer@example.test";
 const body = (input: Payload, mandateId?: string) => ({ ...input, confirmed: true,
-  customer: { name: "Synthetic customer", email: "partner-customer@example.test" }, ...(mandateId ? { mandateId } : {}) });
+  customer: { name: "Synthetic customer", email: customerEmail }, ...(mandateId ? { mandateId } : {}) });
+// The customer types their own address on the consent page and reads the code from their inbox.
+async function codeFor(proposalId: string) {
+  await customerDecision(proposalId, { decision: "send-code", email: customerEmail });
+  return simulatedEmailCodeSender.read().at(-1)!.code;
+}
 async function approved(p: AgentPrincipal, input: Payload) {
   const result = await createProposal(p, input);
-  const token = new URL(result.approvalUrl!).hash.slice(1);
-  const viewed = await customerDecision(result.proposal.id, { token, decision: "view" });
-  await customerDecision(result.proposal.id, { token, decision: "yes", proposalHash: viewed.proposalHash });
-  return { mandateId: (await getProposal(p, result.proposal.id)).proposal.mandateId!, proposalId: result.proposal.id, token };
+  const code = await codeFor(result.proposal.id);
+  const viewed = await customerDecision(result.proposal.id, { decision: "view" }) as { proposalHash: string };
+  await customerDecision(result.proposal.id, { decision: "yes", proposalHash: viewed.proposalHash, code });
+  return { mandateId: (await getProposal(p, result.proposal.id)).proposal.mandateId!, proposalId: result.proposal.id, code };
 }
 function created(result: unknown) { return (result instanceof Created ? result.body : result) as { replayed: boolean; booking: { id: string; status: string } }; }
 
-it("separate customer contact is checked before any partner write and on an identical retry", async () => {
-  const root = realpathSync(tmpdir()), inbox = mkdtempSync(join(root, "booking-consent-inbox-"));
-  chmodSync(inbox, 0o700);
-  try {
-    vi.stubEnv("BOOKING_CONSENT_DELIVERY", "separate-lab"); vi.stubEnv("BOOKING_CONSENT_INBOX_DIR", inbox);
-    const { principal } = await actor(), input = await payload(principal);
-    const p = await createProposal(principal, input);
-    expect(p.approvalUrl).toBeUndefined();
-    const token = new URL(JSON.parse(readFileSync(join(inbox, p.proposal.id + ".json"), "utf8")).approvalUrl).hash.slice(1);
-    const viewed = await customerDecision(p.proposal.id, { token, decision: "view" });
-    await customerDecision(p.proposal.id, { token, decision: "yes", proposalHash: viewed.proposalHash });
-    const mandateId = (await getProposal(principal, p.proposal.id)).proposal.mandateId!;
-    await expect(createAgentBooking(principal, "wrong-contact", body(input, mandateId))).rejects.toMatchObject({ code: "mandate_denied" });
-    expect(server!.state.bookings.size).toBe(0);
-    const data = { ...body(input, mandateId), customer: { name: CHANNEL_CUSTOMER.name, email: CHANNEL_CUSTOMER.email } };
-    const first = created(await createAgentBooking(principal, "bound-contact", data));
-    const replay = created(await createAgentBooking(principal, "bound-contact", data));
-    expect(replay).toMatchObject({ replayed: true, booking: { id: first.booking.id } });
-    expect(server!.state.bookings.size).toBe(1);
-  } finally {
-    if (!resolve(inbox).startsWith(root + sep + "booking-consent-inbox-")) throw new Error("OWN_INBOX_REQUIRED");
-    rmSync(inbox, { recursive: true });
-  }
+it("the address that returned the code is checked before any partner write and on an identical retry", async () => {
+  const { principal } = await actor(), input = await payload(principal);
+  const { mandateId } = await approved(principal, input);
+  const other = { ...body(input, mandateId), customer: { name: "Synthetic customer", email: "someone-else@example.test" } };
+  await expect(createAgentBooking(principal, "wrong-contact", other)).rejects.toMatchObject({ code: "mandate_denied" });
+  expect(server!.state.bookings.size).toBe(0);
+  const first = created(await createAgentBooking(principal, "bound-contact", body(input, mandateId)));
+  const replay = created(await createAgentBooking(principal, "bound-contact", body(input, mandateId)));
+  expect(replay).toMatchObject({ replayed: true, booking: { id: first.booking.id } });
+  expect(server!.state.bookings.size).toBe(1);
 });
 
 it.each([false, true])("E2E key/OAuth: provider catalog, customer yes, create, get and cancel (%s)", async oauth => {
@@ -115,15 +104,15 @@ it.each([false, true])("E2E key/OAuth: provider catalog, customer yes, create, g
   await expect(createAgentBooking(principal, "missing", body(input))).rejects.toMatchObject({ code: "mandate_required" });
   expect(server!.state.bookings.size).toBe(0);
   const pending = await createProposal(principal, input);
-  const token = new URL(pending.approvalUrl!).hash.slice(1);
+  const code = await codeFor(pending.proposal.id);
   const denied = await consent(labRequest(`${origin}/consent/${pending.proposal.id}/decision`, { method: "POST",
     headers: { origin, authorization: `Bearer ${key}`, "content-type": "application/json" },
-    body: JSON.stringify({ token, decision: "yes" }) }), { params: Promise.resolve({ id: pending.proposal.id }) });
+    body: JSON.stringify({ code, decision: "yes" }) }), { params: Promise.resolve({ id: pending.proposal.id }) });
   expect(denied.status).toBe(403);
   expect(await db.agentMandate.count({ where: { originReference: pending.proposal.id } })).toBe(0);
-  const seen = await customerDecision(pending.proposal.id, { token, decision: "view" });
+  const seen = await customerDecision(pending.proposal.id, { decision: "view" }) as { proposalHash: string };
   const yes = await consent(labRequest(`${origin}/consent/${pending.proposal.id}/decision`, { method: "POST",
-    headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ token, decision: "yes", proposalHash: seen.proposalHash }) }),
+    headers: { origin, "content-type": "application/json" }, body: JSON.stringify({ code, decision: "yes", proposalHash: seen.proposalHash }) }),
     { params: Promise.resolve({ id: pending.proposal.id }) });
   expect(yes.status).toBe(200);
   const mandateId = (await getProposal(principal, pending.proposal.id)).proposal.mandateId!;
@@ -142,13 +131,13 @@ it.each([false, true])("E2E key/OAuth: provider catalog, customer yes, create, g
   await expect(getBookingV1(other.principal, result.booking.id)).rejects.toMatchObject({ code: "booking_not_found" });
   await expect(cancelBookingV1(other.principal, result.booking.id)).rejects.toMatchObject({ code: "booking_not_found" });
   const chain = await readAudit({ businessId: "lab-partner", bookingId: result.booking.id, chain: "true" });
-  expect(chain.events.map(e => e.event)).toEqual(["proposal.created", "proposal.viewed", "consent.approved", "mandate.created", "mandate.consumed", "booking.created"]);
+  expect(chain.events.map(e => e.event)).toEqual(["proposal.created", "email_code.sent", "proposal.viewed", "email_code.verified", "consent.approved", "mandate.created", "mandate.consumed", "booking.created"]);
   const cancelled = await cancelBookingV1(principal, result.booking.id);
   expect(cancelled.booking.status).toBe("cancelled");
   expect([...server!.state.bookings.values()][0].status).toBe("cancelled");
   const audit = await readAudit({ businessId: "lab-partner", bookingId: result.booking.id, chain: "true" });
   expect(audit.events.at(-1)?.event).toBe("booking.cancelled");
-  for (const secret of [key, token, "partner-customer@example.test", "Synthetic customer", "pos-ticket", "Verbose private POS"])
+  for (const secret of [key, code, "partner-customer@example.test", "Synthetic customer", "pos-ticket", "Verbose private POS"])
     expect(JSON.stringify(audit)).not.toContain(secret);
   expect(server!.state.bookings.size).toBe(1);
 });

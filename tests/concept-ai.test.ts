@@ -44,7 +44,7 @@ describe("task contracts and deterministic rules", () => {
   it.each(names)("%s has a versioned prompt, schema and valid fallback", async name => {
     const fetcher = vi.fn();
     const result = await runTask(name, inputs[name], { env: {}, fetcher });
-    expect(tasks[name].version).toBe(name === "daily-summary" || name === "write-post" ? 2 : 1);
+    expect(tasks[name].version).toBe(["daily-summary", "write-post", "interpret-command"].includes(name) ? 2 : 1);
     expect(tasks[name].prompt.length).toBeGreaterThan(40);
     expect(tasks[name].schema).toHaveProperty("$schema");
     expect(validateOutput(tasks[name].output, result.output).success).toBe(true);

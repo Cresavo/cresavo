@@ -3,11 +3,12 @@
 import { customerText } from "../i18n/customer-text";
 
 import { useState } from "react";
-import { CalendarClock, CalendarPlus, Phone, XCircle } from "lucide-react";
+import { CalendarClock, CalendarPlus, Navigation, Share2, XCircle } from "lucide-react";
 import type { Booking, DemoState } from "../data/types";
-import { t } from "../i18n";
+import { getActiveLocale, t } from "../i18n";
 import { formatDayLong, formatTime } from "../i18n/format";
 import { findCustomer, findService, fullName } from "../selectors";
+import { useServerSalon } from "../server-salon";
 import { currentState, targetOf } from "../store";
 import { commitAction } from "../store/commit";
 import { newActionRequestId } from "../support/action-reference";
@@ -19,9 +20,12 @@ import { Sheet } from "../ui/sheet";
 import { showActionFailure, showToast } from "../ui/toast";
 import type { Now } from "../use-now";
 import { useCommit } from "../ui/use-commit";
-import { buildIcs, googleCalendarLink, icsTimestamp } from "./ics";
+import { buildIcs, buildPublicIcs, freeHoursFromDeadline, googleCalendarLink, icsTimestamp, publicGoogleCalendarLink } from "./ics";
+import type { PublicBookingView } from "./public-booking-view";
 import { FREE_CHANGE_HOURS, changeRule } from "./policy";
 import { freeUntilText } from "./deadline-text";
+import { bookingHome, mapLink } from "./links";
+import { shareVisit, type SharedVisit } from "./share-visit";
 import { openSlots, type OpenSlot } from "./suggest";
 import { TimePicker } from "./time-picker";
 import { WaitlistSheet, type WaitlistRequest } from "./waitlist-sheet";
@@ -56,7 +60,90 @@ interface BookingActionsProps {
   booking: Booking;
 }
 
-/** Add to calendar, reschedule and cancel. Inside the 24 h window the customer is asked to call. */
+/**
+ * Save the visit and find the way: the calendar file is the main action, with directions beside it.
+ * The map app works out the route and the travel time; the page never guesses one.
+ */
+function CalendarActionRow({ onDownload, mapHref, googleHref, share }: {
+  onDownload: () => void;
+  mapHref: string;
+  googleHref: string;
+  /** The visit to pass on, with the path of the page to link to. */
+  share: Omit<SharedVisit, "url"> & { path: string };
+}) {
+  const send = async () => {
+    const result = await shareVisit({ ...share, url: new URL(share.path, window.location.origin).href });
+    if (result === "copied") showToast(t("booking.share.copied"));
+    if (result === "failed") showToast(t("booking.share.failed"));
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button icon={<CalendarPlus size={16} />} onClick={onDownload}>
+        {t("booking.calendarFile")}
+      </Button>
+      <a href={mapHref} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
+        <Navigation aria-hidden size={16} />
+        {t("booking.directions")}
+      </a>
+      <a href={googleHref} target="_blank" rel="noopener noreferrer" className={buttonClass("link")}>
+        {t("booking.googleCalendar")}
+      </a>
+      <Button variant="link" icon={<Share2 size={16} />} onClick={send}>
+        {t("booking.share")}
+      </Button>
+    </div>
+  );
+}
+
+export function CalendarActions({ state, booking }: { state: DemoState; booking: Booking }) {
+  const service = findService(state, booking.serviceId);
+  if (!service) return null;
+  return (
+    <CalendarActionRow
+      onDownload={() => downloadCalendar(state, booking)}
+      mapHref={mapLink(state.salon.address, state.salon.area)}
+      googleHref={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })}
+      share={{ salon: state.salon.name, date: booking.date, start: booking.start, path: bookingHome(state.salon.slug) }}
+    />
+  );
+}
+
+/** Save the visit from a booking-link page: the public salon and the link's own fields, never a customer record. */
+export function PublicCalendarActions({ slug, id, view }: { slug: string; id: string; view: PublicBookingView }) {
+  const salon = useServerSalon()?.salon;
+  if (view.status !== "booked") return null;
+  const visit = {
+    id,
+    treatment: view.treatment,
+    date: view.date,
+    start: view.start,
+    duration: view.duration,
+    staffFirstName: view.staffFirstName,
+    salon: { name: salon?.name ?? "", slug, address: salon?.address || view.salon.address, area: salon?.area },
+    language: getActiveLocale(),
+    freeHours: freeHoursFromDeadline(view.date, view.start, view.freeUntil),
+  };
+  const download = () => {
+    const ics = buildPublicIcs({ ...visit, createdAt: icsTimestamp(new Date()) });
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slug}-${view.date}.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <CalendarActionRow
+      onDownload={download}
+      mapHref={mapLink(visit.salon.address, visit.salon.area ?? "")}
+      googleHref={publicGoogleCalendarLink(visit)}
+      // The link in the e-mail carries the key to change the booking; the salon's page is what is safe to pass on.
+      share={{ salon: visit.salon.name, date: view.date, start: view.start, path: bookingHome(slug) }}
+    />
+  );
+}
+
+/** Reschedule and cancel. Inside the 24 h window the customer is asked to call. */
 export function BookingActions({ state, now, booking }: BookingActionsProps) {
   const [sheet, setSheet] = useState<"move" | "cancel" | null>(null);
   const [run, pending] = useCommit();
@@ -142,21 +229,11 @@ export function BookingActions({ state, now, booking }: BookingActionsProps) {
         )}
       </div>
       {rule === "late" && (
-        <Notice tone="warning" className="flex items-start gap-2">
-          <Phone size={16} className="mt-1 shrink-0" />
-          <span>{t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}</span>
+        <Notice tone="warning">
+          {t(state.salon.phone ? "booking.tooLate" : "booking.tooLateNoPhone", { hours: booking.protection?.terms.freeHours ?? FREE_CHANGE_HOURS, phone: state.salon.phone })}
         </Notice>
       )}
       {!moveOpen && moveFailure && <ActionFailure failure={moveFailure} audience="booking" />}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" icon={<CalendarPlus size={16} />} onClick={() => downloadCalendar(state, booking)}>
-          {t("booking.calendarFile")}
-        </Button>
-        <a href={googleCalendarLink({ booking, service, salon: state.salon, language: state.localization.language })} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary")}>
-          {t("booking.googleCalendar")}
-        </a>
-      </div>
 
       <Sheet
         open={rule === "free" && sheet === "cancel"}

@@ -25,6 +25,10 @@ it("keeps framing closed except the booking page for its own editor and the publ
   expect(frames("/boka/salong-eko/manage")).toBe("frame-ancestors 'none'");
 });
 
+it("plays media only from this origin and object URLs made in the page", () => {
+  expect(directive(contentSecurityPolicy("n", "/studio", true), "media-src")).toBe("media-src 'self' blob:");
+});
+
 it("creates unpredictable base64 nonces", () => {
   const nonces = new Set(Array.from({ length: 50 }, createNonce));
   expect(nonces.size).toBe(50);

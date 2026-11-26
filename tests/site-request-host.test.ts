@@ -47,13 +47,13 @@ it("keeps same-deployment links on a preview deployment", async () => {
   await expect(siteProps({ host: "cresavo.com" })).resolves.toMatchObject({ props: { analyticsEnabled: false } });
 });
 
-it("publishes the product homepages and about pages in the public sitemap", async () => {
+it("publishes the product homepages, about and own-domain pages in the public sitemap", async () => {
   const request = (host: string) => new Request(`https://${host}`, { headers: { host } });
   const apex = request("cresavo.com");
   const demo = request("demo.cresavo.com");
 
   expect(await robots(apex).text()).toContain("Sitemap: https://cresavo.com/sitemap.xml");
-  expect((await sitemap(apex).text()).match(/<loc>(.*?)<\/loc>/g)).toEqual(["<loc>https://cresavo.com/</loc>", "<loc>https://cresavo.com/sv</loc>", "<loc>https://cresavo.com/about</loc>", "<loc>https://cresavo.com/sv/about</loc>"]);
+  expect((await sitemap(apex).text()).match(/<loc>(.*?)<\/loc>/g)).toEqual(["<loc>https://cresavo.com/</loc>", "<loc>https://cresavo.com/sv</loc>", "<loc>https://cresavo.com/about</loc>", "<loc>https://cresavo.com/sv/about</loc>", "<loc>https://cresavo.com/own-domain</loc>", "<loc>https://cresavo.com/sv/own-domain</loc>"]);
   expect(await robots(demo).text()).not.toContain("Sitemap:");
   expect(sitemap(demo).status).toBe(404);
 });
@@ -69,7 +69,13 @@ it("prefers Vercel's forwarded host for links and host routing", async () => {
   expect(routed("/", apex).get("x-middleware-rewrite")).toBe("http://localhost:3100/coming-soon");
   expect(routed("/", apex).get("X-Robots-Tag")).toBeNull();
   expect(routed("/sv", apex).get("X-Robots-Tag")).toBeNull();
-  for (const path of ["/about", "/sv/about"]) expect(routed(path, apex).get("X-Robots-Tag"), path).toBeNull();
+  for (const path of ["/about", "/sv/about", "/own-domain", "/sv/own-domain"]) expect(routed(path, apex).get("X-Robots-Tag"), path).toBeNull();
+  // The showcase salon sites are demo pages, not the product: kept out of search.
+  for (const path of ["/showcase/salong-klassisk", "/showcase/salong-vagad/boka"]) {
+    expect(routed(path, apex).get("X-Robots-Tag"), path).toBe("noindex, nofollow");
+    // Rendered like a business's own page: the root layout hides the platform banner from the first paint.
+    expect(routed(path, apex).get("x-middleware-request-x-concept-route"), path).toBe("booking");
+  }
   expect(routed("/privacy", apex).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/sv", demo).get("X-Robots-Tag")).toBe("noindex, nofollow");
   expect(routed("/?from=home", demo).get("location")).toBe("http://demo.cresavo.com/studio?from=home");
@@ -99,12 +105,18 @@ it("keeps links local when a product domain is unset and forwarding is untrusted
   expect(routed("/", headers).get("X-Robots-Tag")).toBe("noindex, nofollow");
 });
 
-it("permanently redirects the Swedish aliases to the configured HTTPS product origin", () => {
+it("permanently redirects the Swedish aliases to the configured HTTPS product origin, keeping the page", () => {
   vi.stubEnv("CONCEPT_SITE_SV_DOMAINS", "cresavo.se, www.cresavo.se");
   for (const host of ["cresavo.se", "www.cresavo.se"]) {
-    const response = proxy(new NextRequest("http://localhost/privacy?source=demo", { headers: { host } }));
-    expect(response.status).toBe(308);
-    expect(response.headers.get("location")).toBe("https://cresavo.com/sv/privacy?source=demo");
+    const privacy = proxy(new NextRequest("http://localhost/privacy?source=demo", { headers: { host } }));
+    expect(privacy.status).toBe(308);
+    expect(privacy.headers.get("location")).toBe("https://cresavo.com/sv/privacy?source=demo");
+    const own = proxy(new NextRequest("http://localhost/own-domain", { headers: { host } }));
+    expect(own.status).toBe(308);
+    expect(own.headers.get("location")).toBe("https://cresavo.com/sv/own-domain");
+    const home = proxy(new NextRequest("http://localhost/", { headers: { host } }));
+    expect(home.status).toBe(308);
+    expect(home.headers.get("location")).toBe("https://cresavo.com/sv");
   }
 });
 

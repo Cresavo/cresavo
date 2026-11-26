@@ -72,7 +72,7 @@ export function PhoneModeSheet({ onClose, onBook, onMove }: PhoneModeProps) {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-text-secondary">{t("phone.freeTimes")}</h3>
+          <h3 className="text-sm font-semibold text-text-secondary">{t("phone.freeTimes")}</h3>
           {days.map((d) => {
             const gaps = state.staff.flatMap((s) =>
               freeGaps(state, s.id, d, { after: d === today ? minutes : 0, min: 30 }).map((g) => ({ ...g, staff: s })),

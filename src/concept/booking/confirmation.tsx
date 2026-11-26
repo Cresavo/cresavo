@@ -2,9 +2,9 @@
 
 import { moduleEnabled } from "../modules/registry";
 import Link from "next/link";
-import { CalendarCheck, CheckCircle2, MapPin, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { t } from "../i18n";
-import { formatDayLong, formatDuration, formatMoney, formatTime } from "../i18n/format";
+import { formatMoney } from "../i18n/format";
 import { useServerSalon } from "../server-salon";
 import { usePublicDemo } from "../store";
 import { ActionFailure } from "../ui/action-failure";
@@ -13,7 +13,7 @@ import { Button, ButtonLink } from "../ui/button";
 import { Card } from "../ui/card";
 import { useSalonNow } from "../use-now";
 import { PaymentSummary, policyText } from "./policy-summary";
-import { BookingActions } from "./booking-actions";
+import { BookingActions, CalendarActions } from "./booking-actions";
 import { freeUntilText } from "./deadline-text";
 import { changeRule } from "./policy";
 import { bookingHome, bookingPage, myBookingsFor } from "./links";
@@ -21,6 +21,7 @@ import { MessagePreviews } from "./message-previews";
 import { canWriteReview, ReviewForm } from "./review-form";
 import { RepeatBookingLink } from "./repeat-booking-link";
 import { findService } from "../selectors";
+import { VisitTicket } from "./visit-ticket";
 
 /** What the customer sees after booking, and the page behind the link in their confirmation. */
 /** `onBack`: shown in place on the salon's own page, where going back is closing the receipt rather than following a link. */
@@ -68,31 +69,30 @@ export function Confirmation({ id, onBack }: { id: string; onBack?: () => void }
         {(active || cancelled) && <p className="text-text-secondary">{t(cancelled ? "booking.confirmation.cancelledText" : "booking.confirmation.text")}</p>}
       </div>
 
-      <Card className="space-y-4 p-5">
-        <div>
-          <p className="text-h3 font-semibold">{service.name}</p>
-          <p className="mt-1 flex items-center gap-2 text-body">
-            <CalendarCheck size={16} className="shrink-0 text-action" />
-            {formatDayLong(booking.date)}, {formatTime(booking.start)}–{formatTime(booking.start + booking.duration)}
-          </p>
-        </div>
-        {booking.visitFor && <p className="text-body">{t("booking.for.visit", { name: booking.visitFor })}</p>}
-        <div className="flex items-center gap-3 text-meta text-text-secondary">
-          <StaffAvatar person={person} size="sm" />
-          <span>{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })} · {formatDuration(booking.duration)}</span>
-        </div>
-        <p className="flex items-start gap-2 text-meta text-text-secondary">
-          <MapPin size={16} className="mt-1 shrink-0" />
-          {[state.salon.name, state.salon.address, state.salon.area].filter(Boolean).join(", ")}
-        </p>
+      {/* A quiet ticket: label–value rows the customer can read at the door, the address straight to the map. */}
+      <VisitTicket
+        treatment={service.name}
+        date={booking.date}
+        start={booking.start}
+        duration={booking.duration}
+        visitFor={booking.visitFor}
+        place={state.salon}
+        staff={
+          <div className="flex items-center gap-3">
+            <StaffAvatar person={person} size="md" />
+            <span className="min-w-0 text-body font-medium">{t("booking.withStaff", { name: `${person.firstName} ${person.lastName}` })}</span>
+          </div>
+        }
+      >
         {booking.protection ? <PaymentSummary booking={booking} state={state} active={active} /> : <p className="border-t border-hairline pt-3 text-meta">
           <strong>{formatMoney(booking.price, state.localization.currency)}</strong>
           {active && <> · {t(moduleEnabled(state.modules, "packages") ? "booking.payAtSalonWithPackages" : "booking.payAtSalon")}</>}
         </p>}
-      </Card>
+      </VisitTicket>
+      {active && <CalendarActions state={state} booking={booking} />}
 
       <div className="flex flex-wrap items-center gap-2">
-        {!fromServer && <RepeatBookingLink state={state} booking={booking} variant={reviewIsPrimary ? "secondary" : "primary"} />}
+        {!fromServer && <RepeatBookingLink state={state} booking={booking} variant={reviewIsPrimary || active ? "secondary" : "primary"} />}
         {active && !fromServer && <ButtonLink href={`${bookingPage(state.salon.slug, booking.id)}#manage`} variant="secondary">{t("booking.manageLink")}</ButtonLink>}
       </div>
       <div id="manage" className="scroll-mt-4 space-y-3">

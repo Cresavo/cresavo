@@ -14,7 +14,10 @@ import { useServerSalon } from "../server-salon";
 import { openBookingWorkspace, usePublicDemo, useWorkspaceSlug } from "../store";
 import { ButtonLink } from "../ui/button";
 import { Select } from "../ui/controls";
+import { Bone, SkeletonGroup, SkeletonText } from "../ui/feedback";
 import { pinThemeColor } from "../ui/theme";
+import { OfflineBanner } from "../ui/offline-banner";
+import { CONTENT_ID, SkipLink } from "../ui/skip-link";
 import { Toaster } from "../ui/toast";
 import { bookingHome, myBookings, widgetPath } from "./links";
 import { PageProvider, usePage } from "./page-context";
@@ -58,6 +61,29 @@ export function BookShell({ children, visitorLanguage }: { children: ReactNode; 
   );
 }
 
+/** While the salon loads: its name, a sentence and the treatment rows with their Book buttons, as quiet blocks. */
+export function PageSkeleton() {
+  return (
+    <SkeletonGroup className="max-w-3xl space-y-6 py-4">
+      <div aria-hidden="true" className="space-y-3">
+        <Bone className="h-8 w-2/3" />
+        <SkeletonText lines={2} />
+      </div>
+      <div aria-hidden="true" className="divide-y divide-hairline">
+        {Array.from({ length: 4 }, (_, row) => (
+          <div key={row} className="flex min-h-16 items-center gap-4 py-3">
+            <span className="min-w-0 flex-1 space-y-2">
+              <Bone className="h-4 w-1/2" />
+              <Bone className="h-3 w-1/3" />
+            </span>
+            <Bone className="h-10 w-20 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
+  );
+}
+
 function Frame({ children, slug, widget, switchLanguage }: {
   children: ReactNode;
   slug: string;
@@ -73,14 +99,16 @@ function Frame({ children, slug, widget, switchLanguage }: {
   useTenantIcon(known && page.theme.logo !== brokenLogo ? page.theme.logo : null);
   useTenantChrome(known ? (page.theme.colors?.background ?? null) : null);
   if (!known) return <UnknownAddress />;
-  if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <p>{t("booking.loading")}</p>}</main><Toaster /></PageRoot>;
+  if (widget) return <PageRoot page={page} className="min-h-dvh p-4"><main>{state ? children : <PageSkeleton />}</main><Toaster /></PageRoot>;
   const logo = page.theme.logo && page.theme.logo !== brokenLogo ? page.theme.logo : null;
   return (
     <PageRoot page={page} className="flex min-h-dvh flex-col">
+      <SkipLink />
       {/* The route draws edge to edge (viewport-fit=cover): header, content and footer keep clear of notches and the home indicator. */}
       <header className="booking-safe-top border-b border-hairline bg-surface print:hidden">
-        <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl items-center justify-between gap-x-3">
-          <Link href={bookingHome(slug)} className="flex min-h-target min-w-0 items-center gap-3 break-words font-semibold leading-tight tracking-tight">
+        {/* With large text the language and My bookings move under the name instead of squeezing it. */}
+        <div className="booking-gutters mx-auto flex min-h-14 w-full max-w-5xl flex-wrap items-center justify-between gap-x-3">
+          <Link href={bookingHome(slug)} className="flex min-h-target min-w-0 grow basis-24 items-center gap-3 break-words font-semibold leading-tight tracking-tight">
             {logo ? (
               // The owner's logo: a small data URL in the demo, the app's own address for an account; nothing for the
               // image optimiser to do. One the server no longer serves (removed, or a page restored to an older logo) gives way to the leaf.
@@ -93,20 +121,22 @@ function Frame({ children, slug, widget, switchLanguage }: {
             )}
             <span className="min-w-0">{state?.salon.name}</span>
           </Link>
-          <div className="flex shrink-0 items-center gap-1">
+          {/* A full-width select with a larger max at `sm` used to be measured at 6rem and then laid out at 7rem, which wrapped My bookings from 640px. A fixed 6rem field keeps the row together at normal sizes; the group can still wrap when text is enlarged. */}
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
             {switchLanguage && (
-              <Select
-                className="max-w-24 sm:max-w-28"
-                aria-label={t("language.label")}
-                value={switchLanguage.language}
-                onChange={(event) => {
-                  const language = parseLocale(event.currentTarget.value);
-                  if (language) switchLanguage.change(language);
-                }}
-              >
-                <option value="en" lang="en">{t("language.en")}</option>
-                <option value="sv" lang="sv">{t("language.sv")}</option>
-              </Select>
+              <div className="w-24 max-w-full shrink-0">
+                <Select
+                  aria-label={t("language.label")}
+                  value={switchLanguage.language}
+                  onChange={(event) => {
+                    const language = parseLocale(event.currentTarget.value);
+                    if (language) switchLanguage.change(language);
+                  }}
+                >
+                  <option value="en" lang="en">{t("language.en")}</option>
+                  <option value="sv" lang="sv">{t("language.sv")}</option>
+                </Select>
+              </div>
             )}
             {!fromServer && (
               <ButtonLink href={myBookings(slug)} size="sm" variant="tertiary" className="min-[360px]:whitespace-nowrap">
@@ -116,8 +146,9 @@ function Frame({ children, slug, widget, switchLanguage }: {
           </div>
         </div>
       </header>
-      <main className="booking-gutters mx-auto w-full max-w-5xl flex-1 pb-8 pt-5 lg:pt-8">
-        {state ? children : <p role="status" className="py-12 text-center text-text-secondary">{t("booking.loading")}</p>}
+      <OfflineBanner area="booking" className="booking-gutters" />
+      <main id={CONTENT_ID} tabIndex={-1} className="ui-skip-target booking-gutters mx-auto w-full max-w-5xl flex-1 pb-8 pt-5 lg:pt-8">
+        {state ? children : <PageSkeleton />}
       </main>
       <footer className="booking-gutters booking-safe-bottom border-t border-hairline py-4 text-center text-meta text-text-secondary print:hidden">
         {!fromServer && (
