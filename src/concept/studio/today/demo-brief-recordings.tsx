@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Square, Volume2 } from "lucide-react";
-import { briefSpeech, morningBrief } from "../../assistant/briefs";
+import { briefSpeech } from "../../assistant/briefs";
 import { t } from "../../i18n";
 import { dayBookings } from "../../selectors";
 import { eveningRecap, eveningSpeech } from "../../summary/day";
@@ -26,14 +26,13 @@ const noSubscribe = () => () => undefined;
 export function DemoBriefRecordings() {
   const { state, today, minutes } = useStudio();
   const readings = useMemo(() => {
-    const morning = standardDemoMorningBrief(state, today, state.generatedFor, 9 * 60)
-      ?? morningBrief(state, { today, minutes: 9 * 60 });
+    const morning = standardDemoMorningBrief(state, today, state.generatedFor, minutes);
     const lastEnd = Math.max(0, ...dayBookings(state, today).map((booking) => booking.start + booking.duration));
     const evening = eveningRecap(state, { today, minutes: Math.max(minutes, lastEnd) });
     return {
-      morningClip: morningBriefClipUrl(morning, { today, minutes: 9 * 60 }, state.generatedFor),
+      morningClip: morning ? morningBriefClipUrl(morning, { today, minutes: 9 * 60 }, state.generatedFor) : null,
       eveningClip: eveningBriefClipUrl(evening, { today }, state.generatedFor),
-      morningText: briefSpeech({ ...morning, title: t("brief.morning") }),
+      morningText: morning ? briefSpeech({ ...morning, title: t("brief.morning") }) : "",
       eveningText: eveningSpeech(evening),
     };
   }, [state, today, minutes]);
