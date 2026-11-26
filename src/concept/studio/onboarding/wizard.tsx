@@ -3,7 +3,8 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getActiveLocale, t } from "../../i18n";
-import { SETUP_TYPES, suggestedSlug, suggestedTreatments, treatmentsValid, type SalonDraft, type SetupType } from "../../onboarding/salon";
+import { SETUP_COVERS, SETUP_TYPES, suggestedSlug, suggestedTreatments, treatmentsValid, type SalonDraft, type SetupType } from "../../onboarding/salon";
+import { PHOTOS } from "../../page/theme";
 import { waitForLogo } from "./logo-queue";
 import { useSetupProgress } from "./progress";
 import { switchSalon, useWorkspaceSlug } from "../../store";
@@ -99,7 +100,7 @@ export function SalonWizard() {
         <div className="space-y-2">
           <p className="text-body font-medium">{t("setup.type")}</p>
           <ChoiceCards<SetupType> label={t("setup.type")} value={draft.industry as SetupType}
-            options={SETUP_TYPES.map(id => ({ value: id, label: t(`setup.${id}`) }))}
+            options={SETUP_TYPES.map(id => ({ value: id, label: t(`setup.${id}`), image: PHOTOS[SETUP_COVERS[id]] }))}
             onChange={industry => update({ industry, treatments: suggestedTreatments(industry, language) })} />
         </div>
       </div>}
