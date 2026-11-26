@@ -6,6 +6,7 @@ import { themeAttributes } from "../booking/page-root";
 import { BookingWizard } from "../booking/wizard";
 import type { DemoState } from "../data/types";
 import { ConceptLanguage } from "../i18n/boundary";
+import { salonCopy } from "../i18n/salon-eko-copy";
 import type { Palette } from "../page/colour";
 import { DEFAULT_THEME, type CornerStyle } from "../page/theme";
 import { openBookingWorkspace, usePublicDemo } from "../store";
@@ -19,12 +20,17 @@ import p from "./picker.module.css";
 // deposit checkout as the demo salon, in Swedish, wearing
 // the site's colours and type. Nothing here decides a booking rule.
 
+/** Always present the demo salon in Swedish, even if the visitor arrived from an English product-site session. */
+export function showcaseState(state: DemoState): DemoState {
+  return salonCopy(state, "sv");
+}
+
 /** The demo salon from this browser's demo, or null while it loads or when the visitor's demo holds another business. */
 function useShowcaseState(): DemoState | null | undefined {
   const state = usePublicDemo();
   useEffect(() => { openBookingWorkspace(SHOWCASE_SLUG); }, []);
   if (!state) return undefined;
-  return state.salon.slug === SHOWCASE_SLUG ? state : null;
+  return state.salon.slug === SHOWCASE_SLUG ? showcaseState(state) : null;
 }
 
 /** The price list from the live demo once it is read, so a change made in the studio shows here too. */

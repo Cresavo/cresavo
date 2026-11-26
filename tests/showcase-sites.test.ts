@@ -7,6 +7,10 @@ import { BRAND } from "@/concept/brand";
 import { conceptRoute } from "@/concept/page/language";
 import { CLASSIC_PALETTE } from "@/concept/showcase/klassisk/palette";
 import { KlassiskSite } from "@/concept/showcase/klassisk/klassisk-site";
+import { createDemoState } from "@/concept/data/generate";
+import { setLocale } from "@/concept/i18n";
+import { salonCopy } from "@/concept/i18n/salon-eko-copy";
+import { showcaseState } from "@/concept/showcase/booking";
 import { hoursThisWeek, kronor, menuOf, openingHours, PACK_MENU, SALON, SHOWCASE_SLUG, telHref } from "@/concept/showcase/salon";
 import { StandaloneBooking } from "@/concept/showcase/standalone";
 import { BOLD_PALETTE } from "@/concept/showcase/vagad/palette";
@@ -119,5 +123,15 @@ describe("the showcase salon sites", () => {
   it("are treated like a business's own pages: no platform banner", () => {
     for (const route of ["/showcase", "/showcase/salong-klassisk", "/showcase/salong-vagad/boka"]) expect(conceptRoute(route), route).toBe("booking");
     expect(conceptRoute("/showcasex")).toBeNull();
+  });
+
+  it("keeps Swedish treatment names when the session language is English", () => {
+    setLocale("en");
+    const english = salonCopy(createDemoState("2026-11-26"), "en");
+    expect(english.services.find((service) => service.id === "medical-foot-care")?.name).toBe("Medical foot care");
+    const swedish = showcaseState(english);
+    expect(swedish.services.find((service) => service.id === "medical-foot-care")?.name).toBe("Medicinsk fotvård");
+    expect(menuOf(swedish.services)[0].items[0].name).toBe("Medicinsk fotvård");
+    setLocale("en");
   });
 });
