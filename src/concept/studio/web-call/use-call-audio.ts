@@ -17,6 +17,15 @@ export interface CallLevels {
 
 export const SILENT_LEVELS: CallLevels = { maja: 0, caller: 0, bins: null };
 
+function openAudioContext(): AudioContext | null {
+  if (typeof AudioContext === "undefined") return null;
+  try {
+    return new AudioContext();
+  } catch {
+    return null;
+  }
+}
+
 export function useCallAudio({
   speaker,
   microphone,
@@ -38,7 +47,8 @@ export function useCallAudio({
     if (preview) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!ringing || muted || reduce) return;
-    const ctx = new AudioContext();
+    const ctx = openAudioContext();
+    if (!ctx) return;
     void ctx.resume();
     const now = ctx.currentTime;
     const master = ctx.createGain();
@@ -67,11 +77,15 @@ export function useCallAudio({
   }, [muted, preview, ringing]);
 
   useEffect(() => {
-    if (preview || !active || typeof AudioContext === "undefined") {
+    if (preview || !active) {
       levels.current = SILENT_LEVELS;
       return;
     }
-    const ctx = new AudioContext();
+    const ctx = openAudioContext();
+    if (!ctx) {
+      levels.current = SILENT_LEVELS;
+      return;
+    }
     void ctx.resume();
     const majaAnalyser = ctx.createAnalyser();
     const callerAnalyser = ctx.createAnalyser();
