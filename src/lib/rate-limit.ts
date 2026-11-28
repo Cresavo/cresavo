@@ -6,6 +6,7 @@ import { RATE_LIMITS, type RateLimitRoute } from "./rate-limit-policy";
 
 // One bounded map per process. No persistence or cross-worker guarantee.
 const buckets = new Map<string, { count: number; until: number }>();
+const tenantBuckets = new Map<string, { count: number; until: number }>();
 
 export function postgresStore() {
   if (isPublicReadonly()) return false;
@@ -30,22 +31,23 @@ export function checkRateLimit(
     return import("./postgres-rate-limit").then(async (store) =>
       (await store.reserveRateLimit(route, ip, consume)).count,
     );
-  for (const [key, bucket] of buckets)
-    if (bucket.until <= now) buckets.delete(key);
+  const pool = route === "public-tenant" ? tenantBuckets : buckets;
+  for (const [key, bucket] of pool)
+    if (bucket.until <= now) pool.delete(key);
   const key = `${route}:${ip}`;
   const { limit, minutes } = RATE_LIMITS[route];
-  const bucket = buckets.get(key) ?? { count: 0, until: now + minutes * 60_000 };
+  const bucket = pool.get(key) ?? { count: 0, until: now + minutes * 60_000 };
   if (bucket.count >= limit)
     throw new DomainError(
       "Too many attempts. Please try again later.",
       429,
       Math.max(1, Math.ceil((bucket.until - now) / 1000)),
     );
+  if (consume && !pool.has(key) && pool.size >= 10000)
+    throw new DomainError("Too many attempts. Please try again later.", 429, 1);
   if (consume) {
-    if (!buckets.has(key) && buckets.size >= 10000)
-      buckets.delete(buckets.keys().next().value!);
     bucket.count++;
-    buckets.set(key, bucket);
+    pool.set(key, bucket);
   }
   return bucket.count;
 }

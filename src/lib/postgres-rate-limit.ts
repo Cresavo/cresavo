@@ -13,7 +13,7 @@ export type Reservation = { key: string; generation: string; count: number };
 type Tx = Prisma.TransactionClient;
 
 /** One reservation inside a transaction: the bounded store's single implementation, under its one lock. */
-async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): Promise<Reservation> {
+async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean, legacyKey?: string): Promise<Reservation> {
   const { limit, minutes } = RATE_LIMITS[route];
   // Small bounded preview store. This lock has no domain/session dependencies;
   // it is released before credential verification or booking processing.
@@ -25,7 +25,21 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): P
       AND "key" NOT LIKE 'acct:%' AND "key" NOT LIKE 'strike:%' AND "key" NOT LIKE 'lock:%' AND "key" NOT LIKE 'mbx:%'
     ORDER BY "expiresAt", "key" LIMIT 100
   )`;
-  const previous = await tx.rateLimitBucket.findUnique({ where: { key } });
+  let previous = await tx.rateLimitBucket.findUnique({ where: { key } });
+  const legacy = !previous && legacyKey
+    ? await tx.rateLimitBucket.findUnique({ where: { key: legacyKey } }) : null;
+  // Salon allowances and owner guard rows have separate caps from client identities.
+  const pool = route === "public-tenant"
+    ? { key: { startsWith: "tenant:" } }
+    : { NOT: [...GUARD_PREFIXES, "tenant:"].map((prefix) => ({ key: { startsWith: prefix } })) };
+  if (!previous && (consume || legacy) && (await tx.rateLimitBucket.count({ where: pool })) >= 10000) {
+    // The normal sweep is bounded; finish it before refusing a new identity.
+    await tx.rateLimitBucket.deleteMany({ where: { ...pool, expiresAt: { lte: now } } });
+    if ((await tx.rateLimitBucket.count({ where: pool })) >= 10000)
+      throw new DomainError("Too many attempts. Please try again later.", 429, 1);
+  }
+  // Preserve an allowance written before tenant buckets received their own prefix.
+  if (legacy) previous = await tx.rateLimitBucket.update({ where: { key: legacy.key }, data: { key } });
   const active = previous && previous.expiresAt > now ? previous : null;
   if (active && active.count >= limit)
     throw new DomainError(
@@ -35,15 +49,6 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): P
     );
   if (!consume)
     return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
-  // Owner guard rows have their own caps and never count towards this one or get evicted for it.
-  const ordinary = { NOT: GUARD_PREFIXES.map((prefix) => ({ key: { startsWith: prefix } })) };
-  if (!previous && (await tx.rateLimitBucket.count({ where: ordinary })) >= 10000) {
-    const oldest = await tx.rateLimitBucket.findFirstOrThrow({
-      where: ordinary,
-      orderBy: [{ expiresAt: "asc" }, { key: "asc" }],
-    });
-    await tx.rateLimitBucket.delete({ where: { key: oldest.key } });
-  }
   const value = {
     generation: active?.generation ?? randomUUID(),
     expiresAt: active?.expiresAt ?? new Date(now.getTime() + minutes * 60_000),
@@ -68,7 +73,8 @@ export async function reserveRateLimitIn(tx: Tx, route: Route, identity: string)
   const key = createHmac("sha256", secret)
     .update(`rate-limit:v1:${route}:${identity}`)
     .digest("hex");
-  await reserveIn(tx, route, key, true);
+  const storedKey = route === "public-tenant" ? `tenant:${key}` : key;
+  await reserveIn(tx, route, storedKey, true, route === "public-tenant" ? key : undefined);
 }
 
 export async function reserveRateLimit(
@@ -81,7 +87,8 @@ export async function reserveRateLimit(
   const key = createHmac("sha256", secret)
     .update(`rate-limit:v1:${route}:${identity}`)
     .digest("hex");
-  return rateLimitDatabase.$transaction((tx) => reserveIn(tx, route, key, consume), { maxWait: 30000, timeout: 10000 });
+  const storedKey = route === "public-tenant" ? `tenant:${key}` : key;
+  return rateLimitDatabase.$transaction((tx) => reserveIn(tx, route, storedKey, consume, route === "public-tenant" ? key : undefined), { maxWait: 30000, timeout: 10000 });
 }
 
 export async function refundRateLimit(reservation: Reservation) {
@@ -95,4 +102,13 @@ export async function refundRateLimit(reservation: Reservation) {
       data: { count: { decrement: 1 } },
     });
   }, { maxWait: 30000, timeout: 10000 });
+}
+
+/** Shared, non-sensitive deployment quota; no client identity or secret is stored. */
+export async function reserveReceptionistCall(identity = "all", database = rateLimitDatabase) {
+  const key = `receptionist:daily:v1:${identity}`;
+  return database.$transaction(
+    (tx) => reserveIn(tx, "receptionist-daily", key, true),
+    { maxWait: 30000, timeout: 10000 },
+  );
 }

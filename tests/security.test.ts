@@ -333,13 +333,15 @@ describe("Abuse protection and test database guard", () => {
     expect(correct).not.toHaveBeenCalled();
     expect(await checkLoginAttempt("other-unit", correct)).toBe(true);
   });
-  it("evicts the oldest bucket at capacity and admits a new client", () => {
+  it("keeps exhausted buckets at capacity and admits new clients after expiry", () => {
     const now = Date.now() + 1800000;
-    for (let i = 0; i < 10001; i++)
-      checkRateLimit("login", `capacity-${i}`, true, now);
-    expect(() =>
-      checkRateLimit("login", "legitimate-new", true, now),
-    ).not.toThrow();
+    for (let i = 0; i < 5; i++) checkRateLimit("login", "capacity-original", true, now);
+    for (let i = 0; i < 9999; i++) checkRateLimit("login", `capacity-${i}`, true, now);
+    expect(checkRateLimit("login", "capacity-read-only", false, now)).toBe(0);
+    expect(() => checkRateLimit("login", "capacity-new", true, now)).toThrow(DomainError);
+    expect(checkRateLimit("public-tenant", "synthetic-salon", true, now)).toBe(1);
+    expect(() => checkRateLimit("login", "capacity-original", true, now)).toThrow(DomainError);
+    expect(checkRateLimit("login", "capacity-original", true, now + 900001)).toBe(1);
   });
   it("awaits a failed async verification and throttles 300 concurrent attempts", async () => {
     const verify = vi.fn(async () => {
@@ -395,35 +397,6 @@ describe("Abuse protection and test database guard", () => {
       checkLoginAttempt("real-errors-unit", correct),
     ).rejects.toMatchObject({ status: 429, retryAfter: expect.any(Number) });
     expect(correct).not.toHaveBeenCalled();
-  });
-  it("refunds an evicted reservation without weakening the new bucket's limit", async () => {
-    let reject!: (reason: unknown) => void;
-    const pending = checkLoginAttempt(
-      "evicted-refund-unit",
-      () => new Promise<boolean>((_resolve, fail) => (reject = fail)),
-    );
-    for (let i = 0; i < 10001; i++)
-      checkRateLimit("login", `refund-capacity-${i}`);
-    for (let i = 0; i < 5; i++) checkRateLimit("login", "evicted-refund-unit");
-    reject(new PasswordCapacityError());
-    await expect(pending).rejects.toBeInstanceOf(PasswordCapacityError);
-    expect(() => checkRateLimit("login", "evicted-refund-unit")).toThrow(
-      DomainError,
-    );
-  });
-  it("handles eviction during a successful attempt without a 500 or an incorrect new bucket", async () => {
-    let finish!: (value: boolean) => void;
-    const login = checkLoginAttempt(
-      "evicted-success-unit",
-      () =>
-        new Promise<boolean>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    for (let i = 0; i < 10001; i++)
-      checkRateLimit("login", `async-capacity-${i}`);
-    finish(true);
-    await expect(login).resolves.toBe(true);
   });
   it("rejects unsafe database URLs before data access", () => {
     vi.stubEnv("DATABASE_URL", undefined);

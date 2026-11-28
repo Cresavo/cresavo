@@ -37,6 +37,11 @@ built-in rules unless a provider key is configured. The public instance is
   output tokens.
 - Not for real customers: see issue #14 and `docs/QUALITY_SECURITY.md`.
 
+The receptionist test-call budget is 40 calls per 24-hour window. When
+`DATABASE_URL` is configured, Postgres shares the budget across workers and
+restarts. Without a database, the budget is per process and resets on restart;
+it is not a deployment-wide spending limit. Database errors refuse the call.
+
 ## Cost safety
 
 Nothing a visitor does may run up a bill. The code limits what it can:

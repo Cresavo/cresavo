@@ -1,6 +1,7 @@
 // One table for both rate-limit stores (process memory and Postgres).
 export const RATE_LIMITS = {
   login: { limit: 5, minutes: 15 },
+  "receptionist-daily": { limit: 40, minutes: 1440 },
   signup: { limit: 5, minutes: 15 },
   "password-reset": { limit: 5, minutes: 15 },
   "password-reset-submit": { limit: 10, minutes: 15 },

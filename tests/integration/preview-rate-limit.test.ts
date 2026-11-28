@@ -3,7 +3,8 @@ import { createHmac, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { checkLoginAttempt, checkRateLimit } from "../../src/lib/rate-limit";
 import { PasswordCapacityError } from "../../src/lib/errors";
-import { rateLimitDatabase, reserveRateLimit, refundRateLimit } from "../../src/lib/postgres-rate-limit";
+import { rateLimitDatabase, reserveRateLimit, refundRateLimit, reserveReceptionistCall } from "../../src/lib/postgres-rate-limit";
+import { GUARD_PREFIXES } from "../../src/lib/owner-guard-keys";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 
 const keys = new Set<string>();
@@ -103,9 +104,12 @@ it("isolates routes, uses the database clock, and stores no raw client identitie
   await expect(checkRateLimit("bookings", client)).resolves.toBe(1);
 });
 
-it("limits storage to 10,000 rows and admits a new legitimate client at capacity", async () => {
+it("keeps exhausted buckets at capacity and refuses new identities", async () => {
+  const client = identity();
+  for (let i = 0; i < 5; i++) await reserveRateLimit("login", client);
   const marker = randomUUID();
-  const existing = await rateLimitDatabase.rateLimitBucket.count();
+  const ordinary = { NOT: [...GUARD_PREFIXES, "tenant:"].map((prefix) => ({ key: { startsWith: prefix } })) };
+  const existing = await rateLimitDatabase.rateLimitBucket.count({ where: ordinary });
   if (existing > 10000) throw new Error("PREVIEW_CAP_FIXTURE_NOT_ISOLATED");
   const data = Array.from({ length: 10000 - existing }, (_, i) => {
     const key = createHmac("sha256", marker).update(String(i)).digest("hex");
@@ -113,8 +117,73 @@ it("limits storage to 10,000 rows and admits a new legitimate client at capacity
     return { key, generation: marker, expiresAt: new Date(Date.now() + 900000), count: 1 };
   });
   await rateLimitDatabase.rateLimitBucket.createMany({ data });
+  vi.stubEnv("RATE_LIMIT_STORE", "postgres");
+  await expect(checkRateLimit("login", identity(), false)).resolves.toBe(0);
+  await expect(reserveRateLimit("login", identity())).rejects.toMatchObject({ status: 429 });
+  await expect(reserveRateLimit("login", client)).rejects.toMatchObject({ status: 429 });
+  expect(await rateLimitDatabase.rateLimitBucket.count({ where: ordinary })).toBeLessThanOrEqual(10000);
+  const expired = Array.from({ length: 101 }, (_, i) => {
+    const key = createHmac("sha256", marker).update(`expired-${i}`).digest("hex");
+    keys.add(key);
+    return { key, generation: marker, expiresAt: new Date(0), count: 1 };
+  });
+  await rateLimitDatabase.rateLimitBucket.createMany({ data: expired });
+  await expect(reserveRateLimit("login", identity())).rejects.toMatchObject({ status: 429 });
+  // Leave room only after the full sweep reaches the 101st expired row.
+  await rateLimitDatabase.rateLimitBucket.update({ where: { key: data[0].key }, data: { expiresAt: new Date(0) } });
   await expect(reserveRateLimit("login", identity())).resolves.toMatchObject({ count: 1 });
-  expect(await rateLimitDatabase.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
+  expect(await rateLimitDatabase.rateLimitBucket.count({ where: { key: { in: expired.map((row) => row.key) } } })).toBe(0);
+}, 30000);
+
+it("preserves an existing salon allowance when moving it to its own pool", async () => {
+  const salon = identity("public-tenant");
+  const legacyKey = [...keys].at(-1)!;
+  keys.add(`tenant:${legacyKey}`);
+  await rateLimitDatabase.rateLimitBucket.create({ data: {
+    key: legacyKey, generation: "synthetic", count: 59, expiresAt: new Date(Date.now() + 3600000),
+  } });
+  await expect(reserveRateLimit("public-tenant", salon)).resolves.toMatchObject({ count: 60 });
+  await expect(reserveRateLimit("public-tenant", salon)).rejects.toMatchObject({ status: 429 });
+});
+
+it("refuses to migrate a legacy salon allowance into a full tenant pool", async () => {
+  const salon = identity("public-tenant");
+  const legacyKey = [...keys].at(-1)!;
+  const tenantKey = `tenant:${legacyKey}`;
+  keys.add(tenantKey);
+  const pool = { key: { startsWith: "tenant:" } };
+  const existing = await rateLimitDatabase.rateLimitBucket.count({ where: pool });
+  if (existing > 10000) throw new Error("TENANT_CAP_FIXTURE_NOT_ISOLATED");
+  const marker = randomUUID();
+  const data = Array.from({ length: 10000 - existing }, (_, i) => {
+    const key = `tenant:${createHmac("sha256", marker).update(String(i)).digest("hex")}`;
+    keys.add(key);
+    return { key, generation: marker, expiresAt: new Date(Date.now() + 3600000), count: 1 };
+  });
+  await rateLimitDatabase.rateLimitBucket.createMany({ data: [
+    ...data, { key: legacyKey, generation: marker, count: 59, expiresAt: new Date(Date.now() + 3600000) },
+  ] });
+  await expect(reserveRateLimit("public-tenant", salon)).rejects.toMatchObject({ status: 429 });
+  expect(await rateLimitDatabase.rateLimitBucket.count({ where: pool })).toBe(10000);
+  expect(await rateLimitDatabase.rateLimitBucket.findUnique({ where: { key: legacyKey } })).toMatchObject({ count: 59 });
+  expect(await rateLimitDatabase.rateLimitBucket.findUnique({ where: { key: tenantKey } })).toBeNull();
+}, 30000);
+
+it("shares the receptionist budget across independent callers", async () => {
+  const id = randomUUID();
+  keys.add(`receptionist:daily:v1:${id}`);
+  const first = () => reserveReceptionistCall(id);
+  const other = createDatabaseClient(undefined, 1);
+  try {
+    const second = () => reserveReceptionistCall(id, other);
+    for (let i = 0; i < 39; i++) await (i % 2 ? first : second)();
+    const results = await Promise.allSettled([first(), second()]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { status: 429 } });
+  } finally {
+    await other.$disconnect();
+  }
 }, 30000);
 
 it("rejects in-memory rate limiting on Vercel", () => {
