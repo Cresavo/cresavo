@@ -26,12 +26,6 @@ const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 const TOOL = /^[a-z][a-z0-9_]{0,39}$/;
 const ERROR_NAME = /^[A-Za-z][A-Za-z0-9]{0,39}$/;
 
-/** Accept a UUID v4 from the caller, otherwise generate a new id. */
-export function requestIdFor(request: Request): string {
-  const given = request.headers.get("x-request-id");
-  return given && ID.test(given) ? given : randomUUID();
-}
-
 export function formatLogLine(fields: RequestLogFields): string {
   const level = fields.status >= 500 ? "error" : fields.status >= 400 ? "warn" : "info";
   return JSON.stringify({
@@ -56,10 +50,10 @@ export interface RequestLogContext {
 
 type Handler<Context> = (request: Request, context: Context, log: RequestLogContext) => Response | Promise<Response>;
 
-/** Wraps a route handler: request id in, `x-request-id` out, one log line per call. */
+/** Wraps a route handler: server-generated `x-request-id` out, one log line per call. */
 export function withRequestLog<Context>(route: string, handler: Handler<Context>, write: (line: string) => void = (line) => console.log(line)) {
   return async (request: Request, context: Context): Promise<Response> => {
-    const requestId = requestIdFor(request);
+    const requestId = randomUUID();
     const started = performance.now();
     const log: RequestLogContext = {};
     let response: Response;

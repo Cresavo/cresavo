@@ -110,6 +110,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Concept API responses now use server-generated request IDs, so caller-supplied IDs cannot enter request logs. Clients can use the response header to correlate requests with logs.
+
 - **An agent's proposal can no longer be approved twice.** The Inbox keeps the owner's decision on an agent proposal in this browser and sends it again on each refresh until the server has it, so a decision that did not reach the server (offline, a server error) no longer brings the proposal back after a reload, where approving it again could apply the change twice, for example deducting stock twice.
 - **An agent retrying an old proposal no longer proposes it twice.** The demo's MCP keeps the 50 newest proposals; a retry with the idempotency key of one that has dropped out now gets `idempotency_key_expired` instead of drafting a second pending proposal.
 - **A copy of a demo treatment follows the language.** Duplicating one of Salong Eko's treatments in Swedish gave the copy the English description and More info text on the booking page. The copy's text now follows the language like the original's, until the owner rewrites it.
