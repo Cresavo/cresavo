@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "../../src/lib/db";
 import { grantToken, deleteGrants } from "../helpers/agent-grant";
@@ -25,7 +25,7 @@ afterAll(async () => {
 
 describe("agentic demo reset", () => {
   it("removes the demo client's grant, keeps an unrelated client and a registration still used at another salon", async () => {
-    await db.agentOAuthCode.create({ data: { hash: createHash("sha256").update(`reset-test-${demo}`).digest("hex"), consent: true, businessId: "lab-partner", clientId: demo,
+    await db.agentOAuthCode.create({ data: { hash: randomBytes(32).toString("hex"), consent: true, businessId: "lab-partner", clientId: demo,
       clientName: "Synthetic", redirectUri: "http://127.0.0.1:4555/callback", challenge: "c".repeat(43), scopes: "services:read",
       state: "", expiresAt: new Date(Date.now() + 60000) } });
     expect(await db.agentGrant.count({ where: { oauthClientId: { in: [demo, other] } } })).toBe(2);
@@ -39,11 +39,8 @@ describe("agentic demo reset", () => {
     expect(await db.agentApiKey.count({ where: { id: kept!.keyId } })).toBe(1);
     expect(await db.agentClient.count({ where: { id: kept!.clientId } })).toBe(1);
   });
-  it("removes a shared client's grants only inside the window since the last reset", async () => {
-    const later = new Date(Date.now() + 3600000), earlier = new Date(Date.now() - 3600000);
-    expect((await db.$transaction(tx => resetDemoClients(tx, [], { clientId: other, since: later }))).grants).toBe(0);
+  it("never accepts a published (shared) client id", async () => {
+    expect((await db.$transaction(tx => resetDemoClients(tx, ["https://claude.ai/oauth/claude-code-client-metadata"]))).grants).toBe(0);
     expect(await db.agentGrant.count({ where: { oauthClientId: other } })).toBe(1);
-    expect((await db.$transaction(tx => resetDemoClients(tx, [], { clientId: other, since: earlier }))).grants).toBe(1);
-    expect(await db.agentGrant.count({ where: { oauthClientId: other } })).toBe(0);
   });
 });

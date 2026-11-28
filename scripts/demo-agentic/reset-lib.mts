@@ -7,11 +7,11 @@ export const DEMO_SALON = "demo";
  * proposals, mandates and bookings those grants made, pending codes and the clients' registrations.
  * Rows of any other OAuth client, agent API keys and ordinary bookings are left alone.
  */
-export async function resetDemoClients(tx: Prisma.TransactionClient, oauthClientIds: string[], shared: { clientId: string; since: Date } | null = null) {
-  const ids = [...new Set(oauthClientIds)];
-  // A published client (Claude Code) is shared by every user: only its grants made since the last reset.
-  const sharedGrants = shared ? [{ oauthClientId: shared.clientId, createdAt: { gte: shared.since } }] : [];
-  const grants = await tx.agentGrant.findMany({ where: { businessId: DEMO_SALON, OR: [{ oauthClientId: { in: ids } }, ...sharedGrants] }, select: { id: true, clientId: true, keyId: true } });
+export async function resetDemoClients(tx: Prisma.TransactionClient, oauthClientIds: string[]) {
+  // Only clients the demo registered itself. A published client id (https://…) is shared by every
+  // user of that assistant, so it is never accepted here.
+  const ids = [...new Set(oauthClientIds)].filter(id => !id.startsWith("https://"));
+  const grants = await tx.agentGrant.findMany({ where: { businessId: DEMO_SALON, oauthClientId: { in: ids } }, select: { id: true, clientId: true, keyId: true } });
   const clients = [...new Set(grants.map(g => g.clientId))], keys = grants.map(g => g.keyId);
   const scope = { businessId: DEMO_SALON, clientId: { in: clients } };
   const links = await tx.agentBooking.findMany({ where: scope, select: { bookingId: true, nativeBookingId: true } });
