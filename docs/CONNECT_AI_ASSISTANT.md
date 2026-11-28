@@ -236,6 +236,9 @@ the agent tools at `/api/v1/mcp`. In split mode that MCP route is disabled and
 provider operations require the gateway's service credential as well as agent
 authentication. See [the split contract](GATEWAY_SPLIT.md).
 
+To demo the customer side end to end on one computer, follow
+[the agentic booking demo runbook](demo-agentic-booking.md).
+
 ### Customer agent gateway
 
 The gateway lives in the separate public repository

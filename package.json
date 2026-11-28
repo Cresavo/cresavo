@@ -33,7 +33,10 @@
     "ai:eval": "node --env-file-if-exists=.env --import tsx scripts/ai-eval.mts",
     "qa": "node qa/run-all.mjs",
     "test:concept": "playwright test --config playwright.concept.config.ts",
-    "concept:mcp-demo": "node --env-file-if-exists=.env --import tsx scripts/concept-mcp-demo.mts"
+    "concept:mcp-demo": "node --env-file-if-exists=.env --import tsx scripts/concept-mcp-demo.mts",
+    "demo:agentic:e2e": "node --env-file-if-exists=.env --import tsx scripts/demo-agentic/e2e.mts",
+    "demo:agentic:inbox": "node --env-file-if-exists=.env --import tsx scripts/demo-agentic/inbox.mts",
+    "demo:agentic:reset": "node --env-file-if-exists=.env --import tsx scripts/demo-agentic/reset.mts"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
