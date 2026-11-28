@@ -33,6 +33,8 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): P
       429,
       Math.max(1, Math.ceil((active.expiresAt.getTime() - now.getTime()) / 1000)),
     );
+  if (!consume)
+    return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
   // Owner guard rows have their own caps and never count towards this one or get evicted for it.
   const ordinary = { NOT: GUARD_PREFIXES.map((prefix) => ({ key: { startsWith: prefix } })) };
   if (!previous && (await tx.rateLimitBucket.count({ where: ordinary })) >= 10000) {
@@ -41,8 +43,6 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean): P
     if ((await tx.rateLimitBucket.count({ where: ordinary })) >= 10000)
       throw new DomainError("Too many attempts. Please try again later.", 429, 1);
   }
-  if (!consume)
-    return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
   const value = {
     generation: active?.generation ?? randomUUID(),
     expiresAt: active?.expiresAt ?? new Date(now.getTime() + minutes * 60_000),

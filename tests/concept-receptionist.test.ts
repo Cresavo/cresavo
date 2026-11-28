@@ -492,6 +492,22 @@ describe("receptionist server", () => {
     expect((await readonly.start(request("203.0.113.1"))).status).toBe(403);
   });
 
+  it("returns a controlled unavailable response when the database reservation fails", async () => {
+    const reserve = vi.fn().mockRejectedValue(new Error("database unavailable"));
+    vi.doMock("@/lib/postgres-rate-limit", () => ({ reserveReceptionistCall: reserve }));
+    try {
+      const { start, fetcher } = await routes({ PHONE_RECEPTIONIST_ENABLED: "1", OPENAI_API_KEY: KEY, DATABASE_URL: "postgresql://synthetic@localhost/synthetic_test" });
+      const response = await start(request("203.0.113.10"));
+      expect(response.status).toBe(503);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({ error: "daily_limit_unavailable" });
+      expect(reserve).toHaveBeenCalledOnce();
+      expect(fetcher).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("@/lib/postgres-rate-limit");
+    }
+  });
+
   it("rations calls per visitor and per day", async () => {
     const { start } = await routes({ PHONE_RECEPTIONIST_ENABLED: "1", OPENAI_API_KEY: KEY });
     const statuses: number[] = [];

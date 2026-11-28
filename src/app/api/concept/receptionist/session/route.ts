@@ -45,7 +45,7 @@ export const POST = withRequestLog("/api/concept/receptionist/session", async (r
       await reserveReceptionistCall();
       today = { ok: true } as const;
     } catch (error) {
-      if (!(error instanceof DomainError) || error.status !== 429) throw error;
+      if (!(error instanceof DomainError) || error.status !== 429) return refuse("daily_limit_unavailable", 503);
       today = { ok: false, retryAfter: error.retryAfter ?? 1 } as const;
     }
   } else {

@@ -115,12 +115,22 @@ it("keeps exhausted buckets at capacity and refuses new identities", async () =>
     return { key, generation: marker, expiresAt: new Date(Date.now() + 900000), count: 1 };
   });
   await rateLimitDatabase.rateLimitBucket.createMany({ data });
+  vi.stubEnv("RATE_LIMIT_STORE", "postgres");
+  await expect(checkRateLimit("login", identity(), false)).resolves.toBe(0);
   await expect(reserveRateLimit("login", identity())).rejects.toMatchObject({ status: 429 });
   await expect(reserveRateLimit("login", client)).rejects.toMatchObject({ status: 429 });
   expect(await rateLimitDatabase.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
-  const original = [...keys][0];
-  await rateLimitDatabase.rateLimitBucket.update({ where: { key: original }, data: { expiresAt: new Date(0) } });
-  await expect(reserveRateLimit("login", client)).resolves.toMatchObject({ count: 1 });
+  const expired = Array.from({ length: 101 }, (_, i) => {
+    const key = createHmac("sha256", marker).update(`expired-${i}`).digest("hex");
+    keys.add(key);
+    return { key, generation: marker, expiresAt: new Date(0), count: 1 };
+  });
+  await rateLimitDatabase.rateLimitBucket.createMany({ data: expired });
+  await expect(reserveRateLimit("login", identity())).rejects.toMatchObject({ status: 429 });
+  // Leave room only after the full sweep reaches the 101st expired row.
+  await rateLimitDatabase.rateLimitBucket.update({ where: { key: data[0].key }, data: { expiresAt: new Date(0) } });
+  await expect(reserveRateLimit("login", identity())).resolves.toMatchObject({ count: 1 });
+  expect(await rateLimitDatabase.rateLimitBucket.count({ where: { key: { in: expired.map((row) => row.key) } } })).toBe(0);
 }, 30000);
 
 it("shares the receptionist budget across independent callers", async () => {
