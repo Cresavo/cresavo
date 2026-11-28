@@ -446,6 +446,7 @@ describe("receptionist server", () => {
     });
 
   async function routes(env: Record<string, string>) {
+    vi.stubEnv("DATABASE_URL", undefined);
     vi.stubEnv("BOOKING_ADDRESS_SECRET", secret);
     vi.stubEnv("BOOKING_RUNTIME", "local");
     vi.stubEnv("CONCEPT_AI_STORE_DIR", "/nonexistent/receptionist-test");

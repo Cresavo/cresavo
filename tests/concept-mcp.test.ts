@@ -99,6 +99,15 @@ describe("token", () => {
 });
 
 describe("rate limit", () => {
+  it("keeps active buckets when full and permits new keys after expiry", () => {
+    const take = createRateLimiter({ max: 1, windowMs: 1000 });
+    expect(take("original", 0)).toEqual({ ok: true });
+    for (let i = 0; i < 999; i++) expect(take(`key-${i}`, 0)).toEqual({ ok: true });
+    expect(take("new", 1)).toMatchObject({ ok: false });
+    expect(take("original", 1)).toMatchObject({ ok: false });
+    expect(take("new", 1000)).toEqual({ ok: true });
+  });
+
   it("allows a fixed number of calls per window and per key", () => {
     const take = createRateLimiter({ max: 2, windowMs: 1000 });
     expect(take("a", 0)).toEqual({ ok: true });

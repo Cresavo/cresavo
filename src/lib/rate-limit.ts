@@ -41,9 +41,9 @@ export function checkRateLimit(
       429,
       Math.max(1, Math.ceil((bucket.until - now) / 1000)),
     );
+  if (!buckets.has(key) && buckets.size >= 10000)
+    throw new DomainError("Too many attempts. Please try again later.", 429, 1);
   if (consume) {
-    if (!buckets.has(key) && buckets.size >= 10000)
-      buckets.delete(buckets.keys().next().value!);
     bucket.count++;
     buckets.set(key, bucket);
   }

@@ -1,5 +1,4 @@
-// A fixed-window limit per caller, in process memory. Enough for the demo;
-// a shared store comes with the real engine (pilot gate).
+// A fixed-window limit per caller, in bounded process memory.
 
 export interface Limit {
   max: number;
@@ -16,7 +15,7 @@ export function createRateLimiter({ max, windowMs }: Limit) {
     for (const [k, w] of windows) if (w.until <= now) windows.delete(k);
     const current = windows.get(key) ?? { count: 0, until: now + windowMs };
     if (current.count >= max) return { ok: false, retryAfter: Math.max(1, Math.ceil((current.until - now) / 1000)) };
-    if (!windows.has(key) && windows.size >= MAX_KEYS) windows.delete(windows.keys().next().value!);
+    if (!windows.has(key) && windows.size >= MAX_KEYS) return { ok: false, retryAfter: 1 };
     windows.set(key, { ...current, count: current.count + 1 });
     return { ok: true };
   };

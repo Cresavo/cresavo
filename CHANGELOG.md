@@ -10,6 +10,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Rate limits retain active windows at capacity, and the receptionist test-call budget is shared across workers when Postgres is configured.
 - Recheck booking manage links under the salon lock so a corrected contact address immediately revokes old links, including retries.
 - Limit login request bodies and reserve a rate-limit attempt before reading them.
 

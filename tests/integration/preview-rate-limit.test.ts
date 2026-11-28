@@ -3,7 +3,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { checkLoginAttempt, checkRateLimit } from "../../src/lib/rate-limit";
 import { PasswordCapacityError } from "../../src/lib/errors";
-import { rateLimitDatabase, reserveRateLimit, refundRateLimit } from "../../src/lib/postgres-rate-limit";
+import { rateLimitDatabase, reserveRateLimit, refundRateLimit, reserveReceptionistCall } from "../../src/lib/postgres-rate-limit";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 
 const keys = new Set<string>();
@@ -103,7 +103,9 @@ it("isolates routes, uses the database clock, and stores no raw client identitie
   await expect(checkRateLimit("bookings", client)).resolves.toBe(1);
 });
 
-it("limits storage to 10,000 rows and admits a new legitimate client at capacity", async () => {
+it("keeps exhausted buckets at capacity and refuses new identities", async () => {
+  const client = identity();
+  for (let i = 0; i < 5; i++) await reserveRateLimit("login", client);
   const marker = randomUUID();
   const existing = await rateLimitDatabase.rateLimitBucket.count();
   if (existing > 10000) throw new Error("PREVIEW_CAP_FIXTURE_NOT_ISOLATED");
@@ -113,8 +115,29 @@ it("limits storage to 10,000 rows and admits a new legitimate client at capacity
     return { key, generation: marker, expiresAt: new Date(Date.now() + 900000), count: 1 };
   });
   await rateLimitDatabase.rateLimitBucket.createMany({ data });
-  await expect(reserveRateLimit("login", identity())).resolves.toMatchObject({ count: 1 });
+  await expect(reserveRateLimit("login", identity())).rejects.toMatchObject({ status: 429 });
+  await expect(reserveRateLimit("login", client)).rejects.toMatchObject({ status: 429 });
   expect(await rateLimitDatabase.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
+  const original = [...keys][0];
+  await rateLimitDatabase.rateLimitBucket.update({ where: { key: original }, data: { expiresAt: new Date(0) } });
+  await expect(reserveRateLimit("login", client)).resolves.toMatchObject({ count: 1 });
+}, 30000);
+
+it("shares the receptionist budget across independent callers", async () => {
+  const id = randomUUID();
+  keys.add(`receptionist:daily:v1:${id}`);
+  const first = () => reserveReceptionistCall(id);
+  const other = createDatabaseClient(undefined, 1);
+  try {
+    const second = () => reserveReceptionistCall(id, other);
+    for (let i = 0; i < 39; i++) await (i % 2 ? first : second)();
+    const results = await Promise.allSettled([first(), second()]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { status: 429 } });
+  } finally {
+    await other.$disconnect();
+  }
 }, 30000);
 
 it("rejects in-memory rate limiting on Vercel", () => {
