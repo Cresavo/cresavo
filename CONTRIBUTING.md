@@ -5,6 +5,11 @@ service businesses, starting with salons and clinics. The concept demo is
 early, and a clear bug report or a quickstart you tried from scratch can help
 as much as a patch.
 
+Cresavo has two repositories: this one (studio, booking pages, booking engine)
+and [`Cresavo/gateway`](https://github.com/Cresavo/gateway) (REST and MCP front
+door for AI assistants). The [documentation index](docs/README.md) is the map of the
+documentation.
+
 ## Your first contribution
 
 Start with the [good first issues](https://github.com/Cresavo/cresavo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
