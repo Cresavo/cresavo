@@ -201,28 +201,28 @@ test("a visit for someone else names the visitor to the booker and keeps the boo
   await expect(sheet.getByText("Advice last visit")).toHaveCount(0);
 });
 
-test("the owner moves a booking with a quick command and undoes it", async ({ page }) => {
-  // Frozen to a Tuesday: on some weekdays the first moveable booking belongs to a
-  // customer who already has another upcoming visit, and the assistant then asks
-  // which one instead of showing Approve. Other journeys (and the MCP test in this
-  // file) keep the live salon clock.
-  const today = "2026-11-17";
-  await page.clock.setFixedTime(new Date("2026-11-17T08:30:00Z"));
-  await page.addInitScript(initial => {
-    localStorage.setItem("salong-eko-demo", JSON.stringify(initial));
-  }, englishDemoState(today));
-  await page.goto("/studio");
-  const { booking, date, start } = moveTarget(await state(page), addDays(today, 1));
-  const owner = fullName((await state(page)).customers.find(c => c.id === booking.customerId)!);
-  await command(page, `Move ${owner} on ${booking.date} to ${date} at ${formatTime(start)}`);
-  await page.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(start);
-  expect((await state(page)).bookings.find(b => b.id === booking.id)?.date).toBe(date);
+// The demo data follows the date, so the journey runs on a weekday and on both weekend
+// days. The command names the booking's own day: a customer with two upcoming visits
+// otherwise makes the assistant ask which one, and Approve (rightly) never appears.
+for (const today of ["2026-11-17", "2026-11-28", "2026-11-29"]) {
+  test(`the owner moves a booking with a quick command and undoes it (${today})`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date(`${today}T08:30:00Z`));
+    await page.addInitScript(initial => {
+      localStorage.setItem("salong-eko-demo", JSON.stringify(initial));
+    }, englishDemoState(today));
+    await page.goto("/studio");
+    const { booking, date, start } = moveTarget(await state(page), addDays(today, 1));
+    const owner = fullName((await state(page)).customers.find(c => c.id === booking.customerId)!);
+    await command(page, `Move ${owner} on ${booking.date} to ${date} at ${formatTime(start)}`);
+    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(start);
+    expect((await state(page)).bookings.find(b => b.id === booking.id)?.date).toBe(date);
 
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(booking.start);
-  expect((await state(page)).bookings.find(b => b.id === booking.id)?.date).toBe(booking.date);
-});
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(booking.start);
+    expect((await state(page)).bookings.find(b => b.id === booking.id)?.date).toBe(booking.date);
+  });
+}
 
 test("a journal entry typed after a visit is structured and saved", async ({ page }) => {
   const initial = createDemoState(today);
