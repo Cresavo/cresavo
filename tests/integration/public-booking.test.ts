@@ -299,11 +299,14 @@ describe("the salon's allowance and account flag, under the store's lock", () =>
     expect(switchedOff).toBe(true);
   });
 
-  it("keeps the shared rate store within its 10,000 buckets when a salon's first reservation commits", async () => {
+  it("admits a salon's first booking when address buckets fill their bounded pool", async () => {
     const salon = await newSalon();
+    // The request address already has a bucket; a new address is correctly refused at capacity.
+    const nextIp = `10.7.${Math.floor((calls + 1) / 250)}.${(calls + 1) % 250}`;
+    await reserveRateLimit("public-booking", nextIp);
     const marker = `capacity-${run}`;
     // Owner sign-in guard rows have their own cap and are outside this one, so only ordinary buckets count.
-    const ordinary = { NOT: GUARD_PREFIXES.map((prefix) => ({ key: { startsWith: prefix } })) };
+    const ordinary = { NOT: [...GUARD_PREFIXES, "tenant:"].map((prefix) => ({ key: { startsWith: prefix } })) };
     const missing = 10000 - (await db.rateLimitBucket.count({ where: ordinary }));
     await db.$executeRawUnsafe(`INSERT INTO "RateLimitBucket" ("key", "generation", "count", "expiresAt")
       SELECT '${marker}-' || g, 'g', 1, now() + interval '2 hours' FROM generate_series(1, ${Math.max(0, missing)}) g`);
@@ -311,6 +314,8 @@ describe("the salon's allowance and account flag, under the store's lock", () =>
       expect(await db.rateLimitBucket.count({ where: ordinary })).toBeGreaterThanOrEqual(10000);
       expect((await bookIn(salon, { start: 540 })).status).toBe(201);
       expect(await db.rateLimitBucket.count({ where: ordinary })).toBeLessThanOrEqual(10000);
+      expect(await db.rateLimitBucket.count({ where: { key: { startsWith: "tenant:" } } })).toBeLessThanOrEqual(10000);
+      await expect(reserveRateLimit("login", `flood-${run}`)).rejects.toMatchObject({ status: 429 });
     } finally {
       await db.$executeRawUnsafe(`DELETE FROM "RateLimitBucket" WHERE "key" LIKE '${marker}-%'`);
     }

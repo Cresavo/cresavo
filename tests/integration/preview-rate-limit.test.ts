@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { checkLoginAttempt, checkRateLimit } from "../../src/lib/rate-limit";
 import { PasswordCapacityError } from "../../src/lib/errors";
 import { rateLimitDatabase, reserveRateLimit, refundRateLimit, reserveReceptionistCall } from "../../src/lib/postgres-rate-limit";
+import { GUARD_PREFIXES } from "../../src/lib/owner-guard-keys";
 import { createDatabaseClient } from "../../scripts/database.mjs";
 
 const keys = new Set<string>();
@@ -107,7 +108,8 @@ it("keeps exhausted buckets at capacity and refuses new identities", async () =>
   const client = identity();
   for (let i = 0; i < 5; i++) await reserveRateLimit("login", client);
   const marker = randomUUID();
-  const existing = await rateLimitDatabase.rateLimitBucket.count();
+  const ordinary = { NOT: [...GUARD_PREFIXES, "tenant:"].map((prefix) => ({ key: { startsWith: prefix } })) };
+  const existing = await rateLimitDatabase.rateLimitBucket.count({ where: ordinary });
   if (existing > 10000) throw new Error("PREVIEW_CAP_FIXTURE_NOT_ISOLATED");
   const data = Array.from({ length: 10000 - existing }, (_, i) => {
     const key = createHmac("sha256", marker).update(String(i)).digest("hex");
@@ -119,7 +121,7 @@ it("keeps exhausted buckets at capacity and refuses new identities", async () =>
   await expect(checkRateLimit("login", identity(), false)).resolves.toBe(0);
   await expect(reserveRateLimit("login", identity())).rejects.toMatchObject({ status: 429 });
   await expect(reserveRateLimit("login", client)).rejects.toMatchObject({ status: 429 });
-  expect(await rateLimitDatabase.rateLimitBucket.count()).toBeLessThanOrEqual(10000);
+  expect(await rateLimitDatabase.rateLimitBucket.count({ where: ordinary })).toBeLessThanOrEqual(10000);
   const expired = Array.from({ length: 101 }, (_, i) => {
     const key = createHmac("sha256", marker).update(`expired-${i}`).digest("hex");
     keys.add(key);
@@ -132,6 +134,17 @@ it("keeps exhausted buckets at capacity and refuses new identities", async () =>
   await expect(reserveRateLimit("login", identity())).resolves.toMatchObject({ count: 1 });
   expect(await rateLimitDatabase.rateLimitBucket.count({ where: { key: { in: expired.map((row) => row.key) } } })).toBe(0);
 }, 30000);
+
+it("preserves an existing salon allowance when moving it to its own pool", async () => {
+  const salon = identity("public-tenant");
+  const legacyKey = [...keys].at(-1)!;
+  keys.add(`tenant:${legacyKey}`);
+  await rateLimitDatabase.rateLimitBucket.create({ data: {
+    key: legacyKey, generation: "synthetic", count: 59, expiresAt: new Date(Date.now() + 3600000),
+  } });
+  await expect(reserveRateLimit("public-tenant", salon)).resolves.toMatchObject({ count: 60 });
+  await expect(reserveRateLimit("public-tenant", salon)).rejects.toMatchObject({ status: 429 });
+});
 
 it("shares the receptionist budget across independent callers", async () => {
   const id = randomUUID();

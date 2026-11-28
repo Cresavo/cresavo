@@ -339,6 +339,7 @@ describe("Abuse protection and test database guard", () => {
     for (let i = 0; i < 9999; i++) checkRateLimit("login", `capacity-${i}`, true, now);
     expect(checkRateLimit("login", "capacity-read-only", false, now)).toBe(0);
     expect(() => checkRateLimit("login", "capacity-new", true, now)).toThrow(DomainError);
+    expect(checkRateLimit("public-tenant", "synthetic-salon", true, now)).toBe(1);
     expect(() => checkRateLimit("login", "capacity-original", true, now)).toThrow(DomainError);
     expect(checkRateLimit("login", "capacity-original", true, now + 900001)).toBe(1);
   });
