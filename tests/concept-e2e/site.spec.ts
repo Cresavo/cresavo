@@ -141,10 +141,15 @@ test("the hero's booking flow is one labelled picture that cuts through its laye
   await expect(flow).toBeVisible();
   const headline = (key: "h0" | "h6") => flow.getByText(site[`home.flow.${key}`], { exact: true });
   await expect(headline("h0")).toBeVisible();
+  const shownHeadline = () => flow.locator("[data-headline]").evaluateAll((all: HTMLElement[]) =>
+    all.filter((p) => p.checkVisibility({ checkVisibilityCSS: true })).map((p) => p.textContent));
+  await page.getByRole("button", { name: site["home.flow.pause"] }).click();
+  const held = await shownHeadline();
+  await page.waitForTimeout(2600);
+  expect(await shownHeadline()).toBe(held);
+  await page.getByRole("button", { name: site["home.flow.play"] }).click();
   await expect(headline("h6")).toBeVisible({ timeout: 15000 });
   await expect(flow.getByText(site["home.flow.reminder"], { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: site["home.flow.pause"] }).click();
-  await expect(page.getByRole("button", { name: site["home.flow.play"] })).toHaveAttribute("aria-pressed", "true");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.reload();
   await expect(headline("h6")).toBeVisible();

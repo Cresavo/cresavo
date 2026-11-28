@@ -82,13 +82,13 @@
 /* ---------- reduced motion, and no script: the finished frame, nothing moving ---------- */
 @media (prefers-reduced-motion: reduce) {
   .hl[data-on] { visibility: hidden; }
-  .hl:last-child { visibility: visible; }
+  .hl:last-child, .hl:last-child[data-on] { visibility: visible; }
   .layer { visibility: visible; }
   .pause { display: none; }
 }
 @media (scripting: none) {
   .hl[data-on] { visibility: hidden; }
-  .hl:last-child { visibility: visible; }
+  .hl:last-child, .hl:last-child[data-on] { visibility: visible; }
   .layer { visibility: visible; }
   .pause { display: none; }
 }

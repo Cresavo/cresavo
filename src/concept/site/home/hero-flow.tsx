@@ -58,7 +58,7 @@ export function HeroFlow({ demo }: { demo: string }) {
             </div>
             <div className={f.headline}>
               {HEADLINES.map((key, i) => (
-                <p key={key} className={f.hl} data-on={step === i ? "" : undefined}>{site[`home.flow.${key}`]}</p>
+                <p key={key} className={f.hl} data-headline="" data-on={step === i ? "" : undefined}>{site[`home.flow.${key}`]}</p>
               ))}
             </div>
             <div className={f.stack}>
@@ -95,7 +95,7 @@ export function HeroFlow({ demo }: { demo: string }) {
       </div>
       <div className={f.under}>
         <a className={f.cta} href={demo}>{site["home.demo"]} <Icon name="arrow" className={f.ic} /></a>
-        <button type="button" className={f.pause} aria-pressed={paused} onClick={() => setPaused(!paused)}>
+        <button type="button" className={f.pause} onClick={() => setPaused(!paused)}>
           {paused ? site["home.flow.play"] : site["home.flow.pause"]}
         </button>
       </div>
