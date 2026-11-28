@@ -13,7 +13,8 @@ export const LOGIN_MAX_BODY_BYTES = 8 * 1024;
 /** The cap of a protected POST body, by path; undefined for every other request. */
 export function ownerBodyCap(method, path) {
   if (method !== "POST") return undefined;
-  const bare = (path ?? "").split("?")[0].replace(/\/+$/, "");
+  // Next.js parses request URLs with WHATWG URL, which removes dot segments (including encoded dots).
+  const bare = new URL(path ?? "", "http://localhost").pathname.replace(/\/+$/, "");
   return bare === OWNER_ACTIONS_PATH ? OWNER_ACTIONS_MAX_BODY_BYTES : bare === OWNER_MEDIA_PATH ? OWNER_MEDIA_MAX_BODY_BYTES :
     ["/api/owner/login", "/api/admin/login"].includes(bare) ? LOGIN_MAX_BODY_BYTES : undefined;
 }
