@@ -146,7 +146,7 @@ test("the hero's booking flow is one labelled picture that cuts through its laye
   await page.getByRole("button", { name: site["home.flow.pause"] }).click();
   const held = await shownHeadline();
   await page.waitForTimeout(2600);
-  expect(await shownHeadline()).toBe(held);
+  expect(await shownHeadline()).toEqual(held);
   await page.getByRole("button", { name: site["home.flow.play"] }).click();
   await expect(headline("h6")).toBeVisible({ timeout: 15000 });
   await expect(flow.getByText(site["home.flow.reminder"], { exact: true })).toBeVisible();
