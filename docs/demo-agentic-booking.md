@@ -53,7 +53,7 @@ the booking step answers `slot_unavailable` and the assistant proposes a new tim
 ## Before each demo (2 minutes)
 
 ```sh
-npm run demo:agentic:reset                  # removes earlier demo grants, proposals and bookings, re-seeds
+npm run demo:agentic:reset                  # removes every assistant connection at Salong Eko and what it booked, re-seeds
 eval "$(npm run -s demo:agentic:inbox -- --init)"   # private inbox for the simulated e-mail codes
 npm run dev                                 # same shell, so the server sees BOOKING_CONSENT_INBOX_DIR
 ```
@@ -93,6 +93,8 @@ claude
 5. Optional: open `/admin` to show the booking in the salon calendar.
 
 Remove the connector afterwards with `claude mcp remove cresavo-eko --scope local`.
+`npm run demo:agentic:reset` also removes Claude Code's grant and bookings, so
+the next run starts with a fresh sign-in.
 
 ## Fallback: the scripted assistant
 
@@ -137,6 +139,7 @@ is a different flow (the salon owner's assistant, not the customer's).
 | `404` on `/api/v1/salons/demo/mcp` | `AGENT_OAUTH` is not `1`, or the server runs in split mode. |
 | `mandate_denied` on `create_proposal` | Consent lab off: check `BOOKING_CONSENT_LAB=1`, a loopback `BOOKING_PUBLIC_ORIGIN` and a `_demo` or `_test` database. |
 | `Inbox unavailable or unsafe.` | `BOOKING_CONSENT_INBOX_DIR` is missing or not the private directory from `--init`; the server and the inbox command need the same value. |
+| `Request timed out` on the first run | The development server compiles each route on first use. Run the scripted check again, or use `npm run build` and `npm start` for the demo. |
 | `slot_unavailable` | The time was taken; ask the assistant for another time. |
-| No free times | Run `npm run demo:agentic:reset`; the seed opens the coming weekdays. |
+| No free times | Run `npm run demo:agentic:reset` to remove earlier demo bookings. The seed sets staff hours only when it creates the staff, so if you changed hours in `/admin`, change them back there or recreate the `_demo` database and seed again. |
 | `invalid_request` on the consent page when connecting Claude Code | The server could not fetch Claude Code's client metadata document (network or DNS). Check outbound HTTPS from the demo computer. |
