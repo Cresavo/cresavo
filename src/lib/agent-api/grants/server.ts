@@ -16,6 +16,7 @@ import { auditContext, recordAudit } from "../audit";
 
 type Tx = Prisma.TransactionClient;
 const minute = 60_000, day = 24 * 60 * minute;
+export const REGISTRATION_LIMIT = 1000;
 const secret = () => randomBytes(32).toString("base64url");
 export const tokenDigest = (value: string) => createHash("sha256").update(`agent-oauth-v1:${value}`).digest("hex");
 
@@ -87,7 +88,14 @@ export async function register(request: Request) {
   document.redirect_uris.forEach(uri => secureUrl(uri, true));
   const redirects = [...new Set(document.redirect_uris)].sort();
   const id = randomUUID();
-  await db.agentOAuthClient.create({ data: { id, name: document.client_name, redirects, expiresAt: new Date(Date.now() + REFRESH_DAYS * day) } });
+  await db.$transaction(async tx => {
+    // Serialize the count and insert across all application instances.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(708231, 1)`;
+    const now = new Date();
+    const active = await tx.agentOAuthClient.count({ where: { expiresAt: { gt: now } } });
+    requirePair(active < REGISTRATION_LIMIT, "temporarily_unavailable", 503);
+    await tx.agentOAuthClient.create({ data: { id, name: document.client_name, redirects, expiresAt: new Date(+now + REFRESH_DAYS * day) } });
+  });
   await recordAudit({ event: "oauth.client_registered", outcome: "201", route: "agent-oauth register", clientId: id });
   return Response.json({ client_id: id, client_name: document.client_name, redirect_uris: document.redirect_uris,
     token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }, { status: 201 });
@@ -179,6 +187,7 @@ export async function token(request: Request, origin: string) {
     if (q.grant_type === "authorization_code") {
       requirePair(q.code && q.code_verifier && q.redirect_uri, "invalid_grant");
       const hash = tokenDigest(q.code);
+      await tx.$queryRaw`SELECT "hash" FROM "AgentOAuthCode" WHERE "hash" = ${hash} FOR UPDATE`;
       const code = await tx.agentOAuthCode.findUnique({ where: { hash } });
       const verifier = /^[\w.~-]{43,128}$/.test(q.code_verifier) ? createHash("sha256").update(q.code_verifier).digest("base64url") : "";
       requirePair(code && !code.consent && code.clientId === q.client_id && code.redirectUri === q.redirect_uri &&
@@ -202,7 +211,9 @@ export async function token(request: Request, origin: string) {
     }
     requirePair(q.grant_type === "refresh_token", "unsupported_grant_type");
     requirePair(q.refresh_token, "invalid_grant");
-    const prior = await tx.agentGrantToken.findUnique({ where: { refreshHash: tokenDigest(q.refresh_token) }, include: { grant: true } });
+    const refreshHash = tokenDigest(q.refresh_token);
+    await tx.$queryRaw`SELECT "refreshHash" FROM "AgentGrantToken" WHERE "refreshHash" = ${refreshHash} FOR UPDATE`;
+    const prior = await tx.agentGrantToken.findUnique({ where: { refreshHash }, include: { grant: true } });
     requirePair(prior && prior.grant.oauthClientId === q.client_id && !prior.grant.revokedAt, "invalid_grant");
     // Reuse of a rotated refresh token means it leaked: end the whole grant.
     if (prior.rotated) { await revokeGrant(tx, prior.grantId, now); return null; }

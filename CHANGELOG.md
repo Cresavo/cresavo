@@ -117,6 +117,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Fixed
 
+- Hardened customer-agent OAuth against concurrent credential replay and limited active dynamic client registrations.
 - Concept API responses now use server-generated request IDs, so caller-supplied IDs cannot enter request logs. Clients can use the response header to correlate requests with logs.
 
 - **An agent's proposal can no longer be approved twice.** The Inbox keeps the owner's decision on an agent proposal in this browser and sends it again on each refresh until the server has it, so a decision that did not reach the server (offline, a server error) no longer brings the proposal back after a reload, where approving it again could apply the change twice, for example deducting stock twice.

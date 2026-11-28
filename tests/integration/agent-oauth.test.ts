@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { db } from "../../src/lib/db";
+import { REGISTRATION_LIMIT } from "../../src/lib/agent-api/grants/server";
 import { createAgentApiKey } from "../../src/lib/agent-api/keys";
 import { addressProof } from "../../scripts/client-address.mjs";
 import { POST as register } from "../../src/app/agent-oauth/register/route";
@@ -172,6 +173,51 @@ describe("customer agent OAuth", () => {
     expect(await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: tokens.refresh_token })).json()).toEqual({ error: "invalid_grant" });
     expect((await rpc(next.access_token, "demo")).status).toBe(401);
     expect(await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: next.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+  });
+
+  it("revokes the winning grant when authorization code exchanges race", async () => {
+    const clientId = await registerClient();
+    const { handle } = await consentHandle(clientId);
+    const code = new URL((await decide(handle!, "allow")).headers.get("location")!).searchParams.get("code")!;
+    const values = { grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri };
+    const responses = await Promise.all([exchange(values), exchange(values)]);
+    expect(responses.map(r => r.status).sort()).toEqual([200, 400]);
+    const success = await responses.find(r => r.status === 200)!.json();
+    expect(await responses.find(r => r.status === 400)!.json()).toEqual({ error: "invalid_grant" });
+    expect((await rpc(success.access_token, "demo")).status).toBe(401);
+    expect(await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: success.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+  });
+
+  it("revokes every token when refresh exchanges race", async () => {
+    const { clientId, tokens } = await connected();
+    const values = { grant_type: "refresh_token", client_id: clientId, refresh_token: tokens.refresh_token };
+    const responses = await Promise.all([exchange(values), exchange(values)]);
+    expect(responses.map(r => r.status).sort()).toEqual([200, 400]);
+    const success = await responses.find(r => r.status === 200)!.json();
+    expect(await responses.find(r => r.status === 400)!.json()).toEqual({ error: "invalid_grant" });
+    expect((await rpc(success.access_token, "demo")).status).toBe(401);
+    expect(await (await exchange({ ...values, refresh_token: success.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+  });
+
+  it("enforces the deployment-wide active registration budget under concurrency", async () => {
+    const prefix = `budget-${randomUUID()}`;
+    const active = await db.agentOAuthClient.count({ where: { expiresAt: { gt: new Date() } } });
+    expect(active).toBeLessThan(REGISTRATION_LIMIT);
+    await db.agentOAuthClient.createMany({ data: Array.from({ length: REGISTRATION_LIMIT - active - 1 }, (_, i) => ({
+      id: `${prefix}-${i}`, name: "Synthetic budget client", redirects: [redirectUri], expiresAt: new Date(Date.now() + 600000),
+    })) });
+    try {
+      const registerOne = () => register(request(`${origin}/agent-oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ client_name: "Synthetic budget client", redirect_uris: [redirectUri] }) }));
+      const responses = await Promise.all([registerOne(), registerOne()]);
+      expect(responses.map(r => r.status).sort()).toEqual([201, 503]);
+      const created = await responses.find(r => r.status === 201)!.json();
+      oauthClients.push(created.client_id);
+      expect(await responses.find(r => r.status === 503)!.json()).toEqual({ error: "temporarily_unavailable" });
+      expect(await db.agentOAuthClient.count({ where: { expiresAt: { gt: new Date() } } })).toBe(REGISTRATION_LIMIT);
+    } finally {
+      await db.agentOAuthClient.updateMany({ where: { id: { startsWith: prefix } }, data: { expiresAt: new Date(0) } });
+    }
   });
 
   it("revokes on request", async () => {
