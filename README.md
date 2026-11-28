@@ -25,7 +25,7 @@ Cresavo is an open-source booking app for salons and clinics that brings appoint
 |---|---|
 | **For the salon** | A calm workspace for the day's schedule, calendar, customers and journal, inbox, booking page, treatments, staff, stock, gift cards and finance. Owners can export their data and choose their own tools. |
 | **For customers** | A booking page under the salon's own brand, and, as the agent features mature, the option to ask an AI assistant for times and request a booking in a chat. |
-| **For assistants** | A REST API and MCP servers with scoped tools. Assistants *propose*; changes and bookings take effect only within what the salon or the customer has approved. |
+| **For assistants** | A REST API and MCP servers with scoped tools. In the product flows, assistants *propose* and the salon or the customer approves. The local owner MCP can write when a trusted client opts in with `confirmed: true`. |
 | **For developers** | Open source under AGPL-3.0, TypeScript and Next.js. |
 
 ### Where assistants stand today
