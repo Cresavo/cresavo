@@ -14,6 +14,7 @@ export const RATE_LIMITS = {
   "agent-ip-booking": { limit: 5, minutes: 60 },
   // Customer agent OAuth endpoints, per client address.
   "agent-oauth": { limit: 60, minutes: 1 },
+  "oauth-register-daily": { limit: 10, minutes: 1440 },
   "public-read": { limit: 120, minutes: 15 },
   "public-booking": { limit: 10, minutes: 15 },
   // The writes one salon takes from the public, whoever sends them.

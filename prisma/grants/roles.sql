@@ -195,7 +195,7 @@ GRANT SELECT, INSERT, UPDATE ON "AgentProposal" TO cresavo_app;
 GRANT SELECT, INSERT, DELETE ON "PartnerBookingAttempt" TO cresavo_app;
 -- Customer agent OAuth (src/lib/agent-api/grants): registered clients, consent handles and codes,
 -- grants (revoked, last used) and their rotating token pairs.
-GRANT SELECT, INSERT ON "AgentOAuthClient" TO cresavo_app;
+GRANT SELECT, INSERT, UPDATE ("expiresAt") ON "AgentOAuthClient" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON "AgentOAuthCode" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE ("revokedAt", "lastUsedAt") ON "AgentGrant" TO cresavo_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON "AgentGrantToken" TO cresavo_app;
