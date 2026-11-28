@@ -103,9 +103,8 @@ npm run db:migrate && npm run db:seed
 ```
 
 The reset removes only the demo's own OAuth clients: the scripted assistant's
-registrations (listed in the git-ignored `.data/demo-agentic-clients.json`) and
-any extra registered client you name with
-`npm run demo:agentic:reset -- --client <client-uuid>`. Other connections, agent
+registrations (listed in the git-ignored `.data/demo-agentic-clients.json`).
+No option names another client. Other connections, agent
 API keys, ordinary bookings and registrations still used elsewhere stay. It refuses any database that is not a
 local `_demo` or `_test` database.
 
