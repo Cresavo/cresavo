@@ -94,7 +94,7 @@ export async function register(request: Request) {
     const now = new Date();
     const active = await tx.agentOAuthClient.count({ where: { expiresAt: { gt: now } } });
     requirePair(active < REGISTRATION_LIMIT, "temporarily_unavailable", 503);
-    await tx.agentOAuthClient.create({ data: { id, name: document.client_name, redirects, expiresAt: new Date(+now + REFRESH_DAYS * day) } });
+    await tx.agentOAuthClient.create({ data: { id, name: document.client_name, redirects, expiresAt: new Date(+now + 60 * minute) } });
   });
   await recordAudit({ event: "oauth.client_registered", outcome: "201", route: "agent-oauth register", clientId: id });
   return Response.json({ client_id: id, client_name: document.client_name, redirect_uris: document.redirect_uris,
@@ -151,6 +151,11 @@ export async function consent(request: Request, origin: string) {
     const url = new URL(pending.redirectUri);
     if (pending.state) url.searchParams.set("state", pending.state);
     if (q.decision === "allow") {
+      if (!pending.clientId.startsWith("https://")) {
+        const extended = await tx.agentOAuthClient.updateMany({ where: { id: pending.clientId, expiresAt: { gt: new Date() } },
+          data: { expiresAt: new Date(Date.now() + REFRESH_DAYS * day) } });
+        requirePair(extended.count === 1, "invalid_client");
+      }
       const code = secret();
       await tx.agentOAuthCode.create({ data: { ...pending, hash: tokenDigest(code), consent: false, expiresAt: new Date(Date.now() + CODE_MINUTES * minute) } });
       url.searchParams.set("code", code);
@@ -172,6 +177,10 @@ export async function revokeGrant(tx: Tx, grantId: string, now = new Date()) {
   await tx.agentGrantToken.deleteMany({ where: { grantId } });
 }
 
+async function lockGrant(tx: Tx, grantId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "AgentGrant" WHERE "id" = ${grantId} FOR UPDATE`;
+}
+
 async function issue(tx: Tx, grant: { id: string; scopes: string; clientId: string; businessId: string }, now: Date) {
   const access = secret(), refresh = secret();
   await tx.agentGrantToken.create({ data: { grantId: grant.id, accessHash: tokenDigest(access), refreshHash: tokenDigest(refresh),
@@ -187,13 +196,16 @@ export async function token(request: Request, origin: string) {
     if (q.grant_type === "authorization_code") {
       requirePair(q.code && q.code_verifier && q.redirect_uri, "invalid_grant");
       const hash = tokenDigest(q.code);
+      // Serialize first use as well as replays, including before a grant exists.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(708232, hashtext(${hash}))`;
+      const prior = await tx.agentGrant.findUnique({ where: { codeHash: hash } });
+      if (prior) await lockGrant(tx, prior.id);
       await tx.$queryRaw`SELECT "hash" FROM "AgentOAuthCode" WHERE "hash" = ${hash} FOR UPDATE`;
       const code = await tx.agentOAuthCode.findUnique({ where: { hash } });
       const verifier = /^[\w.~-]{43,128}$/.test(q.code_verifier) ? createHash("sha256").update(q.code_verifier).digest("base64url") : "";
       requirePair(code && !code.consent && code.clientId === q.client_id && code.redirectUri === q.redirect_uri &&
         verifier === code.challenge && (q.resource ?? salonResource(code.businessId, origin)) === salonResource(code.businessId, origin), "invalid_grant");
       // A second use of the same code revokes everything the first use issued.
-      const prior = await tx.agentGrant.findUnique({ where: { codeHash: hash } });
       if (prior) { await revokeGrant(tx, prior.id, now); return null; }
       requirePair(code.expiresAt > now, "invalid_grant");
       const id = randomUUID(), clientId = `grant_${id}`;
@@ -212,7 +224,9 @@ export async function token(request: Request, origin: string) {
     requirePair(q.grant_type === "refresh_token", "unsupported_grant_type");
     requirePair(q.refresh_token, "invalid_grant");
     const refreshHash = tokenDigest(q.refresh_token);
-    await tx.$queryRaw`SELECT "refreshHash" FROM "AgentGrantToken" WHERE "refreshHash" = ${refreshHash} FOR UPDATE`;
+    const found = await tx.agentGrantToken.findUnique({ where: { refreshHash }, select: { grantId: true } });
+    requirePair(found, "invalid_grant");
+    await lockGrant(tx, found.grantId);
     const prior = await tx.agentGrantToken.findUnique({ where: { refreshHash }, include: { grant: true } });
     requirePair(prior && prior.grant.oauthClientId === q.client_id && !prior.grant.revokedAt, "invalid_grant");
     // Reuse of a rotated refresh token means it leaked: end the whole grant.
@@ -235,6 +249,9 @@ export async function revoke(request: Request) {
   requirePair(q.token && q.client_id);
   const hash = tokenDigest(q.token);
   await db.$transaction(async tx => {
+    const found = await tx.agentGrantToken.findFirst({ where: { OR: [{ accessHash: hash }, { refreshHash: hash }] }, select: { grantId: true } });
+    if (!found) return;
+    await lockGrant(tx, found.grantId);
     const row = await tx.agentGrantToken.findFirst({ where: { OR: [{ accessHash: hash }, { refreshHash: hash }] }, include: { grant: true } });
     if (row && row.grant.oauthClientId === q.client_id) await revokeGrant(tx, row.grantId);
   });

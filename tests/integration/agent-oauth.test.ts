@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { db } from "../../src/lib/db";
-import { REGISTRATION_LIMIT } from "../../src/lib/agent-api/grants/server";
+import { REGISTRATION_LIMIT, tokenDigest } from "../../src/lib/agent-api/grants/server";
 import { createAgentApiKey } from "../../src/lib/agent-api/keys";
 import { addressProof } from "../../scripts/client-address.mjs";
 import { POST as register } from "../../src/app/agent-oauth/register/route";
@@ -78,6 +78,25 @@ async function decide(handle: string, decision: "allow" | "decline", from = orig
   return response;
 }
 const exchange = (values: Record<string, string>) => tokenPost(request(`${origin}/agent-oauth/token`, form(values)));
+async function blockedRequests(lock: (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => Promise<unknown>, start: () => Promise<Response>[]) {
+  let release!: () => void, ready!: () => void;
+  const held = new Promise<void>(resolve => { ready = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const transaction = db.$transaction(async tx => { await lock(tx); ready(); await gate; }, { timeout: 20000 });
+  await held;
+  try {
+    const requests = start();
+    let waiting = 0;
+    for (let i = 0; i < 200 && waiting < requests.length; i++) {
+      const rows = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*)::bigint AS count FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`;
+      waiting = Number(rows[0].count);
+      if (waiting < requests.length) await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    expect(waiting).toBeGreaterThanOrEqual(requests.length);
+    release();
+    return await Promise.all(requests);
+  } finally { release(); await transaction; }
+}
 async function connected(scope?: string) {
   const clientId = await registerClient();
   const { handle } = await consentHandle(clientId, scope ? { scope } : {});
@@ -157,6 +176,19 @@ describe("customer agent OAuth", () => {
     expect(await db.agentGrant.count({ where: { oauthClientId: clientId } })).toBe(0);
   });
 
+  it("expires unused registrations quickly and extends one after approval", async () => {
+    const clientId = await registerClient();
+    const initial = await db.agentOAuthClient.findUniqueOrThrow({ where: { id: clientId } });
+    expect(+initial.expiresAt - Date.now()).toBeGreaterThan(59 * 60_000);
+    expect(+initial.expiresAt - Date.now()).toBeLessThanOrEqual(60 * 60_000);
+    const { handle } = await consentHandle(clientId);
+    await decide(handle!, "allow");
+    const approved = await db.agentOAuthClient.findUniqueOrThrow({ where: { id: clientId } });
+    expect(+approved.expiresAt - Date.now()).toBeGreaterThan(29 * 86400_000);
+    await db.agentOAuthClient.update({ where: { id: clientId }, data: { expiresAt: new Date(0) } });
+    expect((await consentHandle(clientId)).page.status).toBe(400);
+  });
+
   it("revokes the grant when an authorization code is used twice", async () => {
     const { clientId, code, tokens } = await connected();
     const replay = await exchange({ grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri });
@@ -180,23 +212,44 @@ describe("customer agent OAuth", () => {
     const { handle } = await consentHandle(clientId);
     const code = new URL((await decide(handle!, "allow")).headers.get("location")!).searchParams.get("code")!;
     const values = { grant_type: "authorization_code", client_id: clientId, code, code_verifier: verifier, redirect_uri: redirectUri };
-    const responses = await Promise.all([exchange(values), exchange(values)]);
+    const responses = await blockedRequests(tx => tx.$executeRaw`SELECT pg_advisory_xact_lock(708232, hashtext(${tokenDigest(code)}))`,
+      () => [exchange(values), exchange(values)]);
     expect(responses.map(r => r.status).sort()).toEqual([200, 400]);
     const success = await responses.find(r => r.status === 200)!.json();
     expect(await responses.find(r => r.status === 400)!.json()).toEqual({ error: "invalid_grant" });
     expect((await rpc(success.access_token, "demo")).status).toBe(401);
     expect(await (await exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: success.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+    expect((await db.agentGrant.findFirstOrThrow({ where: { oauthClientId: clientId } })).revokedAt).not.toBeNull();
   });
 
   it("revokes every token when refresh exchanges race", async () => {
     const { clientId, tokens } = await connected();
     const values = { grant_type: "refresh_token", client_id: clientId, refresh_token: tokens.refresh_token };
-    const responses = await Promise.all([exchange(values), exchange(values)]);
+    const grant = await db.agentGrant.findFirstOrThrow({ where: { oauthClientId: clientId } });
+    const responses = await blockedRequests(tx => tx.$queryRaw`SELECT "id" FROM "AgentGrant" WHERE "id" = ${grant.id} FOR UPDATE`,
+      () => [exchange(values), exchange(values)]);
     expect(responses.map(r => r.status).sort()).toEqual([200, 400]);
     const success = await responses.find(r => r.status === 200)!.json();
     expect(await responses.find(r => r.status === 400)!.json()).toEqual({ error: "invalid_grant" });
     expect((await rpc(success.access_token, "demo")).status).toBe(401);
     expect(await (await exchange({ ...values, refresh_token: success.refresh_token })).json()).toEqual({ error: "invalid_grant" });
+    expect((await db.agentGrant.findUniqueOrThrow({ where: { id: grant.id } })).revokedAt).not.toBeNull();
+  });
+
+  it("serializes replays of different rotated tokens and a revoke racing refresh", async () => {
+    for (const race of ["replay", "revoke"] as const) {
+      const { clientId, tokens } = await connected();
+      const refresh = (value: string) => exchange({ grant_type: "refresh_token", client_id: clientId, refresh_token: value });
+      const next = await (await refresh(tokens.refresh_token)).json();
+      const latest = await (await refresh(next.refresh_token)).json();
+      const grant = await db.agentGrant.findFirstOrThrow({ where: { oauthClientId: clientId } });
+      const responses = await blockedRequests(tx => tx.$queryRaw`SELECT "id" FROM "AgentGrant" WHERE "id" = ${grant.id} FOR UPDATE`, () => race === "replay"
+        ? [refresh(tokens.refresh_token), refresh(next.refresh_token)]
+        : [refresh(latest.refresh_token), revokePost(request(`${origin}/agent-oauth/revoke`, form({ token: tokens.refresh_token, client_id: clientId })))]);
+      expect(responses.every(response => response.status !== 500)).toBe(true);
+      expect((await db.agentGrant.findUniqueOrThrow({ where: { id: grant.id } })).revokedAt).not.toBeNull();
+      expect(await db.agentGrantToken.count({ where: { grantId: grant.id } })).toBe(0);
+    }
   });
 
   it("enforces the deployment-wide active registration budget under concurrency", async () => {
@@ -209,12 +262,16 @@ describe("customer agent OAuth", () => {
     try {
       const registerOne = () => register(request(`${origin}/agent-oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ client_name: "Synthetic budget client", redirect_uris: [redirectUri] }) }));
-      const responses = await Promise.all([registerOne(), registerOne()]);
+      const responses = await blockedRequests(tx => tx.$executeRaw`SELECT pg_advisory_xact_lock(708231, 1)`, () => [registerOne(), registerOne()]);
       expect(responses.map(r => r.status).sort()).toEqual([201, 503]);
       const created = await responses.find(r => r.status === 201)!.json();
       oauthClients.push(created.client_id);
       expect(await responses.find(r => r.status === 503)!.json()).toEqual({ error: "temporarily_unavailable" });
       expect(await db.agentOAuthClient.count({ where: { expiresAt: { gt: new Date() } } })).toBe(REGISTRATION_LIMIT);
+      await db.agentOAuthClient.update({ where: { id: created.client_id }, data: { expiresAt: new Date(0) } });
+      const reclaimed = await registerOne();
+      expect(reclaimed.status).toBe(201);
+      oauthClients.push((await reclaimed.json()).client_id);
     } finally {
       await db.agentOAuthClient.updateMany({ where: { id: { startsWith: prefix } }, data: { expiresAt: new Date(0) } });
     }
