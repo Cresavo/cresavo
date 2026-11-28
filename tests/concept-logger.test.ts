@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatLogLine, requestIdFor, withRequestLog, type RequestLogFields } from "@/concept/server/logger";
+import { formatLogLine, withRequestLog, type RequestLogFields } from "@/concept/server/logger";
 
-const fields: RequestLogFields = { requestId: "abcd1234-ef56", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 12.6, task: "answer-help" };
+const fields: RequestLogFields = { requestId: "123e4567-e89b-42d3-a456-426614174000", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 12.6, task: "answer-help" };
 
 describe("request logger", () => {
   it("writes one JSON line with the fixed fields", () => {
-    expect(JSON.parse(formatLogLine(fields))).toEqual({ level: "info", msg: "request", requestId: "abcd1234-ef56", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 13, task: "answer-help" });
+    expect(JSON.parse(formatLogLine(fields))).toEqual({ level: "info", msg: "request", requestId: "123e4567-e89b-42d3-a456-426614174000", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 13, task: "answer-help" });
   });
 
   it("sets the level from the status", () => {
@@ -24,11 +24,15 @@ describe("request logger", () => {
     expect(JSON.parse(formatLogLine({ ...fields, error: "SyntaxError" })).error).toBe("SyntaxError");
   });
 
-  it("accepts a caller's request id only when it looks like one", () => {
-    const withId = (id: string) => requestIdFor(new Request("http://x/", { headers: { "x-request-id": id } }));
-    expect(withId("client-req-0001")).toBe("client-req-0001");
-    expect(withId("has spaces and <script>")).toMatch(/^[0-9a-f-]{36}$/);
-    expect(requestIdFor(new Request("http://x/"))).toMatch(/^[0-9a-f-]{36}$/);
+  it.each(["0701234567", "person@example.test", "07012345-6700-4000-8000-000000000000", "123e4567-e89b-42d3-a456-426614174000"])("does not log or echo a caller-supplied request id", async (given) => {
+    const lines: string[] = [];
+    const handler = withRequestLog("/api/concept/help", () => new Response(), (line) => lines.push(line));
+    const response = await handler(new Request("http://x/", { headers: { "x-request-id": given } }), undefined);
+    const serverId = response.headers.get("x-request-id");
+    expect(serverId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(serverId).not.toBe(given);
+    expect(lines[0]).not.toContain(given);
+    expect(JSON.parse(lines[0]).requestId).toBe(serverId);
   });
 
   it("adds x-request-id to the response and logs route, status and task without the body", async () => {

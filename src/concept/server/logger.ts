@@ -21,16 +21,10 @@ export interface RequestLogFields {
   error?: string;
 }
 
-const ID = /^[A-Za-z0-9_-]{8,64}$/;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 const TOOL = /^[a-z][a-z0-9_]{0,39}$/;
 const ERROR_NAME = /^[A-Za-z][A-Za-z0-9]{0,39}$/;
-
-/** A caller's own id when it looks like one, otherwise a new one. */
-export function requestIdFor(request: Request): string {
-  const given = request.headers.get("x-request-id");
-  return given && ID.test(given) ? given : randomUUID();
-}
 
 export function formatLogLine(fields: RequestLogFields): string {
   const level = fields.status >= 500 ? "error" : fields.status >= 400 ? "warn" : "info";
@@ -56,10 +50,10 @@ export interface RequestLogContext {
 
 type Handler<Context> = (request: Request, context: Context, log: RequestLogContext) => Response | Promise<Response>;
 
-/** Wraps a route handler: request id in, `x-request-id` out, one log line per call. */
+/** Wraps a route handler: server-generated `x-request-id` out, one log line per call. */
 export function withRequestLog<Context>(route: string, handler: Handler<Context>, write: (line: string) => void = (line) => console.log(line)) {
   return async (request: Request, context: Context): Promise<Response> => {
-    const requestId = requestIdFor(request);
+    const requestId = randomUUID();
     const started = performance.now();
     const log: RequestLogContext = {};
     let response: Response;
