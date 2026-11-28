@@ -36,13 +36,13 @@ async function command(page: Page, text: string) {
   await message.press("Enter");
 }
 
-/** A booking tomorrow, and a free time that day to move it to. */
-function moveTarget(initial: DemoState) {
-  for (const booking of initial.bookings.filter(b => b.status === "booked" && b.date >= tomorrow)) {
+/** A booking on or after `from` (tomorrow by default), and a free time that day to move it to. */
+function moveTarget(initial: DemoState, from = tomorrow) {
+  for (const booking of initial.bookings.filter(b => b.status === "booked" && b.date >= from)) {
     for (let i = 0; i < 14; i++) {
       const date = addDays(booking.date, i);
       const start = freeStarts(initial, booking.staffId, date, booking, { ignoreId: booking.id }).find(s => s !== booking.start || date !== booking.date);
-      if (start !== undefined && date >= tomorrow) return { booking, date, start };
+      if (start !== undefined && date >= from) return { booking, date, start };
     }
   }
   throw new Error("No booking to move in the demo data");
@@ -202,10 +202,19 @@ test("a visit for someone else names the visitor to the booker and keeps the boo
 });
 
 test("the owner moves a booking with a quick command and undoes it", async ({ page }) => {
+  // Frozen to a Tuesday: on some weekdays the first moveable booking belongs to a
+  // customer who already has another upcoming visit, and the assistant then asks
+  // which one instead of showing Approve. Other journeys (and the MCP test in this
+  // file) keep the live salon clock.
+  const today = "2026-11-17";
+  await page.clock.setFixedTime(new Date("2026-11-17T08:30:00Z"));
+  await page.addInitScript(initial => {
+    localStorage.setItem("salong-eko-demo", JSON.stringify(initial));
+  }, englishDemoState(today));
   await page.goto("/studio");
-  const { booking, date, start } = moveTarget(await state(page));
+  const { booking, date, start } = moveTarget(await state(page), addDays(today, 1));
   const owner = fullName((await state(page)).customers.find(c => c.id === booking.customerId)!);
-  await command(page, `Move ${owner} to ${date} at ${formatTime(start)}`);
+  await command(page, `Move ${owner} on ${booking.date} to ${date} at ${formatTime(start)}`);
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect.poll(async () => (await state(page)).bookings.find(b => b.id === booking.id)?.start).toBe(start);
   expect((await state(page)).bookings.find(b => b.id === booking.id)?.date).toBe(date);
