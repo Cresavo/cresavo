@@ -4,6 +4,9 @@ import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST } from "../../src/app/api/public/salons/[slug]/bookings/route";
 import { GET } from "../../src/app/api/public/salons/[slug]/route";
+import { POST as CANCEL } from "../../src/app/api/public/salons/[slug]/bookings/[id]/cancel/route";
+import { POST as MOVE } from "../../src/app/api/public/salons/[slug]/bookings/[id]/move/route";
+import { bookingTokenExpiry, mintBookingToken } from "../../src/lib/booking-token";
 import { addressProof } from "../../scripts/client-address.mjs";
 import { db } from "../../src/lib/db";
 import { createOwnerAccount } from "../../src/lib/owner-accounts";
@@ -155,6 +158,52 @@ describe("POST /api/public/salons/[slug]/bookings", () => {
     expect([response.status, await response.json()]).toEqual([422, { error: "invalid" }]);
     expect(await onlineAt(960)).toHaveLength(0);
   });
+});
+
+describe("manage link revocation under the tenant lock", () => {
+  it.each(["cancel", "move", "replay"] as const)("refuses a revoked link for %s", async (kind) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(CLOCK);
+    try {
+      const state = (await holder.store.load(tenantId))!.state;
+      const ref = randomUUID();
+      const created = await holder.store.apply(tenantId, {
+        type: "online/book", guest: { name: "Fictional Guest", phone: `073${Math.floor(1000000 + Math.random() * 8999999)}`, email: "old@example.test", at: { date: "1970-01-01", time: 0 } },
+        serviceId, staffId: staffId as never, date: "2026-12-01", start: kind === "cancel" ? 540 : kind === "move" ? 660 : 780,
+        public: { slug: state.salon.slug, terms, publicRef: ref },
+      });
+      if (!created.ok) throw new Error("booking failed");
+      const booking = created.state.bookings.find((b) => b.publicRef === ref)!;
+      const token = mintBookingToken({ tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail }, bookingTokenExpiry(booking));
+      const key = randomUUID();
+      const body = { token, expected: { date: booking.date, start: booking.start, staffId: booking.staffId }, ...(kind === "move" ? { date: "2026-12-02", start: 540, staffId } : {}) };
+      const request = () => {
+        const ip = `10.10.0.${++calls}`;
+        return (kind === "move" ? MOVE : CANCEL)(new NextRequest(`http://localhost/api/public/salons/${state.salon.slug}/bookings/${ref}/${kind}`, {
+          method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json", host: "localhost", origin: "http://localhost", "idempotency-key": key, "x-booking-client-ip": ip, "x-booking-client-proof": addressProof(ip, SECRET) },
+        }), { params: Promise.resolve({ slug: state.salon.slug, id: ref }) });
+      };
+      if (kind === "replay") expect((await request()).status).toBe(200);
+      const original = holder.store.apply.bind(holder.store);
+      let reached!: () => void;
+      const paused = new Promise<void>((resolve) => { reached = resolve; });
+      let resume!: () => void;
+      const wait = new Promise<void>((resolve) => { resume = resolve; });
+      const spy = vi.spyOn(holder.store, "apply").mockImplementationOnce(async (...args) => { reached(); await wait; return original(...args); });
+      const pending = request();
+      await paused;
+      expect((await original(tenantId, { type: "booking/update", id: booking.id, patch: { contactEmail: "new@example.test" } })).ok).toBe(true);
+      const before = (await holder.store.load(tenantId))!.state.bookings.find((b) => b.id === booking.id);
+      resume();
+      const response = await pending;
+      expect([response.status, await response.json()]).toEqual([404, { error: "not_found" }]);
+      expect((await holder.store.load(tenantId))!.state.bookings.find((b) => b.id === booking.id)).toEqual(before);
+      spy.mockRestore();
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    }
+  }, 30000);
 });
 
 // The salon's allowance (60 an hour) and its account flag are judged inside the store's transaction (#133 items 6, 7 and 9).
