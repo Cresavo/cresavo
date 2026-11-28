@@ -30,6 +30,9 @@ at a new, empty database dedicated to the sandbox. Set it without echo or shell 
   --out <dir>             Where to write the settings files
                           (default: ~/.cresavo-sandbox, mode 700, files mode 600)
   --push-vercel           Also store the settings in both Vercel projects (Production)
+  --no-files              With --push-vercel only: keep the settings in memory and write
+                          no settings files. If a push fails, the generated values are gone
+                          and the run starts over on a new database.
   --scope <team>          Vercel team (default: niclasvestlund-3367s-projects)
   --sandbox-project <n>   Vercel sandbox project (default: cresavo-sandbox)
   --gateway-project <n>   Vercel gateway project (default: cresavo-gateway)
@@ -40,6 +43,7 @@ at a new, empty database dedicated to the sandbox. Set it without echo or shell 
 const { values: opts } = parseArgs({ options: {
   "runtime-host": { type: "string" }, "reset-host": { type: "string" }, "project-id": { type: "string" },
   out: { type: "string" }, "push-vercel": { type: "boolean", default: false },
+  "no-files": { type: "boolean", default: false },
   scope: { type: "string", default: "niclasvestlund-3367s-projects" },
   "sandbox-project": { type: "string", default: "cresavo-sandbox" },
   "gateway-project": { type: "string", default: "cresavo-gateway" },
@@ -89,6 +93,7 @@ const outDir = resolve(opts.out ?? join(homedir(), ".cresavo-sandbox"));
 const sandboxFile = join(outDir, "sandbox.production.env");
 const gatewayFile = join(outDir, "gateway.production.env");
 if (opts["project-id"] && !/^prj_[A-Za-z0-9]+$/.test(opts["project-id"])) fail("PROJECT_ID_INVALID");
+if (opts["no-files"] && !opts["push-vercel"]) fail("NO_FILES_REQUIRES_PUSH", "--no-files only works with --push-vercel.");
 for (const tool of ["psql", "npx", ...(opts["push-vercel"] ? ["vercel"] : [])])
   if (spawnSync(tool, ["--version"], { stdio: "ignore" }).status !== 0) fail(`${tool} not found`);
 const migrationValue = process.env.SANDBOX_MIGRATION_DATABASE_URL;
@@ -104,12 +109,14 @@ else {
   if (!(major >= 16)) fail("PSQL_16_REQUIRED", "Install PostgreSQL 16 or later client tools.");
 }
 
-// Reserve both files exclusively now, so a run never prepares a database it cannot record.
-mkdirSync(outDir, { recursive: true, mode: 0o700 });
-if (!lstatSync(outDir).isDirectory()) fail("SETTINGS_DIRECTORY_INVALID", `${outDir} must be a real directory.`);
-for (const path of [sandboxFile, gatewayFile]) {
-  try { reserved.push({ path, fd: openSync(path, "wx", 0o600) }); } catch {
-    fail("SETTINGS_FILES_EXIST", `Move ${outDir} away first; this script never overwrites settings.`);
+if (!opts["no-files"]) {
+  // Reserve both files exclusively now, so a run never prepares a database it cannot record.
+  mkdirSync(outDir, { recursive: true, mode: 0o700 });
+  if (!lstatSync(outDir).isDirectory()) fail("SETTINGS_DIRECTORY_INVALID", `${outDir} must be a real directory.`);
+  for (const path of [sandboxFile, gatewayFile]) {
+    try { reserved.push({ path, fd: openSync(path, "wx", 0o600) }); } catch {
+      fail("SETTINGS_FILES_EXIST", `Move ${outDir} away first; this script never overwrites settings.`);
+    }
   }
 }
 step("checking that the sandbox logins do not exist yet");
@@ -155,12 +162,14 @@ const settings = productionSettings({
   installation, runtimeUrl, resetUrl, projectId: opts["project-id"],
   sandboxOrigin: opts["sandbox-origin"], gatewayOrigin: opts["gateway-origin"],
 });
-for (const [{ fd }, entries] of /** @type {const} */ ([[reserved[0], settings.sandbox], [reserved[1], settings.gateway]])) {
-  writeSync(fd, envFile(entries));
-  closeSync(fd);
+if (!opts["no-files"]) {
+  for (const [{ fd }, entries] of /** @type {const} */ ([[reserved[0], settings.sandbox], [reserved[1], settings.gateway]])) {
+    writeSync(fd, envFile(entries));
+    closeSync(fd);
+  }
+  reserved.length = 0;
+  step(`wrote ${sandboxFile} and ${gatewayFile} (mode 600)`);
 }
-reserved.length = 0;
-step(`wrote ${sandboxFile} and ${gatewayFile} (mode 600)`);
 step(`installation ID (not secret): ${installation}`);
 
 if (opts["push-vercel"]) {
@@ -169,7 +178,7 @@ if (opts["push-vercel"]) {
     const cwd = mkdtempSync(join(tmpdir(), "cresavo-sandbox-vercel-"));
     try {
       for (const [name, value, secret] of entries) {
-        run(`vercel env add ${name} (${project})`, "vercel", ["env", "add", name,
+        run(`vercel env add ${name} (${project})${opts["no-files"] ? "; no settings files kept, start over on a new database" : ""}`, "vercel", ["env", "add", name,
           "--environment", "production", "--project", project, "--scope", opts.scope,
           secret ? "--sensitive" : "--no-sensitive", "--force", "--yes"], { input: value, cwd });
         step(`${project}: ${name}${secret ? " (sensitive)" : ""}`);

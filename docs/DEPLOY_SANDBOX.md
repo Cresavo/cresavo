@@ -59,7 +59,9 @@ sandbox check passes.
    stdin, marking credentials Sensitive. The script needs psql 16 or later.
    It refuses a database that is not empty and logins that already exist, so
    a failed run is repeated on a new database. Delete the settings folder once
-   both projects hold the values.
+   both projects hold the values. With `--push-vercel --no-files` the script
+   writes no settings files at all and keeps the values in memory only; if a
+   push fails, start over on a new database.
 4. In each project's **Settings → Environment Variables**, configure
    **Production** only. Copy the sandbox project's ID from **Settings → General**
    and enable [system environment variables](https://vercel.com/docs/environment-variables/system-environment-variables)
