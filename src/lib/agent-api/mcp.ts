@@ -12,6 +12,7 @@ import { mcpInputs } from "./mcp-inputs";
 import { checkAgentAddress, type AgentCreate } from "./address-limits";
 import { discoveryOrigin } from "./discovery";
 import { consentElicitation } from "./consent-elicitation";
+import { withLabNotices } from "./notices";
 
 // Same business rules and key checks as the REST API. Authentication is the
 // agent API key, or a customer agent's OAuth grant on its salon's MCP resource.
@@ -22,7 +23,7 @@ async function tool(principal: AgentPrincipal, scope: AgentScope | readonly Agen
     if (!required.some(s => principal!.scopes.includes(s))) throw new AgentApiError("forbidden_scope");
     const result = await run();
     await recordAudit({ event: "agent.request", outcome: "success", tool: name, clientId: principal.clientId, keyId: principal.keyId, scopes: principal.scopes });
-    const body = result instanceof Created ? result.body : result;
+    const body = await withLabNotices(name, result instanceof Created ? result.body : result);
     return {
       content: [{ type: "text" as const, text: JSON.stringify(body) }],
       structuredContent: body as Record<string, unknown>,
