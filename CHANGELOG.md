@@ -8,6 +8,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Limit login request bodies and reserve a rate-limit attempt before reading them.
+
 ### Added
 
 - **Call-screen booking card is compact during the call.** The SMS and email examples appear only after hang-up, under “Example” headings (nothing is sent). The live wave is a flowing ribbon in the product ink; a ring around the portrait and fine spring bars stay on the development preview only.

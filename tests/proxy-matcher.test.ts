@@ -1,6 +1,17 @@
 import { expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { config, OWNER_ACTIONS_MAX_BODY_BYTES, proxy } from "../src/proxy";
+import { LOGIN_MAX_BODY_BYTES } from "../src/lib/bounded-json";
+
+it("caps both login bodies at the self-hosted entry point", async () => {
+  const { ownerActionRefusal, LOGIN_MAX_BODY_BYTES: cap } = await import("../scripts/owner-body-limit.mjs");
+  expect(cap).toBe(LOGIN_MAX_BODY_BYTES);
+  for (const path of ["/api/admin/login", "/api/owner/login"]) {
+    expect(ownerActionRefusal("POST", `${path}/?x=1`, { "content-length": String(cap + 1) })).toBe(413);
+    expect(ownerActionRefusal("POST", path, { "transfer-encoding": "chunked" })).toBe(411);
+    expect(ownerActionRefusal("POST", path, { "content-length": String(cap) })).toBe(0);
+  }
+});
 
 // Next.js anchors a matcher source to the whole path, so the test does the same.
 const runsProxy = (path: string) => config.matcher.some((source) => new RegExp(`^${source}$`).test(path));
