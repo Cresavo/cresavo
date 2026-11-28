@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { inboxDir } from "./inbox-lib.mjs";
+import { recordClient } from "./ledger.mjs";
 
 const origin = process.env.BOOKING_PUBLIC_ORIGIN ?? "http://127.0.0.1:3217";
 const base = new URL(origin);
@@ -31,6 +32,7 @@ try {
   if (server.issuer !== `${origin}/agent-oauth`) throw new Error("Unexpected issuer");
   log("OAuth discovery");
   const registration = await (await request(server.registration_endpoint, json({ client_name: "Cresavo agentic demo", redirect_uris: [redirect] }))).json();
+  recordClient(registration.client_id);
   const verifier = randomBytes(32).toString("base64url"), challenge = createHash("sha256").update(verifier).digest("base64url");
   const query = new URLSearchParams({ response_type: "code", client_id: registration.client_id, redirect_uri: redirect, code_challenge: challenge, code_challenge_method: "S256", state: "demo", resource });
   const html = await (await request(`${server.authorization_endpoint}?${query}`)).text();
@@ -95,8 +97,8 @@ try {
   const booked = await call("create_booking", { ...terms, mandateId: proposal.proposal.mandateId, confirmed: true, idempotencyKey: randomUUID(), customer: { name: "Demo Customer", email } });
   if (booked.booking.status !== "confirmed" || booked.notices?.confirmation?.status !== "simulated") throw new Error("Booking or simulated notices missing");
   const checked = await call("get_booking", { bookingId: booked.booking.id });
-  if (checked.booking.status !== "confirmed" || checked.notices?.reminder?.status !== "scheduled-simulated") throw new Error("Booking verification failed");
-  log(`Booking ${checked.booking.status}; confirmation e-mail simulated to ${checked.notices.confirmation.to}, reminder scheduled for ${local(checked.notices.reminder.at)} (Stockholm time)`);
+  if (checked.booking.status !== "confirmed" || !checked.notices?.reminder?.status) throw new Error("Booking verification failed");
+  log(`Booking ${checked.booking.status}; confirmation e-mail simulated to ${checked.notices.confirmation.to}, ${checked.notices.reminder.at ? `reminder scheduled for ${local(checked.notices.reminder.at)} (Stockholm time)` : "no reminder (starts within two hours)"}`);
   console.log("Demo flow passed.");
 } catch (error) { console.error(`Demo failed: ${error instanceof Error ? error.message : "unknown error"}`); process.exitCode = 1; }
 finally { await client?.close(); }

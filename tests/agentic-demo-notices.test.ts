@@ -13,6 +13,10 @@ describe("simulated booking notices", () => {
   it("uses two hours for a nearer booking", () => {
     expect(simulatedNotices("2026-12-01T16:00:00Z", "2026-12-01T12:00:00Z", "d***@example.test").reminder.at).toBe("2026-12-01T14:00:00.000Z");
   });
+  it("schedules no reminder in the past for a booking within two hours", () => {
+    expect(simulatedNotices("2026-12-01T13:30:00Z", "2026-12-01T12:00:00Z", "d***@example.test").reminder)
+      .toEqual({ channel: "email", status: "not-scheduled", reason: "starts-within-two-hours" });
+  });
   it("leaves other tools' results untouched", async () => {
     const body = { services: [] };
     expect(await withLabNotices("list_services", body)).toBe(body);

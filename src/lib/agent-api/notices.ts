@@ -7,11 +7,13 @@ const BOOKING_TOOLS = new Set(["create_booking", "usp_bookings_create", "get_boo
 
 /** Simulated lab notices are derived from the booking, never sent or persisted. */
 export function simulatedNotices(start: string, createdAt: string, mask: string) {
-  const begins = Date.parse(start), created = Date.parse(createdAt);
-  const offset = begins - created >= 24 * 3600000 ? 24 : 2;
+  const begins = Date.parse(start), created = Date.parse(createdAt), hour = 3600000;
+  const lead = begins - created >= 24 * hour ? 24 : begins - created >= 2 * hour ? 2 : null;
   return {
     confirmation: { channel: "email", status: "simulated", to: mask },
-    reminder: { channel: "email", status: "scheduled-simulated", at: new Date(begins - offset * 3600000).toISOString() },
+    reminder: lead === null
+      ? { channel: "email", status: "not-scheduled", reason: "starts-within-two-hours" }
+      : { channel: "email", status: "scheduled-simulated", at: new Date(begins - lead * hour).toISOString() },
   };
 }
 
