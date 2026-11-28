@@ -327,8 +327,9 @@ describe("customer agent OAuth", () => {
       expect(reclaimed.status).toBe(201);
       oauthClients.push((await reclaimed.json()).client_id);
     } finally {
-      await db.agentOAuthClient.updateMany({ where: { id: { startsWith: prefix } }, data: { expiresAt: new Date(0) } });
+      await db.agentOAuthClient.deleteMany({ where: { id: { startsWith: `${prefix}-` } } });
     }
+    expect(await db.agentOAuthClient.count({ where: { id: { startsWith: `${prefix}-` } } })).toBe(0);
   });
 
   it("revokes on request", async () => {

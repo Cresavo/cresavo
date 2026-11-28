@@ -49,6 +49,7 @@ allowed(kind, tbl, col, priv) AS (VALUES
   ('app', 'AgentMandate', 'revokedAt', 'UPDATE'),
   ('app', 'AgentOAuthClient', '*', 'INSERT'),
   ('app', 'AgentOAuthClient', '*', 'SELECT'),
+  ('app', 'AgentOAuthClient', 'expiresAt', 'UPDATE'),
   ('app', 'AgentOAuthCode', '*', 'DELETE'),
   ('app', 'AgentOAuthCode', '*', 'INSERT'),
   ('app', 'AgentOAuthCode', '*', 'SELECT'),

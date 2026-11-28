@@ -131,6 +131,7 @@ describe("prisma/grants/roles.sql", () => {
     // Nested AgentClient creation and OAuth's AgentApiKey upsert.
     expect(can("cresavo_app", "AgentClient", "INSERT")).toBe(true);
     for (const privilege of ["INSERT", "UPDATE", "SELECT"]) expect(can("cresavo_app", "AgentApiKey", privilege)).toBe(true);
+    expect([...(app.get("AgentOAuthClient")?.get("UPDATE") ?? [])]).toEqual(["expiresAt"]);
   });
 
   it("lets the app keep and delete pictures but not rewrite them, and the sweep purge them without seeing them", () => {
