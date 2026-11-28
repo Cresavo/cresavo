@@ -146,6 +146,29 @@ it("preserves an existing salon allowance when moving it to its own pool", async
   await expect(reserveRateLimit("public-tenant", salon)).rejects.toMatchObject({ status: 429 });
 });
 
+it("refuses to migrate a legacy salon allowance into a full tenant pool", async () => {
+  const salon = identity("public-tenant");
+  const legacyKey = [...keys].at(-1)!;
+  const tenantKey = `tenant:${legacyKey}`;
+  keys.add(tenantKey);
+  const pool = { key: { startsWith: "tenant:" } };
+  const existing = await rateLimitDatabase.rateLimitBucket.count({ where: pool });
+  if (existing > 10000) throw new Error("TENANT_CAP_FIXTURE_NOT_ISOLATED");
+  const marker = randomUUID();
+  const data = Array.from({ length: 10000 - existing }, (_, i) => {
+    const key = `tenant:${createHmac("sha256", marker).update(String(i)).digest("hex")}`;
+    keys.add(key);
+    return { key, generation: marker, expiresAt: new Date(Date.now() + 3600000), count: 1 };
+  });
+  await rateLimitDatabase.rateLimitBucket.createMany({ data: [
+    ...data, { key: legacyKey, generation: marker, count: 59, expiresAt: new Date(Date.now() + 3600000) },
+  ] });
+  await expect(reserveRateLimit("public-tenant", salon)).rejects.toMatchObject({ status: 429 });
+  expect(await rateLimitDatabase.rateLimitBucket.count({ where: pool })).toBe(10000);
+  expect(await rateLimitDatabase.rateLimitBucket.findUnique({ where: { key: legacyKey } })).toMatchObject({ count: 59 });
+  expect(await rateLimitDatabase.rateLimitBucket.findUnique({ where: { key: tenantKey } })).toBeNull();
+}, 30000);
+
 it("shares the receptionist budget across independent callers", async () => {
   const id = randomUUID();
   keys.add(`receptionist:daily:v1:${id}`);

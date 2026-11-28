@@ -25,10 +25,21 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean, le
       AND "key" NOT LIKE 'acct:%' AND "key" NOT LIKE 'strike:%' AND "key" NOT LIKE 'lock:%' AND "key" NOT LIKE 'mbx:%'
     ORDER BY "expiresAt", "key" LIMIT 100
   )`;
-  // Preserve an active allowance written before tenant buckets received their own prefix.
-  if (legacyKey && !(await tx.rateLimitBucket.findUnique({ where: { key } })))
-    await tx.rateLimitBucket.updateMany({ where: { key: legacyKey }, data: { key } });
-  const previous = await tx.rateLimitBucket.findUnique({ where: { key } });
+  let previous = await tx.rateLimitBucket.findUnique({ where: { key } });
+  const legacy = !previous && legacyKey
+    ? await tx.rateLimitBucket.findUnique({ where: { key: legacyKey } }) : null;
+  // Salon allowances and owner guard rows have separate caps from client identities.
+  const pool = route === "public-tenant"
+    ? { key: { startsWith: "tenant:" } }
+    : { NOT: [...GUARD_PREFIXES, "tenant:"].map((prefix) => ({ key: { startsWith: prefix } })) };
+  if (!previous && (consume || legacy) && (await tx.rateLimitBucket.count({ where: pool })) >= 10000) {
+    // The normal sweep is bounded; finish it before refusing a new identity.
+    await tx.rateLimitBucket.deleteMany({ where: { ...pool, expiresAt: { lte: now } } });
+    if ((await tx.rateLimitBucket.count({ where: pool })) >= 10000)
+      throw new DomainError("Too many attempts. Please try again later.", 429, 1);
+  }
+  // Preserve an allowance written before tenant buckets received their own prefix.
+  if (legacy) previous = await tx.rateLimitBucket.update({ where: { key: legacy.key }, data: { key } });
   const active = previous && previous.expiresAt > now ? previous : null;
   if (active && active.count >= limit)
     throw new DomainError(
@@ -38,16 +49,6 @@ async function reserveIn(tx: Tx, route: Route, key: string, consume: boolean, le
     );
   if (!consume)
     return { key, generation: active?.generation ?? "", count: active?.count ?? 0 };
-  // Salon allowances and owner guard rows have separate caps from client identities.
-  const pool = route === "public-tenant"
-    ? { key: { startsWith: "tenant:" } }
-    : { NOT: [...GUARD_PREFIXES, "tenant:"].map((prefix) => ({ key: { startsWith: prefix } })) };
-  if (!previous && (await tx.rateLimitBucket.count({ where: pool })) >= 10000) {
-    // The normal sweep is bounded; finish it before refusing a new identity.
-    await tx.rateLimitBucket.deleteMany({ where: { ...pool, expiresAt: { lte: now } } });
-    if ((await tx.rateLimitBucket.count({ where: pool })) >= 10000)
-      throw new DomainError("Too many attempts. Please try again later.", 429, 1);
-  }
   const value = {
     generation: active?.generation ?? randomUUID(),
     expiresAt: active?.expiresAt ?? new Date(now.getTime() + minutes * 60_000),
