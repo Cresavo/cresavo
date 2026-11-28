@@ -7,9 +7,11 @@ export const DEMO_SALON = "demo";
  * proposals, mandates and bookings those grants made, pending codes and the clients' registrations.
  * Rows of any other OAuth client, agent API keys and ordinary bookings are left alone.
  */
-export async function resetDemoClients(tx: Prisma.TransactionClient, oauthClientIds: string[]) {
+export async function resetDemoClients(tx: Prisma.TransactionClient, oauthClientIds: string[], shared: { clientId: string; since: Date } | null = null) {
   const ids = [...new Set(oauthClientIds)];
-  const grants = await tx.agentGrant.findMany({ where: { businessId: DEMO_SALON, oauthClientId: { in: ids } }, select: { id: true, clientId: true, keyId: true } });
+  // A published client (Claude Code) is shared by every user: only its grants made since the last reset.
+  const sharedGrants = shared ? [{ oauthClientId: shared.clientId, createdAt: { gte: shared.since } }] : [];
+  const grants = await tx.agentGrant.findMany({ where: { businessId: DEMO_SALON, OR: [{ oauthClientId: { in: ids } }, ...sharedGrants] }, select: { id: true, clientId: true, keyId: true } });
   const clients = [...new Set(grants.map(g => g.clientId))], keys = grants.map(g => g.keyId);
   const scope = { businessId: DEMO_SALON, clientId: { in: clients } };
   const links = await tx.agentBooking.findMany({ where: scope, select: { bookingId: true, nativeBookingId: true } });
@@ -23,9 +25,14 @@ export async function resetDemoClients(tx: Prisma.TransactionClient, oauthClient
   await tx.agentGrant.deleteMany({ where: { id: { in: grants.map(g => g.id) } } });
   await tx.agentApiKey.deleteMany({ where: { id: { in: keys } } });
   // An agent client that also holds a grant from another OAuth client stays.
-  const shared = new Set((await tx.agentGrant.findMany({ where: { businessId: DEMO_SALON, clientId: { in: clients } }, select: { clientId: true } })).map(g => g.clientId));
-  await tx.agentClient.deleteMany({ where: { businessId: DEMO_SALON, id: { in: clients.filter(c => !shared.has(c)) } } });
+  const stillHeld = new Set((await tx.agentGrant.findMany({ where: { businessId: DEMO_SALON, clientId: { in: clients } }, select: { clientId: true } })).map(g => g.clientId));
+  await tx.agentClient.deleteMany({ where: { businessId: DEMO_SALON, id: { in: clients.filter(c => !stillHeld.has(c)) } } });
   await tx.agentOAuthCode.deleteMany({ where: { businessId: DEMO_SALON, clientId: { in: ids } } });
-  await tx.agentOAuthClient.deleteMany({ where: { id: { in: ids } } });
+  // A registration still used by a grant or a pending code anywhere (another salon included) stays.
+  const inUse = new Set([
+    ...(await tx.agentGrant.findMany({ where: { oauthClientId: { in: ids } }, select: { oauthClientId: true } })).map(g => g.oauthClientId),
+    ...(await tx.agentOAuthCode.findMany({ where: { clientId: { in: ids } }, select: { clientId: true } })).map(c => c.clientId),
+  ]);
+  await tx.agentOAuthClient.deleteMany({ where: { id: { in: ids.filter(id => !inUse.has(id)) } } });
   return { grants: grants.length, bookings: bookings.count };
 }

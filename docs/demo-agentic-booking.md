@@ -53,7 +53,7 @@ the booking step answers `slot_unavailable` and the assistant proposes a new tim
 ## Before each demo (2 minutes)
 
 ```sh
-npm run demo:agentic:reset                  # removes what the demo's assistants connected and booked, re-seeds
+npm run demo:agentic:reset -- --claude-code  # removes what the demo's assistants connected and booked, re-seeds
 eval "$(npm run -s demo:agentic:inbox -- --init)"   # private inbox for the simulated e-mail codes
 npm run dev                                 # same shell, so the server sees BOOKING_CONSENT_INBOX_DIR
 ```
@@ -93,14 +93,16 @@ claude
 5. Optional: open `/admin` to show the booking in the salon calendar.
 
 Remove the connector afterwards with `claude mcp remove cresavo-eko --scope local`.
-`npm run demo:agentic:reset` also removes Claude Code's grant and bookings, so
-the next run starts with a fresh sign-in.
+`npm run demo:agentic:reset -- --claude-code` also removes the Claude Code grants
+and bookings made since the previous reset, so the next run starts with a fresh
+sign-in.
 
 The reset removes only the demo's own OAuth clients: the scripted assistant's
 registrations (listed in the git-ignored `.data/demo-agentic-clients.json`),
-Claude Code's published client, and any extra client you name with
+with `--claude-code` the Claude Code grants made since the previous reset, and
+any extra client you name with
 `npm run demo:agentic:reset -- --client <client-id>`. Other connections, agent
-API keys and ordinary bookings stay. It refuses any database that is not a
+API keys, ordinary bookings and registrations still used elsewhere stay. It refuses any database that is not a
 local `_demo` or `_test` database.
 
 ## Fallback: the scripted assistant

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { db } from "../../src/lib/db";
 import { grantToken, deleteGrants } from "../helpers/agent-grant";
@@ -23,17 +24,26 @@ afterAll(async () => {
 });
 
 describe("agentic demo reset", () => {
-  it("removes the demo client's grant and registration and keeps an unrelated client's", async () => {
-    const before = await db.agentGrant.findMany({ where: { oauthClientId: { in: [demo, other] } } });
-    expect(before).toHaveLength(2);
+  it("removes the demo client's grant, keeps an unrelated client and a registration still used at another salon", async () => {
+    await db.agentOAuthCode.create({ data: { hash: createHash("sha256").update(`reset-test-${demo}`).digest("hex"), consent: true, businessId: "lab-partner", clientId: demo,
+      clientName: "Synthetic", redirectUri: "http://127.0.0.1:4555/callback", challenge: "c".repeat(43), scopes: "services:read",
+      state: "", expiresAt: new Date(Date.now() + 60000) } });
+    expect(await db.agentGrant.count({ where: { oauthClientId: { in: [demo, other] } } })).toBe(2);
     const counts = await db.$transaction(tx => resetDemoClients(tx, [demo]));
     expect(counts.grants).toBe(1);
     expect(await db.agentGrant.count({ where: { oauthClientId: demo } })).toBe(0);
-    expect(await db.agentOAuthClient.count({ where: { id: demo } })).toBe(0);
+    expect(await db.agentOAuthCode.count({ where: { clientId: demo, businessId: "lab-partner" } })).toBe(1);
+    expect(await db.agentOAuthClient.count({ where: { id: demo } })).toBe(1);
     const kept = await db.agentGrant.findFirst({ where: { oauthClientId: other } });
     expect(kept).not.toBeNull();
     expect(await db.agentApiKey.count({ where: { id: kept!.keyId } })).toBe(1);
     expect(await db.agentClient.count({ where: { id: kept!.clientId } })).toBe(1);
-    expect(await db.agentOAuthClient.count({ where: { id: other } })).toBe(1);
+  });
+  it("removes a shared client's grants only inside the window since the last reset", async () => {
+    const later = new Date(Date.now() + 3600000), earlier = new Date(Date.now() - 3600000);
+    expect((await db.$transaction(tx => resetDemoClients(tx, [], { clientId: other, since: later }))).grants).toBe(0);
+    expect(await db.agentGrant.count({ where: { oauthClientId: other } })).toBe(1);
+    expect((await db.$transaction(tx => resetDemoClients(tx, [], { clientId: other, since: earlier }))).grants).toBe(1);
+    expect(await db.agentGrant.count({ where: { oauthClientId: other } })).toBe(0);
   });
 });
