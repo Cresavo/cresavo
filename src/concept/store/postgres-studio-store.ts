@@ -662,6 +662,9 @@ export class PostgresStudioStore implements StudioStore {
     // Server-side journals without a working key: nothing that reads or writes journal text runs, and while the
     // saved document still holds journal text nothing is written at all (no document, no replay result).
     const saved = migrateSaved(locked.doc);
+    if (options.authorizeLocked && (!saved || !options.authorizeLocked(saved, clock))) {
+      return { done: { ok: false, reason: "not-found" } };
+    }
     const access = await this.journalAccess(tx, tenantId, clock);
     if (access === "unavailable" && (JOURNAL_TEXT_ACTIONS.has(requested.type) || (!!saved && holdsJournalText(saved)))) {
       return { done: { ok: false, reason: "rejected", detail: JOURNALS_UNAVAILABLE, version: locked.version } };

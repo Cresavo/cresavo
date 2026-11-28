@@ -49,7 +49,7 @@ const seen = { staffId: booking.staffId, date: booking.date, start: booking.star
 const cancelBody = (over: Record<string, unknown> = {}) => ({ token: goodToken(), expected: seen, ...over });
 const move = (over: Record<string, unknown> = {}) => ({ token: goodToken(), expected: seen, staffId: booking.staffId, date: "2026-11-25", start: 540, ...over });
 const asked = { at: { date: "1970-01-01", time: 0 }, instant: 0, public: { slug: SLUG }, expected: seen };
-const saved = (key: string) => ({ idempotencyKey: key, requireActiveAccount: true, beforeCommit: expect.any(Function) });
+const saved = (key: string) => ({ idempotencyKey: key, requireActiveAccount: true, authorizeLocked: expect.any(Function), beforeCommit: expect.any(Function) });
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });

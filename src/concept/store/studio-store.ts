@@ -45,6 +45,8 @@ export interface ApplyOptions {
    * Refused applies are not remembered, so a retry runs the rules again.
    */
   idempotencyKey?: string;
+  /** Check the current snapshot and trusted clock under the Postgres tenant lock, before replay or mutation. A refusal is not-found. */
+  authorizeLocked?: (state: DemoState, now: number) => boolean;
   /**
    * Called under the tenant's lock once the change is accepted and about to be
    * written, never for a replay or a refused change; throwing aborts the apply.

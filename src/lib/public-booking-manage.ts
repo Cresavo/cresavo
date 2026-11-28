@@ -21,8 +21,8 @@ import { idempotencyKeySchema } from "./validation";
 const tokenOf = (json: unknown) => json && typeof json === "object" && typeof (json as { token?: unknown }).token === "string" ? (json as { token: string }).token : "";
 
 /** Whether the link's token opens this snapshot's booking now: the one rule of the view, so the refusal path asks it of its own snapshot too. */
-const linkOpens = (token: string, tenantId: string, ref: string, booking: Booking) =>
-  verifyBookingLink(token, { tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" }, booking);
+const linkOpens = (token: string, tenantId: string, ref: string, booking: Booking, now?: number) =>
+  verifyBookingLink(token, { tenantId, bookingId: booking.id, ref, customerId: booking.customerId, purpose: "manage", contactEmail: booking.contactEmail ?? "" }, booking, now);
 
 /** The parts every change shares. The times are placeholders: the store stamps its own clock under the lock. */
 type Common = { at: { date: "1970-01-01"; time: 0 }; instant: 0; public: PublicChange; expected: ExpectedVisit };
@@ -54,6 +54,10 @@ export function manageBooking<S extends z.ZodType<{ token: string; expected: { d
       idempotencyKey: scopedIdempotencyKey(action.type === "online/cancel" ? "booking-cancel" : "booking-move", key.data),
       // The salon's allowance is taken by each new change inside the store's transaction, under the salon's lock and after a retry has been recognised: a committed retry gets its receipt, no two can take the last one, and a commit that fails keeps none. The account is checked under the same lock.
       requireActiveAccount: true,
+      authorizeLocked: (state, now) => {
+        const current = state.bookings.find((b) => b.id === booking.id && b.publicRef === ref);
+        return !!current && linkOpens(token, found.tenantId, ref, current, now);
+      },
       beforeCommit: (transaction) => reserveTenantQuota(found.tenantId, transaction),
     });
     if (result.ok) {
