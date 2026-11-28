@@ -17,6 +17,8 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- Customer-agent dynamic client registration has a daily per-address budget in addition to its minute limit and global active cap. MCP registration is unauthenticated by design, so a distributed attacker can still fill the global cap; accepting this residual risk is an owner decision.
+
 - **Call-screen booking card is compact during the call.** The SMS and email examples appear only after hang-up, under “Example” headings (nothing is sent). The live wave is a flowing ribbon in the product ink; a ring around the portrait and fine spring bars stay on the development preview only.
 - **A calmer, shareable call screen for Maja on the public demo.** `/studio/ring` is now a phone-like window: her name and portrait, the call state (ringing, in the call, ended), a live audio wave that follows her voice and the caller's microphone, large mute and hang-up buttons, and the transcript hidden behind Show text. When a visit is booked, moved or cancelled, a card slides in with the treatment, time, price and name, plus a visual preview of the SMS and the confirmation e-mail the customer would get (nothing is sent). The page has its own quiet chrome, a share title and an Open Graph image, and works in light and dark. Reduced motion stills the wave, the ring pulse and the card motion, and skips the short connecting tone.
 

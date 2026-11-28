@@ -47,8 +47,7 @@ afterAll(async () => {
 });
 
 // A fresh signed client address per request, as the supported server wrapper sends it.
-function request(url: string, init: RequestInit = {}) {
-  const ip = `198.51.100.${(address++ % 200) + 10}`;
+function request(url: string, init: RequestInit = {}, ip = `198.51.100.${(address++ % 200) + 10}`) {
   const headers = new Headers(init.headers);
   headers.set("x-booking-client-ip", ip); headers.set("x-booking-client-proof", addressProof(ip, secret));
   return new Request(url, { ...init, headers });
@@ -79,16 +78,21 @@ async function decide(handle: string, decision: "allow" | "decline", from = orig
 }
 const exchange = (values: Record<string, string>) => tokenPost(request(`${origin}/agent-oauth/token`, form(values)));
 async function blockedRequests(lock: (tx: Parameters<Parameters<typeof db.$transaction>[0]>[0]) => Promise<unknown>, start: () => Promise<Response>[]) {
-  let release!: () => void, ready!: () => void;
-  const held = new Promise<void>(resolve => { ready = resolve; });
+  let release!: () => void, ready!: (pid: number) => void;
+  const held = new Promise<number>(resolve => { ready = resolve; });
   const gate = new Promise<void>(resolve => { release = resolve; });
-  const transaction = db.$transaction(async tx => { await lock(tx); ready(); await gate; }, { timeout: 20000 });
-  await held;
+  const transaction = db.$transaction(async tx => {
+    await lock(tx);
+    const [holder] = await tx.$queryRaw<{ pid: number }[]>`SELECT pg_backend_pid() AS pid`;
+    ready(holder.pid);
+    await gate;
+  }, { timeout: 20000 });
+  const holderPid = await held;
   try {
     const requests = start();
     let waiting = 0;
     for (let i = 0; i < 200 && waiting < requests.length; i++) {
-      const rows = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*)::bigint AS count FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()`;
+      const rows = await db.$queryRaw<{ count: bigint }[]>`WITH RECURSIVE blocked(pid) AS (SELECT ${holderPid}::int UNION SELECT a.pid FROM pg_stat_activity a JOIN blocked b ON b.pid = ANY(pg_blocking_pids(a.pid)) WHERE a.datname = current_database() AND a.wait_event_type = 'Lock') SELECT (count(*) - 1)::bigint AS count FROM blocked`;
       waiting = Number(rows[0].count);
       if (waiting < requests.length) await new Promise(resolve => setTimeout(resolve, 25));
     }
@@ -250,6 +254,56 @@ describe("customer agent OAuth", () => {
       expect((await db.agentGrant.findUniqueOrThrow({ where: { id: grant.id } })).revokedAt).not.toBeNull();
       expect(await db.agentGrantToken.count({ where: { grantId: grant.id } })).toBe(0);
     }
+  });
+
+  it("limits registrations per address over a day while leaving other addresses available", async () => {
+    const registerAt = (ip: string) => register(request(`${origin}/agent-oauth/register`, { method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ client_name: "Synthetic daily budget client", redirect_uris: [redirectUri] }) }, ip));
+    for (let i = 0; i < 10; i++) {
+      const response = await registerAt("203.0.113.1");
+      expect(response.status).toBe(201);
+      oauthClients.push((await response.json()).client_id);
+    }
+    const denied = await registerAt("203.0.113.1");
+    expect(denied.status).toBe(429);
+    expect(await denied.json()).toEqual({ error: "rate_limited" });
+    const other = await registerAt("203.0.113.2");
+    expect(other.status).toBe(201);
+    oauthClients.push((await other.json()).client_id);
+  });
+
+  it("does not release the race barrier for an unrelated lock wait", async () => {
+    let release!: () => void, ready!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const held = new Promise<void>(resolve => { ready = resolve; });
+    const unrelated = db.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(708233, 1)`;
+      ready();
+      await gate;
+    }, { timeout: 20000 });
+    await held;
+    const waiter = Promise.resolve(db.$executeRaw`SELECT pg_advisory_xact_lock(708233, 1)`);
+    try {
+      for (let i = 0; i < 200; i++) {
+        const [row] = await db.$queryRaw<{ count: bigint }[]>`SELECT count(*)::bigint AS count FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%708233, 1%'`;
+        if (Number(row.count) > 0) break;
+        if (i === 199) throw new Error("Unrelated waiter did not reach its lock");
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      const pending = blockedRequests(tx => tx.$executeRaw`SELECT pg_advisory_xact_lock(708233, 2)`, () => [
+        (async () => {
+          await new Promise(resolve => setTimeout(resolve, 250));
+          await db.$executeRaw`SELECT pg_advisory_xact_lock(708233, 2)`;
+          return new Response(null, { status: 204 });
+        })(),
+      ]);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const [probe] = await db.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_xact_lock(708233, 2) AS acquired`;
+      expect(probe.acquired).toBe(false);
+      const responses = await pending;
+      expect(responses[0].status).toBe(204);
+    } finally { release(); await unrelated; await waiter; }
   });
 
   it("enforces the deployment-wide active registration budget under concurrency", async () => {

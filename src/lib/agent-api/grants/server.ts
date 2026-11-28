@@ -33,7 +33,9 @@ export function oauthEndpoint(handle: (request: Request, origin: string) => Prom
     if (!agentOAuthEnabled()) return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
     let response: Response;
     try {
-      await checkRateLimit("agent-oauth", waitlistClientKey(request.headers));
+      const address = waitlistClientKey(request.headers);
+      await checkRateLimit("agent-oauth", address);
+      if (step === "register") await checkRateLimit("oauth-register-daily", address);
       response = await handle(request, discoveryOrigin());
     } catch (error) {
       const [status, code] = error instanceof PairError ? [error.status, error.code]
@@ -89,6 +91,8 @@ export async function register(request: Request) {
   const redirects = [...new Set(document.redirect_uris)].sort();
   const id = randomUUID();
   await db.$transaction(async tx => {
+    // MCP dynamic registration is unauthenticated by design. Distributed callers can still
+    // fill the global cap; accepting that residual risk is an owner decision.
     // Serialize the count and insert across all application instances.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(708231, 1)`;
     const now = new Date();
