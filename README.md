@@ -7,7 +7,7 @@
 
 **More time. On your terms.**
 
-Cresavo is an open-source booking app for salons and clinics that brings appointments, clients and daily operations together.
+Cresavo is an open-source booking app for salons and clinics that brings appointments, clients and daily operations together. It is designed for **agentic booking**: a customer's AI assistant (ChatGPT, Claude, Grok or another MCP client) looks up treatments and free times and proposes a booking, and nothing is booked beyond what the customer and the salon have approved. This is work in progress and is shown with fictional data only; see [what works today](#where-assistants-stand-today).
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Cresavo/cresavo/verify.yml?branch=main&label=CI)](https://github.com/Cresavo/cresavo/actions/workflows/verify.yml)
 [![License AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
@@ -18,6 +18,50 @@ Cresavo is an open-source booking app for salons and clinics that brings appoint
 [![Cresavo tour preview showing customer booking, assistant approval and undo](docs/media/cresavo-tour-preview.webp)](https://cresavo.com/site/tour-16x9.mp4)
 
 [Try the demo](https://demo.cresavo.com/studio) · [Watch the 36-second tour](https://cresavo.com/site/tour-16x9.mp4) · [Join Discussions](https://github.com/Cresavo/cresavo/discussions) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/Cresavo/cresavo/releases)
+
+## What Cresavo is
+
+| | |
+|---|---|
+| **For the salon** | A calm workspace for the day's schedule, calendar, customers and journal, inbox, booking page, treatments, staff, stock, gift cards and finance. Owners can export their data and choose their own tools. |
+| **For customers** | A booking page under the salon's own brand, and, as the agent features mature, the option to ask an AI assistant for times and request a booking in a chat. |
+| **For assistants** | A REST API and MCP servers with scoped tools. Assistants *propose*; changes and bookings take effect only within what the salon or the customer has approved. |
+| **For developers** | Open source under AGPL-3.0, TypeScript and Next.js. |
+
+### Where assistants stand today
+
+- **Owner's assistant (preview, flag-controlled):** in the demo, the owner can pair an assistant (Claude, or ChatGPT through a custom MCP connector) that reads a fictional salon's calendar and drafts changes the owner approves in the studio Inbox. It is tested with SDK and browser tests; checks against hosted assistant accounts are still pending.
+- **Customer agents (local lab):** the booking engine and the [gateway](https://github.com/Cresavo/gateway) demonstrate an assistant finding times and proposing a booking that the customer approves, with synthetic data on a local setup. Hosted assistant compatibility is not verified.
+- **Not yet:** a one-click ChatGPT app and a verified Grok setup are on the roadmap.
+
+[Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md) says exactly what is verified and what is not.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    subgraph Owner["Owner's assistant (demo preview)"]
+        OA["Owner's assistant<br/>Claude · ChatGPT"] -->|"owner MCP,<br/>drafts a change"| ST["Studio Inbox"]
+        ST -->|"owner approves<br/>or declines"| SC["Studio schedule"]
+    end
+    subgraph Customer["Customer's assistant (local lab)"]
+        CA["Customer's assistant<br/>ChatGPT · Claude · Grok"] -->|"MCP or REST"| GW["Agent entry<br/>embedded MCP, provider API<br/>or Cresavo/gateway"]
+        GW --> BE["Booking engine<br/>(PostgreSQL)"]
+        BE -->|"consent page"| CU["Customer approves"]
+    end
+```
+
+The concept demo runs on its own browser-based store with fictional data. The
+PostgreSQL booking engine, its embedded MCP and provider API are the server-side
+path for customer agents; the standalone gateway is an optional entry in front of them. More in [Architecture](docs/ARCHITECTURE.md),
+[Data flows](docs/DATA_FLOWS.md) and [GATEWAY_SPLIT](docs/GATEWAY_SPLIT.md).
+
+## Repositories
+
+| Repository | What it is |
+|---|---|
+| [`Cresavo/cresavo`](https://github.com/Cresavo/cresavo) (this repo) | The studio, booking pages, booking engine, provider API and owner MCP. Concept demo with fictional data. |
+| [`Cresavo/gateway`](https://github.com/Cresavo/gateway) | The standalone REST v1 and MCP gateway for AI assistants, in front of a booking system that implements its [provider contract](https://github.com/Cresavo/gateway/blob/main/docs/PROVIDER_CONTRACT.md). Cresavo is the first provider; no other provider is certified. |
 
 ## Why Cresavo
 
@@ -67,6 +111,10 @@ tries a fast-forward update before starting the local demo.
 | The owner's day | Dark mode |
 |---|---|
 | ![Today view: the day's schedule, the next customer and a short morning brief](docs/design/cresavo/screens/studio-today-desktop-after.jpg) | ![Today view in dark mode](docs/design/cresavo/screens/studio-today-desktop-dark-after.jpg) |
+
+**An assistant's proposal waits for the owner's approval** (fictional data):
+
+![Studio Inbox with a connected assistant's proposal to move an appointment, with Approve and Decline buttons](docs/design/cresavo/screens/pairing-inbox.jpg)
 
 | Landing page | Customer booking page (mobile) |
 |---|---|
@@ -120,6 +168,13 @@ PostgreSQL database. Run `npm run mcp:client` for read-only access or
 The local concept server also demonstrates proposals you can review in the
 studio Inbox. [Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md).
 
+## Documentation
+
+Start with the [documentation index](docs/README.md). Short list:
+[Architecture](docs/ARCHITECTURE.md) · [Project status](docs/STATUS.md) ·
+[Roadmap](docs/ROADMAP.md) · [Connect your AI assistant](docs/CONNECT_AI_ASSISTANT.md) ·
+[Privacy and security](docs/PRIVACY_SECURITY.md) · [Design system](docs/design/DESIGN_SYSTEM.md)
+
 ## Testing
 
 ```bash
@@ -144,7 +199,7 @@ for merge until the reviewed signing process is available.
 Report vulnerabilities privately through GitHub Security Advisories, never in
 a public issue. See [SECURITY](SECURITY.md).
 
-## Licence and trademark
+## License and trademark
 
 The source code is licensed under the
 [GNU Affero General Public License v3.0 only](LICENSE) (AGPL-3.0-only),

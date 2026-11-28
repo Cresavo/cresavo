@@ -15,6 +15,17 @@ request for a security problem, and do not send reports by email.
 Include what you found, how to reproduce it, and the impact you expect. Use
 synthetic data only; do not access data that is not yours.
 
+## Coordinated disclosure
+
+Please give us a reasonable time to fix a problem before you disclose it
+publicly. We will agree on a disclosure date with you in the private advisory.
+If you act in good faith, follow this policy and use only synthetic data, we
+will not pursue action against you for the research.
+
+Issues in the standalone gateway belong to
+[`Cresavo/gateway`](https://github.com/Cresavo/gateway); report them there the
+same way.
+
 ## Scope
 
 In scope: the code in this repository, including the studio, customer
