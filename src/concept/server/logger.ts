@@ -21,12 +21,12 @@ export interface RequestLogFields {
   error?: string;
 }
 
-const ID = /^[A-Za-z0-9_-]{8,64}$/;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 const TOOL = /^[a-z][a-z0-9_]{0,39}$/;
 const ERROR_NAME = /^[A-Za-z][A-Za-z0-9]{0,39}$/;
 
-/** A caller's own id when it looks like one, otherwise a new one. */
+/** Accept a UUID v4 from the caller, otherwise generate a new id. */
 export function requestIdFor(request: Request): string {
   const given = request.headers.get("x-request-id");
   return given && ID.test(given) ? given : randomUUID();

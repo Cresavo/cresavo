@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { formatLogLine, requestIdFor, withRequestLog, type RequestLogFields } from "@/concept/server/logger";
 
-const fields: RequestLogFields = { requestId: "abcd1234-ef56", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 12.6, task: "answer-help" };
+const fields: RequestLogFields = { requestId: "123e4567-e89b-42d3-a456-426614174000", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 12.6, task: "answer-help" };
 
 describe("request logger", () => {
   it("writes one JSON line with the fixed fields", () => {
-    expect(JSON.parse(formatLogLine(fields))).toEqual({ level: "info", msg: "request", requestId: "abcd1234-ef56", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 13, task: "answer-help" });
+    expect(JSON.parse(formatLogLine(fields))).toEqual({ level: "info", msg: "request", requestId: "123e4567-e89b-42d3-a456-426614174000", route: "/api/concept/ai/[task]", method: "POST", status: 200, durationMs: 13, task: "answer-help" });
   });
 
   it("sets the level from the status", () => {
@@ -24,11 +24,31 @@ describe("request logger", () => {
     expect(JSON.parse(formatLogLine({ ...fields, error: "SyntaxError" })).error).toBe("SyntaxError");
   });
 
-  it("accepts a caller's request id only when it looks like one", () => {
+  it("propagates only UUID v4 request ids", () => {
     const withId = (id: string) => requestIdFor(new Request("http://x/", { headers: { "x-request-id": id } }));
-    expect(withId("client-req-0001")).toBe("client-req-0001");
-    expect(withId("has spaces and <script>")).toMatch(/^[0-9a-f-]{36}$/);
+    const valid = "123e4567-e89b-42d3-a456-426614174000";
+    expect(withId(valid)).toBe(valid);
+    expect(withId("client-req-0001")).not.toBe("client-req-0001");
     expect(requestIdFor(new Request("http://x/"))).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it.each(["0701234567", "person@example.test"])("does not log or echo a personal-data-shaped request id", async (given) => {
+    const lines: string[] = [];
+    const handler = withRequestLog("/api/concept/help", () => new Response(), (line) => lines.push(line));
+    const response = await handler(new Request("http://x/", { headers: { "x-request-id": given } }), undefined);
+    expect(response.headers.get("x-request-id")).not.toContain(given);
+    expect(lines[0]).not.toContain(given);
+    expect(JSON.parse(lines[0]).requestId).toBe(response.headers.get("x-request-id"));
+    expect(JSON.parse(formatLogLine({ ...fields, requestId: given })).requestId).toBe("invalid");
+  });
+
+  it("propagates a valid UUID v4 to the response and log", async () => {
+    const id = "123e4567-e89b-42d3-a456-426614174000";
+    const lines: string[] = [];
+    const handler = withRequestLog("/api/concept/help", () => new Response(), (line) => lines.push(line));
+    const response = await handler(new Request("http://x/", { headers: { "x-request-id": id } }), undefined);
+    expect(response.headers.get("x-request-id")).toBe(id);
+    expect(JSON.parse(lines[0]).requestId).toBe(id);
   });
 
   it("adds x-request-id to the response and logs route, status and task without the body", async () => {
