@@ -8,6 +8,7 @@ import { DotField } from "./dot-field";
 import { wordmarkShape } from "./dot-shapes";
 import { HomeHeader } from "./home-header";
 import { Closing, Founder, HomeFooter, Manifesto, NextStep, OpenSource, Pricing, Questions, Status } from "./home-sections";
+import { HeroFlow } from "./hero-flow";
 import { Icon } from "./icons";
 import { ProductShot, type Shot } from "./product-shot";
 import { Receptionist } from "./receptionist";
@@ -43,6 +44,7 @@ function Hero({ demo, booking, tint }: { demo: string; booking: string; tint: st
           <a className={h.textLink} href={booking}>{site["home.hero.booking"]}</a>
         </div>
       </div>
+      <div className={h.wrap}><HeroFlow demo={demo} /></div>
     </section>
   );
 }

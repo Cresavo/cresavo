@@ -135,6 +135,28 @@ test("the dot fields size from their host and never grow", async ({ page }) => {
   await expect(page.locator("canvas")).toHaveCount(1);
 });
 
+test("the hero's booking flow is one labelled picture that cuts through its layers and stops for reduced motion", async ({ page }) => {
+  await page.goto("/");
+  const flow = page.getByRole("img", { name: site["home.flow.label"] });
+  await expect(flow).toBeVisible();
+  const headline = (key: "h0" | "h6") => flow.getByText(site[`home.flow.${key}`], { exact: true });
+  await expect(headline("h0")).toBeVisible();
+  const shownHeadline = () => flow.locator("[data-headline]").evaluateAll((all: HTMLElement[]) =>
+    all.filter((p) => p.checkVisibility({ checkVisibilityCSS: true })).map((p) => p.textContent));
+  await page.getByRole("button", { name: site["home.flow.pause"] }).click();
+  const held = await shownHeadline();
+  await page.waitForTimeout(2600);
+  expect(await shownHeadline()).toEqual(held);
+  await page.getByRole("button", { name: site["home.flow.play"] }).click();
+  await expect(headline("h6")).toBeVisible({ timeout: 15000 });
+  await expect(flow.getByText(site["home.flow.reminder"], { exact: true })).toBeVisible();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.reload();
+  await expect(headline("h6")).toBeVisible();
+  await expect(headline("h0")).toBeHidden();
+  await expect(page.getByRole("button", { name: site["home.flow.pause"] })).toBeHidden();
+});
+
 test("the product pictures are the demo in the page's language, theme and width", async ({ page }) => {
   // The picture the visitor actually sees in a figure: the one CSS leaves displayed, as the browser chose it.
   const shown = (label: string) => page.getByRole("figure", { name: label }).locator("img").evaluateAll((images: HTMLImageElement[]) =>

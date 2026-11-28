@@ -21,8 +21,9 @@ Calm, mobile first, less is more: only show what the visitor needs right now.
 - `01 / 02 / 03` numbering on things that are not real, ordered steps.
 - Rows of identical cards with the same border, radius and shadow as the
   default layout. Vary the layout or flatten it into rules and plain text.
-- Fade-and-slide-up on every section. The page has one intentional motion
-  moment, the dot wordmark in the hero; everything else is there at first paint.
+- Fade-and-slide-up on every section. The page has two intentional motion
+  moments in the hero, the dot wordmark and the booking flow under it (hard cuts, no fades or slides, a pause
+  button, a finished frame for reduced motion); everything else is there at first paint.
 - Framed utility buttons. Menu, theme toggle and similar controls are plain
   text or icon buttons; a second action beside the primary one is a text link.
 - Generic hero copy ("Supercharge your workflow", "All-in-one platform"). Say

@@ -1,0 +1,94 @@
+/* The hero's booking flow: a static phone, or a laptop from 900 px, whose screen cuts hard (no fades, slides
+   or easing) and adds one layer per cut. Colours and type come from home.module.css's root. Design rules:
+   docs/design/SITE_RULES.md. Reduced motion, and no script, show the finished frame. */
+
+.flow { margin-top: 40px; width: 100%; display: flex; flex-direction: column; align-items: center; }
+
+/* ---------- the device: its size is fixed by aspect ratio, so nothing moves while the page loads ---------- */
+.device { --bezel: light-dark(#2a2326, #4a4244); width: min(100%, 300px); }
+.frame {
+  width: 100%; aspect-ratio: 300 / 600; padding: 10px; border-radius: 40px;
+  background: var(--bezel); contain: layout paint;
+}
+.screen {
+  height: 100%; border-radius: 30px; overflow: hidden; background: var(--canvas);
+  display: grid; grid-template-rows: auto 74px 1fr; padding: 14px 14px 12px; gap: 4px; position: relative;
+}
+.base { display: none; }
+
+.bar { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); padding: 6px 4px 0; font-weight: 500; }
+.headline { display: grid; align-items: end; padding: 0 4px; }
+.hl {
+  grid-area: 1 / 1; font-family: var(--serif); font-weight: 400; font-synthesis: none; font-size: 30px; line-height: 1.05;
+  letter-spacing: -.01em; color: var(--text); text-wrap: balance; visibility: hidden;
+}
+.hl[data-on] { visibility: visible; }
+
+.stack { display: grid; grid-template-rows: auto 1fr; gap: 12px; min-height: 0; padding-top: 8px; }
+
+/* Calendar: three hours, the 14:00 row takes the booking. */
+.cal { display: grid; border-top: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 40px minmax(0, 1fr); min-height: 34px; border-bottom: 1px solid var(--line); }
+.time { font-size: 13px; color: var(--muted); padding: 8px 0 0 4px; font-variant-numeric: tabular-nums; }
+.slot { border-left: 1px solid var(--line); padding: 3px 0 3px 6px; display: flex; }
+.booking {
+  flex: 1; display: flex; align-items: center; min-width: 0; padding: 0 8px; font-size: 13px; line-height: 1.2;
+  border: 1px solid var(--anna-bd); border-left: 3px solid var(--anna); border-radius: 6px; background: var(--anna-bg); color: var(--text-2);
+}
+.booking b { font-weight: 600; color: var(--text); white-space: nowrap; margin-right: 4px; }
+.booking { white-space: nowrap; overflow: hidden; }
+
+/* Chat: each message is added below the last. */
+.chat { display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; min-height: 0; }
+.bubble { font-size: 14px; line-height: 1.35; padding: 8px 12px; border-radius: 14px; max-width: 88%; }
+.me { align-self: flex-end; background: var(--plum); color: var(--on-plum); border-bottom-right-radius: 4px; }
+.ai { align-self: flex-start; background: var(--sunk); color: var(--text); border-bottom-left-radius: 4px; }
+.status { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.35; color: var(--text-2); padding: 0 4px; }
+.status b { font-weight: 600; color: var(--text); }
+.ic { width: 16px; height: 16px; flex: none; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.status .ic { color: var(--plum); }
+
+/* One cut = one layer. visibility keeps the layout fixed, so a cut never shifts anything. */
+.layer { visibility: hidden; }
+.layer[data-on] { visibility: visible; }
+
+/* ---------- under the device: the page's own call to action, the pause control and the demo note ---------- */
+.under { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 24px; margin-top: 20px; }
+.cta, .pause {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 2px; font: 500 16px/1 var(--font-ui);
+  color: var(--text); text-decoration: underline; text-decoration-color: var(--uline); text-decoration-thickness: 1px; text-underline-offset: 4px;
+}
+.cta:hover, .pause:hover { text-decoration-color: currentColor; }
+.pause { background: transparent; border: 0; cursor: pointer; color: var(--muted); font-size: 15px; -webkit-tap-highlight-color: transparent; }
+.note { margin-top: 4px; font-size: 13px; color: var(--muted); }
+
+/* ---------- laptop, from 900 px: the same layers in a wide screen, calendar left and chat right ---------- */
+@media (min-width: 900px) {
+  .flow { margin-top: 56px; }
+  .device { width: min(100%, 760px); }
+  .frame { aspect-ratio: 16 / 10; padding: 14px 14px 18px; border-radius: 18px 18px 6px 6px; }
+  .screen { border-radius: 8px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; padding: 18px 28px 20px; column-gap: 40px; }
+  .bar { grid-column: 1 / -1; font-size: 14px; }
+  .headline { grid-column: 1; grid-row: 2; align-items: start; padding-top: 24px; }
+  .hl { font-size: 44px; }
+  .stack { grid-column: 2; grid-row: 2; padding-top: 12px; }
+  .base { display: block; height: 14px; margin: 0 -4%; border-radius: 0 0 18px 18px; background: var(--bezel); }
+  .bubble { font-size: 15px; }
+  .status { font-size: 14px; }
+  .booking, .time { font-size: 14px; }
+  .row { grid-template-columns: 52px minmax(0, 1fr); }
+}
+
+/* ---------- reduced motion, and no script: the finished frame, nothing moving ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .hl[data-on] { visibility: hidden; }
+  .hl:last-child, .hl:last-child[data-on] { visibility: visible; }
+  .layer { visibility: visible; }
+  .pause { display: none; }
+}
+@media (scripting: none) {
+  .hl[data-on] { visibility: hidden; }
+  .hl:last-child, .hl:last-child[data-on] { visibility: visible; }
+  .layer { visibility: visible; }
+  .pause { display: none; }
+}
